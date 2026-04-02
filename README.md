@@ -45,6 +45,42 @@ Then run `/setup`. Claude Code handles everything: dependencies, authentication,
 
 > **Note:** Commands prefixed with `/` (like `/setup`, `/add-whatsapp`) are [Claude Code skills](https://code.claude.com/docs/en/skills). Type them inside the `claude` CLI prompt, not in your regular terminal. If you don't have Claude Code installed, get it at [claude.com/product/claude-code](https://claude.com/product/claude-code).
 
+## Docker Compose on Linux / GCP VM
+
+If you want to run NanoClaw on a Linux VM such as Google Compute Engine, this repo includes a `docker-compose.yml` for the main NanoClaw process.
+
+Important: NanoClaw spawns agent containers with bind mounts, so the main container must see the repository at the same absolute path as the Docker host. Pick a fixed path on the VM, clone there, and use that exact path as `NANOCLAW_ROOT`.
+
+```bash
+sudo mkdir -p /opt
+sudo chown "$USER":"$USER" /opt
+git clone https://github.com/<your-username>/nanoclaw.git /opt/nanoclaw
+cd /opt/nanoclaw
+```
+
+Set `NANOCLAW_ROOT` in your `.env` file to that absolute path:
+
+```bash
+NANOCLAW_ROOT=/opt/nanoclaw
+TZ=UTC
+```
+
+Then start NanoClaw with Docker Compose:
+
+```bash
+docker compose build
+docker compose up -d
+docker compose logs -f nanoclaw
+```
+
+What this does:
+- Mounts the repo into the container at the same absolute path as the host
+- Mounts `/var/run/docker.sock` so NanoClaw can start isolated agent containers
+- Keeps `node_modules` in a named Docker volume
+- Automatically runs `npm install`, `npm run build`, and `container/build.sh` when needed
+
+For a VM-oriented walkthrough, including Ubuntu setup and GCP-specific notes, see [docs/gcp-vm.md](docs/gcp-vm.md).
+
 ## Philosophy
 
 **Small enough to understand.** One process, a few source files and no microservices. If you want to understand the full NanoClaw codebase, just ask Claude Code to walk you through it.

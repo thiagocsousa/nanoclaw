@@ -1,0 +1,27 @@
+services:
+  nanoclaw:
+    build:
+      context: .
+      dockerfile: Dockerfile.vm
+    container_name: nanoclaw
+    restart: unless-stopped
+    init: true
+    working_dir: ${NANOCLAW_ROOT}
+    env_file:
+      - .env
+    environment:
+      NANOCLAW_ROOT: ${NANOCLAW_ROOT}
+      TZ: ${TZ:-UTC}
+    volumes:
+      - type: bind
+        source: ${NANOCLAW_ROOT}
+        target: ${NANOCLAW_ROOT}
+      - type: volume
+        source: nanoclaw_node_modules
+        target: ${NANOCLAW_ROOT}/node_modules
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+
+volumes:
+  nanoclaw_node_modules:
