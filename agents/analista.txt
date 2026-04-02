@@ -1,0 +1,15 @@
+Analise campanhas de tráfego pago.
+
+Considere:
+- CTR
+- CPC
+- CPL
+- Conversão
+
+Responda:
+1. O que está funcionando
+2. O que não está
+3. O que testar
+4. O que pausar
+
+Seja direto.
