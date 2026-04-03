@@ -9,14 +9,23 @@ store/
 data/
 logs/
 
-# Groups - only track base structure and specific CLAUDE.md files
+# Groups - track base structure, CLAUDE.md and scripts; ignore runtime data
 groups/*
 !groups/main/
 !groups/global/
+!groups/whatsapp_main/
+!groups/whatsapp_marina/
 groups/main/*
 groups/global/*
 !groups/main/CLAUDE.md
 !groups/global/CLAUDE.md
+groups/whatsapp_main/*
+groups/whatsapp_marina/*
+!groups/whatsapp_main/CLAUDE.md
+!groups/whatsapp_main/meta-ads.sh
+!groups/whatsapp_main/meta-ads-publish.sh
+!groups/whatsapp_main/instagram-posts.sh
+!groups/whatsapp_marina/CLAUDE.md
 
 # Secrets
 *.keys.json
