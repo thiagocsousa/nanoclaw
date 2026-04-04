@@ -19,6 +19,13 @@ echo "[3/4] build..."
 npm run build
 
 echo "[4/4] pm2 restart..."
+# Kill any stale node processes holding port 3001
+STALE=$(ss -tlnp 2>/dev/null | grep ':3001' | grep -oP 'pid=\K[0-9]+' || true)
+if [ -n "$STALE" ]; then
+  echo "Killing stale process on port 3001 (pid $STALE)..."
+  kill -9 "$STALE" 2>/dev/null || true
+  sleep 1
+fi
 pm2 startOrRestart ecosystem.config.cjs --update-env
 
 echo ""
