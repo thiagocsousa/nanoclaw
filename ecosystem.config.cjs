@@ -2,9 +2,9 @@ module.exports = {
   apps: [
     {
       name: 'nanoclaw',
-      script: 'dist/index.js',
+      script: './start.sh',
       cwd: __dirname,
-      interpreter: 'node',
+      interpreter: 'none',
       watch: false,
       autorestart: true,
       restart_delay: 5000,
