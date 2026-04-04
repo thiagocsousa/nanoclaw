@@ -91,7 +91,9 @@ async function connectSocket(
     }
 
     if (connection === 'close') {
-      const reason = (lastDisconnect?.error as { output?: { statusCode?: number } })?.output?.statusCode;
+      const reason = (
+        lastDisconnect?.error as { output?: { statusCode?: number } }
+      )?.output?.statusCode;
 
       if (reason === DisconnectReason.loggedOut) {
         fs.writeFileSync(STATUS_FILE, 'failed:logged_out');

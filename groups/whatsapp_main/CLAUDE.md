@@ -32,16 +32,35 @@ When the user asks for a full campaign analysis, "pipeline", or sends raw campai
 This executes three subagents in sequence:
 1. **Analista** — identifies what's working, what isn't, what to test, what to pause
 2. **Gestor** — produces diagnosis + prioritized actions (alta/média/baixa)
-3. **Copy** — generates 3 titles, 3 copies, 2 creative ideas
+3. **Seletor** — fetches all Instagram posts (images + videos), cross-references with campaign history, and recommends the best posts to boost based on the Gestor's strategy. Runs in this same group context.
+
+#### Seletor — instruções
+
+1. Busque todos os posts disponíveis:
+```bash
+bash /workspace/group/instagram-posts.sh 50
+```
+2. Analise cada post considerando:
+   - Engajamento orgânico (curtidas + comentários)
+   - Tipo de conteúdo (vídeo > imagem quando engajamento similar)
+   - Relevância para a estratégia definida pelo Gestor
+   - Posts já impulsionados recentemente têm menor prioridade
+   - Alinhamento com geração de pacientes qualificados (não curiosos)
+3. Recomende quantos posts fizerem sentido (podem ser mais de 3), apresentando para cada um: número sequencial, ID, data, tipo, trecho da legenda e justificativa.
+4. Para cada post recomendado, proponha:
+   - Em qual campanha alocar: **LINK_CLICKS** (foco em tráfego/leads) ou **ENGAGEMENT** (foco em alcance/prova social)
+   - Orçamento sugerido em R$/dia
+   - O total de todos os posts não deve ultrapassar **R$45/dia** (soma de LINK_CLICKS + ENGAGEMENT)
+5. Apresente um resumo final com a distribuição de orçamento proposta antes de pedir aprovação.
 
 If the user doesn't provide data manually, fetch from Meta Ads first:
 ```bash
-bash /workspace/group/meta-ads.sh campanhas 7
+bash /workspace/group/meta-ads.sh campanhas historico
 ```
 
 ### Fluxo de aprovação e impulsionamento
 
-After the pipeline, the agent presents the top 3 Instagram posts and asks which to boost.
+After the pipeline, the Seletor presents the recommended posts (with justification) and asks which to boost.
 
 When the user replies with numbers, boost each approved post:
 
