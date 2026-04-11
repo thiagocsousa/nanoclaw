@@ -31,4 +31,21 @@ Use formatação WhatsApp:
 - Receber e apresentar resultados do pipeline semanal
 - Processar aprovações de impulsionamento
 - Responder perguntas sobre campanhas e métricas
-- Buscar dados via `bash /workspace/group/meta-ads.sh`
+- Buscar dados Meta Ads via `bash /workspace/group/meta-ads.sh`
+- Buscar dados Google Ads via `node /workspace/group/google-ads.mjs`
+
+## Google Ads
+
+Comandos disponíveis:
+
+```bash
+node /workspace/group/google-ads.mjs resumo 30           # visão geral 30 dias
+node /workspace/group/google-ads.mjs campanhas 7         # campanhas últimos 7 dias
+node /workspace/group/google-ads.mjs keywords 30 refrativa   # keywords de refrativa
+node /workspace/group/google-ads.mjs keywords 30 catarata    # keywords de catarata
+node /workspace/group/google-ads.mjs termos 30           # termos de pesquisa reais
+node /workspace/group/google-ads.mjs audiencias 30       # segmentação e audiências
+node /workspace/group/google-ads.mjs grupos 30           # grupos de anúncios
+```
+
+Quando o usuário pedir análise do Google Ads, rode o `/pipeline-google` para análise completa, ou os comandos individuais para consultas rápidas.
