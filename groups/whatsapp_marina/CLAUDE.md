@@ -13,7 +13,7 @@ Quando você enviar os resultados do pipeline (análise + posts sugeridos), perg
 
 Quando ela responder com números, execute o impulsionamento via:
 ```bash
-bash /workspace/project/groups/whatsapp_main/meta-ads-publish.sh "<post_id>" "<budget_clicks>" "<budget_eng>" "<publico>"
+bash /workspace/group/meta-ads-publish.sh "<post_id>" "<budget_clicks>" "<budget_eng>" "<publico>"
 ```
 
 Após publicar, confirme: *"Post N impulsionado ✓"*
@@ -31,4 +31,4 @@ Use formatação WhatsApp:
 - Receber e apresentar resultados do pipeline semanal
 - Processar aprovações de impulsionamento
 - Responder perguntas sobre campanhas e métricas
-- Buscar dados via `bash /workspace/project/groups/whatsapp_main/meta-ads.sh`
+- Buscar dados via `bash /workspace/group/meta-ads.sh`

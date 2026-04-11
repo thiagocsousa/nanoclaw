@@ -22,10 +22,12 @@ groups/global/*
 groups/whatsapp_main/*
 groups/whatsapp_marina/*
 !groups/whatsapp_main/CLAUDE.md
-!groups/whatsapp_main/meta-ads.sh
-!groups/whatsapp_main/meta-ads-publish.sh
-!groups/whatsapp_main/instagram-posts.sh
 !groups/whatsapp_marina/CLAUDE.md
+!groups/whatsapp_marina/meta-ads.sh
+!groups/whatsapp_marina/meta-ads-publish.sh
+!groups/whatsapp_marina/instagram-posts.sh
+!groups/whatsapp_marina/agents/
+!groups/whatsapp_marina/agents/**
 !groups/whatsapp_alerta-invest/
 groups/whatsapp_alerta-invest/*
 !groups/whatsapp_alerta-invest/CLAUDE.md
