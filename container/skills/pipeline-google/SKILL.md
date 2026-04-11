@@ -113,5 +113,34 @@ Após os subagentes, consolide e envie:
 
 Use formatação WhatsApp (*bold*, _italic_, • bullets). Sem ## headings.
 
-Ao final pergunte:
-> *Quer que eu aplique as otimizações? Responda SIM para aplicar todas, ou liste o número das ações que quer executar.*
+Numere cada ação recomendada (1, 2, 3...) e ao final pergunte:
+> *Quer que eu aplique as otimizações? Responda SIM para aplicar todas, ou liste os números (ex: 1, 3, 5).*
+
+## Passo 4 — Aplicar otimizações (após aprovação)
+
+Quando o usuário responder com SIM ou números, monte o JSON de ações e execute:
+
+```bash
+node /workspace/group/google-ads-apply.mjs << 'EOF'
+{
+  "actions": [
+    { "type": "add_negative", "scope": "campaign", "campaignName": "...", "keyword": "...", "matchType": "BROAD" },
+    { "type": "pause_keyword", "campaignName": "...", "adGroupName": "...", "keywordText": "..." },
+    { "type": "adjust_bid", "campaignName": "...", "adGroupName": "...", "keywordText": "...", "bidReais": 3.50 },
+    { "type": "add_keyword", "campaignName": "...", "adGroupName": "...", "keywordText": "...", "matchType": "PHRASE", "bidReais": 2.00 },
+    { "type": "adjust_budget", "campaignName": "...", "dailyBudgetReais": 40 }
+  ]
+}
+EOF
+```
+
+Tipos de ação disponíveis:
+- `add_negative` — adiciona palavra negativa (`scope`: `campaign` ou `ad_group`)
+- `pause_keyword` — pausa keyword que está desperdiçando verba
+- `enable_keyword` — reativa keyword pausada
+- `adjust_bid` — ajusta lance de keyword específica
+- `add_keyword` — adiciona nova keyword ao grupo (`matchType`: BROAD, PHRASE, EXACT)
+- `pause_ad_group` — pausa grupo inteiro
+- `adjust_budget` — altera orçamento diário da campanha
+
+Após executar, confirme cada ação aplicada e informe erros se houver.

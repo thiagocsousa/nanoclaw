@@ -27,6 +27,7 @@ groups/whatsapp_marina/*
 !groups/whatsapp_marina/meta-ads-publish.sh
 !groups/whatsapp_marina/instagram-posts.sh
 !groups/whatsapp_marina/google-ads.mjs
+!groups/whatsapp_marina/google-ads-apply.mjs
 !groups/whatsapp_marina/agents/
 !groups/whatsapp_marina/agents/**
 !groups/whatsapp_alerta-invest/
