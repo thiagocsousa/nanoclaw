@@ -251,7 +251,12 @@ async function pauseAdGroup(token, action) {
   return `✓ Grupo pausado: "${action.adGroupName}"`;
 }
 
+const MAX_DAILY_BUDGET_REAIS = 25;
+
 async function adjustBudget(token, action) {
+  if (action.dailyBudgetReais > MAX_DAILY_BUDGET_REAIS) {
+    throw new Error(`Orçamento R$ ${action.dailyBudgetReais}/dia excede o limite de R$ ${MAX_DAILY_BUDGET_REAIS}/dia`);
+  }
   const camp = await getCampaignId(token, action.campaignName);
   const budgetMicros = Math.round(action.dailyBudgetReais * 1_000_000);
   await mutate(token, [{

@@ -78,9 +78,10 @@ Com base na análise abaixo, defina a estratégia da próxima semana:
    - Média prioridade (próximas 2 semanas)
    - Baixa prioridade (próximo mês)
 4. *Distribuição de orçamento sugerida*
+   - Limite total: R$ 25/dia entre todas as campanhas
    - Refrativa: R$ X/dia (campanhas X e Y)
    - Catarata: R$ X/dia (campanha Z)
-   - Justificativa
+   - Justificativa (a soma não pode ultrapassar R$ 25/dia)
 5. *Palavras negativas a adicionar* (lista)
 6. *Palavras novas a testar* (lista com tipo de correspondência)
 
