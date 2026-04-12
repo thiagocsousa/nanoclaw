@@ -26,8 +26,24 @@ import {
   stopContainer,
 } from './container-runtime.js';
 import { detectAuthMode } from './credential-proxy.js';
+import { readEnvFile } from './env.js';
 import { validateAdditionalMounts } from './mount-security.js';
 import { RegisteredGroup } from './types.js';
+
+// Integration env vars forwarded from .env into every container.
+// These are service credentials (Meta, Google Ads, etc.) — not Anthropic secrets.
+// Anthropic credentials are handled separately by the credential proxy.
+const FORWARDED_ENV_VARS = [
+  'META_ACCESS_TOKEN',
+  'META_AD_ACCOUNT_ID',
+  'META_PAGE_ID',
+  'META_INSTAGRAM_ID',
+  'GOOGLE_ADS_DEVELOPER_TOKEN',
+  'GOOGLE_ADS_CUSTOMER_ID',
+  'GOOGLE_ADS_CLIENT_ID',
+  'GOOGLE_ADS_CLIENT_SECRET',
+  'GOOGLE_ADS_REFRESH_TOKEN',
+];
 
 // Sentinel markers for robust output parsing (must match agent-runner)
 const OUTPUT_START_MARKER = '---NANOCLAW_OUTPUT_START---';
@@ -246,6 +262,15 @@ function buildContainerArgs(
     args.push('-e', 'ANTHROPIC_API_KEY=placeholder');
   } else {
     args.push('-e', 'CLAUDE_CODE_OAUTH_TOKEN=placeholder');
+  }
+
+  // Forward integration credentials from .env into the container.
+  // These never route through the credential proxy — they go directly as env vars.
+  const integrationSecrets = readEnvFile(FORWARDED_ENV_VARS);
+  for (const key of FORWARDED_ENV_VARS) {
+    if (integrationSecrets[key]) {
+      args.push('-e', `${key}=${integrationSecrets[key]}`);
+    }
   }
 
   // Runtime-specific args for host gateway resolution

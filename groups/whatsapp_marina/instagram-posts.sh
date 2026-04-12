@@ -3,8 +3,8 @@
 # Uso: bash instagram-posts.sh [quantidade]
 # Exemplo: bash instagram-posts.sh 20
 
-TOKEN="${META_ACCESS_TOKEN:-EAAUJdMVnsVUBRDBFpYuA4lmPPr9pZAJxYnxByY9vY40SSRxTNV0pfhQvZCWZBA9pQAW79ZBd9drC8HV1WZAOLicRcR6eB7iZAldgQIQB27DKicZBMyErUkV9nwDdRkMzKe4ZClhSanK6ZC7SbSuCfp5hcOm46ksavFzC3JmQebTNb0tqyDUsyBDqqHIsNJNV5ZCAZDZD}"
-IG_ID="${META_INSTAGRAM_ID:-17841401733460475}"
+TOKEN="${META_ACCESS_TOKEN}"
+IG_ID="${META_INSTAGRAM_ID}"
 LIMIT="${1:-20}"
 
 if [ -z "$TOKEN" ] || [ -z "$IG_ID" ]; then
