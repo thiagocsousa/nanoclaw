@@ -18,7 +18,10 @@ npm ci --prefer-offline
 echo "[3/4] build..."
 npm run build
 
-echo "[3.5/4] container build..."
+echo "[3.5/4] seed crons..."
+node scripts/seed-crons.mjs
+
+echo "[3.6/4] container build..."
 bash container/build.sh
 
 echo "[4/4] pm2 restart..."
