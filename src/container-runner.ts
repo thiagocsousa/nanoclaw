@@ -292,8 +292,10 @@ function buildContainerArgs(
   // approvalJid overrides chatJid — used for pipeline groups with virtual JIDs
   // that should deliver notifications to a real WhatsApp chat.
   const effectiveChatJid = input?.approvalJid || input?.chatJid;
-  if (effectiveChatJid) args.push('-e', `NANOCLAW_CHAT_JID=${effectiveChatJid}`);
-  if (input?.groupFolder) args.push('-e', `NANOCLAW_GROUP_FOLDER=${input.groupFolder}`);
+  if (effectiveChatJid)
+    args.push('-e', `NANOCLAW_CHAT_JID=${effectiveChatJid}`);
+  if (input?.groupFolder)
+    args.push('-e', `NANOCLAW_GROUP_FOLDER=${input.groupFolder}`);
 
   for (const mount of mounts) {
     if (mount.readonly) {

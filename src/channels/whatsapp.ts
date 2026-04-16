@@ -268,14 +268,21 @@ export class WhatsAppChannel implements Channel {
     });
   }
 
-  async sendImage(jid: string, imagePath: string, caption?: string): Promise<void> {
+  async sendImage(
+    jid: string,
+    imagePath: string,
+    caption?: string,
+  ): Promise<void> {
     const fs = await import('fs');
     if (!fs.existsSync(imagePath)) {
       logger.warn({ jid, imagePath }, 'sendImage: file not found');
       return;
     }
     const image = fs.readFileSync(imagePath);
-    const msg = { image, caption: caption || '' } as import('@whiskeysockets/baileys').AnyMessageContent;
+    const msg = {
+      image,
+      caption: caption || '',
+    } as import('@whiskeysockets/baileys').AnyMessageContent;
     if (!this.connected) {
       logger.warn({ jid, imagePath }, 'WA disconnected, image not sent');
       return;
