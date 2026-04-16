@@ -264,6 +264,7 @@ export function startSchedulerLoop(deps: SchedulerDependencies): void {
           continue;
         }
 
+        updateTask(currentTask.id, { status: 'running' });
         deps.queue.enqueueTask(currentTask.chat_jid, currentTask.id, () =>
           runTask(currentTask, deps),
         );

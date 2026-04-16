@@ -1,56 +1,53 @@
 #!/usr/bin/env node
 // Fetch signals from Alerta Invest (Flago) API
-// Env: FLAGO_API_URL, FLAGO_API_KEY
+// Env: FLAGO_API_KEY (optional — endpoint is public when not set)
 
-const API_URL = process.env.FLAGO_API_URL;
+const BASE_URL = process.env.FLAGO_API_URL ||
+  'https://southamerica-east1-alerta-invest-brasil.cloudfunctions.net/get_sinais_recentes';
+
 const API_KEY = process.env.FLAGO_API_KEY;
 
-if (!API_URL) {
-  // Return empty signals — pipeline continues without Flago data
-  console.log(JSON.stringify({
-    source: 'flago',
-    fetched_at: new Date().toISOString(),
-    signals: [],
-    warning: 'FLAGO_API_URL not set — running without signals',
-  }));
-  process.exit(0);
-}
+// Optional filters via env
+const LIMIT = process.env.FLAGO_LIMIT || '20';
+const APENAS_ABERTOS = process.env.FLAGO_APENAS_ABERTOS || '';
+const INDICE = process.env.FLAGO_INDICE || '';
 
 try {
-  const headers = { 'Content-Type': 'application/json' };
-  if (API_KEY) headers['Authorization'] = `Bearer ${API_KEY}`;
+  const params = new URLSearchParams({ limit: LIMIT });
+  if (APENAS_ABERTOS === 'true') params.set('apenas_abertos', 'true');
+  if (INDICE) params.set('indice', INDICE);
 
-  // Fetch latest signals (expects array of signal objects)
-  const res = await fetch(`${API_URL}/signals?limit=20&since=${encodeURIComponent(new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())}`, { headers });
+  const url = `${BASE_URL}?${params}`;
+  const headers = {};
+  if (API_KEY) headers['X-API-Key'] = API_KEY;
 
+  const res = await fetch(url, { headers });
   if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
 
   const data = await res.json();
+  // Response: { gerado_em, mercados_abertos, sinais: [{ ticker, nome, indicador, tipo, preco, indice, timestamp }] }
 
-  // Normalize to standard format
-  // Expected input: [{ ticker, type, strength, description, timestamp, ... }]
-  const signals = (Array.isArray(data) ? data : data.signals || data.data || []).map(s => ({
-    ticker: s.ticker || s.symbol || '',
-    type: s.type || s.signal_type || s.action || 'ALERT',   // BUY, SELL, ALERT, WATCH
-    strength: parseFloat(s.strength || s.score || s.confidence || 5),
-    description: s.description || s.message || s.text || '',
-    timestamp: s.timestamp || s.created_at || new Date().toISOString(),
-    asset_class: s.asset_class || s.category || 'UNKNOWN',  // STOCKS, FOREX, CRYPTO, COMMODITIES
-    market: s.market || s.exchange || '',
+  const signals = (data.sinais || []).map(s => ({
+    ticker: s.ticker || '',
+    nome: s.nome || '',
+    indicador: s.indicador || '',      // e.g. "macd", "rsi"
+    tipo: s.tipo || '',                // e.g. "bullish", "bearish"
+    preco: s.preco ?? null,
+    indice: s.indice || '',            // e.g. "sp500", "ibov"
+    timestamp: s.timestamp || data.gerado_em || new Date().toISOString(),
   }));
-
-  // Sort by strength descending
-  signals.sort((a, b) => b.strength - a.strength);
 
   console.log(JSON.stringify({
     source: 'flago',
-    fetched_at: new Date().toISOString(),
+    fetched_at: data.gerado_em || new Date().toISOString(),
+    mercados_abertos: data.mercados_abertos || [],
     signals,
   }));
 } catch (err) {
   console.log(JSON.stringify({
     source: 'flago',
     fetched_at: new Date().toISOString(),
+    mercados_abertos: [],
     signals: [],
     error: err.message,
   }));

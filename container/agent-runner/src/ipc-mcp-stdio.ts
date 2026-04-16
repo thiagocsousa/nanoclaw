@@ -68,6 +68,29 @@ server.tool(
 );
 
 server.tool(
+  'send_image',
+  "Send an image file to the user or group. Use this after generating a creative image to deliver it via WhatsApp (or other channels). The path must be inside /workspace/group/.",
+  {
+    path: z.string().describe('Absolute path to the image file inside the container, e.g. /workspace/group/tmp/images/creative-1.png'),
+    caption: z.string().optional().describe('Optional caption to include with the image'),
+  },
+  async (args) => {
+    const data: Record<string, string | undefined> = {
+      type: 'image',
+      chatJid,
+      imagePath: args.path,
+      caption: args.caption || undefined,
+      groupFolder,
+      timestamp: new Date().toISOString(),
+    };
+
+    writeIpcFile(MESSAGES_DIR, data);
+
+    return { content: [{ type: 'text' as const, text: 'Image queued for delivery.' }] };
+  },
+);
+
+server.tool(
   'schedule_task',
   `Schedule a recurring or one-time task. The task will run as a full agent with access to all tools. Returns the task ID for future reference. To modify an existing task, use update_task instead.
 

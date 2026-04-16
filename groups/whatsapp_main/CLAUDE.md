@@ -212,6 +212,42 @@ Standard Markdown: `**bold**`, `*italic*`, `[links](url)`, `# headings`.
 
 ---
 
+## Alerta Invest — Social Media Pipeline
+
+The Alerta Invest pipeline runs daily and sends its creative proposals here for approval.
+
+### Recognizing pipeline output
+
+When you receive a message containing *Alerta Invest — Criativos do dia*, it is the result of the scheduled pipeline. Present it to the user and wait for their approval response.
+
+### Approval responses
+
+When the user replies with **SIM**, **SIM 1,3**, **APROVAR**, **YES**, or **EDIT N** after a pipeline proposal:
+
+1. Read `/workspace/project/groups/whatsapp_alerta-invest/criativos.json` to get the pending creatives
+2. Parse the approval:
+   - `SIM` or `SIM ALL` → all creatives
+   - `SIM 1,3` → creatives 1 and 3
+   - `EDIT 2` → ask what to change about creative 2, then re-run Agente 1 for that creative
+3. Schedule a one-shot task to handle publishing:
+   ```
+   schedule_task(
+     prompt: "Process approval: <parsed approval string>. Read criativos.json, generate images, upload to Cloudinary, schedule posts and ad campaigns.",
+     schedule_type: "once",
+     target_group_jid: "558681512111@s.whatsapp.net",
+     group_folder: "whatsapp_alerta-invest"
+   )
+   ```
+4. Confirm to user: *"Aprovado. Agendando publicação dos criativos selecionados."*
+
+### Pipeline workspace
+
+All pipeline files are at `/workspace/project/groups/whatsapp_alerta-invest/`:
+- `criativos.json` — current pending creatives (read-only from here)
+- `scripts/` — pipeline scripts (run via tasks in the alerta-invest context)
+
+---
+
 ## Admin Context
 
 This is the **main channel**, which has elevated privileges.

@@ -241,6 +241,7 @@ function buildVolumeMounts(
 function buildContainerArgs(
   mounts: VolumeMount[],
   containerName: string,
+  input?: { chatJid?: string; groupFolder?: string; approvalJid?: string },
 ): string[] {
   const args: string[] = ['run', '-i', '--rm', '--name', containerName];
 
@@ -286,6 +287,14 @@ function buildContainerArgs(
     args.push('-e', 'HOME=/home/node');
   }
 
+  // Inject routing context so scripts (e.g. generate-image.mjs) can write
+  // IPC files directly without requiring the agent to call a tool.
+  // approvalJid overrides chatJid — used for pipeline groups with virtual JIDs
+  // that should deliver notifications to a real WhatsApp chat.
+  const effectiveChatJid = input?.approvalJid || input?.chatJid;
+  if (effectiveChatJid) args.push('-e', `NANOCLAW_CHAT_JID=${effectiveChatJid}`);
+  if (input?.groupFolder) args.push('-e', `NANOCLAW_GROUP_FOLDER=${input.groupFolder}`);
+
   for (const mount of mounts) {
     if (mount.readonly) {
       args.push(...readonlyMountArgs(mount.hostPath, mount.containerPath));
@@ -313,7 +322,10 @@ export async function runContainerAgent(
   const mounts = buildVolumeMounts(group, input.isMain);
   const safeName = group.folder.replace(/[^a-zA-Z0-9-]/g, '-');
   const containerName = `nanoclaw-${safeName}-${Date.now()}`;
-  const containerArgs = buildContainerArgs(mounts, containerName);
+  const containerArgs = buildContainerArgs(mounts, containerName, {
+    ...input,
+    approvalJid: group.containerConfig?.approvalJid,
+  });
 
   logger.debug(
     {
