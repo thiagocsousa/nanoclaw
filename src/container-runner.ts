@@ -34,15 +34,43 @@ import { RegisteredGroup } from './types.js';
 // These are service credentials (Meta, Google Ads, etc.) — not Anthropic secrets.
 // Anthropic credentials are handled separately by the credential proxy.
 const FORWARDED_ENV_VARS = [
+  // Meta
   'META_ACCESS_TOKEN',
   'META_AD_ACCOUNT_ID',
   'META_PAGE_ID',
   'META_INSTAGRAM_ID',
+  // Google Ads
   'GOOGLE_ADS_DEVELOPER_TOKEN',
   'GOOGLE_ADS_CUSTOMER_ID',
   'GOOGLE_ADS_CLIENT_ID',
   'GOOGLE_ADS_CLIENT_SECRET',
   'GOOGLE_ADS_REFRESH_TOKEN',
+  // Flago
+  'FLAGO_API_KEY',
+  'FLAGO_AGENT_API_KEY',
+  'FLAGO_CF_BASE_URL',
+  // X / Twitter
+  'X_API_KEY',
+  'X_API_SECRET',
+  'X_ACCESS_TOKEN',
+  'X_ACCESS_SECRET',
+  'X_BEARER_TOKEN',
+  // TikTok
+  'TIKTOK_ACCESS_TOKEN',
+  'TIKTOK_ADVERTISER_ID',
+  // YouTube
+  'YOUTUBE_API_KEY',
+  'YOUTUBE_OAUTH_TOKEN',
+  'YOUTUBE_CHANNEL_ID',
+  // Reddit
+  'REDDIT_CLIENT_ID',
+  'REDDIT_CLIENT_SECRET',
+  'REDDIT_USERNAME',
+  'REDDIT_PASSWORD',
+  // Cloudinary
+  'CLOUDINARY_CLOUD_NAME',
+  'CLOUDINARY_API_KEY',
+  'CLOUDINARY_API_SECRET',
 ];
 
 // Sentinel markers for robust output parsing (must match agent-runner)
