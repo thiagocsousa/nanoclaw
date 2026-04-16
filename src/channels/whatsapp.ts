@@ -19,6 +19,13 @@ import {
   GROUPS_DIR,
   STORE_DIR,
 } from '../config.js';
+import { readEnvFile } from '../env.js';
+
+const envConfig = readEnvFile(['WHATSAPP_PAIRING_NUMBER']);
+const PAIRING_NUMBER =
+  process.env.WHATSAPP_PAIRING_NUMBER ||
+  envConfig.WHATSAPP_PAIRING_NUMBER ||
+  '558681512111';
 import { getLastGroupSync, setLastGroupSync, updateChatName } from '../db.js';
 import { logger } from '../logger.js';
 import type {
@@ -97,13 +104,27 @@ export class WhatsAppChannel implements Channel {
       const { connection, lastDisconnect, qr } = update;
 
       if (qr) {
-        const msg =
-          'WhatsApp authentication required. Run /setup in Claude Code.';
-        logger.error(msg);
-        exec(
-          `osascript -e 'display notification "${msg}" with title "NanoClaw" sound name "Basso"'`,
-        );
-        setTimeout(() => process.exit(1), 1000);
+        if (PAIRING_NUMBER) {
+          // Pairing code mode — request code instead of showing QR
+          this.sock
+            .requestPairingCode(PAIRING_NUMBER.replace(/\D/g, ''))
+            .then((code) => {
+              logger.info(
+                `WhatsApp pairing code: ${code} — enter this on your phone`,
+              );
+            })
+            .catch((err) => {
+              logger.error({ err }, 'Failed to request pairing code');
+            });
+        } else {
+          const msg =
+            'WhatsApp authentication required. Set WHATSAPP_PAIRING_NUMBER in .env or run /setup.';
+          logger.error(msg);
+          exec(
+            `osascript -e 'display notification "${msg}" with title "NanoClaw" sound name "Basso"'`,
+          );
+          setTimeout(() => process.exit(1), 1000);
+        }
       }
 
       if (connection === 'close') {
