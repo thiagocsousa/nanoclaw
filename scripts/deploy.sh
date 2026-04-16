@@ -32,6 +32,7 @@ if [ -n "$STALE" ]; then
   kill -9 "$STALE" 2>/dev/null || true
   sleep 1
 fi
+pm2 reset nanoclaw 2>/dev/null || true
 pm2 startOrRestart ecosystem.config.cjs --update-env
 
 echo ""
