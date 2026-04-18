@@ -197,6 +197,16 @@ const upsertGroup = db2.prepare(`
   VALUES (@jid, @name, @folder, @trigger_pattern, @added_at, NULL, @requires_trigger, @is_main)
 `);
 
+// Remove stale/wrong JIDs not in the canonical GROUPS list
+const STALE_JIDS = [
+  '5586981142212@s.whatsapp.net', // typo: extra 9 in Marina's number
+];
+const delGroup = db2.prepare('DELETE FROM registered_groups WHERE jid = ?');
+for (const jid of STALE_JIDS) {
+  const result = delGroup.run(jid);
+  if (result.changes) console.log(`seed-groups: removed stale jid ${jid}`);
+}
+
 let gi = 0, gu = 0;
 const existingGroups = new Set(
   db2.prepare('SELECT jid FROM registered_groups').all().map(r => r.jid)
