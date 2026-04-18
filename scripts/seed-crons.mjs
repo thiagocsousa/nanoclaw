@@ -183,7 +183,7 @@ const GROUPS = [
     is_main:          0,
   },
   {
-    jid:              '5586981142212@s.whatsapp.net',
+    jid:              '558681142212@s.whatsapp.net',
     name:             'Marina',
     folder:           'whatsapp_marina',
     trigger_pattern:  '@Andy',
