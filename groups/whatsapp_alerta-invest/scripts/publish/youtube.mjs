@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Publish YouTube Shorts — uploads pre-generated cinematic video
-// Env: YOUTUBE_OAUTH_TOKEN
+// Env: YOUTUBE_REFRESH_TOKEN, YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET
+//   OR YOUTUBE_OAUTH_TOKEN (static token, expires in 1h — fallback only)
 // Input (stdin): {
 //   videoPath: string,         // absolute path to MP4 (1080×1920, 15s) from generate-video.mjs
 //   assets?: Array<{ ticker, nome, indice, tipo, indicador, preco }>,
@@ -12,14 +13,36 @@
 //   tags?: string[],
 // }
 
-import { readFileSync, statSync, unlinkSync } from 'fs';
+import { readFileSync, statSync } from 'fs';
 
-const OAUTH_TOKEN = process.env.YOUTUBE_OAUTH_TOKEN;
+const REFRESH_TOKEN  = process.env.YOUTUBE_REFRESH_TOKEN;
+const CLIENT_ID      = process.env.YOUTUBE_CLIENT_ID;
+const CLIENT_SECRET  = process.env.YOUTUBE_CLIENT_SECRET;
+const STATIC_TOKEN   = process.env.YOUTUBE_OAUTH_TOKEN;
 
-if (!OAUTH_TOKEN) {
-  console.log(JSON.stringify({ error: 'Missing YOUTUBE_OAUTH_TOKEN' }));
+if (!REFRESH_TOKEN && !STATIC_TOKEN) {
+  console.log(JSON.stringify({ error: 'Missing YOUTUBE_REFRESH_TOKEN (or YOUTUBE_OAUTH_TOKEN)' }));
   process.exit(1);
 }
+
+async function getAccessToken() {
+  if (!REFRESH_TOKEN || !CLIENT_ID || !CLIENT_SECRET) return STATIC_TOKEN;
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id:     CLIENT_ID,
+      client_secret: CLIENT_SECRET,
+      refresh_token: REFRESH_TOKEN,
+      grant_type:    'refresh_token',
+    }),
+  });
+  const data = await res.json();
+  if (!data.access_token) throw new Error(`Token refresh failed: ${JSON.stringify(data)}`);
+  return data.access_token;
+}
+
+const OAUTH_TOKEN = await getAccessToken();
 
 const input = JSON.parse(readFileSync('/dev/stdin', 'utf8'));
 const { videoPath, assets = [], sessionLabel = '', type = 'signal', headline } = input;
