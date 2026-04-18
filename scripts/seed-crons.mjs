@@ -160,3 +160,52 @@ if (stale.length) {
 
 db.close();
 console.log(`seed-crons: ${inserted} inserted, ${updated} updated, ${stale.length} removed`);
+
+// ── Seed registered groups ────────────────────────────────────────────────────
+
+const db2 = new Database(DB_PATH);
+
+const GROUPS = [
+  {
+    jid:              '558681512111@s.whatsapp.net',
+    name:             'Thiago Carvalho',
+    folder:           'whatsapp_main',
+    trigger_pattern:  '@Andy',
+    requires_trigger: 0,
+    is_main:          1,
+  },
+  {
+    jid:              '120363287717747603@g.us',
+    name:             'Atendimento Dra Marina',
+    folder:           'whatsapp_atendimento-dra-marina',
+    trigger_pattern:  '@Andy',
+    requires_trigger: 1,
+    is_main:          0,
+  },
+  {
+    jid:              '5586981142212@s.whatsapp.net',
+    name:             'Marina',
+    folder:           'whatsapp_marina',
+    trigger_pattern:  '@Andy',
+    requires_trigger: 1,
+    is_main:          0,
+  },
+];
+
+const upsertGroup = db2.prepare(`
+  INSERT OR REPLACE INTO registered_groups (jid, name, folder, trigger_pattern, added_at, container_config, requires_trigger, is_main)
+  VALUES (@jid, @name, @folder, @trigger_pattern, @added_at, NULL, @requires_trigger, @is_main)
+`);
+
+let gi = 0, gu = 0;
+const existingGroups = new Set(
+  db2.prepare('SELECT jid FROM registered_groups').all().map(r => r.jid)
+);
+
+for (const g of GROUPS) {
+  upsertGroup.run({ ...g, added_at: NOW });
+  if (existingGroups.has(g.jid)) gu++; else gi++;
+}
+
+db2.close();
+console.log(`seed-groups: ${gi} inserted, ${gu} updated`);

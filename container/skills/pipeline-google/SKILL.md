@@ -7,6 +7,24 @@ description: Pipeline de análise Google Ads para cirurgia refrativa e catarata 
 
 Execute quando o usuário pedir análise do Google Ads, revisão de campanhas, ou otimização de refrativa/catarata.
 
+## Passo 0 — Calcular período da semana
+
+Antes de qualquer coisa, calcule o label do período analisado (sábado anterior → sexta anterior):
+
+```bash
+node -e "
+const d = new Date();
+const dow = d.getDay(); // 0=Dom, 6=Sáb
+const sinceSat = (dow + 1) % 7; // dias desde o último sábado
+const sat = new Date(d); sat.setDate(d.getDate() - sinceSat - 7);
+const fri = new Date(sat); fri.setDate(sat.getDate() + 6);
+const fmt = (dt) => dt.toLocaleDateString('pt-BR', {day:'numeric', month:'long'});
+console.log(fmt(sat) + ' a ' + fmt(fri));
+"
+```
+
+Use o resultado como `{SEMANA}` no título do relatório.
+
 ## Passo 1 — Coleta de dados
 
 Rode todos em paralelo:
@@ -97,6 +115,7 @@ Após os subagentes, consolide e envie:
 
 ```
 *Google Ads — Análise Semanal*
+_{SEMANA}_
 
 *Diagnóstico:*
 {resumo do analista}
