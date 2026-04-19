@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Publish video to TikTok via Content Posting API v2 (PULL_FROM_URL)
-// Env: TIKTOK_ACCESS_TOKEN, TIKTOK_USERNAME (for profile URL fallback)
+// Env: TIKTOK_CLIENT_KEY, TIKTOK_CLIENT_SECRET, TIKTOK_REFRESH_TOKEN
+//   OR TIKTOK_ACCESS_TOKEN (static token fallback — expires in 24h)
 // Input (stdin): {
 //   videoUrl: string,          // Cloudinary MP4 URL (1080×1920, 15s)
 //   assets?: Array<{ ticker, nome, indice, tipo, indicador }>,
@@ -14,13 +15,35 @@
 
 import { readFileSync } from 'fs';
 
-const TOKEN = process.env.TIKTOK_ACCESS_TOKEN;
-const BASE  = 'https://open.tiktokapis.com/v2';
+const CLIENT_KEY     = process.env.TIKTOK_CLIENT_KEY;
+const CLIENT_SECRET  = process.env.TIKTOK_CLIENT_SECRET;
+const REFRESH_TOKEN  = process.env.TIKTOK_REFRESH_TOKEN;
+const STATIC_TOKEN   = process.env.TIKTOK_ACCESS_TOKEN;
+const BASE           = 'https://open.tiktokapis.com/v2';
 
-if (!TOKEN) {
-  console.log(JSON.stringify({ error: 'Missing TIKTOK_ACCESS_TOKEN' }));
+if (!REFRESH_TOKEN && !STATIC_TOKEN) {
+  console.log(JSON.stringify({ error: 'Missing TIKTOK_REFRESH_TOKEN (or TIKTOK_ACCESS_TOKEN)' }));
   process.exit(1);
 }
+
+async function getAccessToken() {
+  if (!REFRESH_TOKEN || !CLIENT_KEY || !CLIENT_SECRET) return STATIC_TOKEN;
+  const res = await fetch(`${BASE}/oauth/token/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_key:    CLIENT_KEY,
+      client_secret: CLIENT_SECRET,
+      grant_type:    'refresh_token',
+      refresh_token: REFRESH_TOKEN,
+    }),
+  });
+  const data = await res.json();
+  if (!data.access_token) throw new Error(`TikTok token refresh failed: ${JSON.stringify(data)}`);
+  return data.access_token;
+}
+
+const TOKEN = await getAccessToken();
 
 const input = JSON.parse(readFileSync('/dev/stdin', 'utf8'));
 const { videoUrl, assets = [], sessionLabel = '', type = 'signal', headline } = input;
