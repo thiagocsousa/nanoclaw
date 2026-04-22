@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-// Publish video to TikTok via Content Posting API v2 (PULL_FROM_URL)
+// Publish video to TikTok via Content Posting API v2 (FILE_UPLOAD / push_by_file)
 // Env: TIKTOK_CLIENT_KEY, TIKTOK_CLIENT_SECRET, TIKTOK_REFRESH_TOKEN
 //   OR TIKTOK_ACCESS_TOKEN (static token fallback — expires in 24h)
 // Input (stdin): {
-//   videoUrl: string,          // Cloudinary MP4 URL (1080×1920, 15s)
+//   videoPath: string,         // absolute path to local MP4 (1080×1920, 15s)
 //   assets?: Array<{ ticker, nome, indice, tipo, indicador }>,
 //   sessionLabel?: string,
 //   type?: 'signal' | 'promo' | 'news',
@@ -13,7 +13,7 @@
 //
 // TikTok captions: short hook format, ≤ 2200 chars, no external links allowed.
 
-import { readFileSync } from 'fs';
+import { readFileSync, statSync } from 'fs';
 
 const CLIENT_KEY     = process.env.TIKTOK_CLIENT_KEY;
 const CLIENT_SECRET  = process.env.TIKTOK_CLIENT_SECRET;
@@ -46,10 +46,10 @@ async function getAccessToken() {
 const TOKEN = await getAccessToken();
 
 const input = JSON.parse(readFileSync('/dev/stdin', 'utf8'));
-const { videoUrl, assets = [], sessionLabel = '', type = 'signal', headline } = input;
+const { videoPath, assets = [], sessionLabel = '', type = 'signal', headline } = input;
 
-if (!videoUrl) {
-  console.log(JSON.stringify({ error: 'videoUrl is required (Cloudinary MP4 URL)' }));
+if (!videoPath) {
+  console.log(JSON.stringify({ error: 'videoPath is required (absolute path to MP4)' }));
   process.exit(1);
 }
 
@@ -116,9 +116,10 @@ async function postJson(url, body) {
 }
 
 try {
-  const caption = buildCaption().slice(0, 2200);
+  const caption   = buildCaption().slice(0, 2200);
+  const videoSize = statSync(videoPath).size;
 
-  // Initialize video post (PULL_FROM_URL — TikTok fetches from Cloudinary)
+  // Step 1 — Init upload (FILE_UPLOAD / push_by_file)
   const init = await postJson(`${BASE}/post/publish/video/init/`, {
     post_info: {
       title: caption,
@@ -129,17 +130,33 @@ try {
       video_cover_timestamp_ms: 1000,
     },
     source_info: {
-      source: 'PULL_FROM_URL',
-      video_url: videoUrl,
+      source: 'FILE_UPLOAD',
+      video_size: videoSize,
+      chunk_size: videoSize,
+      total_chunk_count: 1,
     },
     post_mode: 'DIRECT_POST',
     media_type: 'VIDEO',
   });
 
   const publishId = init.data?.publish_id;
-  if (!publishId) throw new Error('No publish_id returned');
+  const uploadUrl = init.data?.upload_url;
+  if (!publishId || !uploadUrl) throw new Error(`Init failed: ${JSON.stringify(init)}`);
 
-  // Poll for completion
+  // Step 2 — Upload video bytes in a single chunk
+  const videoBuffer = readFileSync(videoPath);
+  const uploadRes = await fetch(uploadUrl, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'video/mp4',
+      'Content-Length': String(videoSize),
+      'Content-Range': `bytes 0-${videoSize - 1}/${videoSize}`,
+    },
+    body: videoBuffer,
+  });
+  if (!uploadRes.ok) throw new Error(`Upload failed: ${await uploadRes.text()}`);
+
+  // Step 3 — Poll for publish completion
   for (let i = 0; i < 15; i++) {
     await new Promise(r => setTimeout(r, 4000));
     const statusData = await postJson(`${BASE}/post/publish/status/fetch/`, { publish_id: publishId });
