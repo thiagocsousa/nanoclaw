@@ -80,6 +80,13 @@ const FORWARDED_ENV_VARS = [
   'REDDIT_CLIENT_SECRET',
   'REDDIT_USERNAME',
   'REDDIT_PASSWORD',
+  // Reddit Ads (separate app credentials)
+  'REDDIT_ADS_CLIENT_ID',
+  'REDDIT_ADS_CLIENT_SECRET',
+  'REDDIT_ADS_ACCOUNT_ID',
+  // X Ads (separate from organic credentials)
+  'X_AD_ACCOUNT_ID',
+  'X_FUNDING_INSTRUMENT_ID',
   // Cloudinary
   'CLOUDINARY_CLOUD_NAME',
   'CLOUDINARY_API_KEY',

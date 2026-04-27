@@ -86,7 +86,7 @@ function buildCaption() {
     return [
       headline || 'Markets are moving.',
       '',
-      'Here's what the technicals are showing right now 👇',
+      "Here's what the technicals are showing right now 👇",
       '',
       '#Markets #Finance #StockMarket #TechnicalAnalysis #Investing #Flago',
     ].join('\n');

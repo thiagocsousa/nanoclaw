@@ -1,19 +1,39 @@
 #!/usr/bin/env node
 // Create Google Ads campaign for YouTube video
-// Env: GOOGLE_ADS_DEVELOPER_TOKEN, GOOGLE_ADS_CUSTOMER_ID, GOOGLE_ADS_OAUTH_TOKEN
+// Env: GOOGLE_ADS_DEVELOPER_TOKEN, GOOGLE_ADS_CUSTOMER_ID, GOOGLE_ADS_CLIENT_ID, GOOGLE_ADS_CLIENT_SECRET, GOOGLE_ADS_REFRESH_TOKEN
 // Input (stdin): { videoId, objective, audience, dailyBudgetUsd, durationDays }
 
 import { readFileSync } from 'fs';
 
 const DEVELOPER_TOKEN = process.env.GOOGLE_ADS_DEVELOPER_TOKEN;
 const CUSTOMER_ID = process.env.GOOGLE_ADS_CUSTOMER_ID; // format: 123-456-7890 (dashes optional)
-const OAUTH_TOKEN = process.env.GOOGLE_ADS_OAUTH_TOKEN;
+const CLIENT_ID = process.env.GOOGLE_ADS_CLIENT_ID;
+const CLIENT_SECRET = process.env.GOOGLE_ADS_CLIENT_SECRET;
+const REFRESH_TOKEN = process.env.GOOGLE_ADS_REFRESH_TOKEN;
 const LOGIN_CUSTOMER_ID = process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID; // MCC account ID (optional)
 
-if (!DEVELOPER_TOKEN || !CUSTOMER_ID || !OAUTH_TOKEN) {
-  console.log(JSON.stringify({ error: 'Missing GOOGLE_ADS_DEVELOPER_TOKEN, GOOGLE_ADS_CUSTOMER_ID, or GOOGLE_ADS_OAUTH_TOKEN' }));
+if (!DEVELOPER_TOKEN || !CUSTOMER_ID || !REFRESH_TOKEN || !CLIENT_ID || !CLIENT_SECRET) {
+  console.log(JSON.stringify({ error: 'Missing GOOGLE_ADS_DEVELOPER_TOKEN, GOOGLE_ADS_CUSTOMER_ID, GOOGLE_ADS_CLIENT_ID, GOOGLE_ADS_CLIENT_SECRET, or GOOGLE_ADS_REFRESH_TOKEN' }));
   process.exit(1);
 }
+
+async function getAccessToken() {
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: CLIENT_ID,
+      client_secret: CLIENT_SECRET,
+      refresh_token: REFRESH_TOKEN,
+      grant_type: 'refresh_token',
+    }),
+  });
+  const data = await res.json();
+  if (!data.access_token) throw new Error(`Google token refresh failed: ${JSON.stringify(data)}`);
+  return data.access_token;
+}
+
+const OAUTH_TOKEN = await getAccessToken();
 
 const input = JSON.parse(readFileSync('/dev/stdin', 'utf8'));
 const { videoId, objective = 'VIDEO_VIEWS', audience = {}, dailyBudgetUsd = 10, durationDays = 3 } = input;
