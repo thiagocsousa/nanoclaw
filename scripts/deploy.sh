@@ -4,6 +4,8 @@ set -e
 PROJECT_DIR="${PROJECT_DIR:-$(dirname "$(dirname "$(realpath "$0")")")}"
 cd "$PROJECT_DIR"
 
+git config --global --add safe.directory "$PROJECT_DIR"
+
 echo "=== Deploy NanoClaw ==="
 echo "Dir: $PROJECT_DIR"
 echo "$(date)"
