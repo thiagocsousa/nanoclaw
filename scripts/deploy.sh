@@ -10,9 +10,6 @@ echo "$(date)"
 echo "User: $(whoami) | Git: $(git --version)"
 echo ""
 
-echo "[1/4] git pull..."
-git -c safe.directory="$PROJECT_DIR" pull origin main
-
 echo "[2/4] npm ci..."
 npm ci --prefer-offline
 
