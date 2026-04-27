@@ -4,8 +4,8 @@ set -e
 PROJECT_DIR="${PROJECT_DIR:-$(dirname "$(dirname "$(realpath "$0")")")}"
 cd "$PROJECT_DIR"
 
-export HOME=$(getent passwd "$(whoami)" | cut -d: -f6)
-git config --global --add safe.directory '*'
+export GIT_CONFIG_GLOBAL=/tmp/.gitconfig-deploy
+printf '[safe]\n\tdirectory = *\n' > "$GIT_CONFIG_GLOBAL"
 
 echo "=== Deploy NanoClaw ==="
 echo "Dir: $PROJECT_DIR"
