@@ -6,6 +6,7 @@
 // To add/change crons: edit the CRONS array below and redeploy.
 
 import Database from 'better-sqlite3';
+import { CronExpressionParser } from 'cron-parser';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -157,6 +158,21 @@ if (stale.length) {
   for (const id of stale) { del.run(id); }
   console.log(`seed-crons: removed stale crons: ${stale.join(', ')}`);
 }
+
+// Fix stale next_run (null or in the past) so crons don't all fire at once on deploy
+const TZ = process.env.TZ || 'America/Fortaleza';
+const now = new Date().toISOString();
+const fixNextRun = db.prepare(`
+  UPDATE scheduled_tasks SET next_run = ?
+  WHERE id = ? AND (next_run IS NULL OR next_run <= ?)
+`);
+let fixed = 0;
+for (const cron of CRONS) {
+  const next = CronExpressionParser.parse(cron.schedule_value, { tz: TZ }).next().toISOString();
+  const result = fixNextRun.run(next, cron.id, now);
+  if (result.changes) fixed++;
+}
+if (fixed) console.log(`seed-crons: fixed next_run for ${fixed} stale cron(s)`);
 
 db.close();
 console.log(`seed-crons: ${inserted} inserted, ${updated} updated, ${stale.length} removed`);

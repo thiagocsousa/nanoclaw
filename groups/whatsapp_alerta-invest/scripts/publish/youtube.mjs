@@ -38,6 +38,10 @@ async function getAccessToken() {
     }),
   });
   const data = await res.json();
+  if (data.error === 'invalid_grant') {
+    console.log(JSON.stringify({ error: 'YouTube refresh token expired. Re-authorization required.', needsReauth: true, platform: 'youtube' }));
+    process.exit(2);
+  }
   if (!data.access_token) throw new Error(`Token refresh failed: ${JSON.stringify(data)}`);
   return data.access_token;
 }

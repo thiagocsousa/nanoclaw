@@ -174,6 +174,7 @@ When user says **EDIT** or **EDITAR**:
 | **TikTok** | `publish/tiktok.mjs` | MP4 | Hook-first, short | video |
 | **YouTube Shorts** | `publish/youtube.mjs` | MP4 | Description + link | video |
 | **X/Twitter** | `publish/x.mjs` | text-first | Organic trader voice, no hard sell | landscape (optional) |
+| **LinkedIn** | `publish/linkedin.mjs` | square PNG | Professional, thought leadership tone | square |
 | **Reddit** | `publish/reddit.mjs` | text post | Editorial / community voice, no brand in title | none |
 | **Email** (Saturday only) | `publish/email.mjs` | — | Week in Review to all active Flago users | — |
 | **Email** (news posts) | `publish/email_news.mjs` | — | Market News digest to all active Flago users | — |
@@ -200,6 +201,12 @@ echo '{"assets":[...],"sessionLabel":"Americas Open","type":"signal"}' \
 
 For **news**: pass `items:[{headline,subline}]` to generate-image.mjs; pass `headline`+`subline` to x.mjs and reddit.mjs.
 For **promo**: `type:"promo"` triggers community-question template on Reddit and 1st-person discovery tweet on X.
+
+### LinkedIn input
+```bash
+echo '{"squarePath":"/workspace/group/tmp/images/creative-square-<ts>.png","assets":[...],"sessionLabel":"Americas Open","type":"signal"}' \
+  | node scripts/publish/linkedin.mjs
+```
 
 ### Email — Week in Review (Saturday only)
 
@@ -235,6 +242,19 @@ echo "{\"items\":[...from criativos.json items...],\"session_label\":\"Europe Mi
 ```
 
 Output: `{"ok":true,"sent":N}` — log and continue regardless of result.
+
+## Token Expiry — YouTube Re-authorization
+
+YouTube refresh tokens expire every 7 days (app in testing mode). When `publish/youtube.mjs` exits with code 2 and `needsReauth: true`, send this WhatsApp message to the approval JID and skip YouTube for this run:
+
+```
+mcp__nanoclaw__send_message(
+  to: "558681512111@s.whatsapp.net",
+  text: "⚠️ *Flago — YouTube token expirado*\n\nPrecisa renovar as credenciais do YouTube.\n\nRode no terminal:\n```\nnode scripts/get-youtube-token.mjs\n```\nO token será salvo automaticamente no vault."
+)
+```
+
+Do not abort the pipeline — continue publishing to the other platforms normally.
 
 ## Agente 4 — Ads (pending — scripts/ads/ not yet implemented)
 

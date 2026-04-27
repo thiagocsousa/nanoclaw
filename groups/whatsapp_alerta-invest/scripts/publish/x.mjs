@@ -50,13 +50,15 @@ function buildText() {
     const top = assets.slice(0, 4);
     const lines = top.map(a => {
       const flag  = FLAGS[a.indice?.toLowerCase()] || '🌐';
-      const dir   = a.tipo === 'bullish' ? '▲' : a.tipo === 'bearish' ? '▼' : '●';
+      const dir   = a.tipo === 'bullish' ? '▲ Bullish' : a.tipo === 'bearish' ? '▼ Bearish' : '●';
       const ind   = (a.indicador || '').toUpperCase();
-      return `${flag} $${a.ticker} ${dir} ${ind}`;
+      return `${flag} ${a.ticker} ${dir} · ${ind}`;
     });
     const extra = assets.length > 4 ? `+${assets.length - 4} more signals firing` : '';
     const label = sessionLabel ? `${sessionLabel} session` : 'right now';
     return [
+      'Flago informs:',
+      '',
       ...lines,
       extra,
       '',
