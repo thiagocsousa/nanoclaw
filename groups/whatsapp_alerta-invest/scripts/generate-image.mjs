@@ -153,9 +153,9 @@ const signalRows = displayAssets.map((a, i) => {
       <span class="sr-flag">${flag}</span>
       <span class="sr-ticker" style="color:${tColor}">${esc(a.ticker)}</span>
     </div>
-    <div class="sr-col sr-col-name">
+    ${format !== 'story' ? `<div class="sr-col sr-col-name">
       <span class="sr-name">${esc(a.nome || '')}</span>
-    </div>
+    </div>` : ''}
     <div class="sr-col sr-col-indicator">
       <span class="sr-indicator">${esc((a.indicador || '').toUpperCase())}</span>
     </div>
