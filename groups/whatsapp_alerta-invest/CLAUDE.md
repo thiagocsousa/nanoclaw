@@ -69,10 +69,22 @@ FLAGO_APENAS_ABERTOS=true FLAGO_LIMIT=50 node scripts/flago.mjs
 ```
 Response includes `mercados_abertos` (open markets) and `sinais` (signals).
 
-2. Read `diagnostico.json`.
-3. Pick the **5 strongest signals** from open markets (mix bullish + bearish, spread across different indices).
-4. Derive `sessionLabel` from open markets (e.g. "Americas Mid", "Europe + Americas", "Asia Open").
-5. Write `criativos.json`:
+2. **Determine the session zone** from the current UTC time and day:
+
+| UTC time (approx) | Day | Zone | Allowed indices |
+|-------------------|-----|------|-----------------|
+| 00:00–03:59 | Mon–Fri | Early Asia | `nikkei225`, `kospi`, `asx200` |
+| 04:00–07:59 | Mon–Fri | Late Asia | `hsi`, `jkse`, `klse`, `set50`, `nsei` |
+| 08:00–13:59 | Mon–Fri | Europe | `ftse100`, `dax`, `cac40`, `aex`, `smi`, `omx`, `ibex35`, `jse` |
+| 14:00–23:59 | Mon–Fri | Americas | `sp500`, `tsx`, `ipc`, `ibov` |
+| any | Sat–Sun | Global | all indices |
+
+**Filter `sinais` to only those whose `indice` is in the zone's allowed indices before selecting assets.** Do not use signals from other zones even if their markets are technically still open.
+
+3. Read `diagnostico.json`.
+4. Pick the **5 strongest signals** from the filtered list (mix bullish + bearish, spread across different indices).
+5. Derive `sessionLabel` from the zone (e.g. "Americas Mid", "Europe Open", "Asia Open").
+6. Write `criativos.json`:
 ```json
 {
   "session": "mid",
