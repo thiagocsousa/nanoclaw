@@ -15,7 +15,7 @@ jobs:
           username: ${{ secrets.VM_USER }}
           key: ${{ secrets.VM_SSH_KEY }}
           script: |
-            sudo chown -R $USER:$USER ${{ secrets.VM_PROJECT_PATH }}
+            sudo chown -R $USER:$USER ${{ secrets.VM_PROJECT_PATH }} || true
             cd ${{ secrets.VM_PROJECT_PATH }}
             git pull origin main
             bash scripts/deploy.sh
