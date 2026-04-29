@@ -91,7 +91,6 @@ Response includes `mercados_abertos` (open markets) and `sinais` (signals).
   "sessionLabel": "Americas Mid",
   "type": "signal",
   "adTargets": ["US","CA","MX","BR"],
-  "pending_approval": true,
   "assets": [
     { "ticker": "AAPL", "nome": "Apple Inc.", "indice": "sp500", "tipo": "bullish", "indicador": "MACD", "preco": 189.50 }
   ],
@@ -134,49 +133,14 @@ echo "{\"imagePath\":\"/workspace/group/tmp/images/creative-story-$TS.png\",\"ou
   | node scripts/generate-video.mjs
 ```
 
-**Send the square image to WhatsApp for approval** using `send_image` MCP tool:
-```
-mcp__nanoclaw__send_image(
-  path: "/workspace/group/tmp/images/creative-square-<ts>.png",
-  caption: "<copy from criativos.json>"
-)
-```
-
-Then send approval prompt (WhatsApp formatting: `*bold*`, `_italic_`, `•` bullets):
-```
-*Flago — <sessionLabel>*
-_5 signals · <session> session_
-
-1. $TICKER 🇺🇸 ▲ BULLISH — MACD
-2. $TICKER 🇧🇷 ▼ BEARISH — RSI
-...
-
-💰 Ads: <adTargets>
-
-Responda *SIM* para publicar, *SIM 1,3* para selecionar, ou *EDITAR* para ajustar.
-```
-
-## Trigger: Approval Response
-
-When the user sends **SIM**, **YES**, **APPROVE**, or **APROVAR**:
-
-1. Read `criativos.json`, check `pending_approval: true`
-2. Parse selection: `SIM` = all · `SIM 1,3` = items 1 and 3
-3. For each approved creative:
-   a. Run Agente 3 (publish)
-   b. Run Agente 4 (ads) — only for `type: "signal"`, not promo/news
-   c. If today is **Saturday**: run `publish/email.mjs` with top 5 assets (Week in Review email)
-   d. If `type == "news"`: run `publish/email_news.mjs` with the news items
-4. Update `criativos.json`: `pending_approval: false`
-5. Confirm: *"Published. Ad campaigns created for <countries>."*
+After generating all assets, proceed directly to Agente 3 (no approval required).
 
 ## Trigger: Edit Request
 
 When user says **EDIT** or **EDITAR**:
 1. Ask what to change
 2. Re-run Agente 1 for that creative only
-3. Re-generate images (Agente 2) and re-send via WhatsApp
-4. Wait for approval
+3. Re-generate images (Agente 2) and re-run Agente 3
 
 ## Agente 3 — Publisher
 
@@ -254,6 +218,31 @@ echo "{\"items\":[...from criativos.json items...],\"session_label\":\"Europe Mi
 ```
 
 Output: `{"ok":true,"sent":N}` — log and continue regardless of result.
+
+### Resumo final — enviar links via WhatsApp
+
+Após publicar em todas as plataformas, enviar uma mensagem para `558681512111@s.whatsapp.net` com os links dos posts publicados:
+
+```
+mcp__nanoclaw__send_message(
+  to: "558681512111@s.whatsapp.net",
+  text: "*Flago — <sessionLabel>* ✅\n\n<lista de links, um por linha, com o nome da plataforma>"
+)
+```
+
+Exemplo:
+```
+*Flago — Americas Mid* ✅
+
+🐦 X: https://x.com/i/web/status/...
+📸 Instagram: https://www.instagram.com/p/...
+▶️ YouTube: https://youtube.com/shorts/...
+🎵 TikTok: https://www.tiktok.com/@.../video/...
+💼 LinkedIn: https://www.linkedin.com/feed/update/...
+🤖 Reddit: https://reddit.com/r/.../comments/...
+```
+
+Plataformas que falharam: listar com ❌ e o motivo resumido. Continuar mesmo com falhas parciais.
 
 ## Token Expiry — YouTube Re-authorization
 
