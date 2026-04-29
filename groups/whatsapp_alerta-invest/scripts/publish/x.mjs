@@ -31,7 +31,7 @@ if (!API_KEY || !API_SECRET || !ACCESS_TOKEN || !ACCESS_SECRET) {
 }
 
 const input = JSON.parse(readFileSync('/dev/stdin', 'utf8'));
-const { assets = [], sessionLabel = '', type = 'signal', headline, subline, landscapePath } = input;
+const { assets = [], sessionLabel = '', type = 'signal', headline, subline } = input;
 
 const FLAGS = {
   ibov:'🇧🇷', sp500:'🇺🇸', tsx:'🇨🇦', ipc:'🇲🇽',
@@ -122,37 +122,16 @@ function oauthSign(method, url, extraParams = {}) {
     .join(', ');
 }
 
-async function uploadMedia(imgPath) {
-  const base64  = readFileSync(imgPath).toString('base64');
-  const url     = 'https://upload.twitter.com/1.1/media/upload.json';
-  const form    = new URLSearchParams({ media_data: base64 });
-  const res     = await fetch(url, {
-    method: 'POST',
-    headers: { Authorization: oauthSign('POST', url), 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: form,
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.errors?.[0]?.message || JSON.stringify(data));
-  return data.media_id_string;
-}
-
 // ── Post ─────────────────────────────────────────────────────────────────────
 
 try {
   const text    = buildText();
   const tweetUrl = 'https://api.twitter.com/2/tweets';
-  const body    = { text };
-
-  // Attach landscape image as supporting visual (not hero)
-  if (landscapePath) {
-    const mediaId = await uploadMedia(landscapePath);
-    body.media = { media_ids: [mediaId] };
-  }
 
   const res  = await fetch(tweetUrl, {
     method: 'POST',
     headers: { Authorization: oauthSign('POST', tweetUrl), 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ text }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.detail || data.errors?.[0]?.message || JSON.stringify(data));
