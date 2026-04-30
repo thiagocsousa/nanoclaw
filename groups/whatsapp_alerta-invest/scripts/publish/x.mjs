@@ -134,7 +134,11 @@ try {
     body: JSON.stringify({ text }),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.detail || data.errors?.[0]?.message || JSON.stringify(data));
+  if (!res.ok) {
+    // Log full response so we can diagnose the real cause
+    const detail = JSON.stringify({ status: res.status, body: data });
+    throw new Error(detail);
+  }
 
   const id = data.data?.id;
   console.log(JSON.stringify({
