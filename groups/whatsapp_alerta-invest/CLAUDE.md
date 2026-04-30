@@ -253,6 +253,7 @@ If missing: treat all dates as epoch (0), `next_target` as `"europe_mid"`.
     ads/          ← pending
     flago.mjs · generate-image.mjs · generate-video.mjs · upload-image.mjs
   tmp/images/     ← generated PNGs + MP4s
+  tmp/pipeline-last-run.json  ← resultado da última execução (leia quando perguntado)
   diagnostico.json · criativos.json · pipeline-state.json
 ```
 
@@ -260,6 +261,52 @@ If missing: treat all dates as epoch (0), `next_target` as `"europe_mid"`.
 
 - Script failure on one platform → log and continue
 - Never abort pipeline for a single platform failure
+
+## Run Log — pipeline-last-run.json
+
+After Agent 3 completes (all platforms attempted), save:
+
+```bash
+node -e "
+const fs = require('fs');
+// Build results object from the captured outputs above
+const results = {
+  run_at: new Date().toISOString(),
+  sessionLabel: require('/workspace/group/criativos.json').sessionLabel,
+  type: require('/workspace/group/criativos.json').type,
+  platforms: {
+    x:         { success: <bool>, url: '<url or null>', error: '<message or null>' },
+    instagram:  { success: <bool>, url: '<url or null>', error: '<message or null>' },
+    tiktok:     { success: <bool>, url: '<url or null>', error: '<message or null>' },
+    youtube:    { success: <bool>, url: '<url or null>', error: '<message or null>' },
+    linkedin:   { success: <bool>, url: '<url or null>', error: '<message or null>' },
+    reddit:     { success: <bool>, url: '<url or null>', error: '<message or null>' },
+  }
+};
+fs.mkdirSync('/workspace/group/tmp', { recursive: true });
+fs.writeFileSync('/workspace/group/tmp/pipeline-last-run.json', JSON.stringify(results, null, 2));
+"
+```
+
+## Trigger: Last Run Status
+
+When user sends any of: "log", "última run", "último post", "status", "o que aconteceu", "deu erro", "pipeline":
+
+1. Read `tmp/pipeline-last-run.json`
+2. Reply in WhatsApp format:
+
+```
+*Flago — Última Run* (<run_at localizado>)
+Sessão: <sessionLabel> · Tipo: <type>
+
+✅ Instagram: <url>
+✅ Reddit: <url>
+❌ X: <error message>
+❌ TikTok: <error message>
+...
+```
+
+If file doesn't exist: "Nenhuma run registrada ainda."
 
 ## Memory
 

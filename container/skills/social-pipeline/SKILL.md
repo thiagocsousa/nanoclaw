@@ -104,7 +104,7 @@ Após gerar todos os assets, passe direto ao Agente 3.
 
 ## Agente 3 — Publisher (sem aprovação)
 
-Leia `criativos.json` para obter `assets`, `sessionLabel`, `type`. Derive `$TS` do arquivo mais recente:
+Leia `criativos.json`. Derive `$TS` do arquivo mais recente e capture o output JSON de cada script:
 
 ```bash
 TS=$(ls -t /workspace/group/tmp/images/creative-square-*.png 2>/dev/null | head -1 | grep -oE '[0-9]{10}')
@@ -112,37 +112,45 @@ ASSETS=$(node -e "const c=require('/workspace/group/criativos.json'); console.lo
 LABEL=$(node -e "const c=require('/workspace/group/criativos.json'); console.log(c.sessionLabel)")
 TYPE=$(node -e "const c=require('/workspace/group/criativos.json'); console.log(c.type)")
 
-# X / Twitter — text-only
-echo "{\"assets\":$ASSETS,\"sessionLabel\":\"$LABEL\",\"type\":\"$TYPE\",\"landscapePath\":\"/workspace/group/tmp/images/creative-landscape-$TS.png\"}" \
-  | node /workspace/group/scripts/publish/x.mjs
+# X / Twitter — text-only (capture output for log)
+X_OUT=$(echo "{\"assets\":$ASSETS,\"sessionLabel\":\"$LABEL\",\"type\":\"$TYPE\",\"landscapePath\":\"/workspace/group/tmp/images/creative-landscape-$TS.png\"}" \
+  | node /workspace/group/scripts/publish/x.mjs 2>&1) || true
+echo "X: $X_OUT"
 
 # Instagram + Facebook
-echo "{\"squarePath\":\"/workspace/group/tmp/images/creative-square-$TS.png\",\"assets\":$ASSETS,\"sessionLabel\":\"$LABEL\",\"type\":\"$TYPE\"}" \
-  | node /workspace/group/scripts/publish/meta.mjs
+META_OUT=$(echo "{\"squarePath\":\"/workspace/group/tmp/images/creative-square-$TS.png\",\"assets\":$ASSETS,\"sessionLabel\":\"$LABEL\",\"type\":\"$TYPE\"}" \
+  | node /workspace/group/scripts/publish/meta.mjs 2>&1) || true
+echo "Meta: $META_OUT"
 
 # TikTok
-echo "{\"videoPath\":\"/workspace/group/tmp/images/creative-video-$TS.mp4\",\"assets\":$ASSETS,\"sessionLabel\":\"$LABEL\",\"type\":\"$TYPE\"}" \
-  | node /workspace/group/scripts/publish/tiktok.mjs
+TT_OUT=$(echo "{\"videoPath\":\"/workspace/group/tmp/images/creative-video-$TS.mp4\",\"assets\":$ASSETS,\"sessionLabel\":\"$LABEL\",\"type\":\"$TYPE\"}" \
+  | node /workspace/group/scripts/publish/tiktok.mjs 2>&1) || true
+echo "TikTok: $TT_OUT"
 
 # YouTube Shorts
-echo "{\"videoPath\":\"/workspace/group/tmp/images/creative-video-$TS.mp4\",\"assets\":$ASSETS,\"sessionLabel\":\"$LABEL\",\"type\":\"$TYPE\"}" \
-  | node /workspace/group/scripts/publish/youtube.mjs
+YT_OUT=$(echo "{\"videoPath\":\"/workspace/group/tmp/images/creative-video-$TS.mp4\",\"assets\":$ASSETS,\"sessionLabel\":\"$LABEL\",\"type\":\"$TYPE\"}" \
+  | node /workspace/group/scripts/publish/youtube.mjs 2>&1) || true
+echo "YouTube: $YT_OUT"
 
 # LinkedIn
-echo "{\"squarePath\":\"/workspace/group/tmp/images/creative-square-$TS.png\",\"assets\":$ASSETS,\"sessionLabel\":\"$LABEL\",\"type\":\"$TYPE\"}" \
-  | node /workspace/group/scripts/publish/linkedin.mjs
+LI_OUT=$(echo "{\"squarePath\":\"/workspace/group/tmp/images/creative-square-$TS.png\",\"assets\":$ASSETS,\"sessionLabel\":\"$LABEL\",\"type\":\"$TYPE\"}" \
+  | node /workspace/group/scripts/publish/linkedin.mjs 2>&1) || true
+echo "LinkedIn: $LI_OUT"
 
 # Reddit
-echo "{\"assets\":$ASSETS,\"sessionLabel\":\"$LABEL\",\"type\":\"$TYPE\"}" \
-  | node /workspace/group/scripts/publish/reddit.mjs
+RD_OUT=$(echo "{\"assets\":$ASSETS,\"sessionLabel\":\"$LABEL\",\"type\":\"$TYPE\"}" \
+  | node /workspace/group/scripts/publish/reddit.mjs 2>&1) || true
+echo "Reddit: $RD_OUT"
 ```
+
+Parse cada `*_OUT` como JSON. Se `success: true` → usa `url`. Se `error` presente → registra a mensagem de erro.
 
 **Para type=news:** passe `headline` e `subline` para x.mjs e reddit.mjs.
 **Para type=promo:** `type:"promo"` já aciona o texto correto em x.mjs.
 
 ### YouTube — reautorização
 
-Se youtube.mjs sair com código 2 e `needsReauth: true`, escreva IPC para notificar e pule YouTube:
+Se `YT_OUT` tiver `needsReauth: true`, escreva IPC de notificação e trate YouTube como falha:
 
 ```bash
 node -e "
@@ -158,34 +166,65 @@ fs.writeFileSync('/workspace/ipc/messages/yt-reauth-' + Date.now() + '.json', JS
 "
 ```
 
----
+### Salvar Run Log
 
-## Notificação via WhatsApp
-
-Após publicar em todas as plataformas, monte a mensagem com os URLs reais retornados por cada script e escreva IPC para `558681512111@s.whatsapp.net`:
+Após coletar todos os outputs, salve `/workspace/group/tmp/pipeline-last-run.json` com os resultados reais:
 
 ```bash
 node -e "
 const fs = require('fs');
-const sessionLabel = require('/workspace/group/criativos.json').sessionLabel;
 
-// Substitua pelos URLs reais coletados acima
-const xUrl = '<url_x ou FAILED>';
-const igUrl = '<url_instagram ou FAILED>';
-const ytUrl = '<url_youtube ou FAILED>';
-const ttUrl = '<url_tiktok ou FAILED>';
-const liUrl = '<url_linkedin ou FAILED>';
-const rdUrl = '<url_reddit ou FAILED>';
+// Parse outputs capturados — extraia success, url, error de cada JSON
+function parse(raw) {
+  try {
+    const j = JSON.parse(raw.trim().split('\n').filter(l => l.startsWith('{')).pop() || raw);
+    return { success: j.success === true, url: j.url || null, error: j.error || null };
+  } catch { return { success: false, url: null, error: raw.slice(0, 200) }; }
+}
+
+const results = {
+  run_at: new Date().toISOString(),
+  sessionLabel: require('/workspace/group/criativos.json').sessionLabel,
+  type: require('/workspace/group/criativos.json').type,
+  platforms: {
+    x:        parse(process.env.X_OUT   || ''),
+    instagram: parse(process.env.META_OUT || ''),
+    tiktok:   parse(process.env.TT_OUT  || ''),
+    youtube:  parse(process.env.YT_OUT  || ''),
+    linkedin: parse(process.env.LI_OUT  || ''),
+    reddit:   parse(process.env.RD_OUT  || ''),
+  }
+};
+fs.mkdirSync('/workspace/group/tmp', { recursive: true });
+fs.writeFileSync('/workspace/group/tmp/pipeline-last-run.json', JSON.stringify(results, null, 2));
+console.log('Run log saved');
+" X_OUT="$X_OUT" META_OUT="$META_OUT" TT_OUT="$TT_OUT" YT_OUT="$YT_OUT" LI_OUT="$LI_OUT" RD_OUT="$RD_OUT"
+```
+
+---
+
+## Notificação via WhatsApp
+
+Monte a mensagem com os resultados reais e escreva IPC para `558681512111@s.whatsapp.net`. URLs com sucesso ficam como link; falhas ficam como ❌ + motivo breve:
+
+```bash
+node -e "
+const fs = require('fs');
+const log = JSON.parse(fs.readFileSync('/workspace/group/tmp/pipeline-last-run.json', 'utf8'));
+
+function fmt(label, p) {
+  return p.success ? label + ': ' + p.url : label + ': ❌ ' + (p.error || 'failed');
+}
 
 const lines = [
-  '*Flago — ' + sessionLabel + '* ✅',
+  '*Flago — ' + log.sessionLabel + '* ✅',
   '',
-  '🐦 X: ' + xUrl,
-  '📸 Instagram: ' + igUrl,
-  '▶️ YouTube: ' + ytUrl,
-  '🎵 TikTok: ' + ttUrl,
-  '💼 LinkedIn: ' + liUrl,
-  '🤖 Reddit: ' + rdUrl,
+  '🐦 ' + fmt('X', log.platforms.x),
+  '📸 ' + fmt('Instagram', log.platforms.instagram),
+  '▶️ ' + fmt('YouTube', log.platforms.youtube),
+  '🎵 ' + fmt('TikTok', log.platforms.tiktok),
+  '💼 ' + fmt('LinkedIn', log.platforms.linkedin),
+  '🤖 ' + fmt('Reddit', log.platforms.reddit),
 ].join('\n');
 
 fs.mkdirSync('/workspace/ipc/messages', { recursive: true });
@@ -196,8 +235,6 @@ fs.writeFileSync('/workspace/ipc/messages/links-' + Date.now() + '.json', JSON.s
   groupFolder: 'whatsapp_alerta-invest',
   timestamp: new Date().toISOString()
 }));
-console.log('WhatsApp notification written to IPC');
+console.log('WhatsApp notification sent');
 "
 ```
-
-Plataformas com falha: liste com ❌ e motivo breve. Continue sempre, mesmo com falhas parciais.
