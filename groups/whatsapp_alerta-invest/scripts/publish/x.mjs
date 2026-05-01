@@ -18,7 +18,7 @@
 //   news   — editorial observation tied to a real signal, link for context
 
 import { createHmac } from 'crypto';
-import { readFileSync } from 'fs';
+import { readFileSync, writeFileSync, mkdirSync } from 'fs';
 
 const API_KEY     = process.env.X_API_KEY;
 const API_SECRET  = process.env.X_API_SECRET;
@@ -135,9 +135,10 @@ try {
   });
   const data = await res.json();
   if (!res.ok) {
-    // Log full response so we can diagnose the real cause
-    const detail = JSON.stringify({ status: res.status, body: data });
-    throw new Error(detail);
+    const detail = { status: res.status, headers: Object.fromEntries(res.headers), body: data, timestamp: new Date().toISOString() };
+    mkdirSync('/workspace/group/tmp', { recursive: true });
+    writeFileSync('/workspace/group/tmp/x-last-error.json', JSON.stringify(detail, null, 2));
+    throw new Error(JSON.stringify(detail));
   }
 
   const id = data.data?.id;
