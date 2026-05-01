@@ -100,6 +100,13 @@ function createSchema(database: Database.Database): void {
     /* column already exists */
   }
 
+  // Add approval_jid column if it doesn't exist (migration for existing DBs)
+  try {
+    database.exec(`ALTER TABLE scheduled_tasks ADD COLUMN approval_jid TEXT`);
+  } catch {
+    /* column already exists */
+  }
+
   // Add is_bot_message column if it doesn't exist (migration for existing DBs)
   try {
     database.exec(
@@ -454,6 +461,7 @@ export function updateTask(
       ScheduledTask,
       | 'prompt'
       | 'script'
+      | 'approval_jid'
       | 'schedule_type'
       | 'schedule_value'
       | 'next_run'
@@ -471,6 +479,10 @@ export function updateTask(
   if (updates.script !== undefined) {
     fields.push('script = ?');
     values.push(updates.script || null);
+  }
+  if (updates.approval_jid !== undefined) {
+    fields.push('approval_jid = ?');
+    values.push(updates.approval_jid || null);
   }
   if (updates.schedule_type !== undefined) {
     fields.push('schedule_type = ?');

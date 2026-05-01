@@ -203,6 +203,7 @@ export async function processTaskIpc(
     type: string;
     taskId?: string;
     prompt?: string;
+    approval_jid?: string;
     schedule_type?: string;
     schedule_value?: string;
     context_mode?: string;
@@ -399,6 +400,7 @@ export async function processTaskIpc(
         const updates: Parameters<typeof updateTask>[1] = {};
         if (data.prompt !== undefined) updates.prompt = data.prompt;
         if (data.script !== undefined) updates.script = data.script || null;
+        if (data.approval_jid !== undefined) updates.approval_jid = data.approval_jid || null;
         if (data.schedule_type !== undefined)
           updates.schedule_type = data.schedule_type as
             | 'cron'

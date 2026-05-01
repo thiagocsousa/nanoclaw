@@ -102,6 +102,7 @@ export interface ContainerInput {
   sessionId?: string;
   groupFolder: string;
   chatJid: string;
+  approvalJid?: string;
   isMain: boolean;
   isScheduledTask?: boolean;
   assistantName?: string;
