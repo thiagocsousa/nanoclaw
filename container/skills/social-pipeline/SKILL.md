@@ -45,6 +45,8 @@ FLAGO_APENAS_ABERTOS=true FLAGO_LIMIT=50 node /workspace/group/scripts/flago.mjs
 
 Filtre os sinais pela zona. Nunca use sinais de outra zona.
 
+**Se a zona filtrar menos de 2 sinais → use `type: "promo"` e `assets: []`.** Não invente dados.
+
 ### Passo 3 — Escrever criativos.json
 
 Leia `diagnostico.json`. Escolha os 5 sinais mais fortes da zona filtrada (mix bullish + bearish). Salve `/workspace/group/criativos.json`:

@@ -80,8 +80,9 @@ FLAGO_APENAS_ABERTOS=true FLAGO_LIMIT=50 node scripts/flago.mjs
 
 3. Read `diagnostico.json`.
 4. Pick the **5 strongest signals** from the filtered list (mix bullish + bearish, spread across indices).
-5. Derive `sessionLabel` from the zone and slot (e.g. "Europe Open", "Asia Early Open", "Americas Mid").
-6. Write `criativos.json`:
+5. **If fewer than 2 signals remain after zone filtering → set `type: "promo"` and `assets: []`.** Do not invent signals.
+6. Derive `sessionLabel` from the zone and slot (e.g. "Europe Open", "Asia Early Open", "Americas Mid").
+7. Write `criativos.json`:
 
 ```json
 {
