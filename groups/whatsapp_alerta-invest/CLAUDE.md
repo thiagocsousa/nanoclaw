@@ -29,8 +29,8 @@ No approval step — publish directly after image generation.
 
 | Slot | UTC | Days | Content |
 |------|-----|------|---------|
-| Early Asia Open | 00:30 | Mon–Fri | Signals |
-| Late Asia Open | 04:00 | Mon–Fri | Signals |
+| Early Asia Open | 01:30 | Mon–Fri | Signals |
+| Late Asia Open | 05:00 | Mon–Fri | Signals |
 | Europe Open | 08:30 | Mon–Fri | Signals |
 | Europe Mid | 11:30 | Mon–Fri | Signals / Promo¹ / News² |
 | Americas Open | 14:00 | Mon–Fri | Signals |
@@ -70,8 +70,8 @@ FLAGO_APENAS_ABERTOS=true FLAGO_LIMIT=50 node scripts/flago.mjs
 
 | UTC | Day | Zone | Allowed indices |
 |-----|-----|------|-----------------|
-| 00:00–03:59 | Mon–Fri | Early Asia | `nikkei225`, `kospi`, `asx200` |
-| 04:00–07:59 | Mon–Fri | Late Asia | `hsi`, `jkse`, `klse`, `set50`, `nsei` |
+| 01:30–04:59 | Mon–Fri | Early Asia | `nikkei225`, `kospi`, `asx200` |
+| 05:00–07:59 | Mon–Fri | Late Asia | `hsi`, `jkse`, `klse`, `set50`, `nsei` |
 | 08:00–13:59 | Mon–Fri | Europe | `ftse100`, `dax`, `cac40`, `aex`, `smi`, `omx`, `ibex35`, `jse` |
 | 14:00–23:59 | Mon–Fri | Americas | `sp500`, `tsx`, `ipc`, `ibov` |
 | any | Sat–Sun | Global | all |

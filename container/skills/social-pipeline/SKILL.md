@@ -37,8 +37,8 @@ FLAGO_APENAS_ABERTOS=true FLAGO_LIMIT=50 node /workspace/group/scripts/flago.mjs
 
 | UTC | Dia | Zona | Índices permitidos |
 |-----|-----|------|--------------------|
-| 00:00–03:59 | Seg–Sex | Early Asia | `nikkei225`, `kospi`, `asx200` |
-| 04:00–07:59 | Seg–Sex | Late Asia | `hsi`, `jkse`, `klse`, `set50`, `nsei` |
+| 01:30–04:59 | Seg–Sex | Early Asia | `nikkei225`, `kospi`, `asx200` |
+| 05:00–07:59 | Seg–Sex | Late Asia | `hsi`, `jkse`, `klse`, `set50`, `nsei` |
 | 08:00–13:59 | Seg–Sex | Europe | `ftse100`, `dax`, `cac40`, `aex`, `smi`, `omx`, `ibex35`, `jse` |
 | 14:00–23:59 | Seg–Sex | Americas | `sp500`, `tsx`, `ipc`, `ibov` |
 | qualquer | Sáb–Dom | Global | todos |
