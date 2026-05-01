@@ -207,36 +207,19 @@ console.log('Run log saved');
 
 ## Notificação via WhatsApp
 
-Monte a mensagem com os resultados reais e escreva IPC para `558681512111@s.whatsapp.net`. URLs com sucesso ficam como link; falhas ficam como ❌ + motivo breve:
+Leia `/workspace/group/tmp/pipeline-last-run.json` e chame `mcp__nanoclaw__send_message` com:
+- `chatJid`: `558681512111@s.whatsapp.net`
+- `text`: mensagem formatada assim:
 
-```bash
-node -e "
-const fs = require('fs');
-const log = JSON.parse(fs.readFileSync('/workspace/group/tmp/pipeline-last-run.json', 'utf8'));
-
-function fmt(label, p) {
-  return p.success ? label + ': ' + p.url : label + ': ❌ ' + (p.error || 'failed');
-}
-
-const lines = [
-  '*Flago — ' + log.sessionLabel + '* ✅',
-  '',
-  '🐦 ' + fmt('X', log.platforms.x),
-  '📸 ' + fmt('Instagram', log.platforms.instagram),
-  '▶️ ' + fmt('YouTube', log.platforms.youtube),
-  '🎵 ' + fmt('TikTok', log.platforms.tiktok),
-  '💼 ' + fmt('LinkedIn', log.platforms.linkedin),
-  '🤖 ' + fmt('Reddit', log.platforms.reddit),
-].join('\n');
-
-fs.mkdirSync('/workspace/ipc/messages', { recursive: true });
-fs.writeFileSync('/workspace/ipc/messages/links-' + Date.now() + '.json', JSON.stringify({
-  type: 'message',
-  chatJid: '558681512111@s.whatsapp.net',
-  text: lines,
-  groupFolder: 'whatsapp_alerta-invest',
-  timestamp: new Date().toISOString()
-}));
-console.log('WhatsApp notification sent');
-"
 ```
+*Flago — <sessionLabel>* ✅
+
+🐦 X: <url ou ❌ motivo>
+📸 Instagram: <url ou ❌ motivo>
+▶️ YouTube: <url ou ❌ motivo>
+🎵 TikTok: <url ou ❌ motivo>
+💼 LinkedIn: <url ou ❌ motivo>
+🤖 Reddit: <url ou ❌ motivo>
+```
+
+Use os dados reais do `pipeline-last-run.json`. Para plataformas com `success: true` use o `url`; para falhas use ❌ + a mensagem de erro resumida.
