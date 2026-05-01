@@ -62,7 +62,7 @@ function buildText() {
       ...lines,
       extra,
       '',
-      `Technical signals across global markets — ${label}.`,
+      `Technical signals across global markets — ${label} · ${new Date().toISOString().slice(0,16).replace('T',' ')} UTC`,
       'Informational signals. No finance advice.',
       'flago.io',
     ].filter(l => l !== undefined && !(l === '' && !extra)).join('\n');
