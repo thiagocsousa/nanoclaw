@@ -55,16 +55,27 @@ function buildText() {
       return `${flag} ${a.ticker} ${dir} · ${ind}`;
     });
     const extra = assets.length > 4 ? `+${assets.length - 4} more signals firing` : '';
-    const label = sessionLabel ? `${sessionLabel} session` : 'right now';
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0, 10); // YYYY-MM-DD — unique per day
+    const timeStr = now.toISOString().slice(0, 16).replace('T', ' ');
+    // Vary the opening line per session to avoid structural pattern detection
+    const OPENERS = [
+      `${sessionLabel} — signals firing:`,
+      `${dateStr} · ${sessionLabel}:`,
+      `${sessionLabel} update:`,
+      `Markets now · ${sessionLabel}:`,
+      `${sessionLabel} signals:`,
+      `Active signals · ${sessionLabel}:`,
+    ];
+    const opener = OPENERS[now.getUTCHours() % OPENERS.length];
     return [
-      'Flago informs:',
+      opener,
       '',
       ...lines,
       extra,
       '',
-      `Technical signals across global markets — ${label} · ${new Date().toISOString().slice(0,16).replace('T',' ')} UTC`,
-      'Informational signals. No finance advice.',
-      'flago.io',
+      `${timeStr} UTC · flago.io`,
+      'Informational signals. No financial advice.',
     ].filter(l => l !== undefined && !(l === '' && !extra)).join('\n');
   }
 
