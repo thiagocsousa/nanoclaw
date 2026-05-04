@@ -438,20 +438,20 @@ const html = `<!DOCTYPE html>
   }
   .signal-row {
     flex: 1; min-height: 0; display: flex; align-items: center;
-    padding: 0 ${px(40)}; gap: ${px(18)};
+    padding: 0 ${px(60)}; gap: ${px(20)};
     border-bottom: 1px solid ${C.border};
   }
   .signal-row:last-child { border-bottom: none; }
 
   /* 5-column table layout — aligns all rows like a terminal */
-  .sr-col { display: flex; align-items: center; flex-shrink: 0; }
+  .sr-col { display: flex; align-items: center; flex-shrink: 0; overflow: hidden; }
 
   /* Col 1: flag + ticker */
-  .sr-col-ticker { gap: ${px(14)}; width: ${px(248)}; }
-  .sr-flag   { font-size: ${px(52)}; line-height: 1; }
+  .sr-col-ticker { gap: ${px(16)}; width: ${px(264)}; }
+  .sr-flag   { font-size: ${px(52)}; line-height: 1; flex-shrink: 0; }
   .sr-ticker {
-    font-size: ${px(56)}; font-weight: 900; letter-spacing: -0.5px;
-    white-space: nowrap;
+    font-size: ${px(52)}; font-weight: 900; letter-spacing: -0.5px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
 
   /* Col 2: company name — takes remaining space */
@@ -462,10 +462,11 @@ const html = `<!DOCTYPE html>
   }
 
   /* Col 3: indicator */
-  .sr-col-indicator { width: ${px(190)}; justify-content: flex-start; }
+  .sr-col-indicator { width: ${px(210)}; justify-content: flex-start; }
   .sr-indicator {
     font-size: ${px(20)}; font-weight: 700; color: ${C.textSec};
     letter-spacing: 0.3px; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; max-width: 100%;
   }
 
   /* Col 4: bullish/bearish chip */
