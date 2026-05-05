@@ -99,6 +99,17 @@ async function post(url, body) {
 
 const results = {};
 
+// ── Page Access Token (required for Facebook Page posts) ─────────────────────
+let PAGE_TOKEN = TOKEN;
+if (FB_PAGE) {
+  try {
+    const pagesRes = await fetch(`${BASE}/me/accounts?access_token=${TOKEN}`);
+    const pages = await pagesRes.json();
+    const page = pages.data?.find(p => p.id === FB_PAGE);
+    if (page?.access_token) PAGE_TOKEN = page.access_token;
+  } catch {}
+}
+
 // ── Instagram feed ───────────────────────────────────────────────────────────
 try {
   const container = await post(`${BASE}/${IG_ID}/media`, {
@@ -116,7 +127,13 @@ try {
   }
 
   const published = await post(`${BASE}/${IG_ID}/media_publish`, { creation_id: container.id });
-  results.instagram = { success: true, postId: published.id, url: `https://www.instagram.com/p/${published.id}/` };
+
+  // Fetch permalink — numeric media ID is not a valid public URL
+  const permalinkRes = await fetch(`${BASE}/${published.id}?fields=permalink&access_token=${TOKEN}`);
+  const permalinkData = await permalinkRes.json();
+  const permalink = permalinkData.permalink || `https://www.instagram.com/p/${published.id}/`;
+
+  results.instagram = { success: true, postId: published.id, url: permalink };
 } catch (err) {
   results.instagram = { success: false, error: err.message };
 }
@@ -124,12 +141,14 @@ try {
 // ── Facebook Page ────────────────────────────────────────────────────────────
 if (FB_PAGE) {
   try {
-    const fb = await post(`${BASE}/${FB_PAGE}/photos`, {
-      url: imageUrl,
-      message: fullCaption,
-      published: true,
-    });
-    results.facebook = { success: true, postId: fb.id, url: `https://facebook.com/${fb.post_id || fb.id}` };
+    const fb = await fetch(`${BASE}/${FB_PAGE}/photos`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: imageUrl, caption: fullCaption, published: true, access_token: PAGE_TOKEN }),
+    }).then(r => r.json());
+    if (fb.error) throw new Error(fb.error.message);
+    const postId = fb.post_id || fb.id;
+    results.facebook = { success: true, postId, url: `https://facebook.com/${postId}` };
   } catch (err) {
     results.facebook = { success: false, error: err.message };
   }
