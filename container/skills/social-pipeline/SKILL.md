@@ -131,11 +131,10 @@ else
 fi
 echo "Meta: $META_OUT"
 
-# Boost Instagram post if published successfully
+# Boost Instagram post — only for Americas Open (10:30 NY / 16:30 Lisbon), $5/day × 1 day
 IG_POST_ID=$(node -e "try{const d=JSON.parse(process.argv[1]);const r=d.results||d;console.log(r.instagram?.postId||'')}catch{console.log('')}" "$META_OUT")
-AD_TARGETS=$(node -e "const c=require('/workspace/group/criativos.json'); console.log(JSON.stringify(c.adTargets||[]))")
-if [ -n "$IG_POST_ID" ]; then
-  BOOST_OUT=$(echo "{\"igMediaId\":\"$IG_POST_ID\",\"geos\":$AD_TARGETS,\"dailyBudgetUsd\":5,\"durationDays\":2}" \
+if [ -n "$IG_POST_ID" ] && echo "$LABEL" | grep -qi "americas open"; then
+  BOOST_OUT=$(echo "{\"igMediaId\":\"$IG_POST_ID\",\"geos\":[\"US\",\"CA\",\"MX\",\"BR\",\"GB\",\"DE\",\"FR\"],\"dailyBudgetUsd\":5,\"durationDays\":1}" \
     | node /workspace/group/scripts/ads/meta.mjs 2>&1) || true
   echo "MetaAds: $BOOST_OUT"
 fi

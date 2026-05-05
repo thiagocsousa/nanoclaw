@@ -21,7 +21,7 @@ const {
   igMediaId,
   geos = ['US', 'GB', 'CA', 'AU', 'BR'],
   dailyBudgetUsd = 5,
-  durationDays = 2,
+  durationDays = 1,
 } = input;
 
 async function postJson(url, body) {
