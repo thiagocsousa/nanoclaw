@@ -189,7 +189,10 @@ async function runTask(
         if (streamedOutput.result) {
           result = streamedOutput.result;
           // Forward result to user (sendMessage handles formatting)
-          await deps.sendMessage(task.approval_jid || task.chat_jid, streamedOutput.result);
+          await deps.sendMessage(
+            task.approval_jid || task.chat_jid,
+            streamedOutput.result,
+          );
           scheduleClose();
         }
         if (streamedOutput.status === 'success') {

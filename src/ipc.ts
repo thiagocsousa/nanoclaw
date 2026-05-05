@@ -400,7 +400,8 @@ export async function processTaskIpc(
         const updates: Parameters<typeof updateTask>[1] = {};
         if (data.prompt !== undefined) updates.prompt = data.prompt;
         if (data.script !== undefined) updates.script = data.script || null;
-        if (data.approval_jid !== undefined) updates.approval_jid = data.approval_jid || null;
+        if (data.approval_jid !== undefined)
+          updates.approval_jid = data.approval_jid || null;
         if (data.schedule_type !== undefined)
           updates.schedule_type = data.schedule_type as
             | 'cron'

@@ -131,6 +131,15 @@ else
 fi
 echo "Meta: $META_OUT"
 
+# Boost Instagram post if published successfully
+IG_POST_ID=$(node -e "try{const d=JSON.parse(process.argv[1]);const r=d.results||d;console.log(r.instagram?.postId||'')}catch{console.log('')}" "$META_OUT")
+AD_TARGETS=$(node -e "const c=require('/workspace/group/criativos.json'); console.log(JSON.stringify(c.adTargets||[]))")
+if [ -n "$IG_POST_ID" ]; then
+  BOOST_OUT=$(echo "{\"igMediaId\":\"$IG_POST_ID\",\"geos\":$AD_TARGETS,\"dailyBudgetUsd\":5,\"durationDays\":2}" \
+    | node /workspace/group/scripts/ads/meta.mjs 2>&1) || true
+  echo "MetaAds: $BOOST_OUT"
+fi
+
 # TikTok
 TT_OUT=$(echo "{\"videoPath\":\"/workspace/group/tmp/images/creative-video-$TS.mp4\",\"assets\":$ASSETS,\"sessionLabel\":\"$LABEL\",\"type\":\"$TYPE\"}" \
   | node /workspace/group/scripts/publish/tiktok.mjs 2>&1) || true
