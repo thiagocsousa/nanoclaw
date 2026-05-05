@@ -119,9 +119,16 @@ X_OUT=$(echo "{\"assets\":$ASSETS,\"sessionLabel\":\"$LABEL\",\"type\":\"$TYPE\"
   | node /workspace/group/scripts/publish/x.mjs 2>&1) || true
 echo "X: $X_OUT"
 
-# Instagram + Facebook
-META_OUT=$(echo "{\"squarePath\":\"/workspace/group/tmp/images/creative-square-$TS.png\",\"assets\":$ASSETS,\"sessionLabel\":\"$LABEL\",\"type\":\"$TYPE\"}" \
-  | node /workspace/group/scripts/publish/meta.mjs 2>&1) || true
+# Instagram + Facebook — upload to Cloudinary first to get public URL
+UPLOAD_OUT=$(echo "{\"imagePath\":\"/workspace/group/tmp/images/creative-square-$TS.png\"}" \
+  | node /workspace/group/scripts/upload-image.mjs 2>&1) || true
+IMAGE_URL=$(node -e "try{const d=JSON.parse(process.argv[1]);console.log(d.url||'')}catch{console.log('')}" "$UPLOAD_OUT")
+if [ -n "$IMAGE_URL" ]; then
+  META_OUT=$(echo "{\"imageUrl\":\"$IMAGE_URL\",\"assets\":$ASSETS,\"sessionLabel\":\"$LABEL\",\"type\":\"$TYPE\"}" \
+    | node /workspace/group/scripts/publish/meta.mjs 2>&1) || true
+else
+  META_OUT="{\"success\":false,\"error\":\"Cloudinary upload failed: $UPLOAD_OUT\"}"
+fi
 echo "Meta: $META_OUT"
 
 # TikTok
