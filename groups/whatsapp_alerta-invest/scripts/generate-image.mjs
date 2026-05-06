@@ -677,6 +677,19 @@ const html = `<!DOCTYPE html>
   .fmt-story .footer-left { font-size: ${px(22)}; }
   .fmt-story .footer-disclaimer { font-size: ${px(20)}; }
   .fmt-story .footer-right { font-size: ${px(28)}; }
+
+  /* ── Story — scale up signal row content to fill tall canvas ── */
+  .fmt-story .signal-row { padding: 0 ${px(64)}; gap: ${px(16)}; }
+  .fmt-story .sr-col-ticker { width: ${px(288)}; gap: ${px(16)}; }
+  .fmt-story .sr-flag { font-size: ${px(64)}; }
+  .fmt-story .sr-ticker { font-size: ${px(58)}; }
+  .fmt-story .sr-col-indicator { width: ${px(180)}; }
+  .fmt-story .sr-indicator { font-size: ${px(26)}; }
+  .fmt-story .sr-col-chip { width: ${px(165)}; }
+  .fmt-story .sr-chip { font-size: ${px(22)}; padding: ${px(10)} ${px(18)}; }
+  .fmt-story .sr-col-price { width: ${px(231)}; }
+  .fmt-story .sr-currency { font-size: ${px(22)}; }
+  .fmt-story .sr-price { font-size: ${px(54)}; }
 </style>
 </head>
 <body class="fmt-${format}">
