@@ -118,8 +118,11 @@ const CURRENCY = {
 };
 function priceStr(preco, indice) {
   if (!preco || preco === 0) return { sym: '', num: '—' };
-  const sym = CURRENCY[indice?.toLowerCase()] || '$';
-  const num = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(preco);
+  const sym = CURRENCY[indice?.toLowerCase()] || '';
+  const abs = Math.abs(preco);
+  const num = abs >= 10000
+    ? new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(preco)
+    : new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(preco);
   return { sym, num };
 }
 function tickerColor(tipo) {
@@ -153,9 +156,6 @@ const signalRows = displayAssets.map((a, i) => {
       <span class="sr-flag">${flag}</span>
       <span class="sr-ticker" style="color:${tColor}">${esc(a.ticker)}</span>
     </div>
-    ${format !== 'story' ? `<div class="sr-col sr-col-name">
-      <span class="sr-name">${esc(a.nome || '')}</span>
-    </div>` : ''}
     <div class="sr-col sr-col-indicator">
       <span class="sr-indicator">${esc((a.indicador || '').toUpperCase())}</span>
     </div>
@@ -447,43 +447,36 @@ const html = `<!DOCTYPE html>
   .sr-col { display: flex; align-items: center; flex-shrink: 0; overflow: hidden; }
 
   /* Col 1: flag + ticker */
-  .sr-col-ticker { gap: ${px(16)}; width: ${px(264)}; }
+  .sr-col-ticker { gap: ${px(16)}; width: ${px(260)}; }
   .sr-flag   { font-size: ${px(52)}; line-height: 1; flex-shrink: 0; }
   .sr-ticker {
     font-size: ${px(52)}; font-weight: 900; letter-spacing: -0.5px;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
 
-  /* Col 2: company name — takes remaining space */
-  .sr-col-name { flex: 1; min-width: 0; padding-right: ${px(12)}; }
-  .sr-name {
-    font-size: ${px(22)}; font-weight: 600; color: ${C.textMuted};
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-
-  /* Col 3: indicator */
-  .sr-col-indicator { width: ${px(210)}; justify-content: flex-start; }
+  /* Col 2: indicator */
+  .sr-col-indicator { width: ${px(200)}; justify-content: flex-start; }
   .sr-indicator {
-    font-size: ${px(20)}; font-weight: 700; color: ${C.textSec};
+    font-size: ${px(22)}; font-weight: 700; color: ${C.textSec};
     letter-spacing: 0.3px; white-space: nowrap;
     overflow: hidden; text-overflow: ellipsis; max-width: 100%;
   }
 
-  /* Col 4: bullish/bearish chip */
-  .sr-col-chip { width: ${px(170)}; justify-content: center; }
+  /* Col 3: bullish/bearish chip */
+  .sr-col-chip { width: ${px(185)}; justify-content: center; }
   .sr-chip {
-    font-size: ${px(18)}; font-weight: 800; letter-spacing: 1px;
-    border-radius: 20px; padding: ${px(8)} ${px(18)};
+    font-size: ${px(20)}; font-weight: 800; letter-spacing: 1px;
+    border-radius: 20px; padding: ${px(9)} ${px(20)};
     text-transform: uppercase; white-space: nowrap; display: inline-block;
   }
 
-  /* Col 5: price — right-aligned, currency symbol smaller than number */
-  .sr-col-price { width: ${px(210)}; justify-content: flex-end; align-items: baseline; gap: ${px(2)}; }
+  /* Col 4: price — fixed width, right-aligned */
+  .sr-col-price { width: ${px(255)}; justify-content: flex-end; align-items: baseline; gap: ${px(3)}; }
   .sr-currency {
-    font-size: ${px(26)}; font-weight: 800; letter-spacing: -0.3px; line-height: 1;
+    font-size: ${px(22)}; font-weight: 800; letter-spacing: -0.3px; line-height: 1;
   }
   .sr-price {
-    font-size: ${px(46)}; font-weight: 900; letter-spacing: -0.5px; line-height: 1;
+    font-size: ${px(44)}; font-weight: 900; letter-spacing: -0.5px; line-height: 1;
   }
 
   /* ── Promo layout ── */
