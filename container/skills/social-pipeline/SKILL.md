@@ -222,19 +222,45 @@ console.log('Run log saved');
 
 ## Notificação via WhatsApp
 
-Leia `/workspace/group/tmp/pipeline-last-run.json` e chame `mcp__nanoclaw__send_message` com:
-- `chatJid`: `558681512111@s.whatsapp.net`
-- `text`: mensagem formatada assim:
+Após salvar o run log, escreva o arquivo IPC de notificação diretamente via bash:
 
+```bash
+node -e "
+const fs = require('fs');
+function parse(raw, key) {
+  try {
+    const j = JSON.parse((raw||'').trim().split('\n').filter(l => l.startsWith('{')).pop() || raw);
+    const r = key ? (j.results?.[key] || j) : j;
+    return { success: r.success === true, url: r.url || null, error: r.error || null };
+  } catch { return { success: false, url: null, error: null }; }
+}
+const p = {
+  x:         parse(process.env.X_OUT),
+  instagram: parse(process.env.META_OUT, 'instagram'),
+  youtube:   parse(process.env.YT_OUT),
+  tiktok:    parse(process.env.TT_OUT),
+  linkedin:  parse(process.env.LI_OUT),
+  reddit:    parse(process.env.RD_OUT),
+};
+const label = process.env.LABEL || 'Pipeline';
+const line = (e, n, r) => r.success ? \`\${e} \${n}: \${r.url||'ok'}\` : \`\${e} \${n}: ❌ \${(r.error||'').slice(0,60)}\`;
+const text = [
+  \`*Flago — \${label}* ✅\`, '',
+  line('🐦','X',p.x),
+  line('📸','Instagram',p.instagram),
+  line('▶️','YouTube',p.youtube),
+  line('🎵','TikTok',p.tiktok),
+  line('💼','LinkedIn',p.linkedin),
+  line('🤖','Reddit',p.reddit),
+].join('\n');
+fs.mkdirSync('/workspace/ipc/messages', { recursive: true });
+fs.writeFileSync('/workspace/ipc/messages/notify-' + Date.now() + '.json', JSON.stringify({
+  type: 'message',
+  chatJid: '558681512111@s.whatsapp.net',
+  groupFolder: 'whatsapp_alerta-invest',
+  text,
+  timestamp: new Date().toISOString(),
+}));
+console.log('Notification queued');
+" X_OUT="$X_OUT" META_OUT="$META_OUT" YT_OUT="$YT_OUT" TT_OUT="$TT_OUT" LI_OUT="$LI_OUT" RD_OUT="$RD_OUT" LABEL="$LABEL"
 ```
-*Flago — <sessionLabel>* ✅
-
-🐦 X: <url ou ❌ motivo>
-📸 Instagram: <url ou ❌ motivo>
-▶️ YouTube: <url ou ❌ motivo>
-🎵 TikTok: <url ou ❌ motivo>
-💼 LinkedIn: <url ou ❌ motivo>
-🤖 Reddit: <url ou ❌ motivo>
-```
-
-Use os dados reais do `pipeline-last-run.json`. Para plataformas com `success: true` use o `url`; para falhas use ❌ + a mensagem de erro resumida.
