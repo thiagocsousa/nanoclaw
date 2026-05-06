@@ -387,48 +387,48 @@ const html = `<!DOCTYPE html>
   .topbar {
     background: #FFFFFF;
     display: flex; align-items: center; justify-content: space-between;
-    padding: ${px(26)} ${px(52)} ${px(22)};
+    padding: ${px(28)} ${px(52)} ${px(24)};
     border-bottom: 2px solid ${C.border};
     flex-shrink: 0;
   }
-  /* Left: icon + "Flago" — matches Flutter FlagoAppBar (w800, 26px) */
-  .brand { display: flex; align-items: center; gap: ${px(10)}; }
-  .brand-icon { width: ${px(44)}; height: ${px(44)}; object-fit: contain; }
+  /* Left: icon + "Flago" */
+  .brand { display: flex; align-items: center; gap: ${px(14)}; }
+  .brand-icon { width: ${px(60)}; height: ${px(60)}; object-fit: contain; }
   .brand-name {
-    font-size: ${px(26)}; font-weight: 800;
+    font-size: ${px(48)}; font-weight: 800;
     color: ${C.textPrimary}; letter-spacing: 0.5px;
   }
-  /* Center: slogan — between brand-name and session info */
+  /* Center: slogan */
   .brand-slogan {
-    font-size: ${px(11)}; font-weight: 700;
+    font-size: ${px(18)}; font-weight: 700;
     color: ${C.textMuted}; letter-spacing: 1.8px; text-transform: uppercase;
   }
   /* Right: session badge + capture time stacked */
-  .session-info { display: flex; flex-direction: column; align-items: flex-end; gap: ${px(4)}; }
+  .session-info { display: flex; flex-direction: column; align-items: flex-end; gap: ${px(6)}; }
   .session-badge {
-    font-size: ${px(13)}; font-weight: 700; letter-spacing: 0.5px;
+    font-size: ${px(22)}; font-weight: 700; letter-spacing: 0.5px;
     color: ${C.textSec}; text-transform: uppercase;
-    border: 1.5px solid ${C.border}; border-radius: 20px; padding: ${px(7)} ${px(18)};
+    border: 1.5px solid ${C.border}; border-radius: 20px; padding: ${px(9)} ${px(22)};
   }
   .capture-time {
-    font-size: ${px(10)}; font-weight: 600;
+    font-size: ${px(16)}; font-weight: 600;
     color: ${C.textMuted}; letter-spacing: 0.3px;
   }
 
   /* ── Signal list layout ── */
   .sl-header {
-    padding: ${px(10)} ${px(36)};
-    display: flex; align-items: center; gap: ${px(10)};
+    padding: ${px(14)} ${px(52)};
+    display: flex; align-items: center; gap: ${px(12)};
     border-bottom: 2px solid ${C.border};
     flex-shrink: 0;
   }
   .sl-count {
-    font-size: ${px(14)}; font-weight: 800; color: ${C.primary};
+    font-size: ${px(22)}; font-weight: 800; color: ${C.primary};
     letter-spacing: 1.5px; text-transform: uppercase;
   }
-  .sl-dot { color: ${C.border}; font-size: ${px(17)}; }
+  .sl-dot { color: ${C.border}; font-size: ${px(22)}; }
   .sl-label {
-    font-size: ${px(14)}; font-weight: 700; color: ${C.textMuted};
+    font-size: ${px(22)}; font-weight: 700; color: ${C.textMuted};
     letter-spacing: 0.8px; text-transform: uppercase;
   }
 
@@ -656,13 +656,13 @@ const html = `<!DOCTYPE html>
 
   /* ── Footer ── */
   .footer {
-    padding: ${px(12)} ${px(52)} ${px(22)};
+    padding: ${px(14)} ${px(52)} ${px(24)};
     display: flex; align-items: center; justify-content: space-between;
     flex-shrink: 0;
   }
-  .footer-left { font-size: ${px(11)}; font-weight: 600; color: ${C.textMuted}; }
-  .footer-disclaimer { font-size: ${px(10)}; font-weight: 600; color: ${C.textMuted}; letter-spacing: 0.2px; }
-  .footer-right { font-size: ${px(13)}; font-weight: 800; color: ${C.primary}; letter-spacing: 0.5px; }
+  .footer-left { font-size: ${px(18)}; font-weight: 600; color: ${C.textMuted}; }
+  .footer-disclaimer { font-size: ${px(16)}; font-weight: 600; color: ${C.textMuted}; letter-spacing: 0.2px; }
+  .footer-right { font-size: ${px(22)}; font-weight: 800; color: ${C.primary}; letter-spacing: 0.5px; }
 
   /* ── Landscape compactness — reduce chrome to give rows more vertical room ── */
   .fmt-landscape .topbar { padding-top: ${px(18)}; padding-bottom: ${px(14)}; }
@@ -670,19 +670,20 @@ const html = `<!DOCTYPE html>
   .fmt-landscape .footer { padding-top: ${px(8)}; padding-bottom: ${px(12)}; }
 
   /* ── Story — larger header + footer for 1920px canvas ── */
-  .fmt-story .topbar { padding: ${px(40)} ${px(52)} ${px(36)}; }
-  .fmt-story .brand-icon { width: ${px(60)}; height: ${px(60)}; }
-  .fmt-story .brand-name { font-size: ${px(36)}; }
-  .fmt-story .brand-slogan { font-size: ${px(15)}; letter-spacing: 2px; }
-  .fmt-story .session-badge { font-size: ${px(18)}; padding: ${px(10)} ${px(22)}; }
-  .fmt-story .capture-time { font-size: ${px(13)}; }
-  .fmt-story .sl-header { padding: ${px(16)} ${px(36)}; }
-  .fmt-story .sl-count { font-size: ${px(18)}; }
-  .fmt-story .sl-label { font-size: ${px(18)}; }
-  .fmt-story .footer { padding: ${px(24)} ${px(52)} ${px(40)}; }
-  .fmt-story .footer-left { font-size: ${px(16)}; }
-  .fmt-story .footer-disclaimer { font-size: ${px(15)}; }
-  .fmt-story .footer-right { font-size: ${px(22)}; }
+  .fmt-story .topbar { padding: ${px(44)} ${px(56)} ${px(40)}; }
+  .fmt-story .brand-icon { width: ${px(72)}; height: ${px(72)}; }
+  .fmt-story .brand-name { font-size: ${px(60)}; }
+  .fmt-story .brand-slogan { font-size: ${px(22)}; letter-spacing: 2px; }
+  .fmt-story .session-badge { font-size: ${px(28)}; padding: ${px(12)} ${px(28)}; }
+  .fmt-story .capture-time { font-size: ${px(18)}; }
+  .fmt-story .sl-header { padding: ${px(18)} ${px(56)}; }
+  .fmt-story .sl-count { font-size: ${px(28)}; }
+  .fmt-story .sl-dot { font-size: ${px(28)}; }
+  .fmt-story .sl-label { font-size: ${px(28)}; }
+  .fmt-story .footer { padding: ${px(28)} ${px(56)} ${px(44)}; }
+  .fmt-story .footer-left { font-size: ${px(22)}; }
+  .fmt-story .footer-disclaimer { font-size: ${px(20)}; }
+  .fmt-story .footer-right { font-size: ${px(28)}; }
 </style>
 </head>
 <body class="fmt-${format}">
