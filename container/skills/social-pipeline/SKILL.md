@@ -243,24 +243,41 @@ const p = {
   reddit:    parse(process.env.RD_OUT),
 };
 const label = process.env.LABEL || 'Pipeline';
+const type  = process.env.TYPE  || 'signal';
+
+// Content line — signals, promo or news
+let contentLine = '';
+try {
+  const assets = JSON.parse(process.env.ASSETS || '[]');
+  if (type === 'signal' && assets.length) {
+    contentLine = assets.map(a => \`\${a.ticker} \${a.tipo === 'bullish' ? '▲' : '▼'}\`).join(' · ');
+  } else if (type === 'promo') {
+    contentLine = '📣 Promo';
+  } else if (type === 'news') {
+    contentLine = '📰 News';
+  }
+} catch {}
+
 const line = (e, n, r) => r.success ? \`\${e} \${n}: \${r.url||'ok'}\` : \`\${e} \${n}: ❌ \${(r.error||'').slice(0,60)}\`;
-const text = [
-  \`*Flago — \${label}* ✅\`, '',
+const parts = [\`*Flago — \${label}* ✅\`];
+if (contentLine) parts.push('', contentLine);
+parts.push(
+  '',
   line('🐦','X',p.x),
   line('📸','Instagram',p.instagram),
   line('▶️','YouTube',p.youtube),
   line('🎵','TikTok',p.tiktok),
   line('💼','LinkedIn',p.linkedin),
   line('🤖','Reddit',p.reddit),
-].join('\n');
+);
 fs.mkdirSync('/workspace/ipc/messages', { recursive: true });
 fs.writeFileSync('/workspace/ipc/messages/notify-' + Date.now() + '.json', JSON.stringify({
   type: 'message',
   chatJid: '558681512111@s.whatsapp.net',
   groupFolder: 'whatsapp_alerta-invest',
-  text,
+  text: parts.join('\n'),
   timestamp: new Date().toISOString(),
 }));
 console.log('Notification queued');
-" X_OUT="$X_OUT" META_OUT="$META_OUT" YT_OUT="$YT_OUT" TT_OUT="$TT_OUT" LI_OUT="$LI_OUT" RD_OUT="$RD_OUT" LABEL="$LABEL"
+" X_OUT="$X_OUT" META_OUT="$META_OUT" YT_OUT="$YT_OUT" TT_OUT="$TT_OUT" LI_OUT="$LI_OUT" RD_OUT="$RD_OUT" LABEL="$LABEL" TYPE="$TYPE" ASSETS="$ASSETS"
 ```

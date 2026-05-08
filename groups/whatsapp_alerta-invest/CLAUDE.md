@@ -196,22 +196,9 @@ echo "{\"items\":[...from criativos.json items...],\"session_label\":\"<sessionL
   | FLAGO_AGENT_API_KEY=$FLAGO_AGENT_API_KEY node scripts/publish/email_news.mjs
 ```
 
-### Send links via WhatsApp
+### Notificação WhatsApp
 
-After all platforms, send to `558681512111@s.whatsapp.net`:
-
-```
-*Flago — <sessionLabel>* ✅
-
-🐦 X: <url>
-📸 Instagram: <url>
-▶️ YouTube: <url>
-🎵 TikTok: <url>
-💼 LinkedIn: <url>
-🤖 Reddit: <url>
-```
-
-Failed platforms: list with ❌ and brief reason. Continue even with partial failures.
+A notificação é enviada automaticamente via script bash no SKILL.md após o run log ser salvo. **Não envie mensagem WhatsApp manualmente** — o script já faz isso.
 
 ## Token Expiry — YouTube Re-authorization
 
