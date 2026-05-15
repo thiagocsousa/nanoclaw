@@ -58,10 +58,12 @@ export function startIpcWatcher(deps: IpcDeps): void {
 
     const registeredGroups = deps.registeredGroups();
 
-    // Build folder→isMain lookup from registered groups
+    // Build folder→isMain lookup and registered-folder set from registered groups
     const folderIsMain = new Map<string, boolean>();
+    const registeredFolders = new Set<string>();
     for (const group of Object.values(registeredGroups)) {
       if (group.isMain) folderIsMain.set(group.folder, true);
+      registeredFolders.add(group.folder);
     }
 
     for (const sourceGroup of groupFolders) {
@@ -85,7 +87,8 @@ export function startIpcWatcher(deps: IpcDeps): void {
                 if (
                   isMain ||
                   targetGroup?.isMain === true ||
-                  (targetGroup && targetGroup.folder === sourceGroup)
+                  (targetGroup && targetGroup.folder === sourceGroup) ||
+                  (registeredFolders.has(sourceGroup) && (data.chatJid as string).endsWith('@s.whatsapp.net'))
                 ) {
                   await deps.sendMessage(data.chatJid, data.text);
                   logger.info(
@@ -107,7 +110,8 @@ export function startIpcWatcher(deps: IpcDeps): void {
                 if (
                   isMain ||
                   targetGroup?.isMain === true ||
-                  (targetGroup && targetGroup.folder === sourceGroup)
+                  (targetGroup && targetGroup.folder === sourceGroup) ||
+                  (registeredFolders.has(sourceGroup) && (data.chatJid as string).endsWith('@s.whatsapp.net'))
                 ) {
                   // Resolve container path /workspace/group/... → host path
                   const hostPath = (data.imagePath as string).startsWith(
