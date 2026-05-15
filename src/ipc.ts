@@ -11,7 +11,7 @@ import { logger } from './logger.js';
 import { RegisteredGroup } from './types.js';
 
 export interface IpcDeps {
-  sendMessage: (jid: string, text: string) => Promise<void>;
+  sendMessage: (jid: string, text: string, groupFolder?: string) => Promise<void>;
   sendImage: (
     jid: string,
     imagePath: string,
@@ -88,9 +88,14 @@ export function startIpcWatcher(deps: IpcDeps): void {
                   isMain ||
                   targetGroup?.isMain === true ||
                   (targetGroup && targetGroup.folder === sourceGroup) ||
-                  (registeredFolders.has(sourceGroup) && (data.chatJid as string).endsWith('@s.whatsapp.net'))
+                  (registeredFolders.has(sourceGroup) &&
+                    (data.chatJid as string).endsWith('@s.whatsapp.net'))
                 ) {
-                  await deps.sendMessage(data.chatJid, data.text);
+                  await deps.sendMessage(
+                    data.chatJid,
+                    data.text,
+                    data.groupFolder as string | undefined,
+                  );
                   logger.info(
                     { chatJid: data.chatJid, sourceGroup },
                     'IPC message sent',
@@ -111,7 +116,8 @@ export function startIpcWatcher(deps: IpcDeps): void {
                   isMain ||
                   targetGroup?.isMain === true ||
                   (targetGroup && targetGroup.folder === sourceGroup) ||
-                  (registeredFolders.has(sourceGroup) && (data.chatJid as string).endsWith('@s.whatsapp.net'))
+                  (registeredFolders.has(sourceGroup) &&
+                    (data.chatJid as string).endsWith('@s.whatsapp.net'))
                 ) {
                   // Resolve container path /workspace/group/... → host path
                   const hostPath = (data.imagePath as string).startsWith(

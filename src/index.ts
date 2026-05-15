@@ -49,7 +49,14 @@ import {
 import { GroupQueue } from './group-queue.js';
 import { resolveGroupFolderPath } from './group-folder.js';
 import { startIpcWatcher } from './ipc.js';
-import { findChannel, formatMessages, formatOutbound } from './router.js';
+import {
+  findChannel,
+  findChannelForGroup,
+  formatMessages,
+  formatOutbound,
+} from './router.js';
+import { WhatsAppChannel } from './channels/whatsapp.js';
+import { readEnvFile } from './env.js';
 import {
   restoreRemoteControl,
   startRemoteControl,
@@ -672,6 +679,23 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
+  // Optional second WhatsApp instance for sending from the atendimento number
+  const atendimentoEnv = readEnvFile(['WHATSAPP_ATENDIMENTO_PAIRING_NUMBER']);
+  const atendimentoPairingNumber =
+    process.env.WHATSAPP_ATENDIMENTO_PAIRING_NUMBER ||
+    atendimentoEnv.WHATSAPP_ATENDIMENTO_PAIRING_NUMBER;
+  if (atendimentoPairingNumber) {
+    const atendimentoChannel = new WhatsAppChannel({
+      ...channelOpts,
+      authSubDir: 'auth-atendimento',
+      pairingNumber: atendimentoPairingNumber,
+      groupFolderOwner: 'whatsapp_atendimento-dra-marina',
+    });
+    channels.push(atendimentoChannel);
+    await atendimentoChannel.connect();
+    logger.info('Atendimento WhatsApp channel connected');
+  }
+
   // Start subsystems (independently of connection handler)
   startSchedulerLoop({
     registeredGroups: () => registeredGroups,
@@ -690,8 +714,10 @@ async function main(): Promise<void> {
     },
   });
   startIpcWatcher({
-    sendMessage: (jid, text) => {
-      const channel = findChannel(channels, jid);
+    sendMessage: (jid, text, groupFolder) => {
+      const channel =
+        (groupFolder && findChannelForGroup(channels, groupFolder)) ||
+        findChannel(channels, jid);
       if (!channel) throw new Error(`No channel for JID: ${jid}`);
       return channel.sendMessage(jid, text);
     },

@@ -57,3 +57,10 @@ export function findChannel(
 ): Channel | undefined {
   return channels.find((c) => c.ownsJid(jid));
 }
+
+export function findChannelForGroup(
+  channels: Channel[],
+  folder: string,
+): Channel | undefined {
+  return channels.find((c) => c.ownsGroup?.(folder));
+}

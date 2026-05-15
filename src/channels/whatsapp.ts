@@ -52,10 +52,14 @@ export interface WhatsAppChannelOpts {
   onMessage: OnInboundMessage;
   onChatMetadata: OnChatMetadata;
   registeredGroups: () => Record<string, RegisteredGroup>;
+  // Per-instance overrides (used for secondary connections)
+  authSubDir?: string;       // auth dir under STORE_DIR, defaults to 'auth'
+  pairingNumber?: string;    // phone number for pairing, defaults to PAIRING_NUMBER
+  groupFolderOwner?: string; // when set, this instance is outbound-only for this group folder
 }
 
 export class WhatsAppChannel implements Channel {
-  name = 'whatsapp';
+  name: string;
 
   private sock!: WASocket;
   private connected = false;
@@ -68,6 +72,9 @@ export class WhatsAppChannel implements Channel {
 
   constructor(opts: WhatsAppChannelOpts) {
     this.opts = opts;
+    this.name = opts.groupFolderOwner
+      ? `whatsapp:${opts.groupFolderOwner}`
+      : 'whatsapp';
   }
 
   async connect(): Promise<void> {
@@ -77,7 +84,9 @@ export class WhatsAppChannel implements Channel {
   }
 
   private async connectInternal(onFirstOpen?: () => void): Promise<void> {
-    const authDir = path.join(STORE_DIR, 'auth');
+    const authSubDir = this.opts.authSubDir ?? 'auth';
+    const pairingNumber = this.opts.pairingNumber ?? PAIRING_NUMBER;
+    const authDir = path.join(STORE_DIR, authSubDir);
     fs.mkdirSync(authDir, { recursive: true });
 
     const { state, saveCreds } = await useMultiFileAuthState(authDir);
@@ -104,10 +113,10 @@ export class WhatsAppChannel implements Channel {
       const { connection, lastDisconnect, qr } = update;
 
       if (qr) {
-        if (PAIRING_NUMBER) {
+        if (pairingNumber) {
           // Pairing code mode — request code instead of showing QR
           this.sock
-            .requestPairingCode(PAIRING_NUMBER.replace(/\D/g, ''))
+            .requestPairingCode(pairingNumber.replace(/\D/g, ''))
             .then((code) => {
               logger.info(
                 `WhatsApp pairing code: ${code} — enter this on your phone`,
@@ -317,9 +326,10 @@ export class WhatsAppChannel implements Channel {
   }
 
   async sendMessage(jid: string, text: string): Promise<void> {
-    const prefixed = ASSISTANT_HAS_OWN_NUMBER
-      ? text
-      : `${ASSISTANT_NAME}: ${text}`;
+    const prefixed =
+      this.opts.groupFolderOwner || ASSISTANT_HAS_OWN_NUMBER
+        ? text
+        : `${ASSISTANT_NAME}: ${text}`;
 
     if (!this.connected) {
       this.outgoingQueue.push({ jid, text: prefixed });
@@ -346,7 +356,13 @@ export class WhatsAppChannel implements Channel {
   }
 
   ownsJid(jid: string): boolean {
+    // Secondary instances (groupFolderOwner set) are outbound-only — don't claim inbound JIDs
+    if (this.opts.groupFolderOwner) return false;
     return jid.endsWith('@g.us') || jid.endsWith('@s.whatsapp.net');
+  }
+
+  ownsGroup(folder: string): boolean {
+    return this.opts.groupFolderOwner === folder;
   }
 
   async disconnect(): Promise<void> {
