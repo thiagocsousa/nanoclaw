@@ -53,8 +53,8 @@ export interface WhatsAppChannelOpts {
   onChatMetadata: OnChatMetadata;
   registeredGroups: () => Record<string, RegisteredGroup>;
   // Per-instance overrides (used for secondary connections)
-  authSubDir?: string;       // auth dir under STORE_DIR, defaults to 'auth'
-  pairingNumber?: string;    // phone number for pairing, defaults to PAIRING_NUMBER
+  authSubDir?: string; // auth dir under STORE_DIR, defaults to 'auth'
+  pairingNumber?: string; // phone number for pairing, defaults to PAIRING_NUMBER
   groupFolderOwner?: string; // when set, this instance is outbound-only for this group folder
 }
 
@@ -208,6 +208,7 @@ export class WhatsAppChannel implements Channel {
     this.sock.ev.on('creds.update', saveCreds);
 
     this.sock.ev.on('messages.upsert', async ({ messages }) => {
+      if (this.opts.groupFolderOwner) return; // outbound-only instance — never process inbound
       for (const msg of messages) {
         try {
           if (!msg.message) continue;
