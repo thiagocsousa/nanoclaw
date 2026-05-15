@@ -4,7 +4,7 @@
 FROM node:22-slim
 
 # Install system dependencies for Chromium
-RUN apt-get update && apt-get install -y \
+RUN apt-get -o Acquire::Check-Valid-Until=false -o Acquire::Check-Date=false update && apt-get install -y \
     chromium \
     fonts-liberation \
     fonts-noto-cjk \
@@ -27,7 +27,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install ffmpeg separately to avoid OOM during combined apt layer
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
+RUN apt-get -o Acquire::Check-Valid-Until=false -o Acquire::Check-Date=false update && apt-get install -y --no-install-recommends ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 # Set Chromium path for agent-browser
