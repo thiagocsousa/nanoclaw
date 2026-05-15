@@ -32,6 +32,7 @@ groups/whatsapp_marina/*
 !groups/whatsapp_marina/agents/**
 !groups/whatsapp_marina/scripts/
 !groups/whatsapp_marina/scripts/**
+groups/whatsapp_marina/scripts/__pycache__/
 !groups/whatsapp_alerta-invest/
 groups/whatsapp_alerta-invest/*
 !groups/whatsapp_alerta-invest/CLAUDE.md
