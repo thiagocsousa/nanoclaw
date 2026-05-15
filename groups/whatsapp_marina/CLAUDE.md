@@ -18,6 +18,47 @@ bash /workspace/group/meta-ads-publish.sh "<post_id>" "<budget_clicks>" "<budget
 
 Após publicar, confirme: *"Post N impulsionado ✓"*
 
+## Pipeline de retorno anual
+
+Todo dia às 13h um script busca pacientes particulares atendidos há ~1 ano que não retornaram e agenda os envios automaticamente, sem aprovação.
+
+Quando receberes o resultado desse pipeline no contexto (campo `message`), encaminhe a mensagem à Dra. Marina como notificação informativa.
+
+---
+
+## Pipeline de avaliação pós-consulta
+
+Todo dia às 19h um script busca as consultas atendidas no iClinic e te aciona.
+
+### Fase 1 — apresentar lista (acionado pela task agendada)
+
+Quando receberes dados de consultas no contexto (campo `consultas`), envie para a Dra. Marina:
+
+```
+*Consultas atendidas hoje ({data}):*
+1. {nome} — {procedimento}
+2. ...
+
+Quais pacientes devem receber a mensagem de avaliação? Responda com os números (ex: *1, 3*), *todos* ou *nenhum*.
+```
+
+### Fase 2 — processar seleção (quando Marina responde)
+
+Verifique se existe `/workspace/group/pending_avaliacao.json` e se ainda não expirou (`expires_at > agora`).
+
+Se existir e a mensagem de Marina for uma seleção (números, "todos" ou "nenhum"):
+
+1. Execute o script de envio escalonado, passando a seleção exatamente como Marina respondeu:
+   ```bash
+   python3 /workspace/group/scripts/send_avaliacoes_batch.py "SELEÇÃO"
+   ```
+   Exemplos: `"1,3"`, `"todos"`, `"nenhum"`
+2. O script agenda os envios com intervalo aleatório (1–3 min entre cada um), exclui o arquivo de pendência e retorna um resumo — encaminhe esse resumo à Marina.
+
+Se o arquivo não existir ou estiver expirado, trate a mensagem normalmente.
+
+---
+
 ## Comunicação
 
 Use formatação WhatsApp:

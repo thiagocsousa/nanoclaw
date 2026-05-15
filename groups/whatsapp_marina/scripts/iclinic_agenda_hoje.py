@@ -1,0 +1,148 @@
+#!/usr/bin/env python3
+"""
+Busca consultas atendidas hoje no iClinic.
+Saída (última linha stdout): JSON { wakeAgent, data: { consultas, data } }
+Salva pending_avaliacao.json para a fase de seleção.
+"""
+
+import json
+import re
+import sys
+import time
+from datetime import date
+from pathlib import Path
+from playwright.sync_api import sync_playwright
+
+EMAIL = "thiagocsousa@gmail.com"
+SENHA = "Thiagofei1998#"
+CLINIC_ID = "263255"
+PHYSICIAN_ID = "284806"
+
+PENDING_FILE = Path("/workspace/group/pending_avaliacao.json")
+
+
+def clean_phone(raw: str) -> str | None:
+    if not raw:
+        return None
+    digits = re.sub(r"\D", "", raw)
+    if len(digits) >= 10 and not digits.startswith("55"):
+        digits = "55" + digits
+    if len(digits) < 12:
+        return None
+    # 9 dígitos locais: remove o primeiro 9 após DDI+DDD
+    if len(digits) == 13 and digits[4] == "9":
+        digits = digits[:4] + digits[5:]
+    return digits
+
+
+def fetch_patient_phone(page, pid: int, headers: dict) -> str | None:
+    r = page.request.get(
+        f"https://app.iclinic.com.br/pacientes/{pid}/",
+        headers=headers,
+    )
+    if r.status != 200:
+        return None
+    html = r.text()
+    # Server-rendered form: <input name="mobile_phone" ... value="(86) 99999-9999">
+    for field in ["mobile_phone", "home_phone"]:
+        m = re.search(rf'name="{field}"[^>]+value="([^"]*)"', html)
+        if m and m.group(1).strip():
+            cleaned = clean_phone(m.group(1))
+            if cleaned:
+                return cleaned
+    return None
+
+
+def run():
+    today = date.today().strftime("%Y-%m-%d")
+    today_display = date.today().strftime("%d/%m/%Y")
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        context = browser.new_context()
+        page = context.new_page()
+
+        page.goto("https://app.iclinic.com.br/", wait_until="domcontentloaded")
+        page.fill('input[name="email"]', EMAIL)
+        page.fill('input[name="password"]', SENHA)
+        with page.expect_navigation(wait_until="domcontentloaded", timeout=20000):
+            page.click('button[type="submit"]')
+        page.wait_for_timeout(3000)
+
+        csrf = next(
+            (c["value"] for c in context.cookies() if c["name"] == "csrftoken"), ""
+        )
+        headers = {"X-Requested-With": "XMLHttpRequest", "X-CSRFToken": csrf}
+
+        r = page.request.get(
+            f"https://app.iclinic.com.br/agenda/{PHYSICIAN_ID}/{today}/?clinic={CLINIC_ID}&slide=1",
+            headers=headers,
+        )
+        if r.status != 200:
+            print(
+                json.dumps(
+                    {"wakeAgent": False, "data": {"error": f"Agenda HTTP {r.status}"}}
+                )
+            )
+            browser.close()
+            return
+
+        events = r.json().get("events", [])
+        attended = [e for e in events if e.get("status") == "cp" and e.get("patient") and e.get("date") == today]
+
+        if not attended:
+            print(
+                json.dumps(
+                    {"wakeAgent": False, "data": {"message": "Nenhuma consulta atendida hoje"}}
+                )
+            )
+            browser.close()
+            return
+
+        consultas = []
+        for ev in attended:
+            patient = ev["patient"]
+            pid = patient["id"]
+            procedures = ev.get("procedures", [])
+            proc_name = (
+                procedures[0]["procedure"]["name"] if procedures else "Consulta"
+            )
+            phone = fetch_patient_phone(page, pid, headers)
+            consultas.append(
+                {
+                    "nome": patient["name"],
+                    "patient_id": pid,
+                    "telefone": phone,
+                    "procedimento": proc_name,
+                }
+            )
+            time.sleep(0.3)
+
+    # Deduplica por patient_id (paciente com mais de um procedimento no dia)
+    seen = set()
+    unique = []
+    for c in consultas:
+        if c["patient_id"] not in seen:
+            seen.add(c["patient_id"])
+            unique.append(c)
+    consultas = unique
+
+        browser.close()
+
+    pending = {
+        "data": today_display,
+        "timestamp": time.time(),
+        "expires_at": time.time() + 4 * 3600,  # expira em 4h
+        "consultas": consultas,
+    }
+    PENDING_FILE.write_text(json.dumps(pending, ensure_ascii=False, indent=2))
+
+    print(
+        json.dumps(
+            {"wakeAgent": True, "data": {"consultas": consultas, "data": today_display}},
+            ensure_ascii=False,
+        )
+    )
+
+
+run()

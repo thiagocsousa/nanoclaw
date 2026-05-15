@@ -30,6 +30,8 @@ groups/whatsapp_marina/*
 !groups/whatsapp_marina/google-ads-apply.mjs
 !groups/whatsapp_marina/agents/
 !groups/whatsapp_marina/agents/**
+!groups/whatsapp_marina/scripts/
+!groups/whatsapp_marina/scripts/**
 !groups/whatsapp_alerta-invest/
 groups/whatsapp_alerta-invest/*
 !groups/whatsapp_alerta-invest/CLAUDE.md

@@ -114,6 +114,35 @@ const GROUP_FOLDER = 'whatsapp_alerta-invest';
 const CHAT_JID     = 'alerta-invest@pipeline';
 const NOW          = new Date().toISOString();
 
+// ── Marina — avaliação pós-consulta ──────────────────────────────────────────
+
+const MARINA_CRONS = [
+  {
+    id: 'marina-retorno-anual',
+    group_folder: 'whatsapp_marina',
+    chat_jid: '558699635479@s.whatsapp.net',
+    schedule_value: '0 13 * * *',   // 13h local (America/Fortaleza)
+    context_mode: 'group',
+    script: 'python3 /workspace/group/scripts/iclinic_retorno_anual.py',
+    prompt: `\
+O pipeline de retorno anual acabou de rodar. Os dados estão no contexto (campo "message").
+
+Encaminhe o resultado à Dra. Marina como notificação informativa, sem pedir nenhuma ação.`,
+  },
+  {
+    id: 'marina-avaliacao-diaria',
+    group_folder: 'whatsapp_marina',
+    chat_jid: '558699635479@s.whatsapp.net',
+    schedule_value: '0 19 * * *',   // 19h local (America/Fortaleza)
+    context_mode: 'group',
+    script: 'python3 /workspace/group/scripts/iclinic_agenda_hoje.py',
+    prompt: `\
+Você recebeu a lista de consultas atendidas hoje pela Dra. Marina Costa (dados no contexto como JSON com chave "consultas").
+
+Siga as instruções da seção "Pipeline de avaliação pós-consulta" do seu CLAUDE.md para apresentar a lista à Dra. Marina e aguardar a seleção dela.`,
+  },
+];
+
 // ── Upsert ────────────────────────────────────────────────────────────────────
 
 const db = new Database(DB_PATH);
@@ -174,8 +203,39 @@ for (const cron of CRONS) {
 }
 if (fixed) console.log(`seed-crons: fixed next_run for ${fixed} stale cron(s)`);
 
+// ── Marina crons (with script support) ───────────────────────────────────────
+
+const upsertMarina = db.prepare(`
+  INSERT INTO scheduled_tasks
+    (id, group_folder, chat_jid, prompt, script, schedule_type, schedule_value,
+     status, context_mode, created_at)
+  VALUES
+    (@id, @group_folder, @chat_jid, @prompt, @script, 'cron', @schedule_value,
+     'active', @context_mode, @created_at)
+  ON CONFLICT(id) DO UPDATE SET
+    prompt         = excluded.prompt,
+    script         = excluded.script,
+    schedule_value = excluded.schedule_value,
+    context_mode   = excluded.context_mode,
+    status         = 'active'
+`);
+
+let mi = 0, mu = 0;
+const existingMarina = new Set(
+  db.prepare("SELECT id FROM scheduled_tasks WHERE id LIKE 'marina-%'")
+    .all().map(r => r.id)
+);
+
+for (const cron of MARINA_CRONS) {
+  upsertMarina.run({ ...cron, created_at: NOW });
+  if (existingMarina.has(cron.id)) mu++; else mi++;
+  const next = CronExpressionParser.parse(cron.schedule_value, { tz: TZ }).next().toISOString();
+  fixNextRun.run(next, cron.id, now);
+}
+
 db.close();
 console.log(`seed-crons: ${inserted} inserted, ${updated} updated, ${stale.length} removed`);
+console.log(`seed-marina: ${mi} inserted, ${mu} updated`);
 
 // ── Seed registered groups ────────────────────────────────────────────────────
 
@@ -199,11 +259,11 @@ const GROUPS = [
     is_main:          0,
   },
   {
-    jid:              '558681142212@s.whatsapp.net',
+    jid:              '558699635479@s.whatsapp.net',
     name:             'Marina',
     folder:           'whatsapp_marina',
     trigger_pattern:  '@Andy',
-    requires_trigger: 1,
+    requires_trigger: 0,
     is_main:          0,
   },
 ];
@@ -216,6 +276,7 @@ const upsertGroup = db2.prepare(`
 // Remove stale/wrong JIDs not in the canonical GROUPS list
 const STALE_JIDS = [
   '5586981142212@s.whatsapp.net', // typo: extra 9 in Marina's number
+  '558681142212@s.whatsapp.net',  // old Marina number, replaced by 558699635479
 ];
 const delGroup = db2.prepare('DELETE FROM registered_groups WHERE jid = ?');
 for (const jid of STALE_JIDS) {
