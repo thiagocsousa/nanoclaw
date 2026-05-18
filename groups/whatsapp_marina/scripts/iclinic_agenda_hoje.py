@@ -127,8 +127,6 @@ def run():
             unique.append(c)
     consultas = unique
 
-        browser.close()
-
     pending = {
         "data": today_display,
         "timestamp": time.time(),
