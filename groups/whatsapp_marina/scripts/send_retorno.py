@@ -17,12 +17,13 @@ def main():
         print("Uso: send_retorno.py 'Nome' 'telefone_com_ddi'", file=sys.stderr)
         sys.exit(1)
 
-    nome = sys.argv[1]
+    nome_completo = sys.argv[1]
+    primeiro_nome = nome_completo.split()[0]
     telefone = sys.argv[2]
     jid = f"{telefone}@s.whatsapp.net"
 
     msg = (
-        f"Olá *{nome}*, tudo bem? 👁️\n"
+        f"Olá, *{primeiro_nome}*, tudo bem? 👁️\n"
         f"Percebemos que faz mais de um ano desde a sua última consulta com a Dra. Marina Costa. "
         f"A saúde ocular precisa de atenção contínua — o acompanhamento anual é essencial para "
         f"identificar precocemente condições como glaucoma, catarata e outras alterações que muitas "
