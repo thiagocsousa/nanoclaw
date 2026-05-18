@@ -17,14 +17,16 @@ def main():
         print("Uso: send_avaliacao.py 'Nome' 'telefone_com_ddi'", file=sys.stderr)
         sys.exit(1)
 
-    nome = sys.argv[1]
+    nome_completo = sys.argv[1]
+    primeiro_nome = nome_completo.split()[0]
     telefone = sys.argv[2]
     jid = f"{telefone}@s.whatsapp.net"
 
     msg = (
-        f"Olá *{nome}*! Você foi atendido(a) hoje pela Dra. Marina Costa e seria muito "
-        f"importante contar com a sua avaliação. Outros pacientes buscando cuidado ocular "
-        f"vão se guiar por ela. Leva menos de 1 minuto 👇\n"
+        f"Olá, *{primeiro_nome}*, tudo bem? Esperamos que tenha ido tudo bem na consulta. 😊 "
+        f"Se tiver um tempinho livre, poderia deixar uma avaliação no Google sobre a sua experiência? "
+        f"Ela é importante para ajudar outras pessoas a encontrarem o nosso consultório. "
+        f"Leva menos de 1 minuto 👇\n"
         f"https://g.page/r/CdVKgz3jItQ7EBE/review"
     )
 
