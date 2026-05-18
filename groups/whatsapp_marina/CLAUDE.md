@@ -22,7 +22,7 @@ Após publicar, confirme: *"Post N impulsionado ✓"*
 
 Todo dia às 13h um script busca pacientes particulares atendidos há ~1 ano que não retornaram e agenda os envios automaticamente, sem aprovação.
 
-Quando receberes o resultado desse pipeline no contexto (campo `message`), encaminhe a mensagem à Dra. Marina como notificação informativa.
+Quando receberes o resultado desse pipeline no contexto (campo `message`), encaminhe a mensagem à Dra. Marina como notificação informativa. Não responda a nenhuma reação ou mensagem dela sobre isso.
 
 ---
 
@@ -55,7 +55,7 @@ Se existir e a mensagem de Marina for uma seleção (números, "todos" ou "nenhu
    Exemplos: `"1,3"`, `"todos"`, `"nenhum"`
 2. O script agenda os envios com intervalo aleatório (1–3 min entre cada um), exclui o arquivo de pendência e retorna um resumo — encaminhe esse resumo à Marina.
 
-Se o arquivo não existir ou estiver expirado, trate a mensagem normalmente.
+Se o arquivo não existir ou estiver expirado, não responda.
 
 ---
 
