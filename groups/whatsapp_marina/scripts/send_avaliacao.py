@@ -23,7 +23,7 @@ def main():
     jid = f"{telefone}@s.whatsapp.net"
 
     msg = (
-        f"Olá, *{primeiro_nome}*, tudo bem? Esperamos que tenha ido tudo bem na consulta com a Dra. Marina. 😊 "
+        f"Olá, *{primeiro_nome}*, tudo bem? Esperamos que tenha ido tudo bem na consulta com a Dra. Marina Costa. 😊 "
         f"Se tiver um tempinho livre, poderia deixar uma avaliação no Google sobre a sua experiência? "
         f"Ela é importante para ajudar outras pessoas a encontrarem o nosso consultório. "
         f"Leva menos de 1 minuto 👇\n"
