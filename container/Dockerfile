@@ -26,15 +26,17 @@ RUN apt-get -o Acquire::Check-Valid-Until=false -o Acquire::Check-Date=false upd
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Install ffmpeg separately to avoid OOM during combined apt layer
-RUN apt-get -o Acquire::Check-Valid-Until=false -o Acquire::Check-Date=false update && apt-get install -y --no-install-recommends ffmpeg \
+# Install ffmpeg and python3-pip separately to avoid OOM during combined apt layer
+RUN apt-get -o Acquire::Check-Valid-Until=false -o Acquire::Check-Date=false update && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
 # Set Chromium path for agent-browser
 ENV AGENT_BROWSER_EXECUTABLE_PATH=/usr/bin/chromium
 ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
 
-# Install Python playwright for iClinic automation scripts
+# Install Python playwright for iClinic automation scripts (uses system Chromium via env var above)
 RUN pip3 install playwright --break-system-packages
 
 # Install agent-browser and claude-code globally
