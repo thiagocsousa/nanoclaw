@@ -268,4 +268,12 @@ def run():
     ))
 
 
-run()
+try:
+    run()
+except Exception as e:
+    import traceback
+    print(
+        json.dumps(
+            {"wakeAgent": False, "data": {"error": str(e), "traceback": traceback.format_exc()}}
+        )
+    )
