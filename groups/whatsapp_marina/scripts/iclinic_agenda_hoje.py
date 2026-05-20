@@ -6,6 +6,7 @@ Salva pending_avaliacao.json para a fase de seleção.
 """
 
 import json
+import os
 import re
 import sys
 import time
@@ -58,7 +59,10 @@ def run():
     today_display = date.today().strftime("%d/%m/%Y")
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        browser = p.chromium.launch(
+            headless=True,
+            executable_path=os.environ.get("PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH"),
+        )
         context = browser.new_context()
         page = context.new_page()
 

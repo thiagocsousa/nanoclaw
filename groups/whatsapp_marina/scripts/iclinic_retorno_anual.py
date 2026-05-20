@@ -142,7 +142,10 @@ def run():
     chat_jid = os.environ.get("NANOCLAW_CHAT_JID", "")
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        browser = p.chromium.launch(
+            headless=True,
+            executable_path=os.environ.get("PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH"),
+        )
         context = browser.new_context()
         page = context.new_page()
 
