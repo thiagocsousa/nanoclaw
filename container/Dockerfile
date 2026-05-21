@@ -4,7 +4,19 @@
 FROM node:22-slim
 
 # Install system dependencies for Chromium
-RUN apt-get -o Acquire::Check-Valid-Until=false -o Acquire::Check-Date=false update && apt-get install -y \
+# Refresh Debian archive keyring first (Debian rotates keys periodically;
+# stale base images fail signature verification on the next apt update).
+# Acquire::Check-* bypasses date checks, but does NOT bypass signature checks —
+# AllowInsecureRepositories is needed to install the new keyring, then we
+# re-run update with valid signatures before the real package install.
+RUN apt-get -o Acquire::Check-Valid-Until=false \
+            -o Acquire::Check-Date=false \
+            -o Acquire::AllowInsecureRepositories=true \
+            -o Acquire::AllowDowngradeToInsecureRepositories=true \
+            update \
+    && apt-get install -y --allow-unauthenticated debian-archive-keyring \
+    && apt-get -o Acquire::Check-Valid-Until=false -o Acquire::Check-Date=false update \
+    && apt-get install -y \
     chromium \
     fonts-liberation \
     fonts-noto-cjk \
