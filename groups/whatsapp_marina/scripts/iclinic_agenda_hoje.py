@@ -10,9 +10,11 @@ import os
 import re
 import sys
 import time
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from playwright.sync_api import sync_playwright
+
+TZ_OFFSET = timezone(timedelta(hours=-3))  # America/Fortaleza
 
 EMAIL = "thiagocsousa@gmail.com"
 SENHA = "Thiagofei1998#"
@@ -55,8 +57,13 @@ def fetch_patient_phone(page, pid: int, headers: dict) -> str | None:
 
 
 def run():
-    today = date.today().strftime("%Y-%m-%d")
-    today_display = date.today().strftime("%d/%m/%Y")
+    now_local = datetime.now(TZ_OFFSET)
+    today = now_local.date().strftime("%Y-%m-%d")
+    today_display = now_local.date().strftime("%d/%m/%Y")
+    # Hora-alvo = hora local atual - 1 (ex: cron às 10:00 captura consultas das 09:xx)
+    target_hour = (now_local - timedelta(hours=1)).hour
+    target_hour_prefix = f"{target_hour:02d}:"
+    janela_display = f"{target_hour:02d}h-{(target_hour + 1) % 24:02d}h"
 
     with sync_playwright() as p:
         browser = p.chromium.launch(
@@ -92,12 +99,19 @@ def run():
             return
 
         events = r.json().get("events", [])
-        attended = [e for e in events if e.get("status") == "cp" and e.get("patient") and e.get("date") == today]
+        attended = [
+            e for e in events
+            if e.get("status") == "cp"
+            and e.get("patient")
+            and e.get("date") == today
+            and e.get("start_time", "").startswith(target_hour_prefix)
+        ]
 
         if not attended:
             print(
                 json.dumps(
-                    {"wakeAgent": False, "data": {"message": "Nenhuma consulta atendida hoje"}}
+                    {"wakeAgent": False,
+                     "data": {"message": f"Nenhuma consulta atendida na janela {janela_display}"}}
                 )
             )
             browser.close()
@@ -134,14 +148,17 @@ def run():
     pending = {
         "data": today_display,
         "timestamp": time.time(),
-        "expires_at": time.time() + 4 * 3600,  # expira em 4h
+        "hour_captured": target_hour,           # hora da consulta (8 a 17 conforme o cron)
+        "janela": janela_display,               # ex: "09h-10h"
+        "expires_at": time.time() + 90 * 60,    # backup TTL — o gate primário é hour_captured
         "consultas": consultas,
     }
     PENDING_FILE.write_text(json.dumps(pending, ensure_ascii=False, indent=2))
 
     print(
         json.dumps(
-            {"wakeAgent": True, "data": {"consultas": consultas, "data": today_display}},
+            {"wakeAgent": True,
+             "data": {"consultas": consultas, "data": today_display, "janela": janela_display}},
             ensure_ascii=False,
         )
     )

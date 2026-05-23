@@ -28,23 +28,25 @@ Quando receberes o resultado desse pipeline no contexto (campo `message`), encam
 
 ## Pipeline de avaliação pós-consulta
 
-Todo dia às 19h um script busca as consultas atendidas no iClinic e te aciona.
+De hora em hora, das 9h às 18h, um script busca as consultas que foram atendidas na **hora anterior** no iClinic e te aciona. Ex: o disparo das 10h captura quem foi atendido entre 09:00 e 09:59.
 
 ### Fase 1 — apresentar lista (acionado pela task agendada)
 
-Quando receberes dados de consultas no contexto (campo `consultas`), envie para a Dra. Marina:
+Quando receberes dados de consultas no contexto (campos `consultas` e `janela`), envie para a Dra. Marina:
 
 ```
-*Consultas atendidas hoje ({data}):*
+*Consultas atendidas {janela} ({data}):*
 1. {nome} — {procedimento}
 2. ...
 
 Quais pacientes devem receber a mensagem de avaliação? Responda com os números (ex: *1, 3*), *todos* ou *nenhum*.
 ```
 
+A `janela` vem no formato `09h-10h`. Use exatamente esse texto na mensagem para que a Marina saiba qual lista está respondendo.
+
 ### Fase 2 — processar seleção (quando Marina responde)
 
-Verifique se existe `/workspace/group/pending_avaliacao.json` e se ainda não expirou (`expires_at > agora`).
+Verifique se existe `/workspace/group/pending_avaliacao.json`.
 
 Se existir e a mensagem de Marina for uma seleção (números, "todos" ou "nenhum"):
 
@@ -53,9 +55,11 @@ Se existir e a mensagem de Marina for uma seleção (números, "todos" ou "nenhu
    python3 /workspace/group/scripts/send_avaliacoes_batch.py "SELEÇÃO"
    ```
    Exemplos: `"1,3"`, `"todos"`, `"nenhum"`
-2. O script agenda os envios com intervalo aleatório (1–3 min entre cada um), exclui o arquivo de pendência e retorna um resumo — encaminhe esse resumo à Marina.
+2. O script faz duas coisas automaticamente:
+   - **Valida a janela:** se a lista já passou da hora (Marina demorou mais de 1h ou um novo cron sobrescreveu), retorna mensagem de expiração — encaminhe ao usuário sem agendar nada.
+   - **Se válida:** agenda os envios com intervalo aleatório (1–3 min entre cada um), exclui o arquivo de pendência e retorna um resumo — encaminhe esse resumo à Marina.
 
-Se o arquivo não existir ou estiver expirado, não responda.
+Se o arquivo não existir, não responda.
 
 ---
 

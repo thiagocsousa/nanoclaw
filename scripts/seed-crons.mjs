@@ -133,11 +133,11 @@ Encaminhe o resultado à Dra. Marina como notificação informativa, sem pedir n
     id: 'marina-avaliacao-diaria',
     group_folder: 'whatsapp_marina',
     chat_jid: '558699635479@s.whatsapp.net',
-    schedule_value: '0 19 * * *',   // 19h local (America/Fortaleza)
+    schedule_value: '0 9-18 * * *',   // de hora em hora 9h-18h local (America/Fortaleza)
     context_mode: 'group',
     script: 'python3 /workspace/group/scripts/iclinic_agenda_hoje.py',
     prompt: `\
-Você recebeu a lista de consultas atendidas hoje pela Dra. Marina Costa (dados no contexto como JSON com chave "consultas").
+Você recebeu a lista de consultas atendidas na última hora pela Dra. Marina Costa (dados no contexto como JSON com chaves "consultas" e "janela").
 
 Siga as instruções da seção "Pipeline de avaliação pós-consulta" do seu CLAUDE.md para apresentar a lista à Dra. Marina e aguardar a seleção dela.`,
   },
