@@ -51,18 +51,18 @@ def main():
     chat_jid = os.environ.get("NANOCLAW_CHAT_JID", "")
     group_folder = os.environ.get("NANOCLAW_GROUP_FOLDER", "whatsapp_marina")
 
-    # Gate de janela: a lista vista pela Marina precisa ser da hora atual ou anterior
-    # (cobre resposta dentro de ~1h do disparo). Se o cron seguinte sobrescreveu o
-    # pending com outra hora, ou se ela demorou demais, a seleção é descartada.
+    # Gate de janela: a lista vista pela Marina precisa ser de até 2h atrás
+    # (cobre resposta dentro do intervalo de 2h entre crons). Se o cron seguinte
+    # sobrescreveu o pending com outra janela, ou se ela demorou demais, descarta.
     hour_captured = pending.get("hour_captured")
     if hour_captured is not None:
         now_local_hour = datetime.now(TZ_OFFSET).hour
         diff = now_local_hour - hour_captured
-        if diff < 0 or diff > 1:
+        if diff < 0 or diff > 2:
             janela = pending.get("janela", f"{hour_captured:02d}h")
             print(
                 f"⚠️ Lista da janela *{janela}* expirou (agora são {now_local_hour:02d}h). "
-                f"Aguarde a próxima atualização horária."
+                f"Aguarde a próxima atualização."
             )
             return
 

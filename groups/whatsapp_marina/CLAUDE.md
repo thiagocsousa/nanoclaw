@@ -28,7 +28,7 @@ Quando receberes o resultado desse pipeline no contexto (campo `message`), encam
 
 ## Pipeline de avaliação pós-consulta
 
-De hora em hora, das 9h às 18h, um script busca as consultas que foram atendidas na **hora anterior** no iClinic e te aciona. Ex: o disparo das 10h captura quem foi atendido entre 09:00 e 09:59.
+De 2 em 2 horas (9, 11, 13, 15, 17, 19), um script busca as consultas que foram atendidas nas **2 horas anteriores** no iClinic e te aciona. Ex: o disparo das 11h captura quem foi atendido entre 09:00 e 10:59.
 
 ### Fase 1 — apresentar lista (acionado pela task agendada)
 
@@ -42,7 +42,7 @@ Quando receberes dados de consultas no contexto (campos `consultas` e `janela`),
 Quais pacientes devem receber a mensagem de avaliação? Responda com os números (ex: *1, 3*), *todos* ou *nenhum*.
 ```
 
-A `janela` vem no formato `09h-10h`. Use exatamente esse texto na mensagem para que a Marina saiba qual lista está respondendo.
+A `janela` vem no formato `09h-11h` (janela de 2h). Use exatamente esse texto na mensagem para que a Marina saiba qual lista está respondendo.
 
 ### Fase 2 — processar seleção (quando Marina responde)
 

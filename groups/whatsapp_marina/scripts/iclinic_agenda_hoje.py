@@ -60,10 +60,14 @@ def run():
     now_local = datetime.now(TZ_OFFSET)
     today = now_local.date().strftime("%Y-%m-%d")
     today_display = now_local.date().strftime("%d/%m/%Y")
-    # Hora-alvo = hora local atual - 1 (ex: cron às 10:00 captura consultas das 09:xx)
-    target_hour = (now_local - timedelta(hours=1)).hour
-    target_hour_prefix = f"{target_hour:02d}:"
-    janela_display = f"{target_hour:02d}h-{(target_hour + 1) % 24:02d}h"
+    # Janela de 2h: cron às 11:00 captura consultas das 09:xx e 10:xx.
+    # earliest_hour = hora_atual - 2, latest_hour = hora_atual - 1.
+    latest_hour = (now_local - timedelta(hours=1)).hour
+    earliest_hour = (now_local - timedelta(hours=2)).hour
+    target_hour_prefixes = tuple(
+        f"{(now_local - timedelta(hours=h)).hour:02d}:" for h in (2, 1)
+    )
+    janela_display = f"{earliest_hour:02d}h-{(latest_hour + 1) % 24:02d}h"
 
     with sync_playwright() as p:
         browser = p.chromium.launch(
@@ -104,7 +108,7 @@ def run():
             if e.get("status") == "cp"
             and e.get("patient")
             and e.get("date") == today
-            and e.get("start_time", "").startswith(target_hour_prefix)
+            and e.get("start_time", "").startswith(target_hour_prefixes)
         ]
 
         if not attended:
@@ -148,9 +152,9 @@ def run():
     pending = {
         "data": today_display,
         "timestamp": time.time(),
-        "hour_captured": target_hour,           # hora da consulta (8 a 17 conforme o cron)
-        "janela": janela_display,               # ex: "09h-10h"
-        "expires_at": time.time() + 90 * 60,    # backup TTL — o gate primário é hour_captured
+        "hour_captured": latest_hour,           # última hora da janela; gate em send_avaliacoes_batch
+        "janela": janela_display,               # ex: "09h-11h" (janela de 2h)
+        "expires_at": time.time() + 150 * 60,   # backup TTL — o gate primário é hour_captured
         "consultas": consultas,
     }
     PENDING_FILE.write_text(json.dumps(pending, ensure_ascii=False, indent=2))
