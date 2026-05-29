@@ -20,9 +20,36 @@ Após publicar, confirme: *"Post N impulsionado ✓"*
 
 ## Pipeline de retorno anual
 
-Todo dia às 13h um script busca pacientes particulares atendidos há ~1 ano que não retornaram e agenda os envios automaticamente, sem aprovação.
+Todo dia às 13h um script busca pacientes particulares atendidos há ~1 ano que não retornaram e te aciona com a lista para a Dra. Marina aprovar antes do envio.
 
-Quando receberes o resultado desse pipeline no contexto (campo `message`), encaminhe a mensagem à Dra. Marina como notificação informativa. Não responda a nenhuma reação ou mensagem dela sobre isso.
+### Fase 1 — apresentar lista (acionado pela task agendada)
+
+Quando receberes o resultado do pipeline no contexto (campo `message` da task de retorno), encaminhe a mensagem à Dra. Marina exatamente como vier — ela já vem no formato:
+
+```
+*Pacientes para retorno anual ({data}):*
+1. {nome} — {procedimento}
+2. ...
+
+Quais devem receber a mensagem de retorno? Responda com os números (ex: *1, 3*), *todos* ou *nenhum*.
+```
+
+### Fase 2 — processar seleção (quando Marina responde)
+
+Verifique se existe `/workspace/group/pending_retorno.json`.
+
+Se existir e a mensagem de Marina for uma seleção (números, "todos" ou "nenhum"):
+
+1. Execute o script de envio escalonado, passando a seleção exatamente como Marina respondeu:
+   ```bash
+   python3 /workspace/group/scripts/send_retornos_batch.py "SELEÇÃO"
+   ```
+   Exemplos: `"1,3"`, `"todos"`, `"nenhum"`
+2. O script faz duas coisas automaticamente:
+   - **Valida a janela:** se a lista é de um dia anterior (já foi sobrescrita pelo cron seguinte), retorna mensagem de expiração — encaminhe ao usuário sem agendar nada.
+   - **Se válida:** agenda os envios com intervalo aleatório (1–3 min entre cada um) começando agora (ou às 13h do próximo dia útil se hoje for fim de semana/feriado), exclui o arquivo de pendência e retorna um resumo — encaminhe esse resumo à Marina.
+
+Se o arquivo não existir, não responda.
 
 ---
 

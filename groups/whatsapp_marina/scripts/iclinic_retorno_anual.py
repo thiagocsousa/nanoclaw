@@ -1,17 +1,15 @@
 #!/usr/bin/env python3
 """
-Busca pacientes particulares atendidos há ~1 ano que não retornaram e agenda
-o envio da mensagem de retorno diretamente, sem aprovação da Marina.
-Saída (stdout): resumo dos envios agendados.
+Busca pacientes particulares atendidos há ~1 ano que não retornaram e escreve
+pending_retorno.json para a fase de seleção (Marina aprova quais enviar).
+Saída (stdout): JSON { wakeAgent, data: { message, date_captured } }.
 """
 
 import json
 import os
-import random
 import re
-import string
 import time
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, timedelta
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 
@@ -20,69 +18,7 @@ SENHA = "Thiagofei1998#"
 CLINIC_ID = "263255"
 PHYSICIAN_ID = "284806"
 
-IPC_TASKS_DIR = Path("/workspace/ipc/tasks")
-TZ_OFFSET = timezone(timedelta(hours=-3))  # America/Fortaleza
-
-# Feriados nacionais brasileiros — fixos + móveis (2026–2027)
-FERIADOS = {
-    # 2026 — Easter: Apr 5
-    date(2026, 1, 1),
-    date(2026, 2, 16),  # Carnaval Segunda
-    date(2026, 2, 17),  # Carnaval Terça
-    date(2026, 4, 3),   # Sexta-Feira Santa
-    date(2026, 4, 21),  # Tiradentes
-    date(2026, 5, 1),   # Dia do Trabalho
-    date(2026, 6, 4),   # Corpus Christi
-    date(2026, 9, 7),   # Independência
-    date(2026, 10, 12), # Nossa Sra. Aparecida
-    date(2026, 11, 2),  # Finados
-    date(2026, 11, 15), # Proclamação da República
-    date(2026, 11, 20), # Consciência Negra
-    date(2026, 12, 25), # Natal
-    # 2027 — Easter: Mar 28
-    date(2027, 1, 1),
-    date(2027, 2, 8),
-    date(2027, 2, 9),
-    date(2027, 3, 26),
-    date(2027, 4, 21),
-    date(2027, 5, 1),
-    date(2027, 5, 27),  # Corpus Christi
-    date(2027, 9, 7),
-    date(2027, 10, 12),
-    date(2027, 11, 2),
-    date(2027, 11, 15),
-    date(2027, 11, 20),
-    date(2027, 12, 25),
-}
-
-
-def is_business_day(d: date) -> bool:
-    return d.weekday() < 5 and d not in FERIADOS
-
-
-def get_base_send_time(now_local: datetime) -> datetime:
-    """Now if today is a business day; else 13:00 of next business day."""
-    d = now_local.date()
-    if is_business_day(d):
-        return now_local
-    d += timedelta(days=1)
-    while not is_business_day(d):
-        d += timedelta(days=1)
-    return datetime(d.year, d.month, d.day, 13, 0, 0, tzinfo=now_local.tzinfo)
-
-
-def rand_id(n=6):
-    return "".join(random.choices(string.ascii_lowercase + string.digits, k=n))
-
-
-def write_ipc_task(data):
-    IPC_TASKS_DIR.mkdir(parents=True, exist_ok=True)
-    filename = f"{int(time.time() * 1000)}-{rand_id()}.json"
-    filepath = IPC_TASKS_DIR / filename
-    tmp = Path(str(filepath) + ".tmp")
-    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2))
-    tmp.rename(filepath)
-    time.sleep(0.05)
+PENDING_FILE = Path("/workspace/group/pending_retorno.json")
 
 
 def clean_phone(raw: str) -> str | None:
@@ -139,7 +75,6 @@ def run():
     today = date.today()
     target_date = today - timedelta(days=366)
     target_str = target_date.strftime("%Y-%m-%d")
-    chat_jid = os.environ.get("NANOCLAW_CHAT_JID", "")
 
     with sync_playwright() as p:
         browser = p.chromium.launch(
@@ -229,44 +164,30 @@ def run():
         }))
         return
 
-    now_local = datetime.now(TZ_OFFSET)
-    base_time = get_base_send_time(now_local)
-    accumulated = timedelta(0)
-    agendados = []
+    today_display = today.strftime("%d/%m/%Y")
+    pending = {
+        "date_captured": today.strftime("%Y-%m-%d"),
+        "data": today_display,
+        "timestamp": time.time(),
+        "candidatos": candidatos,
+    }
+    PENDING_FILE.write_text(json.dumps(pending, ensure_ascii=False, indent=2))
 
-    for i, paciente in enumerate(candidatos):
-        if i > 0:
-            accumulated += timedelta(seconds=random.randint(60, 180))
-
-        send_at = base_time + accumulated
-        send_at_str = send_at.strftime("%Y-%m-%dT%H:%M:%S")
-
-        script = (
-            f'python3 /workspace/group/scripts/send_retorno.py '
-            f'"{paciente["nome"]}" "{paciente["telefone"]}"'
-        )
-
-        write_ipc_task({
-            "type": "schedule_task",
-            "taskId": f"retorno-{int(time.time() * 1000)}-{rand_id()}",
-            "prompt": "<internal>Retorno anual agendado enviado.</internal>",
-            "script": script,
-            "schedule_type": "once",
-            "schedule_value": send_at_str,
-            "context_mode": "isolated",
-            "targetJid": chat_jid,
-            "createdBy": "whatsapp_marina",
-            "timestamp": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.000Z"),
-        })
-
-        agendados.append((paciente["nome"], send_at.strftime("%d/%m %H:%M")))
-
-    lines = [f"✅ *{len(agendados)}* mensagem(ns) de retorno agendada(s) — {today.strftime('%d/%m/%Y')}:"]
-    for nome, quando in agendados:
-        lines.append(f"• {nome} — {quando}")
+    lines = [f"*Pacientes para retorno anual ({today_display}):*"]
+    for i, c in enumerate(candidatos, start=1):
+        lines.append(f"{i}. {c['nome']} — {c['procedimento']}")
+    lines.append("")
+    lines.append(
+        "Quais devem receber a mensagem de retorno? "
+        "Responda com os números (ex: *1, 3*), *todos* ou *nenhum*."
+    )
 
     print(json.dumps(
-        {"wakeAgent": True, "data": {"message": "\n".join(lines)}},
+        {"wakeAgent": True, "data": {
+            "message": "\n".join(lines),
+            "date_captured": pending["date_captured"],
+            "total": len(candidatos),
+        }},
         ensure_ascii=False,
     ))
 
