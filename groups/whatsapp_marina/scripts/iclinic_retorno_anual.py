@@ -146,6 +146,8 @@ def run():
 
             procedures = ev.get("procedures", [])
             proc_name = procedures[0]["procedure"]["name"] if procedures else "Consulta"
+            if "solicita" in proc_name.lower():
+                continue
 
             candidatos.append({
                 "nome": patient["name"],

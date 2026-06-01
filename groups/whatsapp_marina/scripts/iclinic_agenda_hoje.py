@@ -129,6 +129,8 @@ def run():
             proc_name = (
                 procedures[0]["procedure"]["name"] if procedures else "Consulta"
             )
+            if "solicita" in proc_name.lower():
+                continue
             phone = fetch_patient_phone(page, pid, headers)
             consultas.append(
                 {
