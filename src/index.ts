@@ -692,8 +692,16 @@ async function main(): Promise<void> {
       groupFolderOwner: 'whatsapp_atendimento-dra-marina',
     });
     channels.push(atendimentoChannel);
-    await atendimentoChannel.connect();
-    logger.info('Atendimento WhatsApp channel connected');
+    // Outbound-only instance: connect in the background. Blocking startup on it
+    // is dangerous — if it never opens (e.g. awaiting pairing, or it logs out
+    // before its first open), the scheduler and message loop below would never
+    // start and the whole bot goes mute while the primary number stays online.
+    atendimentoChannel
+      .connect()
+      .then(() => logger.info('Atendimento WhatsApp channel connected'))
+      .catch((err) =>
+        logger.error({ err }, 'Atendimento WhatsApp channel failed to connect'),
+      );
   }
 
   // Start subsystems (independently of connection handler)
