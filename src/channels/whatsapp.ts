@@ -161,6 +161,14 @@ export class WhatsAppChannel implements Channel {
               });
             }, 5000);
           });
+        } else if (this.opts.groupFolderOwner) {
+          // Secondary outbound-only instance (e.g. the atendimento number):
+          // a logout here must NOT kill the whole process — that would take
+          // the primary number down with it. Log and stop this instance only.
+          logger.warn(
+            { instance: this.name },
+            'Secondary WhatsApp instance logged out — re-pair via /setup. Process stays alive.',
+          );
         } else {
           logger.info('Logged out. Run /setup to re-authenticate.');
           process.exit(0);
