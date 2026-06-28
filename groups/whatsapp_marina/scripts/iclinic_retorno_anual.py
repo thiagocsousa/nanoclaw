@@ -52,7 +52,15 @@ def fetch_patient_phone(page, pid: int, headers: dict) -> str | None:
 
 
 def check_patient_history(page, pid: int, headers: dict, since_date_str: str):
-    """Returns (has_returned, has_particular) from patient event history."""
+    """Returns (has_returned, anniversary_particular) from patient event history.
+
+    - has_returned: existe qualquer atendimento (cp) DEPOIS da data-aniversário.
+      O RETORNO no iClinic é só "RETORNO", sem tipo (particular/convênio), então
+      qualquer volta à clínica conta como retorno.
+    - anniversary_particular: a consulta da própria data-aniversário (since_date_str)
+      foi particular. O filtro de "particular" se aplica só a esse atendimento, não
+      ao histórico inteiro.
+    """
     r = page.request.get(
         f"https://app.iclinic.com.br/pacientes/{pid}/events/?offset=0",
         headers=headers,
@@ -64,11 +72,13 @@ def check_patient_history(page, pid: int, headers: dict, since_date_str: str):
         e.get("status") == "cp" and e.get("date", "") > since_date_str
         for e in events
     )
-    has_particular = any(
-        "particular" in (e.get("insurance_name") or "").lower()
+    anniversary_particular = any(
+        e.get("status") == "cp"
+        and e.get("date", "") == since_date_str
+        and "particular" in (e.get("insurance_name") or "").lower()
         for e in events
     )
-    return returned, has_particular
+    return returned, anniversary_particular
 
 
 def run():
@@ -136,8 +146,8 @@ def run():
             patient = ev["patient"]
             pid = patient["id"]
 
-            returned, has_particular = check_patient_history(page, pid, headers, target_str)
-            if returned or not has_particular:
+            returned, anniversary_particular = check_patient_history(page, pid, headers, target_str)
+            if returned or not anniversary_particular:
                 continue
 
             phone = fetch_patient_phone(page, pid, headers)

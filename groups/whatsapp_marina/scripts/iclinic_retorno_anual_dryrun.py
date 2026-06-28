@@ -57,10 +57,13 @@ def check_patient_history(page, pid, headers, since_date_str):
     returned = any(
         e.get("status") == "cp" and e.get("date", "") > since_date_str for e in events
     )
-    has_particular = any(
-        "particular" in (e.get("insurance_name") or "").lower() for e in events
+    anniversary_particular = any(
+        e.get("status") == "cp"
+        and e.get("date", "") == since_date_str
+        and "particular" in (e.get("insurance_name") or "").lower()
+        for e in events
     )
-    return returned, has_particular
+    return returned, anniversary_particular
 
 
 def check_target_date(page, headers, target_str, cron_day):
@@ -105,12 +108,12 @@ def check_target_date(page, headers, target_str, cron_day):
         pid = patient["id"]
         nome = patient["name"]
 
-        returned, has_particular = check_patient_history(page, pid, headers, target_str)
+        returned, anniversary_particular = check_patient_history(page, pid, headers, target_str)
         if returned:
             descartados.append((nome, pid, "já retornou"))
             continue
-        if not has_particular:
-            descartados.append((nome, pid, "sem consulta particular no histórico"))
+        if not anniversary_particular:
+            descartados.append((nome, pid, "consulta de 1 ano atrás não foi particular"))
             continue
         phone = fetch_patient_phone(page, pid, headers)
         if not phone:
