@@ -55,7 +55,7 @@ Se o arquivo não existir, não responda.
 
 ## Pipeline de avaliação pós-consulta
 
-De 2 em 2 horas (9, 11, 13, 15, 17, 19), um script busca as consultas que foram atendidas nas **2 horas anteriores** no iClinic e te aciona. Ex: o disparo das 11h captura quem foi atendido entre 09:00 e 10:59.
+De 2 em 2 horas (10, 12, 14, 16, 18 — seg a sex), um script busca as consultas que foram atendidas nas **2 horas anteriores** no iClinic e te aciona. Ex: o disparo das 12h captura quem foi atendido entre 10:00 e 11:59. As janelas se encaixam sem sobreposição (08-10, 10-12, 12-14, 14-16, 16-18).
 
 ### Fase 1 — apresentar lista (acionado pela task agendada)
 
