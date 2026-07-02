@@ -103,6 +103,21 @@ def run():
             return
 
         events = r.json().get("events", [])
+
+        if "--debug" in sys.argv:
+            print(f"[DEBUG] {len(events)} eventos hoje ({today}), janela seria {janela_display}:")
+            for e in sorted(events, key=lambda x: x.get("start_time", "")):
+                if not e.get("patient"):
+                    continue
+                procs = e.get("procedures") or []
+                proc_name = procs[0]["procedure"]["name"] if procs else ""
+                print(
+                    f"  {e.get('start_time','?')} | status={e.get('status')!r} | "
+                    f"date={e.get('date')} | {e['patient'].get('name')} | {proc_name}"
+                )
+            browser.close()
+            return
+
         attended = [
             e for e in events
             if e.get("status") == "cp"
