@@ -133,7 +133,7 @@ Encaminhe o resultado à Dra. Marina como notificação informativa, sem pedir n
     id: 'marina-avaliacao-diaria',
     group_folder: 'whatsapp_marina',
     chat_jid: '558699635479@s.whatsapp.net',
-    schedule_value: '0 10,12,14,16,18 * * 1-5', // 10h,12h,14h,16h,18h seg-sex, local (America/Fortaleza)
+    schedule_value: '0 10,12,14,16,18,19 * * 1-5', // 10/12/14/16/18 + varredura 19h, seg-sex, local (America/Fortaleza)
     context_mode: 'group',
     script: 'python3 /workspace/group/scripts/iclinic_agenda_hoje.py',
     prompt: `\

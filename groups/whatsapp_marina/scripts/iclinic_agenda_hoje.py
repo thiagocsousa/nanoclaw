@@ -22,6 +22,7 @@ CLINIC_ID = "263255"
 PHYSICIAN_ID = "284806"
 
 PENDING_FILE = Path("/workspace/group/pending_avaliacao.json")
+SEEN_FILE = Path("/workspace/group/avaliacao_seen.json")
 
 
 def clean_phone(raw: str) -> str | None:
@@ -60,14 +61,21 @@ def run():
     now_local = datetime.now(TZ_OFFSET)
     today = now_local.date().strftime("%Y-%m-%d")
     today_display = now_local.date().strftime("%d/%m/%Y")
-    # Janela de 2h: cron às 11:00 captura consultas das 09:xx e 10:xx.
-    # earliest_hour = hora_atual - 2, latest_hour = hora_atual - 1.
-    latest_hour = (now_local - timedelta(hours=1)).hour
-    earliest_hour = (now_local - timedelta(hours=2)).hour
-    target_hour_prefixes = tuple(
-        f"{(now_local - timedelta(hours=h)).hour:02d}:" for h in (2, 1)
-    )
-    janela_display = f"{earliest_hour:02d}h-{(latest_hour + 1) % 24:02d}h"
+    # Sem janela fixa: cada run apresenta as consultas atendidas (cp) de hoje que
+    # ainda não foram apresentadas. Corrige o timing — a recepção marca "cp" aos
+    # poucos, então quem era marcado depois do run da janela antiga ficava órfão.
+    # Os patient_ids já apresentados hoje ficam em SEEN_FILE (resetado a cada dia).
+    janela_display = f"até {now_local.strftime('%Hh%M')}"
+
+    seen_data = {}
+    if SEEN_FILE.exists():
+        try:
+            seen_data = json.loads(SEEN_FILE.read_text())
+        except Exception:
+            seen_data = {}
+    if seen_data.get("date") != today:
+        seen_data = {"date": today, "patient_ids": []}
+    seen_ids = set(seen_data["patient_ids"])
 
     with sync_playwright() as p:
         browser = p.chromium.launch(
@@ -123,14 +131,13 @@ def run():
             if e.get("status") == "cp"
             and e.get("patient")
             and e.get("date") == today
-            and e.get("start_time", "").startswith(target_hour_prefixes)
         ]
 
         if not attended:
             print(
                 json.dumps(
                     {"wakeAgent": False,
-                     "data": {"message": f"Nenhuma consulta atendida na janela {janela_display}"}}
+                     "data": {"message": "Nenhuma consulta atendida hoje ainda."}}
                 )
             )
             browser.close()
@@ -140,12 +147,15 @@ def run():
         for ev in attended:
             patient = ev["patient"]
             pid = patient["id"]
+            if pid in seen_ids:
+                continue  # já apresentado hoje num run anterior
             procedures = ev.get("procedures", [])
             proc_name = (
                 procedures[0]["procedure"]["name"] if procedures else "Consulta"
             )
-            if "solicita" in proc_name.lower():
-                continue
+            pl = proc_name.lower()
+            if "solicita" in pl or "exame" in pl:
+                continue  # exclui solicitações e exames — só consultas
             phone = fetch_patient_phone(page, pid, headers)
             consultas.append(
                 {
@@ -166,11 +176,25 @@ def run():
             unique.append(c)
     consultas = unique
 
+    if not consultas:
+        print(
+            json.dumps(
+                {"wakeAgent": False,
+                 "data": {"message": "Nenhuma consulta nova atendida para avaliação."}},
+                ensure_ascii=False,
+            )
+        )
+        return
+
+    # Marca os apresentados agora como "vistos" hoje — não reaparecem no próximo run.
+    seen_data["patient_ids"] = list(seen_ids | {c["patient_id"] for c in consultas})
+    SEEN_FILE.write_text(json.dumps(seen_data, ensure_ascii=False, indent=2))
+
     pending = {
         "data": today_display,
         "timestamp": time.time(),
-        "hour_captured": latest_hour,           # última hora da janela; gate em send_avaliacoes_batch
-        "janela": janela_display,               # ex: "09h-11h" (janela de 2h)
+        "hour_captured": now_local.hour,        # hora da apresentação; gate em send_avaliacoes_batch
+        "janela": janela_display,               # rótulo de hora, ex: "até 16h30"
         "expires_at": time.time() + 150 * 60,   # backup TTL — o gate primário é hour_captured
         "consultas": consultas,
     }

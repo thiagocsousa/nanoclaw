@@ -55,19 +55,21 @@ Se o arquivo não existir, não responda.
 
 ## Pipeline de avaliação pós-consulta
 
-De 2 em 2 horas (10, 12, 14, 16, 18 — seg a sex), um script busca as consultas que foram atendidas nas **2 horas anteriores** no iClinic e te aciona. Ex: o disparo das 12h captura quem foi atendido entre 10:00 e 11:59. As janelas se encaixam sem sobreposição (08-10, 10-12, 12-14, 14-16, 16-18).
+Nos horários 10, 12, 14, 16, 18 e 19h (seg a sex), um script busca no iClinic as consultas **atendidas hoje** (status "compareceu") que **ainda não foram apresentadas** e te aciona. Não há mais janela fixa de horário: como a recepção marca "compareceu" aos poucos, cada disparo pega quem foi marcado desde o disparo anterior (quem for marcado tarde entra no run seguinte; o run das 19h varre os retardatários do fim do dia). Exclui exames e solicitações — só consultas. O campo `janela` vem só como rótulo de hora (ex: "até 16h30").
 
 ### Fase 1 — apresentar lista (acionado pela task agendada)
 
 Quando receberes dados de consultas no contexto (campos `consultas` e `janela`), envie para a Dra. Marina:
 
 ```
-*Consultas atendidas {janela} ({data}):*
+*Consultas atendidas ({data}):*
 1. {nome} — {procedimento}
 2. ...
 
 Quais pacientes devem receber a mensagem de avaliação? Responda com os números (ex: *1, 3*), *todos* ou *nenhum*.
 ```
+
+São só as consultas **novas** desde o último aviso (as já apresentadas hoje não repetem).
 
 A `janela` vem no formato `09h-11h` (janela de 2h). Use exatamente esse texto na mensagem para que a Marina saiba qual lista está respondendo.
 
