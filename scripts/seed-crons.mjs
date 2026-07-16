@@ -141,6 +141,18 @@ Você recebeu a lista de consultas atendidas na última hora pela Dra. Marina Co
 
 Siga as instruções da seção "Pipeline de avaliação pós-consulta" do seu CLAUDE.md para apresentar a lista à Dra. Marina e aguardar a seleção dela.`,
   },
+  {
+    id: 'marina-nfse-diaria',
+    group_folder: 'whatsapp_atendimento-dra-marina',
+    chat_jid: '120363287717747603@g.us',   // grupo Atendimento Dra Marina
+    schedule_value: '30 18 * * 1-5',        // 18:30 seg-sex (America/Fortaleza)
+    context_mode: 'isolated',
+    script: 'python3 /workspace/group/scripts/nfse_coletar_pipeline.py',
+    prompt: `\
+O pipeline de NFS-e coletou os atendimentos particulares pendentes de emissão (dados no contexto como JSON: "pendentes", "sem_cpf", "janela").
+
+Siga as instruções da seção "Pipeline de NFS-e (emissão de notas)" do seu CLAUDE.md: apresente a lista NUMERADA para aprovação e aguarde a seleção.`,
+  },
 ];
 
 // ── Upsert ────────────────────────────────────────────────────────────────────

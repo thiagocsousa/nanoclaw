@@ -93,6 +93,13 @@ const FORWARDED_ENV_VARS = [
   'CLOUDINARY_CLOUD_NAME',
   'CLOUDINARY_API_KEY',
   'CLOUDINARY_API_SECRET',
+  // NFS-e Teresina (Dra. Marina) — certificado A1 (base64) + senha + iClinic
+  'NFSE_CERT_B64',
+  'NFSE_CERT_PASSWORD',
+  'NFSE_RPS_INICIAL',
+  'NFSE_INICIO',
+  'ICLINIC_EMAIL',
+  'ICLINIC_PASSWORD',
 ];
 
 // Sentinel markers for robust output parsing (must match agent-runner)

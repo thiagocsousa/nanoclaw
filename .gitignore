@@ -9,6 +9,9 @@ store/
 data/
 logs/
 
+# Workspace de dev da NFS-e (Mac) — contém PDFs de pacientes + certificado adjacente, NUNCA commitar
+/nfse/
+
 # Groups - track base structure, CLAUDE.md and scripts; ignore runtime data
 groups/*
 !groups/main/
@@ -41,6 +44,12 @@ groups/whatsapp_alerta-invest/*
 !groups/whatsapp_alerta-invest/scripts/**
 !groups/whatsapp_alerta-invest/templates/
 !groups/whatsapp_alerta-invest/templates/**
+!groups/whatsapp_atendimento-dra-marina/
+groups/whatsapp_atendimento-dra-marina/*
+!groups/whatsapp_atendimento-dra-marina/CLAUDE.md
+!groups/whatsapp_atendimento-dra-marina/scripts/
+!groups/whatsapp_atendimento-dra-marina/scripts/**
+groups/whatsapp_atendimento-dra-marina/scripts/__pycache__/
 
 # Secrets
 *.keys.json

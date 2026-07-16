@@ -334,6 +334,40 @@ export class WhatsAppChannel implements Channel {
     }
   }
 
+  async sendDocument(
+    jid: string,
+    filePath: string,
+    fileName?: string,
+    caption?: string,
+  ): Promise<void> {
+    const fs = await import('fs');
+    const path = await import('path');
+    if (!fs.existsSync(filePath)) {
+      logger.warn({ jid, filePath }, 'sendDocument: file not found');
+      return;
+    }
+    const name = fileName || path.basename(filePath);
+    const ext = path.extname(name).toLowerCase();
+    const mimetype =
+      ext === '.pdf' ? 'application/pdf' : 'application/octet-stream';
+    const msg = {
+      document: fs.readFileSync(filePath),
+      mimetype,
+      fileName: name,
+      caption: caption || '',
+    } as import('@whiskeysockets/baileys').AnyMessageContent;
+    if (!this.connected) {
+      logger.warn({ jid, filePath }, 'WA disconnected, document not sent');
+      return;
+    }
+    try {
+      await this.sock.sendMessage(jid, msg);
+      logger.info({ jid, filePath }, 'Document sent');
+    } catch (err) {
+      logger.warn({ jid, filePath, err }, 'Failed to send document');
+    }
+  }
+
   async sendMessage(jid: string, text: string): Promise<void> {
     const prefixed =
       this.opts.groupFolderOwner || ASSISTANT_HAS_OWN_NUMBER

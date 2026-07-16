@@ -44,12 +44,22 @@ RUN apt-get -o Acquire::Check-Valid-Until=false -o Acquire::Check-Date=false upd
     python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
+# Build deps para xmlsec (assinatura ABRASF da NFS-e) — libxmlsec1 + toolchain
+RUN apt-get -o Acquire::Check-Valid-Until=false -o Acquire::Check-Date=false update && apt-get install -y --no-install-recommends \
+    pkg-config \
+    gcc \
+    libxml2-dev \
+    libxmlsec1-dev \
+    libxmlsec1-openssl \
+    && rm -rf /var/lib/apt/lists/*
+
 # Set Chromium path for agent-browser
 ENV AGENT_BROWSER_EXECUTABLE_PATH=/usr/bin/chromium
 ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
 
 # Install Python playwright for iClinic automation scripts (uses system Chromium via env var above)
-RUN pip3 install playwright --break-system-packages
+# + deps de emissão de NFS-e (lxml/xmlsec p/ assinatura, requests-pkcs12 p/ TLS mútuo com .pfx)
+RUN pip3 install playwright lxml xmlsec requests-pkcs12 cryptography requests --break-system-packages
 
 # Install agent-browser and claude-code globally
 RUN npm install -g agent-browser @anthropic-ai/claude-code

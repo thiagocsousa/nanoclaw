@@ -737,6 +737,16 @@ async function main(): Promise<void> {
       }
       return channel.sendImage(jid, imagePath, caption);
     },
+    sendDocument: async (jid, filePath, fileName, caption, groupFolder) => {
+      const channel =
+        (groupFolder && findChannelForGroup(channels, groupFolder)) ||
+        findChannel(channels, jid);
+      if (!channel?.sendDocument) {
+        logger.warn({ jid }, 'Channel does not support sendDocument');
+        return;
+      }
+      return channel.sendDocument(jid, filePath, fileName, caption);
+    },
     registeredGroups: () => registeredGroups,
     registerGroup,
     syncGroups: async (force: boolean) => {

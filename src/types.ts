@@ -98,6 +98,13 @@ export interface Channel {
   disconnect(): Promise<void>;
   // Optional: send image file. Path must be an absolute host path.
   sendImage?(jid: string, imagePath: string, caption?: string): Promise<void>;
+  // Optional: send a document/file (e.g. PDF). Path must be an absolute host path.
+  sendDocument?(
+    jid: string,
+    filePath: string,
+    fileName?: string,
+    caption?: string,
+  ): Promise<void>;
   // Optional: typing indicator. Channels that support it implement it.
   setTyping?(jid: string, isTyping: boolean): Promise<void>;
   // Optional: sync group/chat names from the platform.
