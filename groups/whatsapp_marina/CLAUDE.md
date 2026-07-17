@@ -92,6 +92,28 @@ Se o arquivo não existir, não responda.
 
 ---
 
+## Agenda do dia seguinte (informativo)
+
+Todo dia às 20h (domingo a quinta) um script busca a agenda do **próximo dia** da Dra. Marina no iClinic e te aciona com os dados no contexto (`data`, `dia_semana`, `total`, `agendamentos`).
+
+É **apenas informativo** — monte um resumo limpo e envie à Dra. Marina. **Não** peça ação, **não** pergunte nada, **não** aguarde resposta.
+
+Formato (WhatsApp):
+
+```
+*Agenda de amanhã* — {dia_semana}, {data} ({total} atendimentos)
+
+• {hora} — {nome} — {procedimento} _({convenio})_
+• ...
+```
+
+Regras:
+- Já vem ordenado por horário.
+- Limpe espaços duplos no procedimento (ex.: `CONSULTA  PARTICULAR` → `Consulta particular`).
+- Se não vier nenhum agendamento (`wakeAgent` false), não envie nada.
+
+---
+
 ## Comunicação
 
 Use formatação WhatsApp:

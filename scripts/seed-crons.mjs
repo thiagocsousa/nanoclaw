@@ -153,6 +153,18 @@ O pipeline de NFS-e coletou os atendimentos particulares pendentes de emissão (
 
 Siga as instruções da seção "Pipeline de NFS-e (emissão de notas)" do seu CLAUDE.md: apresente a lista NUMERADA para aprovação e aguarde a seleção.`,
   },
+  {
+    id: 'marina-agenda-amanha',
+    group_folder: 'whatsapp_marina',
+    chat_jid: '558699635479@s.whatsapp.net',   // Dra. Marina (mesmo chat da avaliação)
+    schedule_value: '0 20 * * 0-4',             // 20h, domingo a quinta (America/Fortaleza)
+    context_mode: 'isolated',
+    script: 'python3 /workspace/group/scripts/iclinic_agenda_amanha.py',
+    prompt: `\
+Você recebeu a agenda do PRÓXIMO DIA da Dra. Marina (dados no contexto como JSON: "data", "dia_semana", "total", "agendamentos").
+
+É apenas INFORMATIVO — siga a seção "Agenda do dia seguinte" do seu CLAUDE.md: monte o resumo e envie à Dra. Marina. NÃO peça nenhuma ação nem aprovação.`,
+  },
 ];
 
 // ── Upsert ────────────────────────────────────────────────────────────────────
