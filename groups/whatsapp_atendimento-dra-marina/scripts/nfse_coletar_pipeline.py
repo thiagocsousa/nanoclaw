@@ -74,12 +74,15 @@ def main():
         "pendentes": [{"n": x["n"], "paciente": x["paciente"], "servico": x["servico"],
                        "valor": x["valor"], "tomador": x["tomador"].get("nome"),
                        "doc": x["tomador"].get("doc"),
+                       "origem": x["tomador"].get("origem"),   # 'pagador' ou 'paciente'
                        "tem_telefone": bool(x["tomador"].get("telefone"))}
                       for x in itens],
         "sem_cpf": sem_cpf,
         "janela": [d0, d1],
     }
-    print(json.dumps({"wakeAgent": len(itens) > 0, "data": data}, ensure_ascii=False))
+    # aciona se há emitíveis OU bloqueadas sem CPF (pra avisar de preencher o cadastro)
+    print(json.dumps({"wakeAgent": bool(itens) or bool(sem_cpf), "data": data},
+                     ensure_ascii=False))
 
 
 if __name__ == "__main__":

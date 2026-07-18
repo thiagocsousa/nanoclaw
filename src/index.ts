@@ -711,8 +711,12 @@ async function main(): Promise<void> {
     queue,
     onProcess: (groupJid, proc, containerName, groupFolder) =>
       queue.registerProcess(groupJid, proc, containerName, groupFolder),
-    sendMessage: async (jid, rawText) => {
-      const channel = findChannel(channels, jid);
+    sendMessage: async (jid, rawText, groupFolder) => {
+      // Prioriza a instância DONA do grupo (ex: o número do atendimento posta no
+      // grupo do atendimento). Fallback pro principal (findChannel por JID).
+      const channel =
+        (groupFolder && findChannelForGroup(channels, groupFolder)) ||
+        findChannel(channels, jid);
       if (!channel) {
         logger.warn({ jid }, 'No channel owns JID, cannot send message');
         return;

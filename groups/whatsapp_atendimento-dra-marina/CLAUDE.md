@@ -20,9 +20,13 @@ Os dados chegam no contexto (campo "message") como JSON: `pendentes` (lista nume
 
 Monte uma mensagem assim (WhatsApp):
 - Título: `*Notas fiscais pendentes* (janela X a Y)`
-- Uma linha por item: `N. Paciente — serviço — R$ valor — CPF/CNPJ (⚠️ se sem telefone)`
+- Uma linha por item: `N. {paciente} — {serviço} — R$ {valor} — CPF/CNPJ {doc}`.
+  - Quando `origem` for `pagador` (pagou outra pessoa), mostre o pagador como tomador: `N. {paciente} → tomador: {tomador} (pagador) — {serviço} — R$ {valor} — {doc}`.
+  - Se `tem_telefone` for false, marque `⚠️ sem telefone`.
 - Se houver `sem_cpf`: liste em `⚠️ Sem CPF (não dá pra emitir — preencher no iClinic)`.
-- Rodapé: `Responda com os números a emitir, ex.: *@Andy 1,3,5* — ou *@Andy todos*.`
+- Rodapé (só se houver itens numerados): `Responda com os números a emitir, ex.: *@Andy 1,3,5* — ou *@Andy todos*.`
+
+Se **não houver nenhum item emitível** (só `sem_cpf`), envie **apenas** o aviso das sem CPF pra lembrar de preencher o cadastro — **sem** pedir seleção.
 
 Não emita nada nesta fase. Só apresente.
 
