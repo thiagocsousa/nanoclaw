@@ -154,6 +154,27 @@ def run(inp):
         if not eye_select('Select IOL', iol):
             return {"ok": False, "aviso": f"ESCRS: lente '{iol}' (fabricante '{mfr}') não está na lista do site."}
 
+        # o site preenche a A-constant do Kane de forma ASSÍNCRONA (Blazor). ESPERA ela
+        # aparecer ANTES de calcular — senão calcula com a constante default (número errado).
+        # (usa input_value = valor VIVO da propriedade; get_attribute('value') lê só o inicial)
+        def read_field(label):
+            fid = idf(label, occ)
+            if not fid:
+                return ''
+            try:
+                return (pg.input_value('#' + fid) or '').strip()
+            except Exception:
+                return ''
+
+        kane_const = ''
+        for _ in range(15):
+            kane_const = read_field('Kane A-Constant')
+            if kane_const:
+                break
+            pg.wait_for_timeout(800)
+        if not kane_const:
+            return {"ok": False, "aviso": f"ESCRS: selecionei '{iol}' mas o site não preencheu a A-constant do Kane a tempo — não calculo com a constante errada."}
+
         # TORIC ON → habilita eixos/SIA/incisão e a recomendação de eixo do IOL
         if toric:
             tog = pg.locator('.mud-switch:has-text("Toric")').nth(occ)
@@ -205,7 +226,10 @@ def run(inp):
 
     if re.search(r'Kane.{0,60}(service call failed|could not be completed)', body, re.I | re.S):
         return {"ok": False, "aviso": "ESCRS/Kane: o serviço de cálculo falhou — tentar de novo."}
-    return parse_kane(all_tables, inp.get("target", 0))
+    result = parse_kane(all_tables, inp.get("target", 0))
+    if result.get("ok"):
+        result["kane"]["a_constant"] = kane_const  # constante que o site aplicou pra lente
+    return result
 
 
 def _kcol(matrix):

@@ -195,12 +195,14 @@ echo "=== BARRETT ==="; cat /workspace/group/tmp/barrett.json; echo; echo "=== K
 *Barrett Toric:* {iol_power} D · {toric_model} → *eixo {eixo_alinhamento}°*
 _residual {astig_residual} D @ {eixo_residual}° · cyl {cyl_corneal} D (plano corneano)_
 
-*Kane:* {power} D → previsto {refracao} D
+*Kane:* {power} D → previsto {refracao} D  _(A-const {kane.a_constant})_
 _vizinhos: {vizinhos.acima.power} D → {vizinhos.acima.refracao} · {vizinhos.abaixo.power} D → {vizinhos.abaixo.refracao}_
 {se toric ≠ null: _eixo Kane {toric.eixo}°_ ; senão nada}
 
 _Eixo de alinhamento (Barrett): {eixo_alinhamento}°. SIA 0.15@135._
 ```
+
+A `kane.a_constant` é a constante que o **site** preencheu pra lente (ex.: 118.70 pro SN6AT) — mostre-a; se vier muito diferente do esperado, avise que pode ter havido erro na seleção da lente.
 
 Regras da apresentação:
 - **Barrett** traz o **eixo de alinhamento** do IOL (`eixo_alinhamento`) — é a referência de eixo. O **Kane hoje sai sem eixo** (`toric:null`); **não invente** — se `toric` vier preenchido no futuro, mostre `toric.eixo`.
