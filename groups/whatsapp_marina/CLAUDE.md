@@ -128,7 +128,8 @@ Quando a Dra. Marina enviar **uma imagem ou PDF de biometria** e **nomear uma le
 
 Leia o arquivo. Os exames vêm em **formatos diferentes** — identifique as páginas:
 
-- **Biometria** (a página-chave): **ZEISS IOLMaster** ou **TOMEY OA-2000**. Tem, por olho (R/OD e L/OS): **AL** (Axial, mm), **K1** e **K2** (D **e eixo**°), **ACD** (mm), **LT** (na TOMEY aparece como "Lens", mm), **WTW** (mm), **CCT/Pachy** (µm), **Target/KI**.
+- **Biometria** (a página-chave): **ZEISS IOLMaster** ou **TOMEY OA-2000**. Tem, por olho (R/OD e L/OS): **AL** (Axial, mm), **K1** e **K2** (cada um em **D**, **raio em mm** e **eixo**° — ex.: `44.00 / 7.68 @173°`), **Cyl** (cilindro corneano), **ACD** (mm), **LT** (na TOMEY aparece como "Lens", mm), **WTW** (mm), **CCT/Pachy** (µm), **Target/KI** (índice, ~1.3375).
+- **Leia o mm e o Cyl junto com as dioptrias** — não são opcionais: o harness usa essa redundância pra conferir a leitura (ver "Portão de segurança" abaixo).
 - **Topografia NIDEK OPD-Scan** (mapa axial, "SIM K's"): serve de **referência de ceratometria**. Se houver **mais de um biômetro** (TOMEY *e* ZEISS), escolha o biômetro cujo **K médio** for **mais próximo** do SIM K médio do OPD-Scan. Com **um só** biômetro, use ele (o OPD-Scan é só conferência).
 - **Especular KONAN** (se vier): densidade endotelial + paquimetria — usado na triagem multifocal.
 - **Sexo/idade:** pegue o **Sex** e a **DOB** do exame (idade = ano atual − ano de nascimento). O Kane usa gênero e idade.
@@ -141,18 +142,29 @@ O exame costuma ser **foto/scan** com marca de "low reliability". Antes de calcu
 
 ```
 *Li do exame ({OLHO}):*
-AL {al} • K1 {k1}@{eixo1} • K2 {k2}@{eixo2} • ACD {acd} • LT {lt} • WTW {wtw} • CCT {cct} • alvo {target}
+AL {al} • K1 {k1}/{k1_mm}@{eixo1} • K2 {k2}/{k2_mm}@{eixo2} • Cyl {cyl} • ACD {acd} • LT {lt} • WTW {wtw} • CCT {cct} • alvo {target}
 Lente: {lente}. Calculando…
 ```
 
 Não espere resposta pra seguir (mas se ela corrigir algum valor, refaça).
+
+### ⛔ Portão de segurança — NUNCA invente um valor
+
+Os dois scripts têm um **harness determinístico** (`biometria_verify.py`) que roda **antes** de calcular: confere `raio = 337,5/D` de cada K, `Cyl ≈ |K1−K2|`, os eixos ~ortogonais e as faixas fisiológicas. **Por isso você precisa passar o `mm` de cada K e o `cyl`.**
+
+Se um script retornar `ok:false` com *"Não pude confirmar a leitura do exame"*, ele **não calculou de propósito** — a leitura não fechou. Nesse caso:
+1. **NÃO** recalcule com valores chutados, **NÃO** insista, **NÃO** apresente número nenhum.
+2. Mostre à Marina exatamente quais campos não bateram (vêm no `aviso`) e peça **um exame mais nítido** ou os **valores corretos** daquele campo.
+3. Se ela mandar os valores corrigidos, refaça a extração e rode de novo.
+
+Regra geral: se você não conseguir ler um número com segurança, **diga que não conseguiu** — jamais preencha por aproximação.
 
 ### Passo 3 — rodar os calculadores (Barrett primeiro, depois Kane)
 
 **1) Barrett Toric** (SIA/incisão fixos 0.15@135, sempre calcula tórica):
 
 ```bash
-python3 /workspace/group/scripts/barrett_toric.py '{"eye":"OD","patient":"NOME","k1":{"d":44.00,"axis":173},"k2":{"d":45.25,"axis":83},"al":22.57,"acd":3.30,"lt":4.17,"wtw":12.36,"target":0,"lens":"SN6AT","sia":0.15,"incision_axis":135}'
+python3 /workspace/group/scripts/barrett_toric.py '{"eye":"OD","patient":"NOME","k1":{"d":44.00,"mm":7.68,"axis":173},"k2":{"d":45.25,"mm":7.45,"axis":83},"cyl":-1.25,"al":22.57,"acd":3.30,"lt":4.17,"wtw":12.36,"target":0,"lens":"SN6AT","sia":0.15,"incision_axis":135}'
 ```
 
 A saída é JSON na última linha. Pegue `constantes.a_constant` (ex.: `" 119.26"` → **tire o espaço** → `119.26`). Se vier `ok:false` com "lente não está na lista", o `aviso` traz as opções do dropdown — mostre à Marina e peça a correspondente (ou o nome exato).
@@ -160,7 +172,7 @@ A saída é JSON na última linha. Pegue `constantes.a_constant` (ex.: `" 119.26
 **2) ESCRS/Kane** — usa a **mesma A-constant** do Barrett, mais gênero e idade:
 
 ```bash
-python3 /workspace/group/scripts/escrs_calc.py '{"eye":"OD","patient":"NOME","gender":"Female","age":53,"k1":{"d":44.00},"k2":{"d":45.25},"al":22.57,"acd":3.30,"lt":4.17,"cct":498,"wtw":12.36,"target":0,"a_constant":119.26}'
+python3 /workspace/group/scripts/escrs_calc.py '{"eye":"OD","patient":"NOME","gender":"Female","age":53,"k1":{"d":44.00,"mm":7.68},"k2":{"d":45.25,"mm":7.45},"cyl":-1.25,"al":22.57,"acd":3.30,"lt":4.17,"cct":498,"wtw":12.36,"target":0,"a_constant":119.26}'
 ```
 
 O Kane resolve um reCAPTCHA (2captcha) — **leva ~1-2 min**, é normal. Se der `ok:false`, mostre o `aviso` (ele já tenta 2x sozinho em falha transitória) — **não invente número**.

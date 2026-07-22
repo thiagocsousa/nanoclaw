@@ -10,12 +10,16 @@ Uso:
   python3 barrett_toric.py '<json>'
   json = {
     "eye": "OD"|"OS", "patient": "NOME",
-    "k1": {"d": 42.50, "axis": 103}, "k2": {"d": 42.75, "axis": 13},
+    "k1": {"d": 42.50, "mm": 7.94, "axis": 103},  # mm = raio (redundância p/ o harness)
+    "k2": {"d": 42.75, "mm": 7.89, "axis": 13},
+    "cyl": -0.25,                              # cilindro corneano (confere |K1-K2|)
     "al": 23.96, "acd": 3.60, "lt": 5.05, "wtw": 12.65,
     "target": 0.0, "lens": "Alcon SN6ATx",   # rótulo do dropdown (ou parcial)
     "a_constant": 119.0,                       # opcional, se a lente não estiver na lista
     "sia": 0.15, "incision_axis": 135
   }
+O harness (biometria_verify) confere D↔mm, cilindro, eixos e faixas ANTES de
+calcular. Se não fechar, retorna {ok:false} e NÃO calcula.
 Saída (stdout): JSON { ok, recomendacao, tabela_seq, tabela_toric, constantes, aviso }
 Se o site mudar/quebrar → { ok:false, aviso:"..." } (não inventa resultado).
 """
@@ -23,6 +27,9 @@ import json
 import os
 import re
 import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from biometria_verify import verify
 
 URL = 'https://calc.apacrs.org/toric_calculator20/Toric%20Calculator.aspx'
 N = 'ctl00$MainContent$'
@@ -37,6 +44,12 @@ def _out(d):
 
 def run(inp):
     from playwright.sync_api import sync_playwright
+
+    # HARNESS: confere a leitura contra a redundância do exame antes de calcular
+    erros = verify(inp)
+    if erros:
+        return {"ok": False, "aviso": "Não pude confirmar a leitura do exame (não vou calcular): "
+                + "; ".join(erros) + ". Confira/reenvie o exame ou passe os valores corrigidos."}
 
     def wait(pg):
         try:

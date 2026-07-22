@@ -9,9 +9,11 @@ próxima do alvo + a tabela).
 
 Uso: python3 escrs_calc.py '<json>'
   json = { "eye":"OD"|"OS", "patient":"NOME", "gender":"Female"|"Male", "age":52,
-           "k1":{"d":42.50}, "k2":{"d":42.75}, "al":23.96, "acd":3.60,
-           "lt":5.05, "cct":520, "wtw":12.65, "target":0.0, "a_constant":119.0 }
-  (gender e age influenciam o Kane — extrair do exame; a A-constant vem do Barrett.)
+           "k1":{"d":42.50,"mm":7.94}, "k2":{"d":42.75,"mm":7.89}, "cyl":-0.25,
+           "al":23.96, "acd":3.60, "lt":5.05, "cct":520, "wtw":12.65,
+           "target":0.0, "a_constant":119.0 }
+  (gender e age influenciam o Kane — extrair do exame; a A-constant vem do Barrett.
+   mm/cyl são a redundância que o harness [biometria_verify] confere antes de calcular.)
 Env: ESCRS_2CAPTCHA_KEY (chave do 2captcha).
 Saída: JSON { ok, kane:{recomendado:{power,refracao}, tabela:[...]}, aviso }
 Se o captcha/serviço falhar ou o layout mudar → { ok:false, aviso } (não inventa).
@@ -21,6 +23,9 @@ import os
 import re
 import sys
 import time
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from biometria_verify import verify
 
 URL = 'https://iolcalculator.escrs.org/'
 SITEKEY = '6LeEGBMUAAAAAPKHrd7DZdRJ8ecmuwuBwEXlnLtO'
@@ -65,6 +70,12 @@ def run(inp):
     key = os.environ.get("ESCRS_2CAPTCHA_KEY")
     if not key:
         return {"ok": False, "aviso": "ESCRS_2CAPTCHA_KEY não definido."}
+
+    # HARNESS: confere a leitura contra a redundância do exame antes de calcular
+    erros = verify(inp)
+    if erros:
+        return {"ok": False, "aviso": "Não pude confirmar a leitura do exame (não vou calcular): "
+                + "; ".join(erros) + ". Confira/reenvie o exame ou passe os valores corrigidos."}
 
     with sync_playwright() as p:
         b = p.chromium.launch(headless=True,
