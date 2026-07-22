@@ -179,14 +179,13 @@ def run(inp):
                     pass
 
         pg.click('button:has-text("CALCULATE")'); pg.wait_for_timeout(4000)
-        # resolve o reCAPTCHA SÓ se ele estiver presente (às vezes o site passa direto).
-        # NÃO trava se o inject não achar o callback — segue e checa o resultado.
-        if pg.locator('iframe[title="reCAPTCHA"], iframe[src*="recaptcha/api2"]').count():
-            token = solve_captcha(key)
-            for _ in range(5):
-                if pg.evaluate(INJECT, token):
-                    break
-                pg.wait_for_timeout(2000)
+        # resolve o reCAPTCHA (comportamento provado). NÃO trava se o inject não achar
+        # o callback — segue e checa o resultado (às vezes o site passa direto).
+        token = solve_captcha(key)
+        for _ in range(5):
+            if pg.evaluate(INJECT, token):
+                break
+            pg.wait_for_timeout(2000)
         pg.wait_for_timeout(9000)
         body = pg.inner_text('body')
         # captura TODAS as tabelas (texto + classe da célula, p/ achar a recomendada)
@@ -235,9 +234,20 @@ def parse_kane(all_tables, target):
         return None
 
     # --- SE PWR: potências esféricas equivalentes ---
-    se = find(lambda f: 'Kane' in f and re.search(r'[+-]?\d\d\.\d0', f) and 'IOL Cyl' not in f)
+    # alvo principal: a tabela com "SE PWR"; fallback: Kane + potências que não seja a tórica
+    se = find(lambda f: 'SE PWR' in f and 'Kane' in f)
     if not se:
-        return {"ok": False, "aviso": "ESCRS/Kane: não achei a tabela de potências (layout pode ter mudado)."}
+        se = find(lambda f: 'Kane' in f and re.search(r'[+-]?\d\d\.\d0', f)
+                  and 'IOL Cyl' not in f and 'Res. Cyl' not in f)
+    if not se:
+        # diagnóstico: devolve os cabeçalhos de cada tabela pra eu ver a estrutura real da VM
+        heads = []
+        for tbl in at:
+            first = ' | '.join(c['t'] for c in (tbl[0] if tbl else []) if c['t'])[:90]
+            if first:
+                heads.append(first)
+        diag = (" Tabelas na página: " + " ;; ".join(heads[:6])) if heads else " (nenhuma tabela na página — o cálculo não saiu)."
+        return {"ok": False, "aviso": "ESCRS/Kane: não achei a tabela de potências." + diag}
     mtx = [[c['t'] for c in row] for row in se]
     kcol = _kcol(mtx)
     if kcol is None:
