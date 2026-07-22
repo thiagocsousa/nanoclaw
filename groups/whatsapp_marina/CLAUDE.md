@@ -126,7 +126,9 @@ Quando a Dra. Marina enviar **uma imagem ou PDF de biometria** e **nomear uma le
 
 ### Passo 1 — extrair a biometria do exame (visão)
 
-Leia o arquivo. Os exames vêm em **formatos diferentes** — identifique as páginas:
+**Como abrir o PDF:** a mensagem chega com uma referência tipo `[PDF: attachments/arquivo.pdf]` seguida de `Use: pdf-reader extract ...`. **IGNORE o `pdf-reader`** (é texto e esses exames são scans — vem vazio). Abra o PDF com a ferramenta **`Read`** no caminho `attachments/arquivo.pdf` — ela renderiza as páginas pra você ver e ler os números.
+
+Os exames vêm em **formatos diferentes** — identifique as páginas:
 
 - **Biometria** (a página-chave): **ZEISS IOLMaster** ou **TOMEY OA-2000**. Tem, por olho (R/OD e L/OS): **AL** (Axial, mm), **K1** e **K2** (cada um em **D**, **raio em mm** e **eixo**° — ex.: `44.00 / 7.68 @173°`), **Cyl** (cilindro corneano), **ACD** (mm), **LT** (na TOMEY aparece como "Lens", mm), **WTW** (mm), **CCT/Pachy** (µm), **Target/KI** (índice, ~1.3375).
 - **Leia o mm e o Cyl junto com as dioptrias** — não são opcionais: o harness usa essa redundância pra conferir a leitura (ver "Portão de segurança" abaixo).
