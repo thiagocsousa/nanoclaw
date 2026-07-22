@@ -100,6 +100,8 @@ const FORWARDED_ENV_VARS = [
   'NFSE_INICIO',
   'ICLINIC_EMAIL',
   'ICLINIC_PASSWORD',
+  // Cálculo de LIO (Dra. Marina) — 2captcha p/ o reCAPTCHA do ESCRS/Kane
+  'ESCRS_2CAPTCHA_KEY',
 ];
 
 // Sentinel markers for robust output parsing (must match agent-runner)
