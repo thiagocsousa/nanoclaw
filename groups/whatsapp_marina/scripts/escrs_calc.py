@@ -9,11 +9,14 @@ próxima do alvo + a tabela).
 
 Uso: python3 escrs_calc.py '<json>'
   json = { "eye":"OD"|"OS", "patient":"NOME", "gender":"Female"|"Male", "age":52,
-           "k1":{"d":42.50,"mm":7.94}, "k2":{"d":42.75,"mm":7.89}, "cyl":-0.25,
-           "al":23.96, "acd":3.60, "lt":5.05, "cct":520, "wtw":12.65,
-           "target":0.0, "a_constant":119.0 }
-  (gender e age influenciam o Kane — extrair do exame; a A-constant vem do Barrett.
-   mm/cyl são a redundância que o harness [biometria_verify] confere antes de calcular.)
+           "k1":{"d":42.50,"mm":7.94,"axis":103}, "k2":{"d":42.75,"mm":7.89,"axis":13},
+           "cyl":-0.25, "al":23.96, "acd":3.60, "lt":5.05, "cct":520, "wtw":12.65,
+           "target":0.0, "manufacturer":"Alcon", "iol":"AcrySof SN60AT",
+           "toric":true, "sia":0.15, "incision_axis":135 }
+  A A-constant do Kane NÃO vem do Barrett — vem da seleção da lente (manufacturer+iol)
+  no próprio site (constante otimizada por fórmula). gender/age influenciam o Kane.
+  Com toric=true, preenche eixos+SIA e traz o eixo do IOL. mm/cyl = redundância do harness.
+  Saída: { ok, kane:{recomendado:{power,refracao}, vizinhos:{acima,abaixo}, toric:{eixo,residual}|null, tabela}, aviso }
 Env: ESCRS_2CAPTCHA_KEY (chave do 2captcha).
 Saída: JSON { ok, kane:{recomendado:{power,refracao}, tabela:[...]}, aviso }
 Se o captcha/serviço falhar ou o layout mudar → { ok:false, aviso } (não inventa).
@@ -32,12 +35,17 @@ SITEKEY = '6LeEGBMUAAAAAPKHrd7DZdRJ8ecmuwuBwEXlnLtO'
 UA = ('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 '
       '(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36')
 FORMULAS_OFF = ['Barrett', 'Cooke K6', 'EVO', 'Hill-RBF', 'Hoffer®QST', 'Pearl DGS']
-# JS: acha o callback do reCAPTCHA e chama com o token (site faz invokeMethodAsync CallbackOnSuccess)
-INJECT = ('(token)=>{const cfg=window.___grecaptcha_cfg; if(!cfg||!cfg.clients)return 0;'
-          'let n=0;const seen=new Set();function s(o,d){if(!o||d>6||seen.has(o))return;'
-          'if(typeof o==="object")seen.add(o);for(const k in o){try{const v=o[k];'
-          'if(k==="callback"&&typeof v==="function"){v(token);n++;}else if(v&&typeof v==="object")s(v,d+1);}'
-          'catch(e){}}}s(cfg.clients,0);return n;}')
+# JS: acha o callback do reCAPTCHA e chama com o token (site faz invokeMethodAsync CallbackOnSuccess).
+# Robusto: seta a textarea g-recaptcha-response, busca funda (d>12) qualquer chave ~callback.
+INJECT = ('(token)=>{let n=0;const seen=new Set();'
+          'document.querySelectorAll("textarea#g-recaptcha-response,textarea[name=g-recaptcha-response]")'
+          '.forEach(t=>{t.value=token;});'
+          'function s(o,d){if(!o||d>12||seen.has(o)||typeof o!=="object")return;seen.add(o);'
+          'for(const k in o){try{const v=o[k];'
+          'if(typeof v==="function"&&/callback/i.test(k)){v(token);n++;}'
+          'else if(v&&typeof v==="object")s(v,d+1);}catch(e){}}}'
+          'const cfg=window.___grecaptcha_cfg; if(cfg&&cfg.clients)s(cfg.clients,0);'
+          'return n;}')
 
 
 def _out(d):
@@ -105,12 +113,12 @@ def run(inp):
             i = pg.query_selector('#' + fid)
             i.click(); i.fill(str(val)); i.press('Tab')
 
-        # NÃO desmarcar fórmulas (isso quebra o gatilho do captcha). Mantém todas
-        # marcadas, preenche a constante de todas (Kane com a real), e no fim
-        # PARSEIA SÓ o Kane. As outras podem dar "service call failed" — ignoradas.
+        # Form tem os DOIS olhos lado a lado; occ (0=OD, 1=OS) indexa o painel certo.
+        # A A-constant do Kane vem da SELEÇÃO DA LENTE no próprio site (otimizada por
+        # fórmula) — NÃO reaproveitar a do Barrett (é o que dava a potência errada).
         occ = 0 if inp["eye"].upper() == "OD" else 1
-        ac = inp.get("a_constant", 119.0)
         gender = 'Female' if str(inp.get("gender", "")).strip().lower().startswith('f') else 'Male'
+        toric = bool(inp.get("toric", True))
 
         def click_option(text):
             # clica no item de lista (MudSelect) com texto EXATO (has-text casaria substring)
@@ -119,6 +127,15 @@ def run(inp):
                     it.click(); return True
             return False
 
+        def eye_select(label, value):
+            # abre o MudSelect do olho certo (nth=occ) e escolhe a opção exata
+            ctrl = pg.locator(f'.mud-input-control:has(label:text-is("{label}"))').nth(occ)
+            if not ctrl.count():
+                return False
+            ctrl.click(); pg.wait_for_timeout(1000)
+            ok = click_option(value); pg.wait_for_timeout(1200)
+            return ok
+
         fill('Surgeon', 'Marina')
         fill('Patient Initials', (inp.get("patient") or "PX")[:6])
         fill('Age', inp.get("age", 65))
@@ -126,12 +143,30 @@ def run(inp):
         if not click_option(gender):
             return {"ok": False, "aviso": f"ESCRS: não achei a opção de gênero '{gender}'."}
 
+        # LENTE: fabricante + modelo → o site preenche a A-constant otimizada de cada fórmula
+        mfr, iol = inp.get("manufacturer"), inp.get("iol")
+        if not mfr or not iol:
+            return {"ok": False, "aviso": "ESCRS: falta manufacturer/iol da lente (a A-constant do Kane vem da lente, não calculo sem)."}
+        if not eye_select('Manufacturer', mfr):
+            return {"ok": False, "aviso": f"ESCRS: fabricante '{mfr}' não está na lista do site."}
+        if not eye_select('Select IOL', iol):
+            return {"ok": False, "aviso": f"ESCRS: lente '{iol}' (fabricante '{mfr}') não está na lista do site."}
+
+        # TORIC ON → habilita eixos/SIA/incisão e a recomendação de eixo do IOL
+        if toric:
+            tog = pg.locator('.mud-switch:has-text("Toric")').nth(occ)
+            if tog.count():
+                tog.click(); pg.wait_for_timeout(1500)
+
         campos = [('AL', inp["al"]), ('ACD', inp["acd"]), ('K1', inp["k1"]["d"]),
-                  ('K2', inp["k2"]["d"]), ('Target Refraction', inp.get("target", 0)),
-                  ('Kane A-Constant', ac),
-                  ('Barrett A-Constant', ac), ('Cooke A-Constant', ac), ('EVO A-Constant', ac),
-                  ('Hill-RBF A-Constant', ac), ('Hoffer® pACD', 5.4), ('Pearl DGS A-Constant', ac)]
+                  ('K2', inp["k2"]["d"]), ('Target Refraction', inp.get("target", 0))]
+        if toric:
+            campos += [('K1 axis', (inp.get("k1") or {}).get("axis")),
+                       ('K2 axis', (inp.get("k2") or {}).get("axis")),
+                       ('SIA', inp.get("sia", 0.15)), ('Incision', inp.get("incision_axis", 135))]
         for lbl, v in campos:
+            if v is None:
+                continue
             try:
                 fill(lbl, v, occ)
             except Exception:
@@ -143,52 +178,98 @@ def run(inp):
                 except Exception:
                     pass
 
-        pg.click('button:has-text("CALCULATE")'); pg.wait_for_timeout(2500)
-        # resolve e injeta o captcha
-        token = solve_captcha(key)
-        called = pg.evaluate(INJECT, token)
-        if not called:
-            return {"ok": False, "aviso": "ESCRS: não consegui injetar o token do captcha (site mudou o reCAPTCHA)."}
+        pg.click('button:has-text("CALCULATE")'); pg.wait_for_timeout(4000)
+        # resolve o reCAPTCHA SÓ se ele estiver presente (às vezes o site passa direto).
+        # NÃO trava se o inject não achar o callback — segue e checa o resultado.
+        if pg.locator('iframe[title="reCAPTCHA"], iframe[src*="recaptcha/api2"]').count():
+            token = solve_captcha(key)
+            for _ in range(5):
+                if pg.evaluate(INJECT, token):
+                    break
+                pg.wait_for_timeout(2000)
         pg.wait_for_timeout(9000)
         body = pg.inner_text('body')
-        # extrai a tabela de resultado como MATRIZ (células preservam posição/blanks)
-        matrix = pg.evaluate('''() => {
-          for (const t of document.querySelectorAll('table')) {
-            if (t.innerText.includes('Kane') && /[+-]?\\d\\d\\.\\d0/.test(t.innerText)) {
-              return [...t.querySelectorAll('tr')].map(tr =>
-                [...tr.querySelectorAll('th,td')].map(c => c.innerText.replace(/\\s+/g,' ').trim()));
-            }
-          }
-          return null;
+        # captura TODAS as tabelas (texto + classe da célula, p/ achar a recomendada)
+        all_tables = pg.evaluate('''() => {
+          return [...document.querySelectorAll('table')].map(t =>
+            [...t.querySelectorAll('tr')].map(tr =>
+              [...tr.querySelectorAll('th,td')].map(c => ({
+                t: c.innerText.replace(/\\s+/g,' ').trim(),
+                cls: c.className || ''
+              }))));
         }''')
         if os.environ.get("ESCRS_DEBUG"):
-            open('/tmp/escrs_kane_dbg.txt', 'w').write(body + "\n\n=== MATRIX ===\n" + json.dumps(matrix, ensure_ascii=False))
+            open('/tmp/escrs_kane_dbg.txt', 'w').write(body + "\n\n=== ALL TABLES ===\n" + json.dumps(all_tables, ensure_ascii=False))
         b.close()
 
     if re.search(r'Kane.{0,60}(service call failed|could not be completed)', body, re.I | re.S):
         return {"ok": False, "aviso": "ESCRS/Kane: o serviço de cálculo falhou — tentar de novo."}
-    if not matrix:
-        return {"ok": False, "aviso": "ESCRS/Kane: rodou mas não achei a tabela (layout pode ter mudado)."}
+    return parse_kane(all_tables, inp.get("target", 0))
 
-    # acha a coluna do Kane pelo cabeçalho e lê só ela
+
+def _kcol(matrix):
+    """índice da coluna 'Kane' pelo cabeçalho (última ocorrência = header do bloco)."""
     kcol = None
     for row in matrix:
         for j, cell in enumerate(row):
             if re.search(r'\bKane\b', cell):
                 kcol = j
+    return kcol
+
+
+def parse_kane(all_tables, target):
+    """
+    Parser à prova de falha (advisor): identifica POSITIVAMENTE a coluna Kane e a
+    linha recomendada, ou devolve aviso. Nunca emite número sem procedência.
+    - SE PWR (sólido): potência recomendada + vizinhos acima/abaixo.
+    - Toric (fail-safe): eixo + cilindro residual da célula RECOMENDADA (destacada);
+      se não achar com confiança, omite (toric=None) em vez de chutar.
+    """
+    at = all_tables or []
+
+    def find(pred):
+        for tbl in at:
+            flat = ' '.join(c['t'] for row in tbl for c in row)
+            if pred(flat):
+                return tbl
+        return None
+
+    # --- SE PWR: potências esféricas equivalentes ---
+    se = find(lambda f: 'Kane' in f and re.search(r'[+-]?\d\d\.\d0', f) and 'IOL Cyl' not in f)
+    if not se:
+        return {"ok": False, "aviso": "ESCRS/Kane: não achei a tabela de potências (layout pode ter mudado)."}
+    mtx = [[c['t'] for c in row] for row in se]
+    kcol = _kcol(mtx)
     if kcol is None:
         return {"ok": False, "aviso": "ESCRS/Kane: coluna Kane não encontrada."}
     tabela = []
-    for row in matrix:
+    for row in mtx:
         if row and re.match(r'[+-]?\d{2}\.\d0$', row[0]) and kcol < len(row):
             val = row[kcol].strip()
             if re.match(r'[+-]?\d\.\d\d$', val):
                 tabela.append({"power": row[0].lstrip('+'), "refracao": val})
     if not tabela:
         return {"ok": False, "aviso": "ESCRS/Kane: sem valores na coluna Kane (pode ter falhado)."}
-    alvo = float(inp.get("target", 0))
+    tabela.sort(key=lambda r: float(r["power"]), reverse=True)
+    alvo = float(target or 0)
     rec = min(tabela, key=lambda r: abs(float(r["refracao"]) - alvo))
-    return {"ok": True, "kane": {"recomendado": rec, "tabela": tabela}}
+    i = tabela.index(rec)
+    vizinhos = {"acima": tabela[i - 1] if i > 0 else None,
+                "abaixo": tabela[i + 1] if i + 1 < len(tabela) else None}
+    kane = {"recomendado": rec, "vizinhos": vizinhos, "tabela": tabela, "toric": None}
+
+    # --- Toric (fail-safe): célula recomendada (destacada) na coluna do Kane ---
+    tor = find(lambda f: ('Res. Cyl' in f or 'IOL Axis' in f) and 'Kane' in f)
+    if tor:
+        kc = _kcol([[c['t'] for c in row] for row in tor])
+        if kc is not None:
+            for row in tor:
+                for j, c in enumerate(row):
+                    if abs(j - kc) <= 2 and re.search(r'high|select|active|recommend|chosen', c['cls'], re.I):
+                        m = re.search(r'([+-]?\d\.\d\d)\s*x\s*(\d{1,3})', c['t'])
+                        if m:
+                            kane["toric"] = {"residual": m.group(1), "eixo": m.group(2)}
+    return {"ok": True, "kane": kane}
 
 
 def main():

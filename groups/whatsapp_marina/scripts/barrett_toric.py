@@ -131,8 +131,14 @@ def run(inp):
             pass
 
         txt = pg.inner_text('body')
+        # a caixa "Recommended IOL" (com o EIXO DE ALINHAMENTO) e a potência de cilindro
+        # não vão no inner_text — ficam em inputs hidden do ASP.NET
+        sel = pg.query_selector(f'[name="{N}SelectedIOL"]')
+        icy = pg.query_selector(f'[name="{N}IOLcylinder"]')
+        rec_txt = (sel.get_attribute('value') if sel else '') or ''
+        cyl_txt = (icy.get_attribute('value') if icy else '') or ''
         if os.environ.get("BARRETT_DEBUG"):
-            open('/tmp/barrett_dbg.txt', 'w').write(txt)
+            open('/tmp/barrett_dbg.txt', 'w').write(txt + f"\n\nSelectedIOL={rec_txt!r}\nIOLcylinder={cyl_txt!r}")
         b.close()
 
     # parse da aba Toric IOL
@@ -141,11 +147,28 @@ def run(inp):
     if not toric:
         return {"ok": False, "aviso": "Barrett: rodou mas não achei a tabela de resultado (layout pode ter mudado)."}
 
-    tabela_toric = [{"toric_power": t[0], "iol_cyl": t[1], "astig_residual": t[2], "eixo": t[3]} for t in toric]
+    tabela_toric = [{"toric_power": t[0], "iol_cyl": t[1], "astig_residual": t[2], "eixo_residual": t[3]} for t in toric]
     tabela_seq = [{"iol_power": s[0], "toric_model": s[1], "refracao_seq": s[2]} for s in seq]
-    # recomendado = menor astigmatismo residual (em módulo) entre as opções tóricas
-    toricas = [t for t in tabela_toric if t["toric_power"].lower() != "non toric"]
-    rec = min(toricas, key=lambda t: abs(float(t["astig_residual"]))) if toricas else None
+
+    # recomendação: pega a potência + modelo + EIXO DE ALINHAMENTO da caixa "Recommended IOL"
+    # (é o eixo que o cirurgião usa; o das tabelas é o eixo do astigmatismo RESIDUAL)
+    m = re.search(r'([\d.]+)\s*D\s+(\S+)\s+Axis\s+(\d+)', rec_txt)
+    mcyl = re.search(r'Corneal Plane\s*([\d.]+)\s*D', cyl_txt)
+    if m:
+        modelo = m.group(2)
+        linha = next((t for t in tabela_toric if t["toric_power"] == modelo), None)
+        rec = {"iol_power": m.group(1), "toric_model": modelo, "eixo_alinhamento": m.group(3),
+               "iol_cyl": linha["iol_cyl"] if linha else None,
+               "astig_residual": linha["astig_residual"] if linha else None,
+               "eixo_residual": linha["eixo_residual"] if linha else None,
+               "cyl_corneal": mcyl.group(1) if mcyl else None}
+    else:
+        # fallback: menor astigmatismo residual (em módulo) — sem o eixo de alinhamento
+        toricas = [t for t in tabela_toric if t["toric_power"].lower() != "non toric"]
+        l = min(toricas, key=lambda t: abs(float(t["astig_residual"]))) if toricas else None
+        rec = ({"toric_model": l["toric_power"], "eixo_alinhamento": None,
+                "iol_cyl": l["iol_cyl"], "astig_residual": l["astig_residual"],
+                "eixo_residual": l["eixo_residual"]} if l else None)
     return {"ok": True, "recomendacao": rec, "tabela_toric": tabela_toric,
             "tabela_seq": tabela_seq, "constantes": constantes}
 
