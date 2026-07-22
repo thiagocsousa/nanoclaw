@@ -171,23 +171,21 @@ Cada calculadora tem seu próprio nome pra lente. **Não** faça fuzzy match —
 
 _(Vai crescendo conforme a Marina usar outras lentes. Cada linha só entra quando confirmada.)_
 
-### Passo 3 — rodar os calculadores (independentes)
+### Passo 3 — rodar os DOIS calculadores EM PARALELO
 
-Os dois são **independentes** — cada um pega a **A-constant otimizada da sua própria fórmula** (o Kane NÃO usa a do Barrett; era isso que dava a potência errada). Pode rodar em paralelo.
-
-**1) Barrett Toric** (SIA/incisão fixos 0.15@135, sempre tórica):
+São **independentes** (cada um pega a A-constant otimizada da sua fórmula — o Kane NÃO usa a do Barrett). O Kane leva ~1-2 min (captcha), então **rode os dois ao mesmo tempo** com um único comando e espere ambos:
 
 ```bash
-python3 /workspace/group/scripts/barrett_toric.py '{"eye":"OD","patient":"NOME","k1":{"d":44.00,"mm":7.68,"axis":173},"k2":{"d":45.25,"mm":7.45,"axis":83},"cyl":-1.25,"al":22.57,"acd":3.30,"lt":4.17,"wtw":12.36,"target":0,"lens":"Alcon SN6ATx","sia":0.15,"incision_axis":135}'
+mkdir -p /workspace/group/tmp
+python3 /workspace/group/scripts/barrett_toric.py '{"eye":"OD","patient":"NOME","k1":{"d":44.00,"mm":7.68,"axis":173},"k2":{"d":45.25,"mm":7.45,"axis":83},"cyl":-1.25,"al":22.57,"acd":3.30,"lt":4.17,"wtw":12.36,"target":0,"lens":"Alcon SN6ATx","sia":0.15,"incision_axis":135}' > /workspace/group/tmp/barrett.json 2>/dev/null &
+python3 /workspace/group/scripts/escrs_calc.py '{"eye":"OD","patient":"NOME","gender":"Female","age":53,"k1":{"d":44.00,"mm":7.68},"k2":{"d":45.25,"mm":7.45},"cyl":-1.25,"al":22.57,"acd":3.30,"lt":4.17,"cct":498,"wtw":12.36,"target":0,"manufacturer":"Alcon","iol":"AcrySof SN60AT"}' > /workspace/group/tmp/kane.json 2>/dev/null &
+wait
+echo "=== BARRETT ==="; cat /workspace/group/tmp/barrett.json; echo; echo "=== KANE ==="; cat /workspace/group/tmp/kane.json
 ```
-Retorna `recomendacao` com `iol_power`, `toric_model`, **`eixo_alinhamento`** (o eixo do IOL, o que o cirurgião usa), `astig_residual` @ `eixo_residual`, `cyl_corneal`. Se `ok:false` "lente não está na lista", mostre as opções do `aviso`.
 
-**2) ESCRS/Kane** — seleciona a lente no próprio site (preenche a A-constant do Kane), modo tórico:
-
-```bash
-python3 /workspace/group/scripts/escrs_calc.py '{"eye":"OD","patient":"NOME","gender":"Female","age":53,"k1":{"d":44.00,"mm":7.68,"axis":173},"k2":{"d":45.25,"mm":7.45,"axis":83},"cyl":-1.25,"al":22.57,"acd":3.30,"lt":4.17,"cct":498,"wtw":12.36,"target":0,"manufacturer":"Alcon","iol":"AcrySof SN60AT","toric":true,"sia":0.15,"incision_axis":135}'
-```
-Retorna `kane` com `recomendado{power,refracao}`, `vizinhos{acima,abaixo}` e `toric{eixo,residual}` (pode vir `null` se o site não expuser o eixo — nesse caso apresente sem o eixo do Kane, **não invente**). Resolve reCAPTCHA (2captcha) — **~1-2 min**, normal. Se `ok:false`, mostre o `aviso` (já tenta 2x em falha transitória) — **não invente número**.
+- **Barrett** → `recomendacao` com `iol_power`, `toric_model`, **`eixo_alinhamento`** (eixo do IOL — o que o cirurgião usa), `astig_residual` @ `eixo_residual`, `cyl_corneal`.
+- **Kane** → `kane` com `recomendado{power,refracao}` e `vizinhos{acima,abaixo}`. (Hoje roda **não-tórico** — traz a potência certa + vizinhos, mas **`toric` vem `null`** = sem eixo do Kane ainda; use o eixo do Barrett como referência e **não invente** o do Kane.)
+- Se qualquer um vier `ok:false`, **cole o campo `aviso` INTEIRO, sem resumir** (preciso do diagnóstico) — e **não invente número**.
 
 ### Passo 4 — apresentar
 
@@ -197,16 +195,17 @@ Retorna `kane` com `recomendado{power,refracao}`, `vizinhos{acima,abaixo}` e `to
 *Barrett Toric:* {iol_power} D · {toric_model} → *eixo {eixo_alinhamento}°*
 _residual {astig_residual} D @ {eixo_residual}° · cyl {cyl_corneal} D (plano corneano)_
 
-*Kane:* {power} D → previsto {refracao} D{, *eixo {toric.eixo}°* se toric ≠ null}
+*Kane:* {power} D → previsto {refracao} D
 _vizinhos: {vizinhos.acima.power} D → {vizinhos.acima.refracao} · {vizinhos.abaixo.power} D → {vizinhos.abaixo.refracao}_
+{se toric ≠ null: _eixo Kane {toric.eixo}°_ ; senão nada}
 
-_SIA 0.15@135._
+_Eixo de alinhamento (Barrett): {eixo_alinhamento}°. SIA 0.15@135._
 ```
 
 Regras da apresentação:
-- **Sempre mostre o eixo** de alinhamento nos dois (é o que a Marina pediu). No Kane, o eixo vem em `toric.eixo`; se `toric` for `null`, escreva _"(eixo do Kane não disponível nesta rodada)"_ — não invente.
+- **Barrett** traz o **eixo de alinhamento** do IOL (`eixo_alinhamento`) — é a referência de eixo. O **Kane hoje sai sem eixo** (`toric:null`); **não invente** — se `toric` vier preenchido no futuro, mostre `toric.eixo`.
 - **Mostre os vizinhos** do Kane (uma potência acima e uma abaixo da recomendada) pra ela avaliar.
-- Se um dos dois calculadores falhar, apresente o que deu certo e avise que o outro não completou (com o motivo do `aviso`).
+- Se um dos dois calculadores falhar, apresente o que deu certo e avise que o outro não completou (colando o `aviso` inteiro).
 
 ### Passo 5 — triagem multifocal (junto)
 

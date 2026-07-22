@@ -91,12 +91,12 @@ def run(inp):
                               args=['--disable-blink-features=AutomationControlled'])
         pg = b.new_context(user_agent=UA, viewport={'width': 1400, 'height': 1400}).new_page()
         pg.goto(URL, wait_until='networkidle', timeout=60000)
-        pg.wait_for_timeout(5000)
+        pg.wait_for_timeout(3000)
         try:
             pg.click('button:has-text("I AGREE")', timeout=8000)
         except Exception:
             pass
-        pg.wait_for_timeout(5000)
+        pg.wait_for_timeout(3000)
 
         if not pg.query_selector_all('label'):
             return {"ok": False, "aviso": "ESCRS: formulário não carregou (site pode ter mudado)."}
@@ -118,7 +118,9 @@ def run(inp):
         # fórmula) — NÃO reaproveitar a do Barrett (é o que dava a potência errada).
         occ = 0 if inp["eye"].upper() == "OD" else 1
         gender = 'Female' if str(inp.get("gender", "")).strip().lower().startswith('f') else 'Male'
-        toric = bool(inp.get("toric", True))
+        # default NÃO-tórico: é o caminho confiável (potência + vizinhos). O modo tórico
+        # do site (que traz o eixo do Kane) ainda está sendo estabilizado — toric=true opt-in.
+        toric = bool(inp.get("toric", False))
 
         def click_option(text):
             # clica no item de lista (MudSelect) com texto EXATO (has-text casaria substring)
