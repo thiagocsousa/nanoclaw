@@ -66,7 +66,16 @@ def _proxy_cfg():
         return None
     cfg = {"server": f"{u.scheme}://{u.hostname}:{u.port}"}
     if u.username:
-        cfg["username"] = u.username
+        user = u.username
+        # 2captcha residencial: anexa uma sessão ALEATÓRIA por execução → IP fixo
+        # DENTRO do cálculo (vários requests precisam do mesmo IP), mas IP novo a
+        # cada cálculo (evita rate-limit). sessTime cobre a duração da chamada.
+        if 'zone' in user and 'session' not in user:
+            import random
+            import string
+            sid = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
+            user = f"{user}-session-{sid}-sessTime-10"
+        cfg["username"] = user
         cfg["password"] = u.password or ""
     return cfg
 
@@ -90,7 +99,7 @@ def solve_captcha(key):
     raise RuntimeError("2captcha: timeout")
 
 
-def run(inp):
+def run(inp, use_proxy=False):
     from playwright.sync_api import sync_playwright
 
     key = os.environ.get("ESCRS_2CAPTCHA_KEY")
@@ -107,18 +116,26 @@ def run(inp):
         b = p.chromium.launch(headless=True,
                               executable_path=os.environ.get("PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH"),
                               args=['--disable-blink-features=AutomationControlled'],
-                              proxy=_proxy_cfg())
+                              proxy=(_proxy_cfg() if use_proxy else None))
         pg = b.new_context(user_agent=UA, viewport={'width': 1400, 'height': 1400}).new_page()
-        pg.goto(URL, wait_until='networkidle', timeout=60000)
-        pg.wait_for_timeout(3000)
+        # IP residencial varia muito (uns não conectam / carregam parcial). FALHA RÁPIDO
+        # aqui (timeout curto) → o main() retenta com uma sessão nova (= IP novo).
+        try:
+            pg.goto(URL, wait_until='domcontentloaded', timeout=25000)
+        except Exception:
+            return {"ok": False, "aviso": "ESCRS: formulário não carregou (IP do proxy ruim) — retenta."}
+        pg.wait_for_timeout(4000)
         try:
             pg.click('button:has-text("I AGREE")', timeout=8000)
         except Exception:
             pass
-        pg.wait_for_timeout(3000)
-
-        if not pg.query_selector_all('label'):
-            return {"ok": False, "aviso": "ESCRS: formulário não carregou (site pode ter mudado)."}
+        # espera ATIVA pelo form (Blazor/SignalR não fecha no networkidle) — até ~18s
+        for _ in range(12):
+            if len(pg.query_selector_all('label')) > 5:
+                break
+            pg.wait_for_timeout(1500)
+        if len(pg.query_selector_all('label')) <= 5:
+            return {"ok": False, "aviso": "ESCRS: formulário não carregou (IP do proxy ruim) — retenta."}
 
         def idf(text, occ=0):
             # RE-QUERY a cada chamada: o Blazor re-renderiza e regenera os IDs
@@ -141,21 +158,30 @@ def run(inp):
         # do site (que traz o eixo do Kane) ainda está sendo estabilizado — toric=true opt-in.
         toric = bool(inp.get("toric", False))
 
-        def click_option(text):
-            # clica no item de lista (MudSelect) com texto EXATO (has-text casaria substring)
-            for it in pg.query_selector_all('.mud-list-item'):
-                if (it.inner_text() or '').strip() == text:
-                    it.click(); return True
+        def click_option(text, tries=10):
+            # clica no item do MudSelect com texto EXATO. POLL: pelo proxy lento as opções
+            # demoram a renderizar (has-text casaria substring, por isso match exato).
+            for _ in range(tries):
+                for it in pg.query_selector_all('.mud-list-item'):
+                    if (it.inner_text() or '').strip() == text:
+                        it.click(); return True
+                pg.wait_for_timeout(500)
             return False
 
         def eye_select(label, value):
-            # abre o MudSelect do olho certo (nth=occ) e escolhe a opção exata
+            # abre o MudSelect do olho certo (nth=occ) e escolhe a opção exata.
+            # REABRE algumas vezes: pelo proxy a lista (ex.: IOLs da Alcon) carrega async
+            # e pode vir vazia na 1ª abertura.
             ctrl = pg.locator(f'.mud-input-control:has(label:text-is("{label}"))').nth(occ)
             if not ctrl.count():
                 return False
-            ctrl.click(); pg.wait_for_timeout(1000)
-            ok = click_option(value); pg.wait_for_timeout(1200)
-            return ok
+            for _ in range(3):
+                ctrl.click(); pg.wait_for_timeout(1200)
+                if click_option(value, tries=16):
+                    pg.wait_for_timeout(1200)
+                    return True
+                pg.keyboard.press('Escape'); pg.wait_for_timeout(1500)
+            return False
 
         fill('Surgeon', 'Marina')
         fill('Patient Initials', (inp.get("patient") or "PX")[:6])
@@ -170,6 +196,7 @@ def run(inp):
             return {"ok": False, "aviso": "ESCRS: falta manufacturer/iol da lente (a A-constant do Kane vem da lente, não calculo sem)."}
         if not eye_select('Manufacturer', mfr):
             return {"ok": False, "aviso": f"ESCRS: fabricante '{mfr}' não está na lista do site."}
+        pg.wait_for_timeout(2500)  # a lista de IOLs carrega async após escolher o fabricante
         if not eye_select('Select IOL', iol):
             return {"ok": False, "aviso": f"ESCRS: lente '{iol}' (fabricante '{mfr}') não está na lista do site."}
 
@@ -334,19 +361,26 @@ def main():
         inp = json.loads(sys.argv[1])
     except Exception as e:
         _out({"ok": False, "aviso": f"JSON inválido: {e}"})
-    # o serviço ESCRS falha esporadicamente ("não achei a tabela" / "serviço falhou") →
-    # tenta 2x nessas transitórias (cada tentativa é um solve de captcha)
+    # ESTRATÉGIA: 1ª tentativa pelo IP DIRETO (rápido/estável; em uso normal não bate no
+    # rate-limit). Se falhar (rate-limit → "não achei a tabela"/"serviço falhou"), CAI PRO
+    # PROXY (IPs rotativos) nas tentativas seguintes. Proxy é fallback, não o padrão.
+    RETRY = ("retenta", "não achei a tabela", "serviço de cálculo falhou")
+    has_proxy = bool(os.environ.get("ESCRS_PROXY", "").strip())
     last = None
-    for _ in range(2):
+    for attempt in range(4):
+        use_proxy = attempt >= 1 and has_proxy  # 0 = direto; 1+ = proxy (se configurado)
         try:
-            last = run(inp)
+            last = run(inp, use_proxy=use_proxy)
         except Exception as e:
             import traceback
             last = {"ok": False, "aviso": f"ESCRS: erro — {e}", "traceback": traceback.format_exc()[-400:]}
         if last.get("ok"):
             _out(last)
         av = last.get("aviso", "")
-        if "não achei a tabela" not in av and "serviço de cálculo falhou" not in av:
+        if not any(m in av for m in RETRY):
+            break
+        # se não há proxy, não adianta retentar rate-limit à exaustão — para após a 2ª
+        if not has_proxy and attempt >= 1:
             break
     _out(last)
 

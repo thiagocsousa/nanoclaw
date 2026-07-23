@@ -178,13 +178,13 @@ São **independentes** (cada um pega a A-constant otimizada da sua fórmula — 
 ```bash
 mkdir -p /workspace/group/tmp
 python3 /workspace/group/scripts/barrett_toric.py '{"eye":"OD","patient":"NOME","k1":{"d":44.00,"mm":7.68,"axis":173},"k2":{"d":45.25,"mm":7.45,"axis":83},"cyl":-1.25,"al":22.57,"acd":3.30,"lt":4.17,"wtw":12.36,"target":0,"lens":"Alcon SN6ATx","sia":0.15,"incision_axis":135}' > /workspace/group/tmp/barrett.json 2>/dev/null &
-python3 /workspace/group/scripts/escrs_calc.py '{"eye":"OD","patient":"NOME","gender":"Female","age":53,"k1":{"d":44.00,"mm":7.68},"k2":{"d":45.25,"mm":7.45},"cyl":-1.25,"al":22.57,"acd":3.30,"lt":4.17,"cct":498,"wtw":12.36,"target":0,"manufacturer":"Alcon","iol":"AcrySof SN60AT"}' > /workspace/group/tmp/kane.json 2>/dev/null &
+python3 /workspace/group/scripts/escrs_calc.py '{"eye":"OD","patient":"NOME","gender":"Female","age":53,"k1":{"d":44.00,"mm":7.68,"axis":173},"k2":{"d":45.25,"mm":7.45,"axis":83},"cyl":-1.25,"al":22.57,"acd":3.30,"lt":4.17,"cct":498,"wtw":12.36,"target":0,"manufacturer":"Alcon","iol":"AcrySof SN60AT","toric":true,"sia":0.15,"incision_axis":135}' > /workspace/group/tmp/kane.json 2>/dev/null &
 wait
 echo "=== BARRETT ==="; cat /workspace/group/tmp/barrett.json; echo; echo "=== KANE ==="; cat /workspace/group/tmp/kane.json
 ```
 
 - **Barrett** → `recomendacao` com `iol_power`, `toric_model`, **`eixo_alinhamento`** (eixo do IOL — o que o cirurgião usa), `astig_residual` @ `eixo_residual`, `cyl_corneal`.
-- **Kane** → `kane` com `recomendado{power,refracao}` e `vizinhos{acima,abaixo}`. (Hoje roda **não-tórico** — traz a potência certa + vizinhos, mas **`toric` vem `null`** = sem eixo do Kane ainda; use o eixo do Barrett como referência e **não invente** o do Kane.)
+- **Kane** → `kane` com `recomendado{power,refracao}`, `vizinhos{acima,abaixo}`, `a_constant` (a que o site aplicou, ex.: 118.7) e `toric{eixo,residual}` (o eixo do Kane; se vier `null`, apresente sem ele e **não invente**). Roda **tórico** (necessário — o tórico desloca a potência). **1ª tentativa é IP direto (rápido); se der erro cai pro proxy automaticamente** — pode levar ~1-2 min (captcha); é normal.
 - Se qualquer um vier `ok:false`, **cole o campo `aviso` INTEIRO, sem resumir** (preciso do diagnóstico) — e **não invente número**.
 - Se o Kane falhar com "nenhuma tabela"/"serviço falhou", é o ESCRS não respondendo (às vezes rate-limit). Diga isso e que **dá pra tentar de novo mais tarde**. **NUNCA sugira outros sites/calculadoras** (você não tem como validá-los) nem invente um link.
 
@@ -196,17 +196,16 @@ echo "=== BARRETT ==="; cat /workspace/group/tmp/barrett.json; echo; echo "=== K
 *Barrett Toric:* {iol_power} D · {toric_model} → *eixo {eixo_alinhamento}°*
 _residual {astig_residual} D @ {eixo_residual}° · cyl {cyl_corneal} D (plano corneano)_
 
-*Kane:* {power} D → previsto {refracao} D  _(A-const {kane.a_constant})_
+*Kane:* {power} D → previsto {refracao} D{ · *eixo {toric.eixo}°* se toric ≠ null}  _(A-const {kane.a_constant})_
 _vizinhos: {vizinhos.acima.power} D → {vizinhos.acima.refracao} · {vizinhos.abaixo.power} D → {vizinhos.abaixo.refracao}_
-{se toric ≠ null: _eixo Kane {toric.eixo}°_ ; senão nada}
 
-_Eixo de alinhamento (Barrett): {eixo_alinhamento}°. SIA 0.15@135._
+_Barrett eixo {eixo_alinhamento}°. SIA 0.15@135._
 ```
 
 A `kane.a_constant` é a constante que o **site** preencheu pra lente (ex.: 118.70 pro SN6AT) — mostre-a; se vier muito diferente do esperado, avise que pode ter havido erro na seleção da lente.
 
 Regras da apresentação:
-- **Barrett** traz o **eixo de alinhamento** do IOL (`eixo_alinhamento`) — é a referência de eixo. O **Kane hoje sai sem eixo** (`toric:null`); **não invente** — se `toric` vier preenchido no futuro, mostre `toric.eixo`.
+- **Eixo de alinhamento** nos dois: Barrett (`eixo_alinhamento`) e Kane (`toric.eixo`). Se o `toric` do Kane vier `null`, mostre só o do Barrett e diga que o do Kane não saiu — **não invente**.
 - **Mostre os vizinhos** do Kane (uma potência acima e uma abaixo da recomendada) pra ela avaliar.
 - Se um dos dois calculadores falhar, apresente o que deu certo e avise que o outro não completou (colando o `aviso` inteiro).
 
