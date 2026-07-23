@@ -102,6 +102,8 @@ const FORWARDED_ENV_VARS = [
   'ICLINIC_PASSWORD',
   // Cálculo de LIO (Dra. Marina) — 2captcha p/ o reCAPTCHA do ESCRS/Kane
   'ESCRS_2CAPTCHA_KEY',
+  // Proxy residencial (2captcha) só p/ o ESCRS — evita rate-limit por IP
+  'ESCRS_PROXY',
 ];
 
 // Sentinel markers for robust output parsing (must match agent-runner)

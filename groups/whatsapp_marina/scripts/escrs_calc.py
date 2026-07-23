@@ -53,6 +53,24 @@ def _out(d):
     sys.exit(0 if d.get("ok") else 1)
 
 
+def _proxy_cfg():
+    """ESCRS_PROXY (ex.: 'http://login:senha@host:9999') → dict do Playwright, ou None.
+    Roteia o browser por um proxy residencial (2captcha) p/ evitar rate-limit por IP.
+    O reCAPTCHA v2 continua proxyless (aceitável). Barrett NÃO usa proxy."""
+    raw = os.environ.get("ESCRS_PROXY", "").strip()
+    if not raw:
+        return None
+    from urllib.parse import urlparse
+    u = urlparse(raw if "://" in raw else "http://" + raw)
+    if not u.hostname or not u.port:
+        return None
+    cfg = {"server": f"{u.scheme}://{u.hostname}:{u.port}"}
+    if u.username:
+        cfg["username"] = u.username
+        cfg["password"] = u.password or ""
+    return cfg
+
+
 def solve_captcha(key):
     import requests
     r = requests.post('https://api.2captcha.com/createTask', timeout=30, json={
@@ -88,7 +106,8 @@ def run(inp):
     with sync_playwright() as p:
         b = p.chromium.launch(headless=True,
                               executable_path=os.environ.get("PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH"),
-                              args=['--disable-blink-features=AutomationControlled'])
+                              args=['--disable-blink-features=AutomationControlled'],
+                              proxy=_proxy_cfg())
         pg = b.new_context(user_agent=UA, viewport={'width': 1400, 'height': 1400}).new_page()
         pg.goto(URL, wait_until='networkidle', timeout=60000)
         pg.wait_for_timeout(3000)
