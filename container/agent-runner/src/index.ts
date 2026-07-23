@@ -549,7 +549,11 @@ interface ScriptResult {
   data?: unknown;
 }
 
-const SCRIPT_TIMEOUT_MS = 30_000;
+// Pre-check scripts can drive a headless browser (e.g. the NF-e collector logs
+// into iClinic via Playwright and fetches per-patient details — measured ~87s
+// on a 45-day window). The old 30s cap silently SIGKILL'd the script mid-run →
+// resolve(null) → agent never woken → no message, ever. Default 180s, tunable.
+const SCRIPT_TIMEOUT_MS = Number(process.env.TASK_SCRIPT_TIMEOUT_MS) || 180_000;
 
 async function runScript(script: string): Promise<ScriptResult | null> {
   const scriptPath = '/tmp/task-script.sh';
