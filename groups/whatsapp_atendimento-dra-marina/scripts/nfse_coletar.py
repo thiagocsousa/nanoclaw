@@ -35,7 +35,9 @@ PARTICULAR_INSURANCE_ID = 520537
 ICLINIC_EMAIL = os.environ.get("ICLINIC_EMAIL", "thiagocsousa@gmail.com")
 ICLINIC_PASSWORD = os.environ.get("ICLINIC_PASSWORD", "Thiagofei1998#")
 EMITIDAS_FILE = Path(os.environ.get("NFSE_EMITIDAS_FILE", "nfse_emitidas.json"))
-REALIZADA = {"sc", "cp"}   # status de cirurgia realizada na agenda
+# O status do iClinic NÃO diz se a cirurgia foi feita (fica sc/re/cp mesmo após
+# realizada). "Realizada" = evento CIRURGIA cuja DATA já passou e NÃO foi cancelada/faltou.
+STATUS_CANCELADO = {"ca", "fl", "na", "bl", "hd"}   # cancelado/faltou/bloqueio/feriado
 
 MESES = ["january", "february", "march", "april", "may", "june",
          "july", "august", "september", "october", "november", "december"]
@@ -264,15 +266,18 @@ def coletar(pg, csrf, d0, d1, emitidas=frozenset()):
             for ev in rr.json().get("events", []):
                 eventos[ev["id"]] = ev
     realized = {}
+    hoje = date.today().isoformat()
     for ev in eventos.values():
-        if ev.get("status") not in REALIZADA or not (d0 <= (ev.get("date") or "")[:10] <= d1):
+        d = (ev.get("date") or "")[:10]
+        # cirurgia REALIZADA = evento cuja DATA já passou (<= hoje) e não foi cancelada/faltou.
+        # (status não é confiável; futuro nunca conta). SÓ o procedimento de cirurgia de fato
+        # ("CIRURGIA X") — nunca "HONORÁRIOS ..." (agendamento de cobrança, cai no dia do pgto).
+        if ev.get("status") in STATUS_CANCELADO or not d or d > hoje or not (d0 <= d <= d1):
             continue
         pid = (ev.get("patient") or {}).get("id")
         for pr in ev.get("procedures") or []:
             n = normalize((pr.get("procedure") or {}).get("name"))
-            if "RETORNO" in n or "CONSULTA" in n:
-                continue
-            if "HONORARIO" in n or n.startswith("CIRURGIA"):
+            if n.startswith("CIRURGIA"):
                 realized.setdefault(pid, set()).add(surgery_service(n) or "ANY")
 
     # 1 receita de honorário = 1 NF (valor>0), gated em cirurgia realizada
