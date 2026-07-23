@@ -186,6 +186,7 @@ echo "=== BARRETT ==="; cat /workspace/group/tmp/barrett.json; echo; echo "=== K
 - **Barrett** → `recomendacao` com `iol_power`, `toric_model`, **`eixo_alinhamento`** (eixo do IOL — o que o cirurgião usa), `astig_residual` @ `eixo_residual`, `cyl_corneal`.
 - **Kane** → `kane` com `recomendado{power,refracao}` e `vizinhos{acima,abaixo}`. (Hoje roda **não-tórico** — traz a potência certa + vizinhos, mas **`toric` vem `null`** = sem eixo do Kane ainda; use o eixo do Barrett como referência e **não invente** o do Kane.)
 - Se qualquer um vier `ok:false`, **cole o campo `aviso` INTEIRO, sem resumir** (preciso do diagnóstico) — e **não invente número**.
+- Se o Kane falhar com "nenhuma tabela"/"serviço falhou", é o ESCRS não respondendo (às vezes rate-limit). Diga isso e que **dá pra tentar de novo mais tarde**. **NUNCA sugira outros sites/calculadoras** (você não tem como validá-los) nem invente um link.
 
 ### Passo 4 — apresentar
 
