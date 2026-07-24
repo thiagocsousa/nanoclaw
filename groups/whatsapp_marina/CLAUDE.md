@@ -116,7 +116,7 @@ Regras:
 
 ## Cálculo de LIO (lentes intraoculares) — sob demanda
 
-Quando a Dra. Marina enviar **uma imagem ou PDF de biometria** e **nomear uma lente** (e, idealmente, o alvo refracional), calcule a LIO em **dois** calculadores (Barrett Toric + ESCRS/Kane) e apresente os dois. É **reativo** — não há cron; só responda quando ela mandar exame + lente.
+Quando a Dra. Marina enviar **uma imagem ou PDF de biometria** e **nomear uma lente** (e, idealmente, o alvo refracional), calcule a LIO em **dois** calculadores (Barrett Toric + Kane/iolformula) e apresente os dois. É **reativo** — não há cron; só responda quando ela mandar exame + lente.
 
 ### Passo 0 — o que preciso ter
 
@@ -134,7 +134,7 @@ Os exames vêm em **formatos diferentes** — identifique as páginas:
 - **Leia o mm e o Cyl junto com as dioptrias** — não são opcionais: o harness usa essa redundância pra conferir a leitura (ver "Portão de segurança" abaixo).
 - **Topografia NIDEK OPD-Scan** (mapa axial, "SIM K's"): serve de **referência de ceratometria**. Se houver **mais de um biômetro** (TOMEY *e* ZEISS), escolha o biômetro cujo **K médio** for **mais próximo** do SIM K médio do OPD-Scan. Com **um só** biômetro, use ele (o OPD-Scan é só conferência).
 - **Especular KONAN** (se vier): densidade endotelial + paquimetria — usado na triagem multifocal.
-- **Sexo/idade:** pegue o **Sex** e a **DOB** do exame (idade = ano atual − ano de nascimento). O Kane usa gênero e idade.
+- **Sexo:** pegue o **Sex** do exame — o Kane usa **gênero** (obrigatório). **Não** usa idade, então a DOB é dispensável pro cálculo.
 
 **flat = menor K, steep = maior K** — o script já ordena, mas confira os eixos.
 
@@ -165,28 +165,32 @@ Regra geral: se você não conseguir ler um número com segurança, **diga que n
 
 Cada calculadora tem seu próprio nome pra lente. **Não** faça fuzzy match — use este registro. Se a Marina nomear uma lente **fora** dele, peça o nome exato (não chute — constante errada = potência errada).
 
-| Marina diz | Barrett (`lens`) | ESCRS (`manufacturer` / `iol`) | tórica |
+| Marina diz | Barrett (`lens`) | Kane/iolformula (`iol` exato) | tórica |
 |---|---|---|---|
-| SN6AT / SN6ATx / AcrySof tórica | `Alcon SN6ATx` | `Alcon` / `AcrySof SN60AT` | sim |
+| SN6AT / SN6ATx / AcrySof tórica | `Alcon SN6ATx` | `Alcon SN6ATx` | sim |
 
 _(Vai crescendo conforme a Marina usar outras lentes. Cada linha só entra quando confirmada.)_
 
+O Kane (iolformula) aceita **`iol` (nome exato do site) OU `aconstant` (número) — um dos dois**. Se a Marina der só a A-constant, passe `"aconstant": 118.98` e **não** passe `iol`. Se der o nome da lente, use o nome exato da tabela; se a lente não estiver na tabela, peça o nome exato **ou** a A-constant (não chute).
+
 ### Passo 3 — rodar os DOIS calculadores EM PARALELO
 
-São **independentes** (cada um pega a A-constant otimizada da sua fórmula — o Kane NÃO usa a do Barrett). O Kane leva ~1-2 min (captcha), então **rode os dois ao mesmo tempo** com um único comando e espere ambos:
+São **independentes** (cada um pega a A-constant otimizada da sua fórmula — o Kane NÃO usa a do Barrett). Ambos rodam em ~1-2s; **rode os dois ao mesmo tempo** com um único comando e espere ambos:
 
 ```bash
 mkdir -p /workspace/group/tmp
 python3 /workspace/group/scripts/barrett_toric.py '{"eye":"OD","patient":"NOME","k1":{"d":44.00,"mm":7.68,"axis":173},"k2":{"d":45.25,"mm":7.45,"axis":83},"cyl":-1.25,"al":22.57,"acd":3.30,"lt":4.17,"wtw":12.36,"target":0,"lens":"Alcon SN6ATx","sia":0.15,"incision_axis":135}' > /workspace/group/tmp/barrett.json 2>/dev/null &
-python3 /workspace/group/scripts/escrs_calc.py '{"eye":"OD","patient":"NOME","gender":"Female","age":53,"k1":{"d":44.00,"mm":7.68,"axis":173},"k2":{"d":45.25,"mm":7.45,"axis":83},"cyl":-1.25,"al":22.57,"acd":3.30,"lt":4.17,"cct":498,"wtw":12.36,"target":0,"manufacturer":"Alcon","iol":"AcrySof SN60AT","toric":true,"sia":0.15,"incision_axis":135}' > /workspace/group/tmp/kane.json 2>/dev/null &
+python3 /workspace/group/scripts/iolformula_kane.py '{"eye":"OD","patient":"NOME","gender":"Female","k1":{"d":44.00,"mm":7.68,"axis":173},"k2":{"d":45.25,"mm":7.45,"axis":83},"cyl":-1.25,"al":22.57,"acd":3.30,"lt":4.17,"cct":498,"target":0,"toric":true,"sia":0.15,"incision_axis":135,"iol":"Alcon SN6ATx"}' > /workspace/group/tmp/kane.json 2>/dev/null &
 wait
 echo "=== BARRETT ==="; cat /workspace/group/tmp/barrett.json; echo; echo "=== KANE ==="; cat /workspace/group/tmp/kane.json
 ```
 
+O Kane usa **gênero** (obrigatório) mas **não usa idade**. Para lente, passe `"iol":"Alcon SN6ATx"` (nome exato); para A-constant, troque por `"aconstant":119.28` e omita `iol`.
+
 - **Barrett** → `recomendacao` com `iol_power`, `toric_model`, **`eixo_alinhamento`** (eixo do IOL — o que o cirurgião usa), `astig_residual` @ `eixo_residual`, `cyl_corneal`.
-- **Kane** → `kane` com `recomendado{power,refracao}`, `vizinhos{acima,abaixo}`, `a_constant` (a que o site aplicou, ex.: 118.7) e `toric{eixo,residual}` (o eixo do Kane; se vier `null`, apresente sem ele e **não invente**). Roda **tórico** (necessário — o tórico desloca a potência). **1ª tentativa é IP direto (rápido); se der erro cai pro proxy automaticamente** — pode levar ~1-2 min (captcha); é normal.
+- **Kane** → `kane` com `recomendado{power,refracao}`, `vizinhos{acima,abaixo}`, `a_constant` (a aplicada: a da lente ou a que a Marina digitou) e `toric{cilindro,eixo,residual}` (o eixo do Kane; se vier `null`, apresente sem ele e **não invente**). Roda **tórico** quando `toric:true` (necessário — o tórico desloca a potência).
 - Se qualquer um vier `ok:false`, **cole o campo `aviso` INTEIRO, sem resumir** (preciso do diagnóstico) — e **não invente número**.
-- Se o Kane falhar com "nenhuma tabela"/"serviço falhou", é o ESCRS não respondendo (às vezes rate-limit). Diga isso e que **dá pra tentar de novo mais tarde**. **NUNCA sugira outros sites/calculadoras** (você não tem como validá-los) nem invente um link.
+- Se o Kane falhar ("site não retornou resultado"/"serviço falhou"), é o iolformula.com fora do ar no momento. Diga isso e que **dá pra tentar de novo mais tarde**. **NUNCA sugira outros sites/calculadoras** (você não tem como validá-los) nem invente um link.
 
 ### Passo 4 — apresentar
 
@@ -198,6 +202,7 @@ _residual {astig_residual} D @ {eixo_residual}° · cyl {cyl_corneal} D (plano c
 
 *Kane:* {power} D → previsto {refracao} D{ · *eixo {toric.eixo}°* se toric ≠ null}  _(A-const {kane.a_constant})_
 _vizinhos: {vizinhos.acima.power} D → {vizinhos.acima.refracao} · {vizinhos.abaixo.power} D → {vizinhos.abaixo.refracao}_
+{_Kane tórico: cilindro {toric.cilindro} D → residual {toric.residual} D_ — só se toric ≠ null}
 
 _Barrett eixo {eixo_alinhamento}°. SIA 0.15@135._
 ```
