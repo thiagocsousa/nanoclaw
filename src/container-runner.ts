@@ -98,6 +98,8 @@ const FORWARDED_ENV_VARS = [
   'NFSE_CERT_PASSWORD',
   'NFSE_RPS_INICIAL',
   'NFSE_INICIO',
+  'NFSE_PROXY',
+  'NFSE_AMBIENTE',
   'ICLINIC_EMAIL',
   'ICLINIC_PASSWORD',
   // Cálculo de LIO (Dra. Marina) — 2captcha p/ o reCAPTCHA do ESCRS/Kane

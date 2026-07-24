@@ -37,6 +37,16 @@ SOAP_NS = "http://schemas.xmlsoap.org/soap/envelope/"
 WS_NS = "http://nfse.abrasf.org.br"        # namespace da operação (confirmado no WSDL de Teresina)
 IBGE_TERESINA = "2211001"
 
+
+def _proxies():
+    """A prefeitura de Teresina bloqueia IPs de datacenter (a VM GCP não alcança
+    o webservice — TCP 443 dá timeout — embora IPs residenciais passem). Se
+    NFSE_PROXY estiver definido, roteia as chamadas por ele. Como é HTTPS, o
+    proxy faz só um túnel CONNECT: o certificado A1 e o XML assinado trafegam
+    fim-a-fim com a prefeitura — o proxy não vê o conteúdo. Use um proxy BR."""
+    p = os.environ.get("NFSE_PROXY")
+    return {"http": p, "https": p} if p else None
+
 # ─────────────────────────── Prestador (CARDIOMED) ───────────────────────────
 # Extraído de _Inscrição municipal.pdf + _CNPJ 2026.pdf (2026-07-11).
 PRESTADOR = {
@@ -480,7 +490,7 @@ def baixar_danfse(numero, codigo_verificacao, ambiente="producao", destino=None,
     url = (f"{host}/notafiscal-ws/servico/notafiscal/autenticacao/"
            f"cpfCnpj/{cnpj}/inscricaoMunicipal/{im}/"
            f"numeroNota/{numero}/codigoVerificacao/{codigo_verificacao}")
-    r = requests.get(url, timeout=60, verify=False)
+    r = requests.get(url, timeout=60, verify=False, proxies=_proxies())
     r.raise_for_status()
     if not r.content.startswith(b"%PDF"):
         raise RuntimeError(f"Resposta não é PDF ({r.headers.get('Content-Type')}): {r.text[:200]}")
@@ -521,6 +531,7 @@ def send(soap_xml: str, ambiente: str, pfx_path: str, pfx_password: str) -> str:
         pkcs12_filename=pfx_path,
         pkcs12_password=pfx_password,
         timeout=60,
+        proxies=_proxies(),
     )
     return resp.text
 
