@@ -16,17 +16,17 @@ Roda todo dia útil às 18:30. O script coleta os atendimentos **particulares** 
 
 ### Fase 1 — apresentar a lista (quando o cron roda)
 
-Os dados chegam no contexto (campo "message") como JSON: `pendentes` (lista numerada), `sem_cpf` e `janela`.
+Os dados chegam no contexto (campo "message") como JSON: `pendentes` (lista numerada), `sem_cpf` (cadastros incompletos — cada item traz `motivo`) e `janela`.
 
 Monte uma mensagem assim (WhatsApp):
 - Título: `*Notas fiscais pendentes* (janela X a Y)`
 - Uma linha por item: `N. {paciente} — {serviço} — R$ {valor} — CPF/CNPJ {doc}`.
   - Quando `origem` for `pagador` (pagou outra pessoa), mostre o pagador como tomador: `N. {paciente} → tomador: {tomador} (pagador) — {serviço} — R$ {valor} — {doc}`.
   - Se `tem_telefone` for false, marque `⚠️ sem telefone`.
-- Se houver `sem_cpf`: liste em `⚠️ Sem CPF (não dá pra emitir — preencher no iClinic)`.
+- Se houver `sem_cpf`: liste em `⚠️ Cadastro incompleto (não dá pra emitir — completar no iClinic)`, uma linha por item com o **motivo**: `{paciente} — {serviço} — R$ {valor} — _{motivo}_` (ex.: "sem CEP", "sem CPF/CNPJ"). Teresina exige CPF/CNPJ **e** CEP do tomador — sem isso a prefeitura rejeita com um erro enganoso de "CPF inválido".
 - Rodapé (só se houver itens numerados): `Responda com os números a emitir, ex.: *@Andy 1,3,5* — ou *@Andy todos*.`
 
-Se **não houver nenhum item emitível** (só `sem_cpf`), envie **apenas** o aviso das sem CPF pra lembrar de preencher o cadastro — **sem** pedir seleção.
+Se **não houver nenhum item emitível** (só `sem_cpf`), envie **apenas** o aviso dos cadastros incompletos (com os motivos) pra lembrar de completar — **sem** pedir seleção.
 
 Não emita nada nesta fase. Só apresente.
 

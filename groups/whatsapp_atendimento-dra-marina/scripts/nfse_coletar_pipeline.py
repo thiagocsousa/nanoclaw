@@ -59,7 +59,9 @@ def main():
             "tomador": tom,                       # dict completo (nome/doc/tipo/endereco/telefone)
         })
 
-    sem_cpf = [{"paciente": x["paciente"], "servico": x["servico"], "valor": x["valor"]}
+    # cadastro incompleto (sem CPF/CNPJ ou sem CEP/município) — não emitível; traz o motivo
+    sem_cpf = [{"paciente": x["paciente"], "servico": x["servico"], "valor": x["valor"],
+                "motivo": x.get("motivo") or "cadastro incompleto"}
                for x in out["sem_cpf"]]
 
     payload = {"gerado_em": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),

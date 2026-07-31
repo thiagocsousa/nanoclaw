@@ -231,9 +231,25 @@ def semanas(d0, d1):
     return out
 
 
+def motivo_incompleto(tom):
+    """None se o cadastro do tomador está completo p/ emitir, ou o motivo do bloqueio.
+    Teresina/DSF EXIGE CPF/CNPJ + CEP + município do tomador — se faltar, devolve o
+    erro enganoso 'cpfCnpjTomadorInvalido' (L999). Melhor bloquear aqui e pedir
+    completar o cadastro do que tentar emitir e falhar com erro confuso."""
+    if not tom.get("doc"):
+        return "sem CPF/CNPJ"
+    end = tom.get("endereco") or {}
+    if not only_digits(end.get("cep")):
+        return "sem CEP"
+    if not end.get("codigo_municipio"):
+        return "sem município"
+    return None
+
+
 # ─────────────────────────────── coleta ──────────────────────────────────────
 def coletar(pg, csrf, d0, d1, emitidas=frozenset()):
-    """Retorna {diretos, cirurgias, sem_cpf}. Não emite nada."""
+    """Retorna {diretos, cirurgias, sem_cpf}. sem_cpf = cadastro INCOMPLETO (sem
+    CPF/CNPJ ou sem CEP/município — cada item traz 'motivo'). Não emite nada."""
     receitas = fetch_receitas(pg, csrf, MESES[int(d1[5:7]) - 1], int(d1[:4]))
     part = [r for r in receitas if r.get("paid")
             and (r.get("insurance") or {}).get("id") == PARTICULAR_INSURANCE_ID]
@@ -250,11 +266,13 @@ def coletar(pg, csrf, d0, d1, emitidas=frozenset()):
         if not servico:
             continue
         tom = resolve_tomador(pg, csrf, r)
+        mot = motivo_incompleto(tom)
         item = {"origem": "direto", "receita_id": r["id"], "servico": servico,
                 "valor": r.get("value"), "pay_date": pay,
                 "paciente": (r.get("patient") or {}).get("name"),
-                "patient_id": (r.get("patient") or {}).get("id"), "tomador": tom}
-        (sem_cpf if not tom.get("doc") else diretos).append(item)
+                "patient_id": (r.get("patient") or {}).get("id"), "tomador": tom,
+                "motivo": mot}
+        (sem_cpf if mot else diretos).append(item)
 
     # CIRURGIA — índice de realizadas (agenda sc/cp) na janela
     eventos = {}
@@ -297,11 +315,12 @@ def coletar(pg, csrf, d0, d1, emitidas=frozenset()):
             continue
         tipo_final = tipo or next((t for t in rset if t != "ANY"), None) or "?"
         tom = resolve_tomador(pg, csrf, r)
+        mot = motivo_incompleto(tom)
         item = {"origem": "cirurgia", "receita_id": r["id"], "servico": tipo_final,
                 "valor": f"{val:.2f}", "pay_date": (r.get("pay_date") or "")[:10],
                 "paciente": (r.get("patient") or {}).get("name"),
-                "patient_id": pid, "tomador": tom}
-        (sem_cpf if not tom.get("doc") else cirurgias).append(item)
+                "patient_id": pid, "tomador": tom, "motivo": mot}
+        (sem_cpf if mot else cirurgias).append(item)
 
     diretos.sort(key=lambda x: (x["pay_date"], x["paciente"] or ""))
     cirurgias.sort(key=lambda x: (x["pay_date"], x["paciente"] or ""))
