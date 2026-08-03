@@ -102,6 +102,9 @@ const FORWARDED_ENV_VARS = [
   'NFSE_AMBIENTE',
   'ICLINIC_EMAIL',
   'ICLINIC_PASSWORD',
+  // iClinic consultório Dra. Marina (laudo de topografia)
+  'ICLINIC_CONSULTORIO_EMAIL',
+  'ICLINIC_CONSULTORIO_PASSWORD',
   // Cálculo de LIO (Dra. Marina) — 2captcha p/ o reCAPTCHA do ESCRS/Kane
   'ESCRS_2CAPTCHA_KEY',
   // Proxy residencial (2captcha) só p/ o ESCRS — evita rate-limit por IP

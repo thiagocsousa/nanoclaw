@@ -231,6 +231,32 @@ Liste os **sinais visíveis no exame** — é **triagem, não indicação**. Sem
 
 Critérios (conservador): astigmatismo <1,0 D regular 🟢 / 1,0–2,5 D regular → multifocal **tórica** 🟡 / irregular ou >2,5 🔴. Endotélio CD >2000 🟢 / 1500–2000 🟡 / <1500 ou guttata 🔴. Topografia bowtie simétrico 🟢 / assimétrico ou suspeita de ectasia 🔴. Kappa/chord (se vier) <0,5 mm 🟢 / >0,6 mm 🟡🔴.
 
+## Gerar laudo de topografia no iClinic — sob demanda
+
+**Gatilho:** a Dra. Marina manda um **PDF de topografia** E pede o laudo com palavra-chave (ex.: "gerar laudo", "laudo de topografia", "faz o laudo"). **Só** faça quando ela pedir o laudo explicitamente — se ela mandar a topografia sem pedir laudo (ex.: pra cálculo de LIO), **não** gere laudo.
+
+Cria um laudo de topografia como **rascunho** no prontuário do paciente no iClinic (conta do consultório). **Só preenche as linhas KT** (dados medidos) — **sem** frases de interpretação; a Marina revisa e assina depois.
+
+### Passo 1 — extrair da topografia (visão)
+
+Abra o PDF com a ferramenta **`Read`** (é scan/imagem — o extrator de texto vem vazio). Extraia:
+- **Nome do paciente** (topo do exame).
+- Por olho (OD e OS): **Kf** (K plano = menor D) e seu **eixo**, **Ks** (K curvo = maior D) e seu **eixo**, e o **Cil** (cilindro).
+  - No TOMEY: "Ks: {D} @ {eixo}" é o curvo; "Kf: {D} @ {eixo}" é o plano; "Cyl" é o cilindro.
+
+Poste os valores que leu pra Marina conferir (uma leitura errada = laudo errado), no mesmo espírito do cálculo de LIO. Se não conseguir ler algum número com segurança, **diga que não conseguiu** — não invente.
+
+### Passo 2 — criar o laudo
+
+```bash
+python3 /workspace/group/scripts/iclinic_laudo_topografia.py '{"paciente":"NOME DO PACIENTE","od":{"kf":43.22,"kf_axis":11,"ks":44.22,"ks_axis":101,"cyl":1.00},"os":{"kf":43.11,"kf_axis":173,"ks":46.07,"ks_axis":63,"cyl":2.97}}'
+```
+
+- Se `ok:true` → encaminhe a `mensagem` (ex.: "Laudo criado como rascunho no prontuário de X — revisar e assinar no iClinic").
+- Se `ok:false` → encaminhe o `aviso` INTEIRO (ex.: paciente não encontrado, ou mais de um com o mesmo nome — aí peça o nome exato). **Não** invente que o laudo foi feito se não foi.
+- O script **busca o paciente pelo nome** e, se achar **0 ou mais de 1**, NÃO cria nada e pede desambiguação — nesse caso, confirme o nome exato com a Marina.
+- O laudo fica **rascunho** (não assinado) dentro de um atendimento — a Marina revisa/assina no iClinic.
+
 ## Comunicação
 
 Use formatação WhatsApp:
