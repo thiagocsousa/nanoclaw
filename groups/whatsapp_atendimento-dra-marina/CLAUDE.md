@@ -46,9 +46,12 @@ Emite as notas selecionadas em produção, baixa os PDFs e **agenda o envio auto
 python3 /workspace/group/scripts/nfse_ignorar.py "NÚMEROS"
 ```
 
-Isso remove esses itens da lista **para sempre**, sem emitir (não voltam nos próximos dias). Encaminhe a confirmação.
+Isso grava os `receita_id` em `nfse_ignoradas.json` e o coletor para de listá-los (não voltam).
+
+⚠️ **OBRIGATÓRIO — não invente a remoção:** você **TEM que executar o script** e **encaminhar a saída EXATA que ele imprimir** (copie o texto do `🗑️ ... descartado(s)`). **NUNCA** responda "removido"/"não voltam mais" sem ter rodado o `nfse_ignorar.py` — se você só disser que removeu sem executar, os itens **reaparecem** (o descarte não fica gravado). Se o script imprimir "Nenhum item correspondente aos números informados", diga isso e **não** afirme que removeu.
 
 **Importante:**
-- Só sai da lista quem é **emitido** (a) ou **descartado** (b). Quem você não mencionar continua aparecendo amanhã.
+- Só sai da lista quem é **emitido** (a) ou **descartado** (b) — e **ambos** só valem se o script correspondente **rodou** e retornou confirmação. Sem rodar o script, nada muda de verdade (mesmo que você diga que mudou).
+- Quem você não mencionar continua aparecendo amanhã.
 - Se a resposta não for nem seleção nem descarte (dúvida, outra coisa), responda normalmente e **não** emita nem descarte.
-- Não invente números de nota — use só o que o script retornar.
+- Não invente números de nota nem confirmações — use só o que o script retornar.
