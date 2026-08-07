@@ -33,6 +33,15 @@ fi
 pm2 reset nanoclaw 2>/dev/null || true
 pm2 startOrRestart ecosystem.config.cjs --update-env
 
+echo "[4.5/4] limpeza docker (evita encher o disco da VM)..."
+# roda DEPOIS do build/restart: remove só o lixo, preservando o cache recente
+# (build rápido no próximo deploy). Imagens antigas (nanoclaw-agent já retaggeado
+# vira dangling) + cache de build com mais de 7 dias. Nunca falha o deploy.
+docker image prune -f 2>/dev/null || true
+docker builder prune -f --filter 'until=168h' 2>/dev/null || true
+docker system df 2>/dev/null | awk 'NR<=4' || true
+echo "disco: $(df -h / | awk 'NR==2{print $5" usado, "$4" livre"}')"
+
 echo ""
 echo "Deploy concluído."
 pm2 show nanoclaw | grep -E "status|uptime|restart"
