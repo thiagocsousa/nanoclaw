@@ -14,6 +14,9 @@ jobs:
           host: ${{ secrets.VM_HOST }}
           username: ${{ secrets.VM_USER }}
           key: ${{ secrets.VM_SSH_KEY }}
+          # Build frio do container (sem cache) passa de 10 min (apt+xmlsec, npm,
+          # chromium do playwright, export de layers) e estourava o default. 30m cobre.
+          command_timeout: 30m
           script: |
             sudo chown -R $USER:$USER ${{ secrets.VM_PROJECT_PATH }} || true
             cd ${{ secrets.VM_PROJECT_PATH }}
