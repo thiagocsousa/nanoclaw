@@ -334,6 +334,31 @@ export class WhatsAppChannel implements Channel {
     }
   }
 
+  // Resolve o JID canônico do destinatário via onWhatsApp. Corrige mismatch de
+  // endereçamento (9º dígito BR, contato LID-primário) que faz o Baileys aceitar
+  // o envio e descartá-lo silenciosamente. ESTRITAMENTE ADITIVO: qualquer erro,
+  // timeout ou número não-registrado → devolve o jid original (comportamento de
+  // antes), pra nunca regredir os envios que já funcionam.
+  private async resolveWaJid(jid: string): Promise<string> {
+    if (!jid.endsWith('@s.whatsapp.net')) return jid;
+    try {
+      const number = jid.slice(0, -'@s.whatsapp.net'.length);
+      const results = await this.sock.onWhatsApp(number);
+      const res = results?.[0];
+      if (res?.exists && res.jid) {
+        if (res.jid !== jid) {
+          logger.info({ original: jid, resolved: res.jid }, 'Resolved WA JID');
+        }
+        return res.jid;
+      }
+      logger.warn({ jid }, 'Number not registered on WhatsApp (onWhatsApp)');
+      return jid;
+    } catch (err) {
+      logger.warn({ jid, err }, 'onWhatsApp resolution failed, using original');
+      return jid;
+    }
+  }
+
   async sendDocument(
     jid: string,
     filePath: string,
@@ -360,11 +385,12 @@ export class WhatsAppChannel implements Channel {
       logger.warn({ jid, filePath }, 'WA disconnected, document not sent');
       return;
     }
+    const target = await this.resolveWaJid(jid);
     try {
-      await this.sock.sendMessage(jid, msg);
-      logger.info({ jid, filePath }, 'Document sent');
+      await this.sock.sendMessage(target, msg);
+      logger.info({ jid, target, filePath }, 'Document sent');
     } catch (err) {
-      logger.warn({ jid, filePath, err }, 'Failed to send document');
+      logger.warn({ jid, target, filePath, err }, 'Failed to send document');
     }
   }
 
