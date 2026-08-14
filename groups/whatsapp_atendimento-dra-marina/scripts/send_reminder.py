@@ -20,12 +20,11 @@ from pathlib import Path
 IPC_MESSAGES_DIR = Path("/workspace/ipc/messages")
 
 TEMPLATE = (
-    "Olá, *{primeiro_nome}*! 😊\n\n"
+    "Olá, *{primeiro_nome}*!\n\n"
     "Passando para lembrar da sua consulta com a *Dra. Marina Costa* na "
     "*{dia_semana}, {data}*, às *{hora}*.\n\n"
-    "Podemos confirmar sua presença? É só responder:\n"
-    "✅ *SIM* — está confirmado\n"
-    "🔄 *NÃO* — preciso remarcar\n\n"
+    "Podemos confirmar sua presença? Responda *SIM* para confirmar ou "
+    "*NÃO* caso precise remarcar.\n\n"
     "Qualquer dúvida, estamos à disposição. Até lá!\n"
     "_Consultório Dra. Marina Costa_"
 )
