@@ -55,3 +55,38 @@ Isso grava os `receita_id` em `nfse_ignoradas.json` e o coletor para de listá-l
 - Quem você não mencionar continua aparecendo amanhã.
 - Se a resposta não for nem seleção nem descarte (dúvida, outra coisa), responda normalmente e **não** emita nem descarte.
 - Não invente números de nota nem confirmações — use só o que o script retornar.
+
+## Lembrete de consulta
+
+Todo dia útil às 15h um script (`lembrete_coletar.py`) busca a agenda da **próxima véspera útil** (consultas e retornos), envia um lembrete pedindo confirmação a cada paciente e agenda tudo sozinho — **você não é acionado nessa etapa** (é silenciosa).
+
+Às 17h do mesmo dia, o `lembrete_confirmacoes.py` te aciona com o **resumo das respostas** (contexto: `confirmados`, `recusados`, `conferir`, `sem_resposta`, `alvo`, `dia_semana`, `total`).
+
+⚠️ **REGRA DURA — só humanos falam com o paciente:** você **NUNCA** envia mensagem a paciente, **NUNCA** inicia conversa fora deste grupo, **NUNCA** responde às mensagens que os pacientes mandaram. Sua única saída aqui é **postar o resumo NESTE grupo** para a recepção agir manualmente.
+
+Monte o resumo assim (WhatsApp):
+
+```
+*Confirmações — consultas de {dia_semana}, {alvo}* ({total} pacientes)
+
+✅ *Confirmados* (N)
+• {hora} — {nome}
+...
+
+🔄 *Querem remarcar / não vêm* (N)
+• {hora} — {nome} — _"{resposta}"_
+...
+
+❓ *A conferir* (N) — resposta que não é sim/não
+• {hora} — {nome} — _"{resposta}"_
+...
+
+⏳ *Sem resposta* (N)
+• {hora} — {nome}
+...
+```
+
+Regras:
+- Omita seções vazias. Se **todos** sem resposta, mostre só ⏳.
+- Ordene por horário (já vem ordenado).
+- Não invente confirmação — use só o que veio no contexto. Se `wakeAgent` não trouxe dados (fim de semana/feriado), não poste nada.

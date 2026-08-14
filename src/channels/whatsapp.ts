@@ -216,7 +216,14 @@ export class WhatsAppChannel implements Channel {
     this.sock.ev.on('creds.update', saveCreds);
 
     this.sock.ev.on('messages.upsert', async ({ messages }) => {
-      if (this.opts.groupFolderOwner) return; // outbound-only instance — never process inbound
+      if (this.opts.groupFolderOwner) {
+        // Instância outbound-only (ex.: número do atendimento). NUNCA processa
+        // inbound como turno de agente / resposta. Só captura passivamente as
+        // respostas individuais dos pacientes (pro resumo de confirmação de
+        // consulta) e retorna. Nenhum onMessage, nenhum agente, nada ao paciente.
+        await this.captureInboundReplies(messages);
+        return;
+      }
       for (const msg of messages) {
         try {
           if (!msg.message) continue;
@@ -305,6 +312,49 @@ export class WhatsAppChannel implements Channel {
         }
       }
     });
+  }
+
+  // Captura passiva de respostas de pacientes na instância outbound-only.
+  // Grava {jid, phone, text, timestamp} em append no jsonl do grupo dono, pra o
+  // pipeline de confirmação de consulta correlacionar depois. NUNCA responde,
+  // NUNCA aciona o agente — é só um log.
+  private async captureInboundReplies(
+    messages: import('@whiskeysockets/baileys').WAMessage[],
+  ): Promise<void> {
+    const folder = this.opts.groupFolderOwner;
+    if (!folder) return;
+    for (const msg of messages) {
+      try {
+        if (msg.key.fromMe) continue;
+        if (!msg.message) continue;
+        const rawJid = msg.key.remoteJid;
+        if (!rawJid || rawJid === 'status@broadcast') continue;
+        const chatJid = await this.translateJid(rawJid);
+        if (!chatJid.endsWith('@s.whatsapp.net')) continue; // só individual
+        const normalized = normalizeMessageContent(msg.message);
+        const text =
+          normalized?.conversation ||
+          normalized?.extendedTextMessage?.text ||
+          '';
+        if (!text.trim()) continue;
+        const entry = {
+          jid: chatJid,
+          phone: chatJid.split('@')[0],
+          text: text.trim(),
+          timestamp: new Date(
+            Number(msg.messageTimestamp) * 1000,
+          ).toISOString(),
+        };
+        const dir = path.join(GROUPS_DIR, folder);
+        fs.mkdirSync(dir, { recursive: true });
+        fs.appendFileSync(
+          path.join(dir, 'lembrete_respostas.jsonl'),
+          JSON.stringify(entry) + '\n',
+        );
+      } catch (err) {
+        logger.warn({ err }, 'captureInboundReplies: failed for a message');
+      }
+    }
   }
 
   async sendImage(
@@ -408,9 +458,10 @@ export class WhatsAppChannel implements Channel {
       );
       return;
     }
+    const target = await this.resolveWaJid(jid);
     try {
-      await this.sock.sendMessage(jid, { text: prefixed });
-      logger.info({ jid, length: prefixed.length }, 'Message sent');
+      await this.sock.sendMessage(target, { text: prefixed });
+      logger.info({ jid, target, length: prefixed.length }, 'Message sent');
     } catch (err) {
       this.outgoingQueue.push({ jid, text: prefixed });
       logger.warn(
@@ -525,9 +576,10 @@ export class WhatsAppChannel implements Channel {
       );
       while (this.outgoingQueue.length > 0) {
         const item = this.outgoingQueue.shift()!;
-        await this.sock.sendMessage(item.jid, { text: item.text });
+        const target = await this.resolveWaJid(item.jid);
+        await this.sock.sendMessage(target, { text: item.text });
         logger.info(
-          { jid: item.jid, length: item.text.length },
+          { jid: item.jid, target, length: item.text.length },
           'Queued message sent',
         );
       }

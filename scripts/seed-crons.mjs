@@ -165,6 +165,28 @@ Você recebeu a agenda do PRÓXIMO DIA da Dra. Marina (dados no contexto como JS
 
 É apenas INFORMATIVO — siga a seção "Agenda do dia seguinte" do seu CLAUDE.md: monte o resumo e envie à Dra. Marina. NÃO peça nenhuma ação nem aprovação.`,
   },
+  {
+    id: 'marina-lembrete-coletar',
+    group_folder: 'whatsapp_atendimento-dra-marina',
+    chat_jid: '120363287717747603@g.us',   // grupo Atendimento Dra Marina
+    schedule_value: '0 15 * * 1-5',          // 15h seg-sex (America/Fortaleza)
+    context_mode: 'isolated',
+    script: 'python3 /workspace/group/scripts/lembrete_coletar.py',
+    prompt: `\
+<internal>Coleta de lembretes de consulta. O script busca a agenda da próxima véspera útil, agenda os envios escalonados e é silencioso (wakeAgent=false). Nenhuma ação sua é necessária.</internal>`,
+  },
+  {
+    id: 'marina-lembrete-confirmacoes',
+    group_folder: 'whatsapp_atendimento-dra-marina',
+    chat_jid: '120363287717747603@g.us',   // grupo Atendimento Dra Marina
+    schedule_value: '0 17 * * 1-5',          // 17h seg-sex (America/Fortaleza)
+    context_mode: 'group',
+    script: 'python3 /workspace/group/scripts/lembrete_confirmacoes.py',
+    prompt: `\
+Você recebeu o resumo das confirmações de lembrete de consulta (dados no contexto: "confirmados", "recusados", "conferir", "sem_resposta", "alvo", "dia_semana", "total").
+
+Siga a seção "Lembrete de consulta" do seu CLAUDE.md: poste o resumo NO GRUPO. NUNCA mande mensagem a paciente.`,
+  },
 ];
 
 // ── Upsert ────────────────────────────────────────────────────────────────────
