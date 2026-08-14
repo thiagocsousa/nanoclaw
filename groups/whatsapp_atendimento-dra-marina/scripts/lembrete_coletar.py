@@ -41,8 +41,10 @@ DIAS = ["segunda-feira", "terça-feira", "quarta-feira", "quinta-feira",
 # status a excluir (cancelado/faltou/bloqueio/feriado). Ver iclinic_agenda_amanha.py
 STATUS_EXCLUIR = {"ca", "fl", "na", "bl", "hd"}
 
-# Só consulta e retorno. Exclui solicitações, honorários, exames etc. (blocklist).
-PROC_EXCLUIR = ("solicita", "exame", "honorár", "honorar", "bloqueio", "atestado")
+# Só CONSULTA e RETORNO (whitelist). "RETORNO CIRURGIA REFRATIVA" entra (é
+# retorno); "CIRURGIA REFRATIVA" sozinha, solicitação, honorário, exame etc.
+# NÃO entram. Na dúvida (nome fora da whitelist), não manda.
+PROC_INCLUIR = ("consulta", "retorno")
 
 # Feriados nacionais — fixos + móveis (2026–2027). NÃO cobre feriado municipal
 # de Teresina (tratado como dia útil; agenda provavelmente vazia → no-op).
@@ -156,8 +158,8 @@ def coletar_agenda(alvo_str):
                 continue
             procs = ev.get("procedures") or []
             proc = (procs[0].get("procedure") or {}).get("name") if procs else "Consulta"
-            if any(t in (proc or "").lower() for t in PROC_EXCLUIR):
-                continue  # solicitação/honorário/exame etc.
+            if not any(t in (proc or "").lower() for t in PROC_INCLUIR):
+                continue  # não é consulta nem retorno (cirurgia/solicitação/exame…)
             pid = pac.get("id")
             phone = fetch_patient_phone(page, pid, headers) if pid else None
             nome = pac.get("name")
