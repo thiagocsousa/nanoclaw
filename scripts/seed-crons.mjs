@@ -187,6 +187,16 @@ Você recebeu o resumo das confirmações de lembrete de consulta (dados no cont
 
 Siga a seção "Lembrete de consulta" do seu CLAUDE.md: poste o resumo NO GRUPO. NUNCA mande mensagem a paciente.`,
   },
+  {
+    id: 'marina-lembrete-autoreply',
+    group_folder: 'whatsapp_atendimento-dra-marina',
+    chat_jid: '120363287717747603@g.us',   // grupo Atendimento Dra Marina
+    schedule_value: '*/5 15-20 * * 1-5',     // a cada 5 min, 15h-20h seg-sex (America/Fortaleza)
+    context_mode: 'isolated',
+    script: 'python3 /workspace/group/scripts/lembrete_autoreply.py',
+    prompt: `\
+<internal>Auto-resposta fixa ao paciente que respondeu ao lembrete. O script envia uma mensagem padrão (confirmado / secretaria entra em contato) uma vez por paciente e é silencioso (wakeAgent=false). Nenhuma ação sua é necessária.</internal>`,
+  },
 ];
 
 // ── Upsert ────────────────────────────────────────────────────────────────────
