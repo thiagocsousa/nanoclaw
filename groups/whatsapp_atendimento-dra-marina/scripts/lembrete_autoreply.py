@@ -39,11 +39,11 @@ NAO = ("nao", "remarcar", "remarca", "cancelar", "cancela", "desmarcar",
 MSG_SIM = (
     "Perfeito, obrigado por confirmar! Sua consulta está confirmada — é um "
     "horário reservado especialmente para você. Até lá!\n\n"
-    "_Consultório Dra. Marina Costa_"
+    "_Clínica Dra. Marina Costa_"
 )
 MSG_OUTRO = (
     "Obrigado pelo retorno! Nossa secretaria vai entrar em contato com você "
-    "em breve.\n\n_Consultório Dra. Marina Costa_"
+    "em breve.\n\n_Clínica Dra. Marina Costa_"
 )
 
 

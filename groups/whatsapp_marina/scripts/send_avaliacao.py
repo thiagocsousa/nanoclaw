@@ -25,7 +25,7 @@ def main():
     msg = (
         f"Olá, *{primeiro_nome}*, tudo bem? Esperamos que tenha ido tudo bem no atendimento com a Dra. Marina Costa. 😊 "
         f"Se tiver um tempinho livre, poderia deixar uma avaliação no Google sobre a sua experiência? "
-        f"Ela é importante para ajudar outras pessoas a encontrarem o nosso consultório. "
+        f"Ela é importante para ajudar outras pessoas a encontrarem a nossa clínica. "
         f"Leva menos de 1 minuto 👇\n"
         f"https://g.page/r/CdVKgz3jItQ7EBE/review"
     )

@@ -26,7 +26,7 @@ TEMPLATE = (
     "Podemos confirmar sua presença? Responda *SIM* para confirmar ou "
     "*NÃO* caso precise remarcar.\n\n"
     "Qualquer dúvida, estamos à disposição. Até lá!\n"
-    "_Consultório Dra. Marina Costa_"
+    "_Clínica Dra. Marina Costa_"
 )
 
 
