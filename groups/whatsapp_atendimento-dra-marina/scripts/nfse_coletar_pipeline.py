@@ -59,10 +59,13 @@ def main():
             "tomador": tom,                       # dict completo (nome/doc/tipo/endereco/telefone)
         })
 
-    # cadastro incompleto (sem CPF/CNPJ ou sem CEP/município) — não emitível; traz o motivo
-    sem_cpf = [{"paciente": x["paciente"], "servico": x["servico"], "valor": x["valor"],
+    # cadastro incompleto (sem CPF/CNPJ ou sem CEP/município) — não emitível; traz o motivo.
+    # ref "C1, C2..." + receita_id → permite descartar (deixar pra lá) os que nunca
+    # serão emitidos, via nfse_ignorar.py, pra a lista não acumular.
+    sem_cpf = [{"ref": f"C{i}", "receita_id": x["receita_id"],
+                "paciente": x["paciente"], "servico": x["servico"], "valor": x["valor"],
                 "motivo": x.get("motivo") or "cadastro incompleto"}
-               for x in out["sem_cpf"]]
+               for i, x in enumerate(out["sem_cpf"], 1)]
 
     payload = {"gerado_em": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
                "janela": [d0, d1], "itens": itens, "sem_cpf": sem_cpf}

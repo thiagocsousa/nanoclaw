@@ -16,15 +16,15 @@ Roda todo dia útil às 18:30. O script coleta os atendimentos **particulares** 
 
 ### Fase 1 — apresentar a lista (quando o cron roda)
 
-Os dados chegam no contexto (campo "message") como JSON: `pendentes` (lista numerada), `sem_cpf` (cadastros incompletos — cada item traz `motivo`) e `janela`.
+Os dados chegam no contexto (campo "message") como JSON: `pendentes` (lista numerada), `sem_cpf` (cadastros incompletos — cada item traz `ref` tipo `C1` e `motivo`) e `janela`.
 
 Monte uma mensagem assim (WhatsApp):
 - Título: `*Notas fiscais pendentes* (janela X a Y)`
 - Uma linha por item: `N. {paciente} — {serviço} — R$ {valor} — CPF/CNPJ {doc}`.
   - Quando `origem` for `pagador` (pagou outra pessoa), mostre o pagador como tomador: `N. {paciente} → tomador: {tomador} (pagador) — {serviço} — R$ {valor} — {doc}`.
   - Se `tem_telefone` for false, marque `⚠️ sem telefone`.
-- Se houver `sem_cpf`: liste em `⚠️ Cadastro incompleto (não dá pra emitir — completar no iClinic)`, uma linha por item com o **motivo**: `{paciente} — {serviço} — R$ {valor} — _{motivo}_` (ex.: "sem CEP", "sem CPF/CNPJ"). Teresina exige CPF/CNPJ **e** CEP do tomador — sem isso a prefeitura rejeita com um erro enganoso de "CPF inválido".
-- Rodapé (só se houver itens numerados): `Responda com os números a emitir, ex.: *@Andy 1,3,5* — ou *@Andy todos*.`
+- Se houver `sem_cpf`: liste em `⚠️ Cadastro incompleto (não dá pra emitir — completar no iClinic)`, uma linha por item começando pela **ref** e com o **motivo**: `{ref}. {paciente} — {serviço} — R$ {valor} — _{motivo}_` (ex.: `C1. Fulano — consulta — R$ 300 — _sem CEP_`). Teresina exige CPF/CNPJ **e** CEP do tomador — sem isso a prefeitura rejeita com um erro enganoso de "CPF inválido".
+- Rodapé: se houver itens numerados, `Responda com os números a emitir, ex.: *@Andy 1,3,5* — ou *@Andy todos*.` Se houver cadastros incompletos, acrescente: `Pra deixar um incompleto de lado (não pedir mais), responda ex.: *@Andy descartar C1, C3*.`
 
 Se **não houver nenhum item emitível** (só `sem_cpf`), envie **apenas** o aviso dos cadastros incompletos (com os motivos) pra lembrar de completar — **sem** pedir seleção.
 
@@ -40,15 +40,16 @@ python3 /workspace/group/scripts/nfse_emitir_pipeline.py "SELEÇÃO"
 
 Emite as notas selecionadas em produção, baixa os PDFs e **agenda o envio automático** do PDF pro WhatsApp de cada paciente. Encaminhe o resumo que o script imprimir.
 
-**b) Descartar sem emitir** — quando disserem para NÃO emitir / pular / ignorar / descartar certos itens (ex.: "não emitir 2", "o paciente 4 não quer", "pular 3,5"):
+**b) Descartar sem emitir** — quando disserem para NÃO emitir / pular / ignorar / **deixar pra lá** certos itens. Vale pras **duas listas**:
+- da lista **emitível** → números (ex.: "não emitir 2", "pular 3,5") → `"2"` / `"3,5"`;
+- da lista de **cadastro incompleto** → as refs `C#` (ex.: "deixar pra lá o C1 e o C3", "descartar incompletos C2") → `"C1,C3"`.
 
 ```
-python3 /workspace/group/scripts/nfse_ignorar.py "NÚMEROS"
+python3 /workspace/group/scripts/nfse_ignorar.py "SELEÇÃO"
 ```
+`SELEÇÃO` aceita números, refs `C#` e mistura (ex.: `"2, C1, 5"`). Isso grava os `receita_id` em `nfse_ignoradas.json` e o coletor para de listá-los (não voltam) — é assim que a lista de incompletos **para de acumular**: descarte os que nunca serão emitidos e ficam só os efetivamente pendentes. **Atenção:** o descarte é permanente; se o cadastro for completado depois, o item **não volta**. Se a intenção é emitir quando completarem o cadastro, **não descarte** — basta completar no iClinic que ele migra sozinho pra lista emitível.
 
-Isso grava os `receita_id` em `nfse_ignoradas.json` e o coletor para de listá-los (não voltam).
-
-⚠️ **OBRIGATÓRIO — não invente a remoção:** você **TEM que executar o script** e **encaminhar a saída EXATA que ele imprimir** (copie o texto do `🗑️ ... descartado(s)`). **NUNCA** responda "removido"/"não voltam mais" sem ter rodado o `nfse_ignorar.py` — se você só disser que removeu sem executar, os itens **reaparecem** (o descarte não fica gravado). Se o script imprimir "Nenhum item correspondente aos números informados", diga isso e **não** afirme que removeu.
+⚠️ **OBRIGATÓRIO — não invente a remoção:** você **TEM que executar o script** e **encaminhar a saída EXATA que ele imprimir** (copie o texto do `🗑️ ... descartado(s)`). **NUNCA** responda "removido"/"não voltam mais" sem ter rodado o `nfse_ignorar.py` — se você só disser que removeu sem executar, os itens **reaparecem** (o descarte não fica gravado). Se o script imprimir "Nenhum item correspondente aos números/refs informados", diga isso e **não** afirme que removeu.
 
 **Importante:**
 - Só sai da lista quem é **emitido** (a) ou **descartado** (b) — e **ambos** só valem se o script correspondente **rodou** e retornou confirmação. Sem rodar o script, nada muda de verdade (mesmo que você diga que mudou).

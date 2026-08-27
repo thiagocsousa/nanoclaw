@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Descarta itens da lista de NFS-e SEM emitir (paciente não quer, não vai emitir).
-Marca os receita_id em nfse_ignoradas.json → o coletor para de listá-los.
+Descarta itens da lista de NFS-e SEM emitir. Marca os receita_id em
+nfse_ignoradas.json → o coletor para de listá-los (não voltam).
 
-Uso: python3 nfse_ignorar.py "2,4"   (números da lista apresentada)
+Serve pras DUAS listas:
+  • Lista emitível  → números:  "2,4"  (ou intervalos "2-4")
+  • Cadastro incompleto → refs:  "C1,C3"  (deixar pra lá os que nunca serão emitidos)
+Pode misturar: "2, C1, 5-7".
+
+Uso: python3 nfse_ignorar.py "2,4"  |  "C1,C3"  |  "2,C1"
 """
 import json
 import os
@@ -17,30 +22,39 @@ PENDING_FILE = Path(GROUP) / "pending_nfse.json"
 IGNORADAS_FILE = Path(GROUP) / "nfse_ignoradas.json"
 
 
-def parse_nums(sel):
-    idxs = set()
+def parse_sel(sel):
+    """Retorna (nums emitíveis:set[int], refs incompletos:set[str] tipo 'C1')."""
+    nums, refs = set(), set()
     for tok in re.split(r"[,\s]+", (sel or "").strip()):
-        if "-" in tok:
+        if not tok:
+            continue
+        m = re.fullmatch(r"[Cc](\d+)", tok)
+        if m:
+            refs.add(f"C{int(m.group(1))}")
+        elif "-" in tok:
             a, b = tok.split("-", 1)
             if a.isdigit() and b.isdigit():
-                idxs.update(range(int(a), int(b) + 1))
+                nums.update(range(int(a), int(b) + 1))
         elif tok.isdigit():
-            idxs.add(int(tok))
-    return idxs
+            nums.add(int(tok))
+    return nums, refs
 
 
 def main():
     if len(sys.argv) < 2:
-        print("Uso: nfse_ignorar.py '2,4'", file=sys.stderr)
+        print("Uso: nfse_ignorar.py '2,4' | 'C1,C3' | '2,C1'", file=sys.stderr)
         sys.exit(1)
     if not PENDING_FILE.exists():
         print("Erro: pending_nfse.json não encontrado.", file=sys.stderr)
         sys.exit(1)
     pending = json.loads(PENDING_FILE.read_text())
-    nums = parse_nums(sys.argv[1])
-    alvos = [x for x in pending["itens"] if x["n"] in nums]
+    nums, refs = parse_sel(sys.argv[1])
+
+    alvos = [x for x in pending.get("itens", []) if x["n"] in nums]
+    alvos += [x for x in pending.get("sem_cpf", []) if x.get("ref") in refs]
+
     if not alvos:
-        print("Nenhum item correspondente aos números informados.")
+        print("Nenhum item correspondente aos números/refs informados.")
         return
 
     ign = set(map(str, json.loads(IGNORADAS_FILE.read_text()))) if IGNORADAS_FILE.exists() else set()
@@ -50,7 +64,8 @@ def main():
 
     lines = [f"🗑️ *{len(alvos)}* item(ns) descartado(s) (não serão emitidos e saem da lista):"]
     for x in alvos:
-        lines.append(f"• {x['paciente']} — {x['servico']} — R$ {x['valor']}")
+        marca = x.get("ref") or x.get("n")
+        lines.append(f"• [{marca}] {x['paciente']} — {x['servico']} — R$ {x['valor']}")
     print("\n".join(lines))
 
 
