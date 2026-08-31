@@ -167,21 +167,10 @@ Parse cada `*_OUT` como JSON. Se `success: true` → usa `url`. Se `error` prese
 
 ### YouTube — reautorização
 
-Se `YT_OUT` tiver `needsReauth: true`, escreva IPC de notificação e trate YouTube como falha:
-
-```bash
-node -e "
-const fs = require('fs');
-fs.mkdirSync('/workspace/ipc/messages', { recursive: true });
-fs.writeFileSync('/workspace/ipc/messages/yt-reauth-' + Date.now() + '.json', JSON.stringify({
-  type: 'message',
-  chatJid: '558681512111@s.whatsapp.net',
-  text: '⚠️ *Flago — YouTube token expirado*\n\nRode no terminal:\nnode scripts/get-youtube-token.mjs',
-  groupFolder: 'whatsapp_alerta-invest',
-  timestamp: new Date().toISOString()
-}));
-"
-```
+Se `YT_OUT` tiver `needsReauth: true`, apenas **trate YouTube como falha** (não publicou) e
+siga o pipeline normalmente. **NÃO** envie notificação ao WhatsApp — o pipeline roda em
+silêncio total (a pedido do Thiago). O status fica registrado só no run log.
+Para reautorizar quando necessário, rode manualmente: `node scripts/get-youtube-token.mjs`.
 
 ### Salvar Run Log
 
@@ -222,11 +211,8 @@ console.log('Run log saved');
 
 ## Notificação via WhatsApp — DESATIVADA
 
-O pipeline roda **em silêncio**: **NÃO** envie mensagem/resumo de postagens ao WhatsApp
-(o Thiago pediu para não ser mais notificado sobre as postagens). Depois de salvar o
-run log, o pipeline **termina** — não escreva nenhum IPC de notificação de resumo, nem
-gere um texto de resumo como resposta final.
-
-O único aviso que permanece é o **alerta de erro de reauth** (seção "YouTube —
-reautorização" acima), que é acionado só quando um token expira e exige ação — esse
-continua sendo enviado.
+O pipeline roda **em silêncio total**: **NÃO** envie **nenhuma** mensagem ao WhatsApp —
+nem resumo de postagens, nem alerta de erro/reauth (o Thiago pediu para não ser mais
+notificado). Depois de salvar o run log, o pipeline **termina** — não escreva nenhum IPC
+de notificação nem gere um texto de resumo como resposta final. Qualquer falha (inclusive
+reauth do YouTube) fica registrada apenas no run log.
