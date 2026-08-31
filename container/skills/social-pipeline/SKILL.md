@@ -1,6 +1,6 @@
 ---
 name: social-pipeline
-description: Pipeline de social media do Flago (Alerta Invest) — diagnóstico de analytics, estratégia criativa com sinais Flago, geração de imagens, publicação direta em todas as plataformas, e notificação via WhatsApp com os links por zona de tempo.
+description: Pipeline de social media do Flago (Alerta Invest) — diagnóstico de analytics, estratégia criativa com sinais Flago, geração de imagens e publicação direta em todas as plataformas. Roda em silêncio, sem notificação de resumo no WhatsApp.
 ---
 
 # /social-pipeline — Flago Daily Content Pipeline
@@ -220,64 +220,13 @@ console.log('Run log saved');
 
 ---
 
-## Notificação via WhatsApp
+## Notificação via WhatsApp — DESATIVADA
 
-Após salvar o run log, escreva o arquivo IPC de notificação diretamente via bash:
+O pipeline roda **em silêncio**: **NÃO** envie mensagem/resumo de postagens ao WhatsApp
+(o Thiago pediu para não ser mais notificado sobre as postagens). Depois de salvar o
+run log, o pipeline **termina** — não escreva nenhum IPC de notificação de resumo, nem
+gere um texto de resumo como resposta final.
 
-```bash
-node -e "
-const fs = require('fs');
-function parse(raw, key) {
-  try {
-    const j = JSON.parse((raw||'').trim().split('\n').filter(l => l.startsWith('{')).pop() || raw);
-    const r = key ? (j.results?.[key] || j) : j;
-    return { success: r.success === true, url: r.url || null, error: r.error || null };
-  } catch { return { success: false, url: null, error: null }; }
-}
-const p = {
-  x:         parse(process.env.X_OUT),
-  instagram: parse(process.env.META_OUT, 'instagram'),
-  youtube:   parse(process.env.YT_OUT),
-  tiktok:    parse(process.env.TT_OUT),
-  linkedin:  parse(process.env.LI_OUT),
-  reddit:    parse(process.env.RD_OUT),
-};
-const label = process.env.LABEL || 'Pipeline';
-const type  = process.env.TYPE  || 'signal';
-
-// Content line — signals, promo or news
-let contentLine = '';
-try {
-  const assets = JSON.parse(process.env.ASSETS || '[]');
-  if (type === 'signal' && assets.length) {
-    contentLine = assets.map(a => \`\${a.ticker} \${a.tipo === 'bullish' ? '▲' : '▼'}\`).join(' · ');
-  } else if (type === 'promo') {
-    contentLine = '📣 Promo';
-  } else if (type === 'news') {
-    contentLine = '📰 News';
-  }
-} catch {}
-
-const line = (e, n, r) => r.success ? \`\${e} \${n}: \${r.url||'ok'}\` : \`\${e} \${n}: ❌ \${(r.error||'').slice(0,60)}\`;
-const parts = [\`*Flago — \${label}* ✅\`];
-if (contentLine) parts.push('', contentLine);
-parts.push(
-  '',
-  line('🐦','X',p.x),
-  line('📸','Instagram',p.instagram),
-  line('▶️','YouTube',p.youtube),
-  line('🎵','TikTok',p.tiktok),
-  line('💼','LinkedIn',p.linkedin),
-  line('🤖','Reddit',p.reddit),
-);
-fs.mkdirSync('/workspace/ipc/messages', { recursive: true });
-fs.writeFileSync('/workspace/ipc/messages/notify-' + Date.now() + '.json', JSON.stringify({
-  type: 'message',
-  chatJid: '558681512111@s.whatsapp.net',
-  groupFolder: 'whatsapp_alerta-invest',
-  text: parts.join('\n'),
-  timestamp: new Date().toISOString(),
-}));
-console.log('Notification queued');
-" X_OUT="$X_OUT" META_OUT="$META_OUT" YT_OUT="$YT_OUT" TT_OUT="$TT_OUT" LI_OUT="$LI_OUT" RD_OUT="$RD_OUT" LABEL="$LABEL" TYPE="$TYPE" ASSETS="$ASSETS"
-```
+O único aviso que permanece é o **alerta de erro de reauth** (seção "YouTube —
+reautorização" acima), que é acionado só quando um token expira e exige ação — esse
+continua sendo enviado.
