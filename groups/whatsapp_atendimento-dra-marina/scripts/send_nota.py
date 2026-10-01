@@ -58,6 +58,7 @@ def main():
 
     write_ipc_message({
         "type": "document",
+        "origin": "send_nota",  # exigido pelo core: só script fala com paciente
         "chatJid": ent["chat_jid_paciente"],
         "filePath": ent["pdf"],
         "fileName": "Nota_Fiscal.pdf",

@@ -86,6 +86,7 @@ def send_message(jid, text):
     tmp = Path(str(fp) + ".tmp")
     tmp.write_text(json.dumps({
         "type": "message",
+        "origin": "lembrete_autoreply",  # exigido pelo core: só script fala com paciente
         "chatJid": jid,
         "text": text,
         "groupFolder": "whatsapp_atendimento-dra-marina",

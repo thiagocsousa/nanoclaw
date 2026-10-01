@@ -41,6 +41,32 @@ export interface IpcDeps {
   onTasksChanged: () => void;
 }
 
+// Trava dura: nenhum envio 1:1 pode sair do grupo do atendimento sem vir de um
+// dos scripts de texto fixo abaixo. O agente NUNCA fala com paciente — nem se o
+// paciente chamar por ele. Um IPC escrito por um turno de agente não tem
+// "origin" e é bloqueado aqui, antes de qualquer envio.
+//
+// Mensagens pro GRUPO (@g.us) e pra qualquer chat JÁ REGISTRADO (Thiago, Marina)
+// não passam por esta trava — só DM pra número não registrado (= paciente).
+const DM_GATED_FOLDERS = new Set(['whatsapp_atendimento-dra-marina']);
+const DM_ALLOWED_ORIGINS = new Set([
+  'send_reminder', // lembrete de consulta (template fixo)
+  'lembrete_autoreply', // auto-resposta ao lembrete (template fixo)
+  'send_nota', // DANFSE da NFS-e (template fixo)
+]);
+
+function patientDmBlocked(
+  sourceGroup: string,
+  chatJid: string,
+  origin: unknown,
+  isRegisteredChat: boolean,
+): boolean {
+  if (!DM_GATED_FOLDERS.has(sourceGroup)) return false;
+  if (!chatJid.endsWith('@s.whatsapp.net')) return false;
+  if (isRegisteredChat) return false;
+  return !(typeof origin === 'string' && DM_ALLOWED_ORIGINS.has(origin));
+}
+
 let ipcWatcherRunning = false;
 
 export function startIpcWatcher(deps: IpcDeps): void {
@@ -96,6 +122,26 @@ export function startIpcWatcher(deps: IpcDeps): void {
                 // Authorization: verify this group can send to this chatJid
                 const targetGroup = registeredGroups[data.chatJid];
                 if (
+                  patientDmBlocked(
+                    sourceGroup,
+                    data.chatJid as string,
+                    data.origin,
+                    Boolean(targetGroup),
+                  )
+                ) {
+                  logger.error(
+                    {
+                      chatJid: data.chatJid,
+                      sourceGroup,
+                      origin: data.origin ?? null,
+                      preview: (data.text as string).slice(0, 200),
+                    },
+                    'BLOQUEADO: tentativa de mensagem a paciente sem origin de script',
+                  );
+                  fs.unlinkSync(filePath);
+                  continue;
+                }
+                if (
                   isMain ||
                   targetGroup?.isMain === true ||
                   (targetGroup && targetGroup.folder === sourceGroup) ||
@@ -123,6 +169,26 @@ export function startIpcWatcher(deps: IpcDeps): void {
                 data.imagePath
               ) {
                 const targetGroup = registeredGroups[data.chatJid];
+                if (
+                  patientDmBlocked(
+                    sourceGroup,
+                    data.chatJid as string,
+                    data.origin,
+                    Boolean(targetGroup),
+                  )
+                ) {
+                  logger.error(
+                    {
+                      chatJid: data.chatJid,
+                      sourceGroup,
+                      origin: data.origin ?? null,
+                      imagePath: data.imagePath,
+                    },
+                    'BLOQUEADO: tentativa de imagem a paciente sem origin de script',
+                  );
+                  fs.unlinkSync(filePath);
+                  continue;
+                }
                 if (
                   isMain ||
                   targetGroup?.isMain === true ||
@@ -163,6 +229,26 @@ export function startIpcWatcher(deps: IpcDeps): void {
                 data.filePath
               ) {
                 const targetGroup = registeredGroups[data.chatJid];
+                if (
+                  patientDmBlocked(
+                    sourceGroup,
+                    data.chatJid as string,
+                    data.origin,
+                    Boolean(targetGroup),
+                  )
+                ) {
+                  logger.error(
+                    {
+                      chatJid: data.chatJid,
+                      sourceGroup,
+                      origin: data.origin ?? null,
+                      filePath: data.filePath,
+                    },
+                    'BLOQUEADO: tentativa de documento a paciente sem origin de script',
+                  );
+                  fs.unlinkSync(filePath);
+                  continue;
+                }
                 if (
                   isMain ||
                   targetGroup?.isMain === true ||

@@ -54,6 +54,7 @@ def main():
     tmp = Path(str(fp) + ".tmp")
     tmp.write_text(json.dumps({
         "type": "message",
+        "origin": "send_reminder",  # exigido pelo core: só script fala com paciente
         "chatJid": jid,
         "text": msg,
         "groupFolder": "whatsapp_atendimento-dra-marina",
