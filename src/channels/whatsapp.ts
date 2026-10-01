@@ -37,6 +37,11 @@ import type {
 import { registerChannel, type ChannelOpts } from './registry.js';
 
 const GROUP_SYNC_INTERVAL_MS = 24 * 60 * 60 * 1000;
+// Rotação dos jsonl de captura (ver rotateJsonl): só checa de vez em quando pra
+// não dar statSync a cada mensagem, e guarda 48h — o monitor só olha 12h.
+const JSONL_ROTATE_CHECK_EVERY = 200;
+const JSONL_ROTATE_MAX_BYTES = 4 * 1024 * 1024;
+const JSONL_RETENTION_MS = 48 * 60 * 60 * 1000;
 const waLogger = {
   level: 'info',
   trace: (...args: unknown[]) => logger.debug({ args }, 'baileys trace'),
@@ -67,6 +72,7 @@ export class WhatsAppChannel implements Channel {
   private outgoingQueue: Array<{ jid: string; text: string }> = [];
   private flushing = false;
   private groupSyncTimerStarted = false;
+  private jsonlAppends: Record<string, number> = {};
 
   private opts: WhatsAppChannelOpts;
 
@@ -222,6 +228,7 @@ export class WhatsAppChannel implements Channel {
         // respostas individuais dos pacientes (pro resumo de confirmação de
         // consulta) e retorna. Nenhum onMessage, nenhum agente, nada ao paciente.
         await this.captureInboundReplies(messages);
+        await this.captureSlaTimeline(messages);
         return;
       }
       for (const msg of messages) {
@@ -314,6 +321,147 @@ export class WhatsAppChannel implements Channel {
     });
   }
 
+  // Tripwire: TODO envio 1:1 por uma instância secundária (número do
+  // atendimento) é logado e gravado em jsonl. O agente nunca deve falar com
+  // paciente — se um dia falar, isso aparece aqui com o texto, pra auditoria.
+  // Não bloqueia: os envios legítimos (lembrete, auto-resposta, PDF de nota)
+  // passam pelo mesmo caminho.
+  private auditSecondaryDm(jid: string, kind: string, preview: string): void {
+    const folder = this.opts.groupFolderOwner;
+    if (!folder) return;
+    if (!jid.endsWith('@s.whatsapp.net')) return;
+    logger.warn(
+      { instance: this.name, jid, kind, preview: preview.slice(0, 200) },
+      'DM enviada pelo número do atendimento (auditoria)',
+    );
+    try {
+      this.appendGroupJsonl(folder, 'atendimento_dm_enviadas.jsonl', {
+        jid,
+        kind,
+        preview: preview.slice(0, 500),
+        timestamp: new Date().toISOString(),
+      });
+    } catch {
+      /* auditoria nunca pode derrubar o envio */
+    }
+  }
+
+  // Linha do tempo das conversas 1:1 do número do atendimento, pros dois lados
+  // (paciente e quem responde do número). Serve pro monitor de tempo de resposta
+  // (SLA). Append-only, NUNCA responde nada, NUNCA aciona o agente.
+  // Arquivo separado do lembrete_respostas.jsonl de propósito: aquele é lido
+  // pelo pipeline de confirmação e só pode conter mensagens de paciente.
+  private async captureSlaTimeline(
+    messages: import('@whiskeysockets/baileys').WAMessage[],
+  ): Promise<void> {
+    const folder = this.opts.groupFolderOwner;
+    if (!folder) return;
+    for (const msg of messages) {
+      try {
+        if (!msg.message) continue;
+        const rawJid = msg.key.remoteJid;
+        if (!rawJid || rawJid === 'status@broadcast') continue;
+        const chatJid = await this.translateJid(rawJid);
+        if (!chatJid.endsWith('@s.whatsapp.net')) continue; // só individual
+        const normalized = normalizeMessageContent(msg.message);
+        if (!normalized) continue;
+        const text =
+          normalized.conversation ||
+          normalized.extendedTextMessage?.text ||
+          normalized.imageMessage?.caption ||
+          normalized.videoMessage?.caption ||
+          '';
+        // Mídia sem legenda também é demanda (foto de exame) e também é resposta
+        // (áudio da atendente) — registra um marcador em vez de descartar.
+        const kind = normalized.imageMessage
+          ? '[imagem]'
+          : normalized.audioMessage
+            ? '[áudio]'
+            : normalized.videoMessage
+              ? '[vídeo]'
+              : normalized.documentMessage
+                ? '[documento]'
+                : normalized.stickerMessage
+                  ? '[sticker]'
+                  : '';
+        const body = text.trim() || kind;
+        if (!body) continue;
+        const entry = {
+          id: msg.key.id || '',
+          jid: chatJid,
+          phone: chatJid.split('@')[0],
+          direction: msg.key.fromMe ? 'out' : 'in',
+          text: body,
+          push_name: msg.pushName || '',
+          timestamp: new Date(
+            Number(msg.messageTimestamp) * 1000,
+          ).toISOString(),
+        };
+        this.appendGroupJsonl(folder, 'atendimento_sla.jsonl', entry);
+      } catch (err) {
+        logger.warn({ err }, 'captureSlaTimeline: failed for a message');
+      }
+    }
+  }
+
+  // Registra o id de cada mensagem que O BOT enviou por esta instância. O
+  // monitor de SLA faz a diferença de conjuntos depois (minutos depois), então
+  // não há corrida com o echo do messages.upsert.
+  private recordBotSentId(jid: string, id?: string | null): void {
+    const folder = this.opts.groupFolderOwner;
+    if (!folder || !id) return;
+    try {
+      this.appendGroupJsonl(folder, 'atendimento_bot_sent.jsonl', {
+        id,
+        jid,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err) {
+      logger.warn({ err, jid, id }, 'recordBotSentId failed');
+    }
+  }
+
+  private appendGroupJsonl(folder: string, file: string, entry: unknown): void {
+    const dir = path.join(GROUPS_DIR, folder);
+    fs.mkdirSync(dir, { recursive: true });
+    const target = path.join(dir, file);
+    fs.appendFileSync(target, JSON.stringify(entry) + '\n');
+    this.rotateJsonl(target, file);
+  }
+
+  // Rotação dos jsonl é feita AQUI, no host, e NUNCA dentro do container: o
+  // container roda como `node` (uid 1000) e o processo do host roda com outro
+  // usuário. Se o container reescrevesse o arquivo, o dono mudaria e o append
+  // do host passaria a falhar — a captura morreria calada.
+  private rotateJsonl(target: string, file: string): void {
+    const counter = (this.jsonlAppends[file] =
+      (this.jsonlAppends[file] ?? 0) + 1);
+    if (counter % JSONL_ROTATE_CHECK_EVERY !== 0) return;
+    try {
+      if (fs.statSync(target).size < JSONL_ROTATE_MAX_BYTES) return;
+      const cutoff = Date.now() - JSONL_RETENTION_MS;
+      const kept = fs
+        .readFileSync(target, 'utf-8')
+        .split('\n')
+        .filter((line) => {
+          if (!line.trim()) return false;
+          try {
+            const ts = Date.parse(
+              (JSON.parse(line) as { timestamp?: string }).timestamp || '',
+            );
+            return Number.isNaN(ts) ? false : ts >= cutoff;
+          } catch {
+            return false;
+          }
+        });
+      // Reescreve NO LUGAR (não renomeia) pra preservar dono e permissões.
+      fs.writeFileSync(target, kept.length ? kept.join('\n') + '\n' : '');
+      logger.info({ file, kept: kept.length }, 'Rotated capture jsonl');
+    } catch (err) {
+      logger.warn({ err, file }, 'rotateJsonl failed (ignorado)');
+    }
+  }
+
   // Captura passiva de respostas de pacientes na instância outbound-only.
   // Grava {jid, phone, text, timestamp} em append no jsonl do grupo dono, pra o
   // pipeline de confirmação de consulta correlacionar depois. NUNCA responde,
@@ -377,7 +525,9 @@ export class WhatsAppChannel implements Channel {
       return;
     }
     try {
-      await this.sock.sendMessage(jid, msg);
+      const sent = await this.sock.sendMessage(jid, msg);
+      this.recordBotSentId(jid, sent?.key?.id);
+      this.auditSecondaryDm(jid, 'image', caption || imagePath);
       logger.info({ jid, imagePath }, 'Image sent');
     } catch (err) {
       logger.warn({ jid, imagePath, err }, 'Failed to send image');
@@ -437,7 +587,9 @@ export class WhatsAppChannel implements Channel {
     }
     const target = await this.resolveWaJid(jid);
     try {
-      await this.sock.sendMessage(target, msg);
+      const sent = await this.sock.sendMessage(target, msg);
+      this.recordBotSentId(target, sent?.key?.id);
+      this.auditSecondaryDm(target, 'document', caption || name);
       logger.info({ jid, target, filePath }, 'Document sent');
     } catch (err) {
       logger.warn({ jid, target, filePath, err }, 'Failed to send document');
@@ -460,7 +612,9 @@ export class WhatsAppChannel implements Channel {
     }
     const target = await this.resolveWaJid(jid);
     try {
-      await this.sock.sendMessage(target, { text: prefixed });
+      const sent = await this.sock.sendMessage(target, { text: prefixed });
+      this.recordBotSentId(target, sent?.key?.id);
+      this.auditSecondaryDm(target, 'text', prefixed);
       logger.info({ jid, target, length: prefixed.length }, 'Message sent');
     } catch (err) {
       this.outgoingQueue.push({ jid, text: prefixed });
@@ -577,7 +731,9 @@ export class WhatsAppChannel implements Channel {
       while (this.outgoingQueue.length > 0) {
         const item = this.outgoingQueue.shift()!;
         const target = await this.resolveWaJid(item.jid);
-        await this.sock.sendMessage(target, { text: item.text });
+        const sent = await this.sock.sendMessage(target, { text: item.text });
+        this.recordBotSentId(target, sent?.key?.id);
+        this.auditSecondaryDm(target, 'text:queued', item.text);
         logger.info(
           { jid: item.jid, target, length: item.text.length },
           'Queued message sent',
