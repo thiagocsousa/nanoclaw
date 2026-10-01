@@ -55,6 +55,12 @@ ALERT_JID = os.environ.get("SLA_ALERT_JID", "558681512111@s.whatsapp.net")
 ALERT_FOLDER = os.environ.get("SLA_ALERT_FOLDER", "whatsapp_main")
 
 LIMITE_MIN_DEFAULT = 5
+# Válvula de segurança: se o número de pendências estourar isso, é mais provável
+# que a CAPTURA esteja cega (ex.: as respostas da atendente deixaram de chegar
+# como eco fromMe) do que a clínica ter abandonado 9 pacientes. Nesse caso manda
+# UM aviso e cala a boca pelo cooldown, em vez de despejar uma lista enorme.
+MAX_PENDENTES_PLAUSIVEL = 8
+SOBRECARGA_COOLDOWN_H = 6
 # Mensagem antiga demais não interessa (não alertar sobre backlog de ontem).
 JANELA_HORAS = 12
 TRUNC = 90
@@ -225,7 +231,40 @@ def main():
         estado = {}
     pendentes_agora = {p["key"] for p in todas}
     # Re-arma quem já foi respondido (saiu da lista de pendências).
+    sobrecarga_em = parse_ts(estado.get("_sobrecarga_em"))
     estado = {k: v for k, v in estado.items() if k in pendentes_agora}
+    if sobrecarga_em:
+        estado["_sobrecarga_em"] = sobrecarga_em.isoformat()
+
+    # Válvula: muita gente pendente de uma vez = suspeita de captura cega.
+    if len(alvo) > MAX_PENDENTES_PLAUSIVEL:
+        recente = sobrecarga_em and (
+            agora - sobrecarga_em < timedelta(hours=SOBRECARGA_COOLDOWN_H)
+        )
+        if not recente:
+            aviso = (
+                f"⚠️ *Monitor de atendimento suspeito*\n\n"
+                f"{len(alvo)} pacientes aparecem sem resposta há mais de "
+                f"{limite} min — número alto demais pra ser real.\n\n"
+                "Provável causa: a captura parou de ver as respostas da "
+                "atendente (eco do número linkado). Não vou listar nem alertar "
+                f"por paciente nas próximas {SOBRECARGA_COOLDOWN_H}h.\n\n"
+                "Pra checar: `sla_monitor.py --report`"
+            )
+            if dry:
+                print("[dry-run] enviaria AVISO DE SOBRECARGA:\n" + aviso)
+            else:
+                enviar(aviso)
+                estado["_sobrecarga_em"] = agora.isoformat()
+                STATE.write_text(
+                    json.dumps(estado, ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
+        # Não alerta por paciente: quando a captura voltar, os alertas reais
+        # voltam sozinhos (nada foi marcado como já avisado).
+        print(json.dumps({"wakeAgent": False, "sobrecarga": len(alvo),
+                          "pendentes": len(todas)}, ensure_ascii=False))
+        return
 
     novos = [p for p in alvo if estado.get(p["key"]) != p["msg_id"]]
 
