@@ -197,6 +197,16 @@ Siga a seção "Lembrete de consulta" do seu CLAUDE.md: poste o resumo NO GRUPO.
     prompt: `\
 <internal>Auto-resposta fixa ao paciente que respondeu ao lembrete. O script envia uma mensagem padrão (confirmado / secretaria entra em contato) uma vez por paciente e é silencioso (wakeAgent=false). Nenhuma ação sua é necessária.</internal>`,
   },
+  {
+    id: 'marina-sla-monitor',
+    group_folder: 'whatsapp_atendimento-dra-marina',
+    chat_jid: '120363287717747603@g.us',   // grupo Atendimento Dra Marina
+    schedule_value: '*/5 8-18 * * 1-5',      // a cada 5 min, 8h-18h seg-sex (America/Fortaleza)
+    context_mode: 'isolated',
+    script: 'python3 /workspace/group/scripts/sla_monitor.py',
+    prompt: `\
+<internal>Monitor de tempo de resposta do atendimento. O script avisa o Thiago no privado (pelo número principal) quando um paciente passa de 5 min sem resposta humana, e é silencioso (wakeAgent=false). O horário comercial é definido por este cron — a VM roda em UTC, o script só faz aritmética de tempo. Nenhuma ação sua é necessária, e você NUNCA fala com o paciente que está esperando.</internal>`,
+  },
 ];
 
 // ── Upsert ────────────────────────────────────────────────────────────────────
