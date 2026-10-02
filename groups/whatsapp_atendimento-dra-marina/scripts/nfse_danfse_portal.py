@@ -89,20 +89,56 @@ def _usuario_padrao():
         return "63521918000104"
 
 
+def _formata_cnpj(d):
+    d = re.sub(r"\D", "", d or "")
+    if len(d) != 14:
+        return d
+    return "%s.%s.%s/%s-%s" % (d[:2], d[2:5], d[5:8], d[8:12], d[12:])
+
+
+def _logado(pg):
+    """Se ainda estamos na tela de login, o login falhou."""
+    return "login" not in (pg.url or "").lower()
+
+
+def _tenta_login(pg, base, usuario, senha):
+    pg.goto(base + "/notafiscal/paginas/login/login.jsf",
+            wait_until="domcontentloaded", timeout=TIMEOUT)
+    # O portal tem 3 formas de entrar; usamos "Acesso via senha" (CPF/CNPJ).
+    # Certificado digital exige Java com drivers — não serve para automação.
+    pg.fill("input[id*='cpfCnpj'], input[name*='cpfCnpj'], input[type='text']", usuario)
+    pg.fill("input[type='password']", senha)
+    pg.click("button[type='submit'], input[type='submit']")
+    pg.wait_for_load_state("domcontentloaded", timeout=TIMEOUT)
+    pg.wait_for_timeout(2000)
+    return _logado(pg)
+
+
 def _login(pg, base):
+    """Entra no portal. O campo de CNPJ pode ter máscara, então tenta SÓ
+    DÍGITOS e, se não entrar, tenta FORMATADO. Evita depender de adivinhação
+    sobre o comportamento da máscara."""
     usuario = os.environ.get("NFSE_PORTAL_USUARIO") or _usuario_padrao()
     senha = os.environ.get("NFSE_PORTAL_SENHA", "")
     if not senha:
         raise SystemExit(
             "defina NFSE_PORTAL_SENHA no .env (o usuário é o CNPJ, já tem padrão)")
-    pg.goto(base + "/notafiscal/paginas/login/login.jsf",
-            wait_until="domcontentloaded", timeout=TIMEOUT)
-    # O portal tem 3 formas de entrar; usamos "Acesso via senha" (CPF/CNPJ).
-    # Certificado digital exige Java com drivers — não serve para automação.
-    pg.fill("input[id*='cpfCnpj'], input[name*='cpfCnpj']", usuario)
-    pg.fill("input[type='password']", senha)
-    pg.click("button[type='submit'], input[type='submit']")
-    pg.wait_for_load_state("domcontentloaded", timeout=TIMEOUT)
+
+    digitos = re.sub(r"\D", "", usuario)
+    for rotulo, valor in (("só dígitos", digitos), ("formatado", _formata_cnpj(digitos))):
+        if valor == digitos and rotulo == "formatado":
+            break      # CNPJ inválido; não adianta repetir
+        try:
+            if _tenta_login(pg, base, valor, senha):
+                print("  login OK (CNPJ %s)" % rotulo)
+                return
+            print("  login falhou com CNPJ %s, tentando outro formato" % rotulo,
+                  file=sys.stderr)
+        except Exception as exc:
+            print("  login (%s) deu erro: %s" % (rotulo, type(exc).__name__),
+                  file=sys.stderr)
+    raise SystemExit("não consegui entrar no portal — confira NFSE_PORTAL_SENHA "
+                     "e se o usuário é mesmo o CNPJ")
 
 
 def coleta(numeros, debug=False):
