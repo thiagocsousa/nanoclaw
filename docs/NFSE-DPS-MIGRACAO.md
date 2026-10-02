@@ -114,6 +114,36 @@ esse a gente descarta.
 
 Cada fase é verificável sozinha. Nenhuma toca produção até a Fase 6.
 
+### ⛔ Escopo: a emissão por DPS NÃO atende tomador PJ (decidido 2026-10-02)
+
+Nota para **CNPJ é emitida à mão**. A automação recusa, em dois níveis:
+`monta_dps()` levanta erro, e o pipeline separa o item antes de montar.
+
+**Por quê.** O padrão nacional exige classificar as retenções federais — `CST`
+do PIS/COFINS e `tpRetPisCofins` — campos que o ABRASF não tinha. Cheguei a
+implementar: numa emissão de teste para CNPJ a prefeitura aceitou e devolveu
+vPis 6,50 / vCofins 30,00 / vRetIRRF 15,00 / vRetCSLL 10,00 sobre R$ 1.000.
+Mas o **líquido veio 975,00**, ou seja, ela ignorou PIS e COFINS no cálculo —
+enquanto numa NFS-e **real de produção** (nº 3.452, validada pelo contador) o
+líquido desconta as quatro retenções. Algo na classificação que envio diverge,
+provavelmente o `CST`, que foi escolha minha entre 34 opções do enum e **não
+aparece impresso no DANFSe** para conferir.
+
+Emitir com classificação fiscal errada tem efeito real. Preferimos recusar.
+
+O item PJ **não é marcado como emitido** (reaparece no dia seguinte) e sai numa
+seção própria do resumo — não entra em "Falharam", porque não é falha e listar
+duas vezes confunde a recepção:
+
+```
+🧾 *Emitir À MÃO* (tomador CNPJ — a automação não atende):
+• HOSPITAL DE OLHOS LTDA (topografia) — R$ 1500.00
+_Continuam na lista até serem emitidas._
+```
+
+Para retomar: o código das retenções está no commit `107f95cd`, e o que falta é
+o `CST` real — visível no XML de uma nota de produção para PJ.
+
 ### Fase 0 — Destravar as decisões que não são técnicas
 Bloqueiam o resto; começar por aqui.
 1. **Contador** — ✅ **respondido em 2026-10-02** (conferido na tela do próprio

@@ -148,7 +148,7 @@ def emitir_via_dps(escolhidos, pfx, pwd, chave_match):
     ambiente_dps = "producao" if AMBIENTE == "producao" else "homologacao"
     tp_amb = "1" if ambiente_dps == "producao" else "2"
     next_ndps = load_next_ndps()
-    notas, mensagens = [], []
+    notas, mensagens, manuais = [], [], []
 
     for i, x in enumerate(escolhidos):
         ndps = next_ndps + i
@@ -166,6 +166,12 @@ def emitir_via_dps(escolhidos, pfx, pwd, chave_match):
             "nro": end.get("numero") or "S/N",
             "xBairro": end.get("bairro") or "",
         }
+        if len(tomador["doc"]) == 14:
+            # Tomador PJ: a DPS não atende (ver trava no nfse_dps.py). NÃO marca
+            # como emitida — o item reaparece amanhã e sai no resumo para a
+            # recepção emitir à mão.
+            manuais.append((str(x["receita_id"]), x["paciente"], x["servico"], x["valor"]))
+            continue
         faltando = [k for k in ("doc", "nome", "CEP", "xLgr", "xBairro") if not tomador[k]]
         if faltando:
             # Não envia cadastro incompleto: a prefeitura rejeita com mensagem
@@ -228,7 +234,8 @@ def emitir_via_dps(escolhidos, pfx, pwd, chave_match):
                 # Os PDFs entram como pendentes no resumo.
                 mensagens.append("download do DANFSE pelo portal falhou: %s" % exc)
 
-    return {"protocolo": "(DPS: sem lote)", "notas": notas, "mensagens": mensagens}
+    return {"protocolo": "(DPS: sem lote)", "notas": notas,
+            "mensagens": mensagens, "manuais": manuais}
 
 
 def main():
@@ -265,6 +272,7 @@ def main():
     group_folder = os.environ.get("NANOCLAW_GROUP_FOLDER", "whatsapp_atendimento-dra-marina")
 
     ok, agendados, falhas, pdf_pendentes = [], 0, [], []
+    manuais_ids = {m[0] for m in parsed.get("manuais", [])}
     now = datetime.now(TZ)
     accum = timedelta(0)
     # mapeia cada item enviado → nota emitida PELO NÚMERO DO RPS (robusto a falha
@@ -275,8 +283,11 @@ def main():
         if n is None and len(parsed["notas"]) == len(escolhidos):
             n = parsed["notas"][i]
         if not n or not n.get("numero"):
-            # falhou na prefeitura → NÃO marca emitida → reaparece amanhã
-            falhas.append(x["paciente"])
+            # Não marca emitida → reaparece amanhã, nos dois casos.
+            # Item roteado para emissão manual não é FALHA: já aparece na sua
+            # própria seção do resumo, e listar duas vezes confunde quem lê.
+            if str(x["receita_id"]) not in manuais_ids:
+                falhas.append(x["paciente"])
             continue
         emitidas.add(str(x["receita_id"]))
         pdf_name = f"nota_{n['numero']}_{slug(x['tomador'].get('nome'))}.pdf"
@@ -330,6 +341,11 @@ def main():
     for pac, serv, num, temtel in ok:
         entrega = "→ envio agendado" if temtel else "⚠️ sem telefone (não enviada)"
         lines.append(f"• NFSe *{num}* — {pac} ({serv}) {entrega}")
+    if parsed.get("manuais"):
+        lines.append("\n🧾 *Emitir À MÃO* (tomador CNPJ — a automação não atende):")
+        for _rid, pac, serv, val in parsed["manuais"]:
+            lines.append(f"• {pac} ({serv}) — R$ {val}")
+        lines.append("_Continuam na lista até serem emitidas._")
     if pdf_pendentes:
         lines.append("\n⚠️ *PDF não enviado* (emissão por DPS ainda não tem DANFSE):")
         for pac, num in pdf_pendentes:

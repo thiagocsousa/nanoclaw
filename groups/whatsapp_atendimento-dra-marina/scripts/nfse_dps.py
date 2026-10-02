@@ -183,6 +183,19 @@ def monta_id(cloc_emi, cnpj, serie, ndps):
 def monta_dps(tomador, valor, *, servico="consulta", serie=SERIE_PADRAO, ndps=1,
               tp_amb="2", competencia=None):
     """Monta a DPS. tp_amb: 1=Produção, 2=Homologação."""
+    doc = re.sub(r"\D", "", tomador.get("doc") or "")
+    if len(doc) == 14:
+        # ⛔ DECISÃO (2026-10-02): a emissão por DPS NÃO atende tomador PJ.
+        # O padrão nacional exige classificar as retenções federais (CST do
+        # PIS/COFINS, tpRetPisCofins), campos que o ABRASF não tinha e que não
+        # conseguimos confirmar: numa emissão de teste a prefeitura calculou o
+        # líquido ignorando PIS/COFINS, divergindo de uma nota real validada
+        # pelo contador. Enquanto isso não fechar, nota para CNPJ é emitida À
+        # MÃO. Preferimos recusar a emitir errado — tem efeito fiscal.
+        # O código das retenções que existiu aqui está no histórico do git
+        # (commit 107f95cd), caso um dia se decida retomar.
+        raise ValueError(
+            "tomador PJ (CNPJ %s): emissão por DPS não suportada, emitir manualmente" % doc)
     if servico not in SERVICOS:
         raise ValueError("serviço desconhecido: %s (use %s)" % (servico, ", ".join(SERVICOS)))
     categoria, descricao = SERVICOS[servico]
@@ -243,27 +256,6 @@ def monta_dps(tomador, valor, *, servico="consulta", serie=SERIE_PADRAO, ndps=1,
     el(tmun, "tribISSQN", ISS["tribISSQN"])
     el(tmun, "tpRetISSQN", ISS["tpRetISSQN"])
     el(tmun, "pAliq", ISS["pAliq"])
-    # Retenções federais: SÓ para tomador PJ. Em PF nada é retido e o bloco
-    # inteiro é omitido — mesmo comportamento do ABRASF, onde RETENCOES_PJ
-    # zera tudo para pessoa física.
-    # ⚠️ Sem este bloco, uma nota para CNPJ sairia sem PIS/COFINS/CSLL/IRRF —
-    # erro fiscal com dinheiro envolvido.
-    if len(re.sub(r"\D", "", tomador["doc"])) == 14:
-        base = Decimal(str(valor))
-        pct = lambda k: Decimal(str(RETENCOES_PJ.get(k, "0") or "0"))
-        money = lambda v: "%.2f" % v.quantize(Decimal("0.01"))
-        tfed = el(trib, "tribFed")
-        pc = el(tfed, "piscofins")
-        el(pc, "CST", CST_PISCOFINS)
-        el(pc, "vBCPisCofins", money(base))
-        el(pc, "pAliqPis", str(pct("pis")))
-        el(pc, "pAliqCofins", str(pct("cofins")))
-        el(pc, "vPis", money(base * pct("pis") / 100))
-        el(pc, "vCofins", money(base * pct("cofins") / 100))
-        el(pc, "tpRetPisCofins", TP_RET_PISCOFINS_PJ)
-        el(tfed, "vRetIRRF", money(base * pct("ir") / 100))
-        el(tfed, "vRetCSLL", money(base * pct("csll") / 100))
-
     ttot = el(trib, "totTrib")
     el(ttot, "indTotTrib", "0")         # 0=Não informa o total de tributos
 
