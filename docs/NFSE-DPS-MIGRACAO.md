@@ -458,8 +458,19 @@ Testado: **HTTP 200, `application/pdf`, 368 KB**. Ou seja:
 | Derivação de `nNFSe`, da chave ou do nome do arquivo | ❌ base62 em 3 alfabetos não bate com nada |
 | QR do próprio DANFSe | ✅ está lá — mas é **circular** (precisa do PDF para obter o código que busca o PDF) |
 
-Como não é derivável, é token gerado no servidor. **Logo, a pergunta à SEMF
-virou cirúrgica e fácil de responder:**
+Como não é derivável, é token gerado no servidor.
+
+> ### ⛔ RESPOSTA DA SEMF (2026-10-02): a API **não devolve** o `codigoVerificacao`
+> **em nenhum campo.** Confirmado por eles. A circularidade é real e oficial:
+> o código existe, é obrigatório na URL do DANFSE, e não há como obtê-lo pela
+> API de DPS.
+
+**Pergunta de acompanhamento que precisa ser feita** (a SEMF respondeu a
+pergunta estreita, mas a necessidade continua): *"sem o `codigoVerificacao`,
+como obter o DANFSE de uma NFS-e emitida por DPS, de forma programática?"*
+Pode existir endpoint por chave de acesso, ou pelo ADN nacional.
+
+**Pergunta original (respondida):**
 
 > A API de DPS não devolve o `codigoVerificacao` em nenhum campo, mas ele
 > existe e é obrigatório na URL do DANFSE. Como obtê-lo programaticamente?
