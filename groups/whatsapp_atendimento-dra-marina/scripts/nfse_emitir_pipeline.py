@@ -208,6 +208,30 @@ def emitir_via_dps(escolhidos, pfx, pwd, chave_match):
         })
 
     DPS_STATE.write_text(json.dumps({"next_ndps": next_ndps + len(escolhidos)}))
+
+    # Códigos de verificação para o DANFSE. A API não os devolve (confirmado
+    # pela SEMF), então um coletor via portal preenche depois — UMA sessão de
+    # navegador para o lote inteiro, não uma por nota.
+    # Desligado por padrão: subir o Chromium aqui pode estourar o timeout do
+    # pré-check do agent-runner (180s), que já foi problema com o coletor NFS-e.
+    # Ligue com NFSE_DANFSE_PORTAL=1 só depois de medir o tempo do lote.
+    if os.environ.get("NFSE_DANFSE_PORTAL") == "1":
+        numeros = [n["numero"] for n in notas if n.get("numero")]
+        if numeros:
+            try:
+                import nfse_danfse_portal as portal
+                achados = portal.coleta(numeros)
+                if achados:
+                    mapa = portal.carrega()
+                    mapa.update(achados)
+                    portal.grava(mapa)
+                for n in notas:
+                    n["codigo_verificacao"] = achados.get(str(n["numero"]))
+            except Exception as exc:
+                # Falha do portal NUNCA invalida a emissão: as notas já saíram.
+                # Os PDFs entram como pendentes no resumo.
+                mensagens.append("coletor de código de verificação falhou: %s" % exc)
+
     return {"protocolo": "(DPS: sem lote)", "notas": notas, "mensagens": mensagens}
 
 

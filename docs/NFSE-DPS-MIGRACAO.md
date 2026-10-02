@@ -450,7 +450,37 @@ verificação** — conferido no XML da NFS-e gerada. Sondei cinco variantes de 
 por chave de acesso em homologação (`.../chaveAcesso/{chave}`,
 `.../nfse/{chave}/danfse`, `.../danfse/{chave}`, etc.): **todas 404**.
 
-#### ✅ RESOLVIDO EM PARTE: o DANFSE funciona, falta só obter o código
+#### 🔧 Contorno implementado: `nfse_danfse_portal.py` (2026-10-02)
+
+Como a SEMF confirmou que a API não devolve o código, o contorno quebra a
+circularidade **uma vez por nota**: o Playwright abre o portal, manda exibir o
+DANFSE e **intercepta a requisição** que o portal faz — o código está na URL.
+
+```
+navegador (1x por lote)        → código de verificação → nfse_codigos_verificacao.json
+nfse_emitir.baixar_danfse(...) → PDF                   → paciente
+```
+
+O navegador **não participa do envio ao paciente**: depois de coletado o
+código, o download volta a ser o HTTP puro que já roda em produção.
+
+- Uma sessão de navegador por **lote**, não por nota.
+- **Desligado por padrão.** Ligue com `NFSE_DANFSE_PORTAL=1` só depois de medir
+  o tempo do lote: subir o Chromium dentro da emissão pode estourar o timeout
+  de 180s do pré-check do agent-runner — já foi problema com o coletor NFS-e,
+  que leva ~87s.
+- Falha do portal **nunca** invalida a emissão (as notas já saíram): os PDFs
+  entram como pendentes no resumo do WhatsApp.
+- Nunca inventa código: nota sem código fica fora do JSON.
+- `--debug` salva screenshot e HTML em `tmp/` para reajustar seletores.
+- Precisa de `NFSE_PORTAL_USUARIO` / `NFSE_PORTAL_SENHA` no `.env`.
+
+⚠️ **Isto é dívida técnica consciente.** É um contorno por fora de uma
+limitação da API deles, e a função `_abrir_nota()` depende do layout do portal.
+Se a SEMF expuser o código (ou um endpoint de DANFSE por chave), **apague o
+arquivo** — o resto do pipeline não sabe que ele existe.
+
+#### ✅ O DANFSE funciona, falta só obter o código
 
 O QR do DANFSe contém exatamente a URL do endpoint **que o `baixar_danfse` já
 usa hoje**:
