@@ -354,6 +354,26 @@ O `cTribMun` é o **mesmo campo** que o ABRASF chama de
 `CodigoTributacaoMunicipio` e que estava vazio com `TODO(contador)` no
 `nfse_emitir.py` — o endpoint antigo tolerava; a DPS não.
 
+#### Descrição do serviço: a prefeitura come as quebras de linha
+
+A discriminação é **a mesma de hoje** (importada do `nfse_emitir.py`, não
+copiada — uma lista só, sem divergir): identificação da Dra. Marina + CRM/RQE +
+o serviço.
+
+⚠️ O escape `\s\n` é convenção do manual ABRASF e **não** pode ir literal para a
+DPS. Mas trocar por `\n` real também não serve: embora o XSD aceite
+(`TSDesc2000` deriva de `TSStringComQuebraDeLinha`), **o DSF/Teresina descarta
+as quebras e cola as palavras** — a nota 2897 voltou com
+`...DE SOUSACRM 3816RQE 1949CONSULTA...`. Com `" - "` (`NFSE_DPS_SEP_DESC`) o
+texto sobrevive legível, confirmado na nota 2898:
+
+```
+SERVIÇOS MÉDICOS PRESTADOS PELA DRA. MARINA COSTA CARVALHO DE SOUSA - CRM 3816 - RQE 1949 - CONSULTA OFTALMOLÓGICA
+```
+
+Só um teste de ponta a ponta pega isso: o XSD valida, a API aceita, e o
+estrago só aparece relendo a nota gravada.
+
 #### Nota de operação: timeout
 
 A 1ª emissão estourou 60s de leitura **sem** gerar nota (confirmado com

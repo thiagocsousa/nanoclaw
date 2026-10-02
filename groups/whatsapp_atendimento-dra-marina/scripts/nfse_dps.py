@@ -55,26 +55,40 @@ NBS_POR_CATEGORIA = {
     "cirurgia": os.environ.get("NFSE_NBS_CIRURGIA", "123011900"),
 }
 
-# Serviço → categoria + descrição. Espelha o SERVICOS do nfse_emitir.py.
-SERVICOS = {
-    "consulta":   ("consulta", "CONSULTA OFTALMOLOGICA"),
-    "topografia": ("exame",    "EXAME TOPOGRAFIA CORNEANA"),
-    "mapeamento": ("exame",    "EXAME MAPEAMENTO DE RETINA"),
-    "lente_faco": ("cirurgia", "CIRURGIA DE FACECTOMIA COM LENTE INTRAOCULAR"),
-    "refrativa":  ("cirurgia", "CIRURGIA REFRATIVA"),
-    "pterigio":   ("cirurgia", "CIRURGIA DE PTERIGIO"),
-    "yag":        ("cirurgia", "PROCEDIMENTO DE CAPSULOTOMIA POR YAG LASER"),
-}
+# As descrições e a identificação profissional são AS MESMAS usadas hoje em
+# produção: importadas do nfse_emitir.py em vez de copiadas, para não existirem
+# duas listas divergindo. Se o serviço mudar lá, muda aqui junto.
+try:
+    from nfse_emitir import SERVICOS as _SERVICOS_ABRASF, PROFISSIONAL as _PROFISSIONAL
+except ImportError:  # fora do container (sem lxml/xmlsec do emissor)
+    _SERVICOS_ABRASF, _PROFISSIONAL = None, None
+
+SERVICOS = {k: (v["categoria"], v["descricao"]) for k, v in _SERVICOS_ABRASF.items()} \
+    if _SERVICOS_ABRASF else {
+        # Espelho de emergência — só vale se o import falhar.
+        "consulta":   ("consulta", "CONSULTA OFTALMOLÓGICA"),
+        "topografia": ("exame",    "EXAME TOPOGRAFIA CORNEANA"),
+        "mapeamento": ("exame",    "EXAME MAPEAMENTO DE RETINA"),
+        "lente_faco": ("cirurgia", "CIRURGIA DE FACECTOMIA COM LENTE INTRAOCULAR"),
+        "refrativa":  ("cirurgia", "CIRURGIA REFRATIVA"),
+        "pterigio":   ("cirurgia", "CIRURGIA DE PTERIGIO"),
+        "yag":        ("cirurgia", "PROCEDIMENTO DE CAPSULOTOMIA POR YAG LASER"),
+    }
+
+PROFISSIONAL = _PROFISSIONAL or (
+    "SERVIÇOS MÉDICOS PRESTADOS PELA DRA. MARINA COSTA CARVALHO DE SOUSA"
+    r"\s\nCRM 3816\s\nRQE 1949")
+
 
 SERVICO = {
-    # Confirmados na tela do emissor municipal (print do Thiago, 2026-10-02):
-    #   Código Tributação Nacional  = 04.03.01 "Hospitais e congêneres"  -> 040301
-    #   Código Complementar Municipal = 04.03.01.004 "ATIVIDADE MEDICA
-    #     AMBULATORIAL COM RECURSOS PARA REALIZACAO DE EXAMES COMPLEMENTARES"
-    #     -> cTribMun é [0-9]{3} no XSD, logo "004".
-    # cTribMun é o MESMO campo que o ABRASF chama de CodigoTributacaoMunicipio,
-    # que vinha vazio (TODO(contador)) porque o endpoint antigo aceitava; a DPS
-    # exige (erro L0017).
+    # Confirmados na tela do emissor municipal (2026-10-02):
+    #   Código Tributação Nacional    = 04.03.01 "Hospitais e congêneres" -> 040301
+    #   Código Complementar Municipal = 04.03.01.004 "ATIVIDADE MEDICA AMBULATORIAL
+    #     COM RECURSOS PARA REALIZACAO DE EXAMES COMPLEMENTARES" -> cTribMun é
+    #     [0-9]{3} no XSD, logo "004".
+    # cTribMun é o MESMO campo que o ABRASF chama CodigoTributacaoMunicipio, que
+    # vinha vazio (TODO(contador)) porque o endpoint antigo tolerava; a DPS exige
+    # (erro L0017) e ainda valida contra o cadastro econômico (L0001).
     "cTribNac": os.environ.get("NFSE_CTRIB_NAC", "040301"),
     "cTribMun": os.environ.get("NFSE_CTRIB_MUN", "004"),
 }
@@ -85,20 +99,32 @@ ISS = {
     "pAliq": "3",               # 3% — confirmado na tela do sistema
 }
 
-# IBS/CBS — Reforma Tributária. Valores confirmados pelo contador (2026-10-02),
-# conferidos na tela do próprio emissor municipal.
+# IBS/CBS — Reforma Tributária. Confirmados pelo contador e pela tela do emissor.
 IBSCBS = {
     "finNFSe": "0",          # 0 é o único valor aceito pelo XSD
     "indDest": "0",
     "CST": "200",            # 200 = Alíquota reduzida
-    "cClassTrib": "200029",  # Fornecimento dos serviços de saúde humana (Anexo III)
+    "cClassTrib": "200029",  # Serviços de saúde humana (Anexo III) -> redução de 60%
     # 030101 = Anexo C (INDOP_IBSCBS), Art. 11 Inc. III: "serviço prestado
-    # fisicamente sobre a pessoa ou fruído presencialmente por pessoa física",
-    # sufixo 01 = local da prestação. É a descrição exata de consulta/exame/
-    # cirurgia. O 100301 do XML modelo é "demais serviços" (genérico) e a
-    # prefeitura recusa com L0008 para serviço de saúde.
+    # fisicamente sobre a pessoa", sufixo 01 = local da prestação. O 100301 do
+    # XML modelo é "demais serviços" e a prefeitura recusa com L0008 para saúde.
     "cIndOp": "030101",
 }
+
+
+# Separador da discriminação. NÃO use "\n": o XSD aceita (TSDesc2000 deriva de
+# TSStringComQuebraDeLinha), mas o DSF/Teresina DESCARTA as quebras e cola as
+# palavras — testado em homologação em 2026-10-02, a nota voltou com
+# "...DE SOUSACRM 3816RQE 1949CONSULTA...". Com " - " o texto sobrevive legível.
+SEP_DESC = os.environ.get("NFSE_DPS_SEP_DESC", " - ")
+
+
+def descricao_servico(descricao):
+    """Mesma discriminação usada hoje no ABRASF (identificação da Dra. Marina +
+    serviço), com o escape '\\s\\n' do manual ABRASF trocado pelo separador que
+    a prefeitura preserva."""
+    texto = "%s%s%s" % (PROFISSIONAL, SEP_DESC, descricao)
+    return texto.replace(r"\s\n", SEP_DESC).replace("\n", SEP_DESC)
 
 
 # Série da DPS. Regra de Teresina (erro L0022, descoberto em homologação em
@@ -177,7 +203,7 @@ def monta_dps(tomador, valor, *, servico="consulta", serie=SERIE_PADRAO, ndps=1,
     el(cserv, "cTribNac", SERVICO["cTribNac"])
     if SERVICO["cTribMun"]:
         el(cserv, "cTribMun", SERVICO["cTribMun"])
-    el(cserv, "xDescServ", descricao)
+    el(cserv, "xDescServ", descricao_servico(descricao))
     el(cserv, "cNBS", NBS_POR_CATEGORIA[categoria])
 
     valores = el(inf, "valores")
