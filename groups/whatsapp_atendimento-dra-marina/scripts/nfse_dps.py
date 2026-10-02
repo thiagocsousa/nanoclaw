@@ -19,6 +19,7 @@ nacionais (zip nfse-esquemas_xsd-v1-01-*.zip do gov.br).
 """
 import argparse
 import os
+import re
 import sys
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
@@ -78,9 +79,27 @@ CODIGOS_POR_CATEGORIA = {
 # produção: importadas do nfse_emitir.py em vez de copiadas, para não existirem
 # duas listas divergindo. Se o serviço mudar lá, muda aqui junto.
 try:
-    from nfse_emitir import SERVICOS as _SERVICOS_ABRASF, PROFISSIONAL as _PROFISSIONAL
+    from nfse_emitir import (SERVICOS as _SERVICOS_ABRASF,
+                             PROFISSIONAL as _PROFISSIONAL,
+                             RETENCOES_PJ as _RETENCOES_PJ)
 except ImportError:  # fora do container (sem lxml/xmlsec do emissor)
-    _SERVICOS_ABRASF, _PROFISSIONAL = None, None
+    _SERVICOS_ABRASF, _PROFISSIONAL, _RETENCOES_PJ = None, None, None
+
+# Retenções federais quando o tomador é PESSOA JURÍDICA. Importadas do
+# nfse_emitir.py — são as MESMAS que já saem hoje em produção (conferidas na
+# tela do sistema em 2026-07-11). Para tomador PF não se retém nada.
+RETENCOES_PJ = _RETENCOES_PJ or {
+    "pis": "0.65", "cofins": "3.00", "csll": "1.00", "ir": "1.50", "inss": "0",
+}
+
+# CST do PIS/COFINS (TSTipoCST). 01 = "Operação Tributável com Alíquota Básica".
+# TODO(contador): confirmar. O ABRASF não exige esse campo — só manda os
+# valores — então ele é NOVO no padrão nacional e nunca foi validado por
+# ninguém aqui.
+CST_PISCOFINS = os.environ.get("NFSE_CST_PISCOFINS", "01")
+
+# tpRetPisCofins (TSTipoRetPISCofins): 3 = PIS/COFINS/CSLL Retidos.
+TP_RET_PISCOFINS_PJ = "3"
 
 SERVICOS = {k: (v["categoria"], v["descricao"]) for k, v in _SERVICOS_ABRASF.items()} \
     if _SERVICOS_ABRASF else {
@@ -220,6 +239,27 @@ def monta_dps(tomador, valor, *, servico="consulta", serie=SERIE_PADRAO, ndps=1,
     el(tmun, "tribISSQN", ISS["tribISSQN"])
     el(tmun, "tpRetISSQN", ISS["tpRetISSQN"])
     el(tmun, "pAliq", ISS["pAliq"])
+    # Retenções federais: SÓ para tomador PJ. Em PF nada é retido e o bloco
+    # inteiro é omitido — mesmo comportamento do ABRASF, onde RETENCOES_PJ
+    # zera tudo para pessoa física.
+    # ⚠️ Sem este bloco, uma nota para CNPJ sairia sem PIS/COFINS/CSLL/IRRF —
+    # erro fiscal com dinheiro envolvido.
+    if len(re.sub(r"\D", "", tomador["doc"])) == 14:
+        base = Decimal(str(valor))
+        pct = lambda k: Decimal(str(RETENCOES_PJ.get(k, "0") or "0"))
+        money = lambda v: "%.2f" % v.quantize(Decimal("0.01"))
+        tfed = el(trib, "tribFed")
+        pc = el(tfed, "piscofins")
+        el(pc, "CST", CST_PISCOFINS)
+        el(pc, "vBCPisCofins", money(base))
+        el(pc, "pAliqPis", str(pct("pis")))
+        el(pc, "pAliqCofins", str(pct("cofins")))
+        el(pc, "vPis", money(base * pct("pis") / 100))
+        el(pc, "vCofins", money(base * pct("cofins") / 100))
+        el(pc, "tpRetPisCofins", TP_RET_PISCOFINS_PJ)
+        el(tfed, "vRetIRRF", money(base * pct("ir") / 100))
+        el(tfed, "vRetCSLL", money(base * pct("csll") / 100))
+
     ttot = el(trib, "totTrib")
     el(ttot, "indTotTrib", "0")         # 0=Não informa o total de tributos
 
