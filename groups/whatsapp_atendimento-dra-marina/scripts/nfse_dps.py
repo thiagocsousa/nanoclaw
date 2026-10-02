@@ -1,0 +1,249 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Monta uma DPS (Declaração de Prestação de Serviço) no Padrão Nacional da NFS-e
+e valida contra o XSD v1.01. **Fase 2** de docs/NFSE-DPS-MIGRACAO.md.
+
+NÃO faz chamada de rede. NÃO assina (a assinatura é Fase 2b, reaproveitando a
+função sign() do nfse_emitir.py). Serve para acertar o leiaute em casa, com
+mensagem de erro precisa, em vez de descobrir no retorno enigmático da
+prefeitura — ver "L999 = CEP faltando" no histórico.
+
+Uso:
+  python3 nfse_dps.py                      # monta com dados fictícios e valida
+  python3 nfse_dps.py --out /tmp/dps.xml   # salva o XML gerado
+  python3 nfse_dps.py --xsd /caminho/Schemas/1.01
+
+Variáveis: NFSE_XSD_DIR aponta para o diretório Schemas/1.01 dos esquemas
+nacionais (zip nfse-esquemas_xsd-v1-01-*.zip do gov.br).
+"""
+import argparse
+import os
+import sys
+from datetime import datetime, timedelta, timezone
+from decimal import Decimal
+
+from lxml import etree
+
+NS = "http://www.sped.fazenda.gov.br/nfse"
+TZ = timezone(timedelta(hours=-3))  # America/Fortaleza
+IBGE_TERESINA = "2211001"
+
+# ───────────────────────── Parâmetros reais da clínica ───────────────────────
+# Espelham o que o nfse_emitir.py (ABRASF) já usa em produção.
+PRESTADOR = {
+    "CNPJ": "11222333000181",   # fictício com DV válido — o real vem do .env
+    "IM": "123456",
+    "opSimpNac": "1",           # 1=Não optante pelo Simples Nacional
+    "regEspTrib": "0",          # 0=Nenhum. TODO(contador): confirmar
+}
+
+SERVICO = {
+    # TODO(contador): cTribNac, cTribMun e cNBS por categoria de serviço.
+    "cTribNac": "040101",       # 4.01 consulta médica, no formato nacional
+    "cTribMun": "001",
+    "cNBS": "115069000",
+    "xDescServ": "CONSULTA OFTALMOLOGICA",
+}
+
+ISS = {
+    "tribISSQN": "1",           # 1=Operação tributável
+    "tpRetISSQN": "1",          # 1=Não retido
+    "pAliq": "3",               # 3% — confirmado na tela do sistema
+}
+
+# IBS/CBS — Reforma Tributária. TODO(contador): TODOS os códigos abaixo.
+# CST = Código de Situação Tributária (3 dígitos); cClassTrib = Código de
+# Classificação Tributária (6 dígitos). São os dois campos que definem como a
+# operação é tributada no novo regime — errar aqui gera nota com efeito fiscal
+# errado, por isso nada aqui vale sem confirmação do contador.
+IBSCBS = {
+    "finNFSe": "0",       # 0 é o único valor aceito pelo XSD
+    "cIndOp": "100301",   # TODO(contador)
+    "indDest": "0",
+    "CST": "000",         # TODO(contador) — 3 dígitos
+    "cClassTrib": "000001",  # TODO(contador) — 6 dígitos
+}
+
+
+def el(parent, tag, text=None):
+    """SubElement no namespace nacional. Nunca usar prefixo: a regra E1228
+    rejeita prefixo de namespace na área de dados."""
+    e = etree.SubElement(parent, "{%s}%s" % (NS, tag))
+    if text is not None:
+        e.text = str(text)
+    return e
+
+
+def monta_id(cloc_emi, cnpj, serie, ndps):
+    """Id = 'DPS' + 42 dígitos (TSIdDPS): município(7) + tpInsc(1) +
+    inscrição(14) + série(5) + nDPS(15)."""
+    return "DPS%s%s%s%s%s" % (
+        cloc_emi.zfill(7), "2", cnpj.zfill(14), serie.zfill(5), str(ndps).zfill(15),
+    )
+
+
+def monta_dps(tomador, valor, *, serie="00001", ndps=1, tp_amb="2", competencia=None):
+    """Monta a DPS. tp_amb: 1=Produção, 2=Homologação."""
+    agora = datetime.now(TZ)
+    comp = competencia or agora.date()
+    cnpj = PRESTADOR["CNPJ"]
+
+    dps = etree.Element("{%s}DPS" % NS, nsmap={None: NS})
+    dps.set("versao", "1.01")
+    inf = el(dps, "infDPS")
+    inf.set("Id", monta_id(IBGE_TERESINA, cnpj, serie, ndps))
+
+    el(inf, "tpAmb", tp_amb)
+    el(inf, "dhEmi", agora.replace(microsecond=0).isoformat())
+    el(inf, "verAplic", "nanoclaw-1.0")
+    el(inf, "serie", serie)
+    el(inf, "nDPS", ndps)
+    el(inf, "dCompet", comp.isoformat())
+    el(inf, "tpEmit", "1")              # 1=Prestador do serviço
+    el(inf, "cLocEmi", IBGE_TERESINA)
+
+    prest = el(inf, "prest")
+    el(prest, "CNPJ", cnpj)
+    el(prest, "IM", PRESTADOR["IM"])
+    reg = el(prest, "regTrib")
+    el(reg, "opSimpNac", PRESTADOR["opSimpNac"])
+    el(reg, "regEspTrib", PRESTADOR["regEspTrib"])
+
+    toma = el(inf, "toma")
+    if len(tomador["doc"]) == 11:
+        el(toma, "CPF", tomador["doc"])
+    else:
+        el(toma, "CNPJ", tomador["doc"])
+    el(toma, "xNome", tomador["nome"])
+    end = el(toma, "end")
+    endnac = el(end, "endNac")
+    el(endnac, "cMun", tomador["cMun"])
+    el(endnac, "CEP", tomador["CEP"])   # CEP é estrutural — sem ele a prefeitura rejeita
+    el(end, "xLgr", tomador["xLgr"])
+    el(end, "nro", tomador["nro"])
+    el(end, "xBairro", tomador["xBairro"])
+
+    serv = el(inf, "serv")
+    loc = el(serv, "locPrest")
+    el(loc, "cLocPrestacao", IBGE_TERESINA)
+    cserv = el(serv, "cServ")
+    el(cserv, "cTribNac", SERVICO["cTribNac"])
+    el(cserv, "cTribMun", SERVICO["cTribMun"])
+    el(cserv, "xDescServ", SERVICO["xDescServ"])
+    el(cserv, "cNBS", SERVICO["cNBS"])
+
+    valores = el(inf, "valores")
+    vserv = el(valores, "vServPrest")
+    el(vserv, "vServ", "%.2f" % Decimal(str(valor)))
+    trib = el(valores, "trib")
+    tmun = el(trib, "tribMun")
+    el(tmun, "tribISSQN", ISS["tribISSQN"])
+    el(tmun, "tpRetISSQN", ISS["tpRetISSQN"])
+    el(tmun, "pAliq", ISS["pAliq"])
+    ttot = el(trib, "totTrib")
+    el(ttot, "indTotTrib", "0")         # 0=Não informa o total de tributos
+
+    ibscbs = el(inf, "IBSCBS")
+    el(ibscbs, "finNFSe", IBSCBS["finNFSe"])
+    el(ibscbs, "cIndOp", IBSCBS["cIndOp"])
+    el(ibscbs, "indDest", IBSCBS["indDest"])
+    v = el(ibscbs, "valores")
+    t = el(v, "trib")
+    g = el(t, "gIBSCBS")
+    el(g, "CST", IBSCBS["CST"])              # obrigatório, vem ANTES do cClassTrib
+    el(g, "cClassTrib", IBSCBS["cClassTrib"])
+
+    return dps
+
+
+# Defeito do XSD oficial v1.01: TSSerieDPS tem pattern "^0{0,4}\\d{1,5}$".
+# Em XML Schema o pattern já é ancorado e ^/$ são CARACTERES LITERAIS — então
+# o tipo só aceitaria a string literal "^00001$" e nenhuma série real valida
+# (o próprio XML modelo publicado pela SEMF falha nesse campo). Corrigimos o
+# pattern em memória, sem tocar no arquivo baixado.
+# TODO(SEMF): reportar. Reavaliar quando sair uma v1.02.
+SERIE_PATTERN_BUG = "^0{0,4}\\d{1,5}$"
+SERIE_PATTERN_FIX = "0{0,4}\\d{1,5}"
+
+
+def _carrega_schema(xsd_dir, corrigir_bug=True):
+    """Carrega o XSD resolvendo os includes a partir de xsd_dir."""
+    xsd = os.path.join(xsd_dir, "DPS_v1.01.xsd")
+    if not os.path.exists(xsd):
+        return None
+    if not corrigir_bug:
+        return etree.XMLSchema(etree.parse(xsd))
+    simples = os.path.join(xsd_dir, "tiposSimples_v1.01.xsd")
+    texto = open(simples, encoding="utf-8").read()
+    if SERIE_PATTERN_BUG not in texto:
+        return etree.XMLSchema(etree.parse(xsd))
+    # reescreve só o tiposSimples num diretório temporário com os demais linkados
+    import shutil, tempfile
+    tmp = tempfile.mkdtemp(prefix="nfse-xsd-")
+    for nome in os.listdir(xsd_dir):
+        shutil.copy(os.path.join(xsd_dir, nome), os.path.join(tmp, nome))
+    open(os.path.join(tmp, "tiposSimples_v1.01.xsd"), "w", encoding="utf-8").write(
+        texto.replace(SERIE_PATTERN_BUG, SERIE_PATTERN_FIX))
+    return etree.XMLSchema(etree.parse(os.path.join(tmp, "DPS_v1.01.xsd")))
+
+
+def valida(doc, xsd_dir, corrigir_bug=True):
+    schema = _carrega_schema(xsd_dir, corrigir_bug)
+    if schema is None:
+        print("XSD não encontrado em %s" % xsd_dir, file=sys.stderr)
+        print("Baixe nfse-esquemas_xsd-v1-01-*.zip do gov.br e aponte --xsd / NFSE_XSD_DIR.",
+              file=sys.stderr)
+        return None
+    ok = schema.validate(doc)
+    return ok, list(schema.error_log)
+
+
+# Paciente fictício — nenhum dado real de paciente neste arquivo.
+TOMADOR_FICTICIO = {
+    "doc": "52998224725",            # CPF fictício com DV válido
+    "nome": "MARIA DA SILVA SANTOS",
+    "cMun": IBGE_TERESINA,
+    "CEP": "64000000",
+    "xLgr": "RUA DAS ACACIAS",
+    "nro": "123",
+    "xBairro": "CENTRO",
+}
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--out")
+    ap.add_argument("--xsd", default=os.environ.get("NFSE_XSD_DIR", ""))
+    ap.add_argument("--valor", default="400.00")
+    ap.add_argument("--xsd-cru", action="store_true",
+                    help="valida sem corrigir o defeito do TSSerieDPS (mostra o bug)")
+    args = ap.parse_args()
+
+    dps = monta_dps(TOMADOR_FICTICIO, args.valor)
+    xml = etree.tostring(dps, pretty_print=True, xml_declaration=True, encoding="UTF-8")
+
+    if args.out:
+        open(args.out, "wb").write(xml)
+        print("XML salvo em %s (%d bytes)" % (args.out, len(xml)))
+
+    if not args.xsd:
+        print(xml.decode("utf-8"))
+        print("Sem --xsd/NFSE_XSD_DIR: validação pulada.", file=sys.stderr)
+        return 0
+
+    res = valida(dps, args.xsd, corrigir_bug=not args.xsd_cru)
+    if res is None:
+        return 2
+    ok, erros = res
+    if ok:
+        print("✅ DPS VÁLIDA contra DPS_v1.01.xsd")
+        return 0
+    print("❌ DPS inválida — %d erro(s):" % len(erros))
+    for e in erros:
+        print("   linha %s: %s" % (e.line, e.message))
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -91,9 +91,10 @@ Bloqueiam o resto; começar por aqui.
 1. **Contador**: CST, `cClassTrib` e regime de apuração de IBS/CBS para os
    serviços da clínica (consulta, lente/faco, refrativa). Mesma classe dos
    `TODO(contador)` que já existem no `nfse_emitir.py`.
-2. **SEMF** (notafiscaleletronica.semf@pmt.pi.gov.br): até quando o ABRASF 2.03
-   continua aceito? A página fala em coexistência na transição, mas não dá data
-   de desligamento.
+2. **SEMF** (notafiscaleletronica.semf@pmt.pi.gov.br): (a) até quando o ABRASF
+   2.03 continua aceito? A página fala em coexistência na transição, mas não dá
+   data de desligamento. (b) reportar o defeito do `TSSerieDPS` no XSD v1.01
+   (ver Fase 2).
 3. **DANFSE — continua em aberto, mas delimitado.** Hoje o PDF vem do portal
    por número + código de verificação (`baixar_danfse`). Li o *Guia do Emissor
    Municipal Web* inteiro: ele cobre só a emissão **manual** e não documenta
@@ -172,7 +173,25 @@ guia da API e guia do emissor web.
 - Critério de pronto: DPS válida no XSD e assinatura conferida localmente.
   Nenhuma chamada de rede nesta fase.
 
-**Já verificado (2026-10-02):** a validação local funciona — rodei o XML modelo
+**✅ FEITO (2026-10-02):** `scripts/nfse_dps.py` monta uma DPS completa com dados
+fictícios e ela **valida contra o `DPS_v1.01.xsd`**. Rode:
+`python3 nfse_dps.py --xsd <Schemas/1.01>`. Falta só a assinatura (Fase 2b) e os
+valores reais de IBS/CBS (Fase 0.1) — a estrutura está fechada.
+
+Testes negativos confirmam que a validação é real, não decorativa: removendo
+`CEP`, `CST`, `xNome` ou `cTribNac` o schema rejeita com mensagem apontando o
+campo. **O caso do CEP é o mesmo que gerou o "L999 = cpfCnpjTomadorInvalido"
+enganoso em produção — agora é pego em casa, antes da requisição.**
+
+🐞 **Defeito no XSD oficial v1.01 (reportar à SEMF).** `TSSerieDPS` tem
+`pattern="^0{0,4}\d{1,5}$"`. Em XML Schema o pattern **já é ancorado** e `^`/`$`
+são **caracteres literais** — ou seja, o tipo só aceita a string literal
+`^00001$`, e **nenhuma série legítima valida** (o próprio XML modelo publicado
+pela SEMF falha nesse campo). Varri os demais tipos: é o **único** com esse
+defeito. O `nfse_dps.py` corrige o pattern **em memória**, sem tocar no arquivo
+baixado (`--xsd-cru` desliga a correção e mostra o bug). Reavaliar se sair v1.02.
+
+**Verificado antes (2026-10-02):** a validação local funciona — rodei o XML modelo
 contra o XSD v1.01 com lxml e os únicos erros são os `???????` do próprio
 modelo (`tpAmb` fora do enum, `CNPJ` fora do padrão `[0-9]{14}`, etc.). Ou seja:
 **erramos campo em casa, com mensagem precisa, em vez de descobrir no retorno
