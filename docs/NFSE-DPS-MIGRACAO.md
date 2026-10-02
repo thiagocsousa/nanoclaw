@@ -431,6 +431,42 @@ verificação** — conferido no XML da NFS-e gerada. Sondei cinco variantes de 
 por chave de acesso em homologação (`.../chaveAcesso/{chave}`,
 `.../nfse/{chave}/danfse`, `.../danfse/{chave}`, etc.): **todas 404**.
 
+#### ✅ RESOLVIDO EM PARTE: o DANFSE funciona, falta só obter o código
+
+O QR do DANFSe contém exatamente a URL do endpoint **que o `baixar_danfse` já
+usa hoje**:
+
+```
+https://the.dsfweb.com.br/notafiscal-ws/servico/notafiscal/autenticacao/
+  cpfCnpj/63521918000104/inscricaoMunicipal/0509477/numeroNota/2898/
+  codigoVerificacao/gQZUcnVoK
+```
+
+Testado: **HTTP 200, `application/pdf`, 368 KB**. Ou seja:
+
+- o **código de verificação EXISTE** para notas de DPS (`gQZUcnVoK`, 9
+  alfanuméricos — bate com `TSCodVerificacao` = `[a-zA-Z0-9]{1,9}` no XSD);
+- o **endpoint de DANFSE funciona** para elas, sem login nem certificado;
+- **o `baixar_danfse` atual não precisa ser reescrito.**
+
+**O único problema que resta** é obter o código programaticamente:
+
+| Onde procurei | Resultado |
+|---|---|
+| JSON da emissão / consulta | ❌ as chaves são só `tipoAmbiente`, `versaoAplicativo`, `dataHoraProcessamento`, `nfseXmlGZipB64`, `erros` |
+| XML da NFS-e | ❌ a string `gQZUcnVoK` não aparece; nenhum campo alfanumérico misto |
+| Derivação de `nNFSe`, da chave ou do nome do arquivo | ❌ base62 em 3 alfabetos não bate com nada |
+| QR do próprio DANFSe | ✅ está lá — mas é **circular** (precisa do PDF para obter o código que busca o PDF) |
+
+Como não é derivável, é token gerado no servidor. **Logo, a pergunta à SEMF
+virou cirúrgica e fácil de responder:**
+
+> A API de DPS não devolve o `codigoVerificacao` em nenhum campo, mas ele
+> existe e é obrigatório na URL do DANFSE. Como obtê-lo programaticamente?
+
+Isso torna a opção "gerar o DANFSe do XML" **desnecessária** se eles
+responderem — provavelmente é só um campo que faltou expor.
+
 #### O que a investigação no portal esgotou (2026-10-02)
 
 - **O código de verificação NÃO existe mais no documento.** O DANFSe v2.0 se
