@@ -505,7 +505,34 @@ código, o download volta a ser o HTTP puro que já roda em produção.
 - `--debug` salva screenshot e HTML em `tmp/` para reajustar seletores.
 - Precisa de `NFSE_PORTAL_USUARIO` / `NFSE_PORTAL_SENHA` no `.env`.
 
-#### ⏱️ Medição: NÃO ligar a flag dentro da emissão
+#### ✅ Task separada do DANFSE (2026-10-02)
+
+A emissão **enfileira**; quem baixa é o `nfse_danfse_pipeline.py`, numa task
+própria (`marina-danfse`, `0,30 19-21 * * 1-5`).
+
+```
+emissão (18:30)   → nota emitida + enfileira o número     → 8 s
+marina-danfse     → baixa o PDF → agenda send_nota.py     → ~20 s por nota
+```
+
+Medido: a emissão caiu de **87 s para 8 s**. O download continua custando o que
+custa, mas agora num lugar onde demorar não derruba nada.
+
+Como a fila se comporta:
+- **teto de 6 notas por rodada** (~120 s + login, com margem nos 180 s). O que
+  sobra fica para a rodada seguinte, meia hora depois;
+- **conta tentativas**: falha transitória do portal se resolve sozinha na
+  próxima rodada;
+- **desiste após 5 tentativas** e avisa para envio manual — nota CANCELADA, por
+  exemplo, nunca terá DANFSE, e insistir para sempre só poluiria o log;
+- **sai da fila ao agendar a entrega**, então não reenvia PDF já entregue;
+- `wakeAgent` só é `true` quando alguma nota desistiu, ou seja, o agente só é
+  acordado quando a recepção precisa agir.
+
+A entrega reusa `entregas/` + `send_nota.py`, o mesmo mecanismo que já roda em
+produção no caminho ABRASF — não existem dois jeitos de enviar PDF ao paciente.
+
+#### ⏱️ Medição que levou a isso: NÃO baixar dentro da emissão
 
 Lote de 3 notas com download de PDF: **87 s** (pré-check do agent-runner aborta
 em 180 s). Descontando o login, dá ~20 s por nota — então **a partir de ~8 notas

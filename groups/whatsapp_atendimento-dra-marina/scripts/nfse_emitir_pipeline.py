@@ -215,25 +215,6 @@ def emitir_via_dps(escolhidos, pfx, pwd, chave_match):
 
     DPS_STATE.write_text(json.dumps({"next_ndps": next_ndps + len(escolhidos)}))
 
-    # DANFSE. O endpoint público exige codigoVerificacao, que a API de DPS não
-    # devolve (confirmado pela SEMF) — então um coletor via portal baixa o PDF
-    # direto da sessão autenticada. UMA sessão de navegador para o lote inteiro.
-    # Desligado por padrão: subir o Chromium aqui pode estourar o timeout do
-    # pré-check do agent-runner (180s), que já foi problema com o coletor NFS-e.
-    # Ligue com NFSE_DANFSE_PORTAL=1 só depois de medir o tempo do lote.
-    if os.environ.get("NFSE_DANFSE_PORTAL") == "1":
-        numeros = [n["numero"] for n in notas if n.get("numero")]
-        if numeros:
-            try:
-                import nfse_danfse_portal as portal
-                baixados = portal.baixa(numeros, ATTACH_DIR)
-                for n in notas:
-                    n["pdf_portal"] = baixados.get(str(n["numero"]))
-            except Exception as exc:
-                # Falha do portal NUNCA invalida a emissão: as notas já saíram.
-                # Os PDFs entram como pendentes no resumo.
-                mensagens.append("download do DANFSE pelo portal falhou: %s" % exc)
-
     return {"protocolo": "(DPS: sem lote)", "notas": notas,
             "mensagens": mensagens, "manuais": manuais}
 
@@ -273,6 +254,7 @@ def main():
 
     ok, agendados, falhas, pdf_pendentes = [], 0, [], []
     manuais_ids = {m[0] for m in parsed.get("manuais", [])}
+    fila_danfse = []
     now = datetime.now(TZ)
     accum = timedelta(0)
     # mapeia cada item enviado → nota emitida PELO NÚMERO DO RPS (robusto a falha
@@ -292,14 +274,17 @@ def main():
         emitidas.add(str(x["receita_id"]))
         pdf_name = f"nota_{n['numero']}_{slug(x['tomador'].get('nome'))}.pdf"
         pdf_path = ATTACH_DIR / pdf_name
-        if n.get("pdf_portal"):
-            # PDF já baixado do portal (modo DPS): usa como está.
-            pdf_path = Path(n["pdf_portal"])
-            pdf_name = pdf_path.name
-        elif not n.get("codigo_verificacao"):
-            # Modo DPS: a emissão não devolve código de verificação e o endpoint
-            # público de DANFSE exige. NÃO tenta baixar e NÃO agenda entrega —
-            # mas registra para aparecer no resumo, em vez de sumir num stderr.
+        if not n.get("codigo_verificacao"):
+            # Modo DPS: a emissão não devolve código de verificação, e baixar o
+            # PDF aqui custaria ~20 s por nota (Chromium) — a partir de ~8 notas
+            # derrubaria esta task no timeout de 180 s do pré-check. Então só
+            # ENFILEIRA; quem baixa é o nfse_danfse_pipeline.py, separado.
+            fila_danfse.append({
+                "numero": n["numero"],
+                "paciente": x["paciente"],
+                "telefone": normalize_phone(x["tomador"].get("telefone")),
+                "group_folder": group_folder,
+            })
             pdf_pendentes.append((x["paciente"], n["numero"]))
             pdf_path = None
         else:
@@ -337,6 +322,14 @@ def main():
 
     EMITIDAS_FILE.write_text(json.dumps(sorted(emitidas), ensure_ascii=False))
 
+    if fila_danfse:
+        try:
+            import nfse_danfse_pipeline as danfse
+            danfse.enfileira(fila_danfse)
+        except Exception as exc:
+            # Enfileirar é secundário: as notas já saíram. Avisa e segue.
+            print("aviso: não consegui enfileirar o DANFSE: %s" % exc, file=sys.stderr)
+
     lines = [f"✅ *{len(ok)}* nota(s) emitida(s) — protocolo {parsed.get('protocolo')}:"]
     for pac, serv, num, temtel in ok:
         entrega = "→ envio agendado" if temtel else "⚠️ sem telefone (não enviada)"
@@ -347,9 +340,10 @@ def main():
             lines.append(f"• {pac} ({serv}) — R$ {val}")
         lines.append("_Continuam na lista até serem emitidas._")
     if pdf_pendentes:
-        lines.append("\n⚠️ *PDF não enviado* (emissão por DPS ainda não tem DANFSE):")
+        lines.append(f"\n📎 *PDF na fila* ({len(pdf_pendentes)}) — baixa e envia automaticamente em seguida:")
         for pac, num in pdf_pendentes:
-            lines.append(f"• NFSe *{num}* — {pac} — a nota FOI emitida; o PDF precisa ser enviado à mão")
+            lines.append(f"• NFSe *{num}* — {pac}")
+        lines.append("_Se algum não sair, aparece aqui de novo para envio manual._")
     if falhas:
         lines.append(f"\n❌ Falharam: {', '.join(falhas)}")
     if parsed.get("mensagens"):

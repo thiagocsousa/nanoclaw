@@ -198,6 +198,16 @@ Siga a seção "Lembrete de consulta" do seu CLAUDE.md: poste o resumo NO GRUPO.
 <internal>Auto-resposta fixa ao paciente que respondeu ao lembrete. O script envia uma mensagem padrão (confirmado / secretaria entra em contato) uma vez por paciente e é silencioso (wakeAgent=false). Nenhuma ação sua é necessária.</internal>`,
   },
   {
+    id: 'marina-danfse',
+    group_folder: 'whatsapp_atendimento-dra-marina',
+    chat_jid: '120363287717747603@g.us',   // grupo Atendimento Dra Marina
+    schedule_value: '0,30 19-21 * * 1-5',    // 19h-21h, de meia em meia hora (America/Fortaleza)
+    context_mode: 'isolated',
+    script: 'python3 /workspace/group/scripts/nfse_danfse_pipeline.py',
+    prompt: `\
+<internal>Baixa os DANFSE pendentes e agenda a entrega ao paciente. Roda separado da emissão porque o download custa ~20s por nota e derrubaria a task de emissão no timeout de 180s. Fila vazia = não faz nada. Só acorda você quando alguma nota desistiu e precisa de envio manual.</internal>`,
+  },
+  {
     id: 'marina-sla-monitor',
     group_folder: 'whatsapp_atendimento-dra-marina',
     chat_jid: '120363287717747603@g.us',   // grupo Atendimento Dra Marina

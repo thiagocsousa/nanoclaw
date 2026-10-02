@@ -219,8 +219,11 @@ def baixa(numeros, destino_dir, debug=False):
                     resp = ctx.request.get(alvo, timeout=TIMEOUT)
                     corpo = resp.body()
                 except Exception as exc:
-                    print("  nota %s: download falhou (%s)" % (numero, type(exc).__name__),
-                          file=sys.stderr)
+                    # Mensagem completa, não só o tipo: "(Error)" não diz nada a
+                    # quem for investigar por que um paciente ficou sem PDF.
+                    print("  nota %s: download falhou — %s: %s"
+                          % (numero, type(exc).__name__,
+                             str(exc).split("\n")[0][:160]), file=sys.stderr)
                     continue
                 if not corpo.startswith(b"%PDF"):
                     print("  nota %s: resposta não é PDF (%d bytes)" % (numero, len(corpo)),
