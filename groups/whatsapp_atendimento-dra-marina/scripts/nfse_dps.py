@@ -250,8 +250,8 @@ def _rich_x509(sig):
     xmlsec.template.x509_data_add_certificate(x)
 
 
-def assina(dps, pfx_path, pfx_password):
-    """Assina a DPS no padrão da seção 4 do guia DSF V7.
+def assina(dps, pfx_path, pfx_password, inner_tag="infDPS"):
+    """Assina a DPS (ou o pedido de evento) no padrão da seção 4 do guia DSF V7.
 
     - <Signature> dentro da raiz <DPS>, IRMÃ de <infDPS> (enveloped);
     - Reference URI="#<Id do infDPS>";
@@ -261,10 +261,12 @@ def assina(dps, pfx_path, pfx_password):
     """
     import xmlsec
 
-    inf = dps.find("{%s}infDPS" % NS)
+    inf = dps.find("{%s}%s" % (NS, inner_tag))
+    if inf is None:
+        raise ValueError("documento sem <%s>" % inner_tag)
     inf_id = inf.get("Id")
     if not inf_id:
-        raise ValueError("infDPS sem atributo Id")
+        raise ValueError("%s sem atributo Id" % inner_tag)
 
     # ns=None => <Signature xmlns="...">, sem prefixo. NUNCA passar ns="ds".
     sig = xmlsec.template.create(
@@ -305,6 +307,51 @@ def verifica_assinatura(dps, pfx_path, pfx_password):
         return True, "assinatura confere"
     except Exception as exc:
         return False, "%s: %s" % (type(exc).__name__, exc)
+
+
+
+# ─────────────────────── Cancelamento (evento e101101) ───────────────────────
+# Motivos aceitos pelo XSD (TSCodJustCanc): 1=Erro na emissão,
+# 2=Serviço não prestado, 9=Outros.
+MOTIVOS_CANCELAMENTO = {"1": "Erro na Emissão", "2": "Serviço não Prestado", "9": "Outros"}
+
+
+def monta_cancelamento(chave_acesso, cmotivo="1", xmotivo=None, tp_amb="2"):
+    """Monta o pedidoRegistroEvento de CANCELAMENTO (e101101) de uma NFS-e.
+
+    O Id é 'PRE' + 56 dígitos (TSIdPedRegEvt): os 50 dígitos da chave de acesso
+    seguidos do código do evento (101101).
+    """
+    if cmotivo not in MOTIVOS_CANCELAMENTO:
+        raise ValueError("cMotivo deve ser 1, 2 ou 9 — recebido %r" % cmotivo)
+    digitos = "".join(c for c in chave_acesso if c.isdigit())
+    if len(digitos) != 50:
+        raise ValueError("chave de acesso deve ter 50 dígitos, tem %d" % len(digitos))
+
+    ped = etree.Element("{%s}pedRegEvento" % NS, nsmap={None: NS})
+    ped.set("versao", "1.01")
+    inf = el(ped, "infPedReg")
+    inf.set("Id", "PRE" + digitos + "101101")
+
+    el(inf, "tpAmb", tp_amb)
+    el(inf, "verAplic", "nanoclaw-1.0")
+    el(inf, "dhEvento", datetime.now(TZ).replace(microsecond=0).isoformat())
+    el(inf, "CNPJAutor", PRESTADOR["CNPJ"])      # CNPJAutor XOR CPFAutor
+    el(inf, "chNFSe", digitos)
+    ev = el(inf, "e101101")
+    el(ev, "xDesc", "Cancelamento de NFS-e")     # texto fixo exigido pelo enum
+    el(ev, "cMotivo", cmotivo)
+    el(ev, "xMotivo", xmotivo or MOTIVOS_CANCELAMENTO[cmotivo])
+    return ped
+
+
+def valida_cancelamento(doc, xsd_dir):
+    """Valida o pedido contra pedRegEvento_v1.01.xsd."""
+    xsd = os.path.join(xsd_dir, "pedRegEvento_v1.01.xsd")
+    if not os.path.exists(xsd):
+        return None
+    schema = etree.XMLSchema(etree.parse(xsd))
+    return schema.validate(doc), list(schema.error_log)
 
 
 # Defeito do XSD oficial v1.01: TSSerieDPS tem pattern "^0{0,4}\\d{1,5}$".

@@ -165,6 +165,17 @@ def consulta_nfse(chave, ambiente="homologacao", pfx=None, senha=None):
     return _get("/notafiscal-ws/nfse/" + chave, ambiente, _cert(pfx, senha))
 
 
+
+def registrar_evento(chave, xml_bytes, ambiente="homologacao", pfx=None, senha=None):
+    """POST /notafiscal-ws/nfse/{chaveAcesso}/eventos — cancelamento e demais
+    eventos. O corpo usa pedidoRegistroEventoXmlGZipB64 (não dpsXmlGZipB64)."""
+    cert = _cert(pfx, senha)
+    url = "%s/notafiscal-ws/nfse/%s/eventos" % (AMBIENTES[ambiente], chave)
+    r = requests.post(url, json={"pedidoRegistroEventoXmlGZipB64": gzip_b64(xml_bytes)},
+                      cert=cert, timeout=TIMEOUT_EMISSAO)
+    return _resposta(r)
+
+
 def emitir_com_protecao(xml_bytes, id_dps, ambiente="homologacao", pfx=None, senha=None):
     """Emite checando antes se aquela DPS já virou nota. Use SEMPRE isto em vez
     de enviar_dps() direto quando houver chance de retry."""

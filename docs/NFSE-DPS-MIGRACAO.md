@@ -388,7 +388,58 @@ timeout é **consultar, nunca reenviar às cegas**.
   nos mordeu — ver memória), valor zerado, CST errado.
 - Critério de pronto: nota emitida em homologação e erros com mensagem legível.
 
-### Fase 4 — Consulta, idempotência e cancelamento
+### ✅ Fase 4 FEITA — cancelamento funciona (2026-10-02)
+
+`monta_cancelamento()` + `registrar_evento()`. Cancelei a nota de teste 2896 em
+homologação com sucesso.
+
+- Evento **e101101** (Cancelamento de NFS-e), dentro de `pedRegEvento/infPedReg`.
+- `Id` = **"PRE" + 56 dígitos** = os 50 dígitos da chave + `101101` (o código do
+  evento). Não está documentado; deduzido do tamanho e aceito pela prefeitura.
+- `CNPJAutor` **XOR** `CPFAutor` (é um `xs:choice`), e o evento também é escolha.
+- `xDesc` é enum de valor fixo: `"Cancelamento de NFS-e"`.
+- `cMotivo`: 1=Erro na Emissão, 2=Serviço não Prestado, 9=Outros.
+- Corpo do POST usa **`pedidoRegistroEventoXmlGZipB64`**, não `dpsXmlGZipB64`.
+- O `assina()` foi generalizado (`inner_tag`) para assinar `infPedReg` também.
+
+⚠️ **O `GET /nfse/{chave}` NÃO mostra que a nota foi cancelada.** Depois do
+cancelamento a consulta devolve o documento original, com `cStat` 100 e nenhum
+vestígio do evento (procurei por "cancel", "evento", "101101": zero
+ocorrências). O 201 do POST, sozinho, também não prova nada.
+
+**Como confirmar de verdade:** tentar cancelar de novo. A segunda tentativa
+devolve `400 — "Nota fiscal não está ativa. Situação atual Cancelada"`. Foi
+assim que validei. Consequência para o pipeline: **não dá para saber pela API
+se uma nota está cancelada** — se precisarmos disso, guardar o estado do nosso
+lado ao registrar o evento.
+
+Obs.: nesse erro o envelope vem **sem `codigo`** (só `mensagem`), diferente dos
+L00xx. O parser precisa tolerar `codigo: None`.
+
+### ⛔ Fase 5 — DANFSE: bloqueada, precisa da SEMF
+
+O endpoint que funciona hoje é público (sem login nem certificado) mas exige
+**número + código de verificação**:
+
+```
+{portal}/notafiscal-ws/servico/notafiscal/autenticacao/
+  cpfCnpj/{cnpj}/inscricaoMunicipal/{im}/numeroNota/{n}/codigoVerificacao/{cod}
+```
+
+A emissão por DPS devolve `chaveAcesso` e `nNFSe`, **nunca um código de
+verificação** — conferido no XML da NFS-e gerada. Sondei cinco variantes de URL
+por chave de acesso em homologação (`.../chaveAcesso/{chave}`,
+`.../nfse/{chave}/danfse`, `.../danfse/{chave}`, etc.): **todas 404**.
+
+Opções, em ordem de preferência:
+1. **Perguntar à SEMF** se existe DANFSE por chave de acesso (é a pergunta 3 da
+   Fase 0, agora com evidência concreta de que as URLs óbvias não existem).
+2. Descobrir se o portal municipal ainda atribui código de verificação às notas
+   emitidas por DPS — se sim, o `baixar_danfse` atual continua servindo.
+3. **Plano B sob nosso controle:** gerar o DANFSE a partir do XML da NFS-e, que
+   já vem completo na resposta da emissão. Mais trabalho, zero dependência.
+
+### Fase 4 (original) — Consulta, idempotência e cancelamento
 - `GET /nfse/dps/{id}` — **implementar junto com a Fase 3, não depois**: é o que
   evita nota duplicada quando a resposta do POST se perde.
 - `GET /nfse/{chaveAcesso}` — consulta.
