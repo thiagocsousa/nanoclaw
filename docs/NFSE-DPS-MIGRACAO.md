@@ -304,7 +304,64 @@ incompleto que já existe na coleta.
 existe no ABRASF), `cClassTrib`, `cIndOp`, `regEspTrib`, `opSimpNac` e o `CST`
 de PIS/COFINS, para cada categoria de serviço da clínica.
 
-### Fase 3 — Emitir em homologação
+### ✅ Fase 3 FEITA — NFS-e emitida em homologação (2026-10-02)
+
+Primeira nota do padrão nacional gerada com sucesso:
+
+- chave: `NFS22110011263521918000104000000000289626100573252134`
+- `nNFSe` 2896, `cStat` 100 (NFS-e Gerada)
+- ISS: base 400,00 → **R$ 12,00** (3%)
+- IBS/CBS: **redução de 60% aplicada sozinha pelo autorizador**
+  (`pRedAliqUF/Mun/CBS = 60.00`, `vIBSTot` 0,15, `vCBS` 1,39) a partir do
+  `cClassTrib` 200029 — confirma que não precisamos declarar a redução.
+
+**Cadeia inteira provada:** monta → assina (A1 real) → gzip+base64 → POST mTLS
+→ NFS-e. O certificado da clínica **é aceito** (passamos das regras E1200–E1209).
+E o reenvio da mesma DPS devolveu `reaproveitada: true` com a mesma chave —
+**a trava anti-duplicata funciona de verdade**, não só no papel.
+
+#### Os códigos que valem para a CARDIOMED
+
+| Campo | Valor | Origem |
+|---|---|---|
+| `cTribNac` | `040301` | 04.03.01 "Hospitais e congêneres" (tela do emissor) |
+| `cTribMun` | `004` | 04.03.01.004 "atividade médica ambulatorial…" (tela) |
+| `cNBS` | `123011900` | 1.2301.19.00 (tela) — **ver conflito abaixo** |
+| `cIndOp` | `030101` | Anexo C: serviço prestado fisicamente sobre a pessoa |
+| `CST` | `200` | alíquota reduzida |
+| `cClassTrib` | `200029` | saúde humana, Anexo III |
+| `serie` | `10001` | faixa do contribuinte (ver L0022) |
+
+⚠️ **Conflito de NBS a resolver com o contador:** ele indicou 1.2301.21.00
+(consulta/exame) e 1.2301.11.00 (cirurgia); a tela do emissor mostra
+1.2301.19.00 pareado com 04.03.01. Como o par NBS ↔ `cTribNac` é validado pela
+prefeitura (L0010), adotamos o do portal — mas isso precisa de confirmação,
+porque pode variar por categoria de serviço.
+
+#### Regras municipais descobertas só emitindo
+
+Nenhuma delas está no XSD nacional nem no Anexo I. Cada uma custou uma tentativa:
+
+| Erro | O que significa |
+|---|---|
+| **L0022** | série 00001–10000 é exclusiva do sistema municipal; contribuinte usa **10001–49999** |
+| **L0010** | o `cNBS` tem que ser compatível com o `cTribNac` (par validado) |
+| **L0008** | o `cIndOp` tem que ser compatível com o `cTribNac` — `100301` ("demais serviços") é recusado para saúde |
+| **L0001** | o `cTribMun` precisa estar vinculado ao cadastro econômico do prestador |
+| **L0017** | `cTribMun` é **obrigatório** em Teresina, embora o XSD nacional o marque `minOccurs=0` |
+
+O `cTribMun` é o **mesmo campo** que o ABRASF chama de
+`CodigoTributacaoMunicipio` e que estava vazio com `TODO(contador)` no
+`nfse_emitir.py` — o endpoint antigo tolerava; a DPS não.
+
+#### Nota de operação: timeout
+
+A 1ª emissão estourou 60s de leitura **sem** gerar nota (confirmado com
+`GET /nfse/dps/{id}` → 404). O timeout de emissão subiu para 180s
+(`NFSE_DPS_TIMEOUT`). Esse episódio é a prova de que o fluxo correto após
+timeout é **consultar, nunca reenviar às cegas**.
+
+### Fase 3 (original) — Emitir em homologação
 - `POST /notafiscal-ws/nfse` com `{"dpsXmlGZipB64": ...}` (gzip + base64).
 - Descompactar `nfseXmlGZipB64`, guardar `chaveAcesso`, tratar `alertas[]`.
 - Exercitar os erros de propósito: CPF inválido, **CEP ausente** (o L999 que já

@@ -31,19 +31,28 @@ IBGE_TERESINA = "2211001"
 
 # ───────────────────────── Parâmetros reais da clínica ───────────────────────
 # Espelham o que o nfse_emitir.py (ABRASF) já usa em produção.
+# CNPJ e inscrição municipal da CARDIOMED — os MESMOS do nfse_emitir.py (dado
+# público de cadastro). Precisam ser os reais: o guia exige que o CNPJ raiz do
+# certificado de transmissão bata com o contribuinte declarado na DPS.
 PRESTADOR = {
-    "CNPJ": "11222333000181",   # fictício com DV válido — o real vem do .env
-    "IM": "123456",
+    "CNPJ": os.environ.get("NFSE_CNPJ", "63521918000104"),
+    "IM": os.environ.get("NFSE_IM", "0509477"),
     "opSimpNac": "1",           # 1=Não optante pelo Simples Nacional
     "regEspTrib": "0",          # 0=Nenhum. TODO(contador): confirmar
 }
 
 # NBS (Nomenclatura Brasileira de Serviços) por categoria — informado pelo
 # contador em 2026-10-02. O XSD exige 9 dígitos sem pontos (TSCodNBS).
+# ⚠️ CONFLITO A RESOLVER: o contador passou 1.2301.21.00 (consulta/exame) e
+# 1.2301.11.00 (cirurgia); já a tela do emissor municipal mostra
+# 1.2301.19.00 ("Serviços hospitalares não classificados em subposições
+# anteriores") pareado com o código nacional 04.03.01. Como o par NBS ↔
+# cTribNac é validado pela prefeitura (erro L0010), vale o que o portal aceita.
+# Usando o do portal até o contador confirmar por categoria.
 NBS_POR_CATEGORIA = {
-    "consulta": "123012100",   # 1.2301.21.00
-    "exame":    "123012100",   # 1.2301.21.00 (mesmo da consulta)
-    "cirurgia": "123011100",   # 1.2301.11.00
+    "consulta": os.environ.get("NFSE_NBS_CONSULTA", "123011900"),  # 1.2301.19.00
+    "exame":    os.environ.get("NFSE_NBS_EXAME",    "123011900"),
+    "cirurgia": os.environ.get("NFSE_NBS_CIRURGIA", "123011900"),
 }
 
 # Serviço → categoria + descrição. Espelha o SERVICOS do nfse_emitir.py.
@@ -58,9 +67,16 @@ SERVICOS = {
 }
 
 SERVICO = {
-    # TODO(contador): cTribNac e cTribMun ainda pendentes.
-    "cTribNac": "040101",       # 4.01 consulta médica, no formato nacional
-    "cTribMun": "001",
+    # Confirmados na tela do emissor municipal (print do Thiago, 2026-10-02):
+    #   Código Tributação Nacional  = 04.03.01 "Hospitais e congêneres"  -> 040301
+    #   Código Complementar Municipal = 04.03.01.004 "ATIVIDADE MEDICA
+    #     AMBULATORIAL COM RECURSOS PARA REALIZACAO DE EXAMES COMPLEMENTARES"
+    #     -> cTribMun é [0-9]{3} no XSD, logo "004".
+    # cTribMun é o MESMO campo que o ABRASF chama de CodigoTributacaoMunicipio,
+    # que vinha vazio (TODO(contador)) porque o endpoint antigo aceitava; a DPS
+    # exige (erro L0017).
+    "cTribNac": os.environ.get("NFSE_CTRIB_NAC", "040301"),
+    "cTribMun": os.environ.get("NFSE_CTRIB_MUN", "004"),
 }
 
 ISS = {
@@ -76,8 +92,20 @@ IBSCBS = {
     "indDest": "0",
     "CST": "200",            # 200 = Alíquota reduzida
     "cClassTrib": "200029",  # Fornecimento dos serviços de saúde humana (Anexo III)
-    "cIndOp": "100301",      # TODO(contador): ÚNICO campo de IBS/CBS ainda não confirmado
+    # 030101 = Anexo C (INDOP_IBSCBS), Art. 11 Inc. III: "serviço prestado
+    # fisicamente sobre a pessoa ou fruído presencialmente por pessoa física",
+    # sufixo 01 = local da prestação. É a descrição exata de consulta/exame/
+    # cirurgia. O 100301 do XML modelo é "demais serviços" (genérico) e a
+    # prefeitura recusa com L0008 para serviço de saúde.
+    "cIndOp": "030101",
 }
+
+
+# Série da DPS. Regra de Teresina (erro L0022, descoberto em homologação em
+# 2026-10-02): a faixa 00001–10000 é EXCLUSIVA do sistema municipal; o
+# contribuinte tem que usar 10001–49999. Isso não está no XSD nacional nem no
+# Anexo I — só aparece quando se tenta emitir.
+SERIE_PADRAO = os.environ.get("NFSE_DPS_SERIE", "10001")
 
 
 def el(parent, tag, text=None):
@@ -97,7 +125,7 @@ def monta_id(cloc_emi, cnpj, serie, ndps):
     )
 
 
-def monta_dps(tomador, valor, *, servico="consulta", serie="00001", ndps=1,
+def monta_dps(tomador, valor, *, servico="consulta", serie=SERIE_PADRAO, ndps=1,
               tp_amb="2", competencia=None):
     """Monta a DPS. tp_amb: 1=Produção, 2=Homologação."""
     if servico not in SERVICOS:
@@ -147,7 +175,8 @@ def monta_dps(tomador, valor, *, servico="consulta", serie="00001", ndps=1,
     el(loc, "cLocPrestacao", IBGE_TERESINA)
     cserv = el(serv, "cServ")
     el(cserv, "cTribNac", SERVICO["cTribNac"])
-    el(cserv, "cTribMun", SERVICO["cTribMun"])
+    if SERVICO["cTribMun"]:
+        el(cserv, "cTribMun", SERVICO["cTribMun"])
     el(cserv, "xDescServ", descricao)
     el(cserv, "cNBS", NBS_POR_CATEGORIA[categoria])
 
