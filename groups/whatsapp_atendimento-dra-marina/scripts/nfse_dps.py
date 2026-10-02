@@ -157,6 +157,83 @@ def monta_dps(tomador, valor, *, serie="00001", ndps=1, tp_amb="2", competencia=
     return dps
 
 
+# ───────────────────────────── Assinatura (Fase 2b) ──────────────────────────
+DS_NS = "http://www.w3.org/2000/09/xmldsig#"
+
+
+def _rich_x509(sig):
+    """KeyInfo COMPLETO: X509Data com SubjectName + IssuerSerial + Certificate.
+
+    Herdado do nfse_emitir.py: o validador Java do DSF/Teresina estoura NPE
+    ("obj must not be null") quando o KeyInfo traz só o X509Certificate — ele
+    desreferencia SubjectName/IssuerSerial. Descoberto em produção (2026-07-15).
+    O endpoint de DPS é do MESMO fornecedor, então mantemos o KeyInfo completo.
+    """
+    import xmlsec
+    ki = xmlsec.template.ensure_key_info(sig)
+    x = xmlsec.template.add_x509_data(ki)
+    xmlsec.template.x509_data_add_subject_name(x)
+    xmlsec.template.x509_data_add_issuer_serial(x)
+    xmlsec.template.x509_data_add_certificate(x)
+
+
+def assina(dps, pfx_path, pfx_password):
+    """Assina a DPS no padrão da seção 4 do guia DSF V7.
+
+    - <Signature> dentro da raiz <DPS>, IRMÃ de <infDPS> (enveloped);
+    - Reference URI="#<Id do infDPS>";
+    - transforms: enveloped-signature + C14N inclusiva;
+    - SignatureMethod rsa-sha1, DigestMethod sha1 (NÃO é SHA-256);
+    - SEM prefixo de namespace (ns=None) — a regra E1228 rejeita prefixo.
+    """
+    import xmlsec
+
+    inf = dps.find("{%s}infDPS" % NS)
+    inf_id = inf.get("Id")
+    if not inf_id:
+        raise ValueError("infDPS sem atributo Id")
+
+    # ns=None => <Signature xmlns="...">, sem prefixo. NUNCA passar ns="ds".
+    sig = xmlsec.template.create(
+        dps, xmlsec.constants.TransformInclC14N, xmlsec.constants.TransformRsaSha1)
+    ref = xmlsec.template.add_reference(
+        sig, xmlsec.constants.TransformSha1, uri="#" + inf_id)
+    xmlsec.template.add_transform(ref, xmlsec.constants.TransformEnveloped)
+    xmlsec.template.add_transform(ref, xmlsec.constants.TransformInclC14N)
+    _rich_x509(sig)
+    dps.append(sig)                      # irmã de infDPS, dentro da raiz
+
+    xmlsec.tree.add_ids(dps, ["Id"])
+    ctx = xmlsec.SignatureContext()
+    ctx.key = xmlsec.Key.from_file(
+        pfx_path, xmlsec.constants.KeyDataFormatPkcs12, pfx_password)
+    ctx.sign(sig)
+
+    # base64 multi-linha quebra validadores rígidos; fora do SignedInfo é seguro.
+    for tag in ("SignatureValue", "X509Certificate"):
+        for el in sig.iter("{%s}%s" % (DS_NS, tag)):
+            if el.text:
+                el.text = "".join(el.text.split())
+    return dps
+
+
+def verifica_assinatura(dps, pfx_path, pfx_password):
+    """Confere a própria assinatura — prova que o digest fecha com o conteúdo."""
+    import xmlsec
+    sig = dps.find("{%s}Signature" % DS_NS)
+    if sig is None:
+        return False, "nenhuma <Signature> na raiz DPS"
+    xmlsec.tree.add_ids(dps, ["Id"])
+    ctx = xmlsec.SignatureContext()
+    ctx.key = xmlsec.Key.from_file(
+        pfx_path, xmlsec.constants.KeyDataFormatPkcs12, pfx_password)
+    try:
+        ctx.verify(sig)
+        return True, "assinatura confere"
+    except Exception as exc:
+        return False, "%s: %s" % (type(exc).__name__, exc)
+
+
 # Defeito do XSD oficial v1.01: TSSerieDPS tem pattern "^0{0,4}\\d{1,5}$".
 # Em XML Schema o pattern já é ancorado e ^/$ são CARACTERES LITERAIS — então
 # o tipo só aceitaria a string literal "^00001$" e nenhuma série real valida
@@ -218,9 +295,21 @@ def main():
     ap.add_argument("--valor", default="400.00")
     ap.add_argument("--xsd-cru", action="store_true",
                     help="valida sem corrigir o defeito do TSSerieDPS (mostra o bug)")
+    ap.add_argument("--assinar", action="store_true", help="assina com o A1 (precisa xmlsec)")
+    ap.add_argument("--pfx", default=os.environ.get("NFSE_CERT_PATH", ""))
+    ap.add_argument("--pfx-senha", default=os.environ.get("NFSE_CERT_PASSWORD", ""))
     args = ap.parse_args()
 
     dps = monta_dps(TOMADOR_FICTICIO, args.valor)
+
+    if args.assinar:
+        if not args.pfx:
+            print("--assinar precisa de --pfx (ou NFSE_CERT_PATH)", file=sys.stderr)
+            return 2
+        assina(dps, args.pfx, args.pfx_senha)
+        ok_sig, msg = verifica_assinatura(dps, args.pfx, args.pfx_senha)
+        print(("✅ " if ok_sig else "❌ ") + "assinatura: " + msg)
+
     xml = etree.tostring(dps, pretty_print=True, xml_declaration=True, encoding="UTF-8")
 
     if args.out:

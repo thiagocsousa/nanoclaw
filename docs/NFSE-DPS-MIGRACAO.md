@@ -65,6 +65,34 @@ depois do primeiro susto.
 - SignatureMethod: **rsa-sha1**. DigestMethod: **sha1**. (Não é SHA-256 — assumir
   errado aqui falha de um jeito difícil de diagnosticar.)
 
+### ✅ Assinatura encaixada e verificada (Fase 2b, 2026-10-02)
+
+`nfse_dps.py --assinar` assina e confere. Testado **dentro do container da VM**
+(o único ambiente com `xmlsec`; a imagem local está defasada e não tem nem
+`lxml` nem `xmlsec`), com certificado autoassinado descartável — o A1 real não
+foi usado e nada foi transmitido.
+
+Conferido item a item contra a seção 4 do guia:
+
+| Exigência | Resultado |
+|---|---|
+| `<Signature xmlns="…xmldsig#">` **sem prefixo** | ✅ (sem `ds:`) |
+| `<Signature>` irmã de `infDPS`, dentro de `DPS` | ✅ |
+| `Reference URI="#<Id do infDPS>"` | ✅ `#DPS2211001…` |
+| Transforms `enveloped-signature` + C14N | ✅ as duas |
+| CanonicalizationMethod C14N inclusiva | ✅ `REC-xml-c14n-20010315` |
+| SignatureMethod | ✅ `rsa-sha1` |
+| DigestMethod | ✅ `sha1` |
+| KeyInfo com SubjectName + IssuerSerial + Certificate | ✅ |
+| DPS assinada ainda valida no XSD | ✅ |
+| **Assinatura prende o conteúdo** | ✅ alterar `vServ` depois de assinar invalida |
+
+O `KeyInfo` completo foi herdado de propósito do `nfse_emitir.py`: o validador
+Java do DSF estoura NPE ("obj must not be null") quando o KeyInfo traz só o
+`X509Certificate`, porque desreferencia SubjectName/IssuerSerial (descoberto em
+produção em 2026-07-15). O endpoint de DPS é do **mesmo fornecedor**, então
+mantivemos.
+
 ✅ **Boa notícia: metade do assinador já está pronta.** A função `sign()` do
 `nfse_emitir.py` (assina `InfDeclaracaoPrestacaoServico` com `Reference #inf_id`)
 já usa `TransformInclC14N` + `TransformRsaSha1` + `TransformEnveloped` — é
