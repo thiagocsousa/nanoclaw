@@ -97,20 +97,39 @@ def _formata_cnpj(d):
 
 
 def _logado(pg):
-    """Se ainda estamos na tela de login, o login falhou."""
-    return "login" not in (pg.url or "").lower()
+    """True se saímos da tela de login.
+
+    ⚠️ Não testar `"login" not in url`: o portal, quando o login dá CERTO, vai
+    para /paginas/**login**/bemVindo.jsf — a palavra "login" está no caminho do
+    diretório. Essa heurística preguiçosa reportava falha num login que
+    funcionou. Testamos o arquivo específico.
+    """
+    return "login.jsf" not in (pg.url or "").lower()
 
 
 def _tenta_login(pg, base, usuario, senha):
     pg.goto(base + "/notafiscal/paginas/login/login.jsf",
             wait_until="domcontentloaded", timeout=TIMEOUT)
-    # O portal tem 3 formas de entrar; usamos "Acesso via senha" (CPF/CNPJ).
-    # Certificado digital exige Java com drivers — não serve para automação.
-    pg.fill("input[id*='cpfCnpj'], input[name*='cpfCnpj'], input[type='text']", usuario)
-    pg.fill("input[type='password']", senha)
-    pg.click("button[type='submit'], input[type='submit']")
+    # Seletores conferidos na página real (2026-10-02). NÃO use genéricos como
+    # input[type=text]: a página tem DOIS campos de texto (o segundo é o
+    # inputLogin2 do diálogo "Esqueci minha senha") e o Playwright recusa
+    # seletor ambíguo em modo estrito.
+    # O portal tem 3 formas de entrar; usamos "Acesso Via Senha" (CPF/CNPJ) —
+    # certificado digital exige Java com drivers e não serve para automação.
+    pg.fill("#inputLogin", usuario, timeout=TIMEOUT)
+    pg.fill("#inputPassword", senha, timeout=TIMEOUT)
+    # O "botão" é um <a> do PrimeFaces (ui-commandlink), NÃO um <button> — por
+    # isso button:has-text(...) dava timeout. O id tem dois-pontos, que quebra
+    # seletor CSS, então usamos seletor por atributo.
+    pg.click('[id="formLogin:buttonLogin"]', timeout=TIMEOUT)
     pg.wait_for_load_state("domcontentloaded", timeout=TIMEOUT)
-    pg.wait_for_timeout(2000)
+    # O login é um commandlink do PrimeFaces: faz POST e só depois redireciona.
+    # Em vez de dormir um tempo fixo (3s não bastava), espera a URL mudar.
+    try:
+        pg.wait_for_url(lambda u: "login.jsf" not in (u or "").lower(), timeout=15000)
+    except Exception:
+        pass        # se não mudou, _logado() decide
+    pg.wait_for_timeout(1500)
     return _logado(pg)
 
 
@@ -207,43 +226,30 @@ def coleta(numeros, debug=False):
 def _abrir_nota(pg, base, numero):
     """Navega até a nota e dispara a visualização do DANFSE.
 
-    ⚠️ Esta é a parte FRÁGIL: depende do layout do portal. Se eles mudarem a
-    tela, só esta função quebra — e quebra ruidosamente, sem código capturado.
-    Use --debug para ver screenshot e HTML e reajustar os seletores.
+    ⚠️ Parte FRÁGIL: depende do layout do portal. Quebra ruidosamente (sem
+    código capturado), nunca em silêncio. Use --debug para screenshot + HTML.
+
+    Os ids do JSF são gerados (frmNotaFiscalList:j_idt97) e mudam a cada
+    alteração de layout, então ancoramos no PLACEHOLDER e no TEXTO, que são
+    semânticos. Pelo mesmo motivo nada de `button:...`: no PrimeFaces os botões
+    costumam ser <a> (o de login é).
     """
     pg.goto(base + "/notafiscal/paginas/notafiscal/notaFiscalList.jsf",
             wait_until="domcontentloaded", timeout=TIMEOUT)
-    # filtra pelo número da nota
-    for sel in ("input[id*='numeroNota']", "input[id*='numero']", "input[type='text']"):
-        try:
-            pg.fill(sel, numero, timeout=4000)
-            break
-        except Exception:
-            continue
-    for sel in ("button:has-text('Pesquisar')", "button:has-text('Consultar')",
-                "input[value*='Pesquisar']"):
-        try:
-            pg.click(sel, timeout=4000)
-            break
-        except Exception:
-            continue
+    pg.wait_for_timeout(1500)
+
+    # "Informe o nº da nota para visualizar"
+    pg.get_by_placeholder("nota", exact=False).first.fill(numero, timeout=TIMEOUT)
+    pg.get_by_text("Pesquisar", exact=True).first.click(timeout=TIMEOUT)
     pg.wait_for_timeout(2500)
-    # abre o menu Ações da linha e pede a visualização
-    for sel in ("button:has-text('Ações')", "a:has-text('Ações')"):
-        try:
-            pg.click(sel, timeout=4000)
-            break
-        except Exception:
-            continue
-    pg.wait_for_timeout(800)
-    for sel in ("a:has-text('Visualizar')", "a:has-text('Imprimir')",
-                "button:has-text('Visualizar')", "button:has-text('Imprimir')"):
-        try:
-            pg.click(sel, timeout=4000)
-            break
-        except Exception:
-            continue
-    pg.wait_for_timeout(4000)   # dá tempo do PDF ser requisitado
+
+    # menu da linha -> visualizar o DANFSE
+    pg.get_by_text("Ações", exact=True).first.click(timeout=TIMEOUT)
+    pg.wait_for_timeout(1000)
+    pg.get_by_text("Visualizar", exact=True).first.click(timeout=TIMEOUT)
+
+    # o PDF é pedido por XHR/iframe; é essa requisição que carrega o código
+    pg.wait_for_timeout(6000)
 
 
 def main():
