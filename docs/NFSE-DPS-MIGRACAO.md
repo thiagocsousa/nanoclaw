@@ -549,6 +549,45 @@ pequenos.
 já que não há PDF para enviar. A mensagem de log diz isso explicitamente em vez
 de só "TimeoutError".
 
+#### 🚨 O portal de produção tem DOIS endereços — e um tem captcha
+
+| Host | Login |
+|---|---|
+| `notafiscal.teresina.pi.gov.br` | **reCAPTCHA** — inautomatizável |
+| `the.dsfweb.com.br` | direto, sem captcha — é o host do QR das notas de produção |
+
+Usamos o segundo (`NFSE_PORTAL_PROD`). Login confirmado em produção com a
+**mesma senha** da homologação.
+
+⚠️ **Mas isto é tempo emprestado.** A prefeitura está **colocando captcha** —
+é exatamente o mecanismo que existe para impedir automação. Se puserem no
+`the.dsfweb.com.br` também, a coleta de DANFSE morre de um dia para o outro,
+sem aviso. Não é o risco genérico de "layout muda": é alguém trabalhando
+ativamente para fechar essa porta.
+
+**Consequência estratégica:** o portal é um paliativo, não a solução. A saída
+durável continua sendo a SEMF responder como obter o DANFSE de forma
+programática. Vale insistir nessa pergunta mesmo com o contorno funcionando.
+
+#### Certificado digital não resolve o login do portal
+
+Testado em 2026-10-02, três motivos independentes:
+- a opção "Certificado Digital" do portal usa **applet Java** no navegador —
+  não roda headless;
+- nenhum dos dois hosts **solicita certificado de cliente no TLS** (verificado
+  com `openssl s_client`: sem "Acceptable client certificate CA names");
+- o Playwright do container é anterior ao suporte a `client_certificates`.
+
+O A1 funciona onde já é usado: a **API de DPS** (emissão, cancelamento,
+consulta). Para o portal, só senha.
+
+#### Limite conhecido: a listagem vem filtrada por data
+
+O coletor só enxerga as notas da **primeira página da listagem do dia**.
+Tentar baixar a nota 3452 (29/09) em produção falhou por isso, não por login.
+Para o fluxo real — emitir às 18:30 e baixar entre 19h e 21h do mesmo dia —
+é suficiente. Para buscar nota antiga, não serve.
+
 ⚠️ **Isto é dívida técnica consciente.** É um contorno por fora de uma
 limitação da API deles, e a função `_abrir_nota()` depende do layout do portal.
 Se a SEMF expuser o código (ou um endpoint de DANFSE por chave), **apague o

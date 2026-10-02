@@ -53,9 +53,15 @@ from pathlib import Path
 GROUP = Path(os.environ.get("NANOCLAW_GROUP_DIR", "/workspace/group"))
 DEBUG_DIR = GROUP / "tmp"
 
+# ⚠️ O portal de produção tem DOIS endereços e eles NÃO são equivalentes:
+#   notafiscal.teresina.pi.gov.br  → tem reCAPTCHA no login. Inautomatizável.
+#   the.dsfweb.com.br              → mesmo sistema, login direto. É o host que
+#                                    aparece no QR das notas de produção.
+# Usamos o segundo. Ver a ressalva sobre captcha em docs/NFSE-DPS-MIGRACAO.md:
+# a prefeitura está colocando captcha, então esta porta pode fechar.
 PORTAIS = {
-    "homologacao": "https://nfse2-the.dsfweb.com.br",
-    "producao": "https://notafiscal.teresina.pi.gov.br",
+    "homologacao": os.environ.get("NFSE_PORTAL_HOMOLOG", "https://nfse2-the.dsfweb.com.br"),
+    "producao": os.environ.get("NFSE_PORTAL_PROD", "https://the.dsfweb.com.br"),
 }
 AMBIENTE = os.environ.get("NFSE_AMBIENTE", "producao")
 
