@@ -431,13 +431,40 @@ verificação** — conferido no XML da NFS-e gerada. Sondei cinco variantes de 
 por chave de acesso em homologação (`.../chaveAcesso/{chave}`,
 `.../nfse/{chave}/danfse`, `.../danfse/{chave}`, etc.): **todas 404**.
 
+#### O que a investigação no portal esgotou (2026-10-02)
+
+- **O código de verificação NÃO existe mais no documento.** O DANFSe v2.0 se
+  identifica por **chave de acesso + QR code**; o rodapé diz que a autenticidade
+  se verifica "pela leitura deste código QR ou pela consulta da chave de acesso
+  no portal nacional". Não há campo de código no PDF.
+- **O PDF do portal não tem URL própria:** é renderizado dentro de
+  `notaFiscalList.jsf` por postback JSF, na sessão logada. Não dá para chamar.
+- **A consulta pública "Autenticidade"** (`/paginas/portal/#/autenticidade`,
+  sem captcha) ainda pede os 4 campos antigos: CNPJ + Número da NFSe +
+  Inscrição Municipal + **Código de verificação**. O portal público segue
+  ancorado num dado que a API de DPS não devolve.
+- **A "Documentação API" do portal** (`#/api`) não documenta endpoint de
+  DANFSE — repete XSDs, anexos e as duas URLs, mais duas orientações do mundo
+  ABRASF (CNAE com 9 posições, UF=EX para exterior).
+- **A consulta pública nacional** (nfse.gov.br/consultapublica) tem **hCaptcha**
+  e só enxerga produção — inviável para automação, por desenho.
+- O endpoint antigo de DANFSE responde **HTTP 500 idêntico** para nota
+  existente e inexistente (`Could not find MessageBodyWriter ... media type:
+  application/pdf` — bug deles ao serializar o erro), então não serve nem para
+  testar hipóteses de código.
+
+**Anomalia a reportar:** no DANFSe da nota 2898 o campo "CHAVE DE ACESSO DA
+NFS-E" aparece **vazio** (`-`), embora a API tenha devolvido a chave.
+
 Opções, em ordem de preferência:
 1. **Perguntar à SEMF** se existe DANFSE por chave de acesso (é a pergunta 3 da
    Fase 0, agora com evidência concreta de que as URLs óbvias não existem).
 2. Descobrir se o portal municipal ainda atribui código de verificação às notas
    emitidas por DPS — se sim, o `baixar_danfse` atual continua servindo.
-3. **Plano B sob nosso controle:** gerar o DANFSE a partir do XML da NFS-e, que
-   já vem completo na resposta da emissão. Mais trabalho, zero dependência.
+3. **Gerar o DANFSe a partir do XML** — reavaliado para CIMA depois da
+   investigação: o documento é o **DANFSe v2.0, layout padronizado nacional**,
+   não uma diagramação nossa. Temos o XML completo e o conteúdo do QR é
+   especificado pelo padrão. É a única saída que não depende de terceiros.
 
 ### Fase 4 (original) — Consulta, idempotência e cancelamento
 - `GET /nfse/dps/{id}` — **implementar junto com a Fase 3, não depois**: é o que
