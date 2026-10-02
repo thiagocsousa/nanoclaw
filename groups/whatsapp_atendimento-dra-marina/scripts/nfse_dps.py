@@ -60,8 +60,12 @@ PRESTADOR = {
 CODIGOS_POR_CATEGORIA = {
     # 04.01.01.001 — atividade médica ambulatorial restrita a consultas
     "consulta": {"cTribNac": "040101", "cTribMun": "001", "cNBS": "123012200"},
-    # 04.03.01.004 — atividade médica ambulatorial com recursos para exames
-    "exame":    {"cTribNac": "040301", "cTribMun": "004", "cNBS": "123011900"},
+    # 04.03.01.004 — atividade médica ambulatorial com recursos para exames.
+    # NBS 1.2301.21.00 conferido numa NFS-e REAL de produção (nº 3.452,
+    # 29/09/2026, tomador PJ, validada pelo contador). Eu usava 1.2301.19.00,
+    # que veio de uma tela do portal e TAMBÉM é aceito pela validação — mas não
+    # é o que a clínica usa. Passar na validação não quer dizer estar certo.
+    "exame":    {"cTribNac": "040301", "cTribMun": "004", "cNBS": "123012100"},
     # 04.03.01.003 — em "04.03.01 Hospitais e congêneres". Confirmado pelo
     # contador como o código correto da clínica.
     # ⚠️ Em HOMOLOGAÇÃO ele é rejeitado com L0001 ("não vinculado ao cadastro
