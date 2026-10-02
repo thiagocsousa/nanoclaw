@@ -197,8 +197,12 @@ def baixa(numeros, destino_dir, debug=False):
                 try:
                     _abrir_nota(pg, base, numero)
                 except Exception as exc:
-                    print("  nota %s: falhou ao abrir (%s)" % (numero, type(exc).__name__),
-                          file=sys.stderr)
+                    # "TimeoutError" não diz nada a quem lê o log. A causa
+                    # quase sempre é a nota não estar na listagem ATIVA —
+                    # cancelada, substituída, ou fora da primeira página.
+                    print("  nota %s: não encontrada na listagem — cancelada, "
+                          "substituída ou fora da 1ª página? (%s)"
+                          % (numero, type(exc).__name__), file=sys.stderr)
                 if debug:
                     DEBUG_DIR.mkdir(parents=True, exist_ok=True)
                     pg.screenshot(path=str(DEBUG_DIR / ("portal_%s.png" % numero)),

@@ -505,6 +505,23 @@ código, o download volta a ser o HTTP puro que já roda em produção.
 - `--debug` salva screenshot e HTML em `tmp/` para reajustar seletores.
 - Precisa de `NFSE_PORTAL_USUARIO` / `NFSE_PORTAL_SENHA` no `.env`.
 
+#### ⏱️ Medição: NÃO ligar a flag dentro da emissão
+
+Lote de 3 notas com download de PDF: **87 s** (pré-check do agent-runner aborta
+em 180 s). Descontando o login, dá ~20 s por nota — então **a partir de ~8 notas
+o lote estoura o timeout**, e um dia de movimento passa disso tranquilamente.
+
+**Recomendação: rodar o download como task SEPARADA da emissão**, não dentro
+dela. A emissão é rápida e não pode ser derrubada por um navegador lento; o
+download pode rodar logo depois, por conta própria, e reprocessar o que faltou.
+
+Enquanto isso não for feito, `NFSE_DANFSE_PORTAL=1` só é seguro para lotes
+pequenos.
+
+**Nota cancelada não tem DANFSE** e falha na coleta — comportamento correto,
+já que não há PDF para enviar. A mensagem de log diz isso explicitamente em vez
+de só "TimeoutError".
+
 ⚠️ **Isto é dívida técnica consciente.** É um contorno por fora de uma
 limitação da API deles, e a função `_abrir_nota()` depende do layout do portal.
 Se a SEMF expuser o código (ou um endpoint de DANFSE por chave), **apague o
