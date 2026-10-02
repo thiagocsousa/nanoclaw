@@ -6,18 +6,22 @@ docs/NFSE-DPS-MIGRACAO.md.
 
 ## Por que isto existe
 
-O DANFSE (PDF) é baixado por um endpoint PÚBLICO que exige
-`numeroNota` + `codigoVerificacao`. A API de DPS **não devolve** esse código
-(confirmado pela SEMF em 2026-10-02) — ele só aparece dentro do QR do próprio
-PDF, o que é circular. Este script quebra a circularidade uma única vez por
-nota: abre o portal com Playwright, manda exibir o DANFSE e **intercepta a
-requisição** que o portal faz, lendo o código direto da URL.
+O DANFSE (PDF) tem um endpoint PÚBLICO, mas ele exige `codigoVerificacao`, que
+a API de DPS **não devolve** (confirmado pela SEMF em 2026-10-02) e que só
+aparece dentro do QR do próprio PDF — circular.
 
-Depois disso o download volta a ser HTTP puro, pelo `baixar_danfse` que já roda
-em produção — o navegador NÃO participa do envio ao paciente.
+Tentamos primeiro interceptar esse código nas requisições do portal. **Não
+funciona:** o visualizador do portal não usa o endpoint público. Ele carrega o
+PDF de um recurso dinâmico do PrimeFaces, dentro da sessão:
 
-    navegador (1x por nota)        →  código de verificação  →  arquivo JSON
-    nfse_emitir.baixar_danfse(...) →  PDF                    →  paciente
+    /notafiscal/jakarta.faces.resource/dynamiccontent.properties.jsf
+        ?ln=primefaces&pfdrid=<id gerado no servidor>&pfdrt=sc&...
+
+O `pfdrid` nasce quando a visualização é acionada, então não dá para montar a
+URL — tem que capturá-la. Mas aí o código de verificação fica **desnecessário**:
+capturada a URL, o PDF vem direto.
+
+    navegador (1x por lote) → captura a URL do recurso → baixa o PDF → paciente
 
 ## Isto é dívida técnica, de propósito
 
@@ -47,7 +51,6 @@ import sys
 from pathlib import Path
 
 GROUP = Path(os.environ.get("NANOCLAW_GROUP_DIR", "/workspace/group"))
-CODIGOS_FILE = GROUP / "nfse_codigos_verificacao.json"
 DEBUG_DIR = GROUP / "tmp"
 
 PORTAIS = {
@@ -56,27 +59,27 @@ PORTAIS = {
 }
 AMBIENTE = os.environ.get("NFSE_AMBIENTE", "producao")
 
-# A URL que interessa é a do DANFSE; o código é o último segmento.
-RE_CODIGO = re.compile(r"/codigoVerificacao/([A-Za-z0-9]{1,9})")
-
 TIMEOUT = int(os.environ.get("NFSE_PORTAL_TIMEOUT_MS", "30000"))
 
 
-def carrega():
-    try:
-        return json.loads(CODIGOS_FILE.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return {}
+# URL do recurso dinâmico que serve o PDF dentro da sessão.
+RE_PDF = re.compile(r"dynamiccontent\.properties\.jsf\?[^\"'\s]+")
 
 
-def grava(mapa):
-    CODIGOS_FILE.write_text(json.dumps(mapa, ensure_ascii=False, indent=2),
-                            encoding="utf-8")
+def _url_pdf(url):
+    """Extrai a URL do PDF de uma requisição do portal.
 
-
-def codigo_de(numero):
-    """Código já coletado para uma nota, ou None. É o que o pipeline consome."""
-    return carrega().get(str(numero))
+    O visualizador é carregado como `pdfviewer.html.jsf?...&file=<URL do PDF>`,
+    então o endereço real vem no parâmetro `file`. Também aceitamos a URL do
+    recurso direto, caso ela apareça sozinha.
+    """
+    if not url:
+        return None
+    if "pdfviewer.html.jsf" in url and "file=" in url:
+        return url.split("file=", 1)[1]
+    if "dynamiccontent.properties.jsf" in url and "pfdrid=" in url:
+        return url
+    return None
 
 
 def _usuario_padrao():
@@ -160,15 +163,18 @@ def _login(pg, base):
                      "e se o usuário é mesmo o CNPJ")
 
 
-def coleta(numeros, debug=False):
-    """Abre o portal e devolve {numero: codigo} para as notas pedidas.
+def baixa(numeros, destino_dir, debug=False):
+    """Baixa o DANFSE de cada nota e devolve {numero: caminho_do_pdf}.
 
-    Qualquer nota que não render código fica FORA do dicionário — o chamador
-    trata como pendente. Nunca inventa valor.
+    Nota que não render PDF fica FORA do dicionário — o chamador trata como
+    pendente e avisa no resumo. Nunca devolve arquivo pela metade: só grava
+    depois de confirmar que os bytes começam com %PDF.
     """
     from playwright.sync_api import sync_playwright
 
     base = PORTAIS[AMBIENTE]
+    destino = Path(destino_dir)
+    destino.mkdir(parents=True, exist_ok=True)
     achados = {}
 
     with sync_playwright() as pw:
@@ -176,27 +182,20 @@ def coleta(numeros, debug=False):
             headless=True,
             executable_path=os.environ.get("PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH"),
         )
-        pg = b.new_context().new_page()
+        ctx = b.new_context()
+        pg = ctx.new_page()
 
-        # A interceptação é o coração do script: o portal, ao exibir o DANFSE,
-        # chama o endpoint público com o código na URL. Escutamos requests E
-        # responses porque dependendo do caso o PDF vem por iframe/XHR.
-        capturados = []
-
-        def ver(url):
-            m = RE_CODIGO.search(url or "")
-            if m:
-                capturados.append((url, m.group(1)))
-
-        pg.on("request", lambda r: ver(r.url))
-        pg.on("response", lambda r: ver(r.url))
+        capturadas = []
+        pg.on("request", lambda r: capturadas.append(r.url))
+        pg.on("response", lambda r: capturadas.append(r.url))
 
         try:
             _login(pg, base)
             for numero in numeros:
-                capturados.clear()
+                numero = str(numero)
+                capturadas.clear()
                 try:
-                    _abrir_nota(pg, base, str(numero))
+                    _abrir_nota(pg, base, numero)
                 except Exception as exc:
                     print("  nota %s: falhou ao abrir (%s)" % (numero, type(exc).__name__),
                           file=sys.stderr)
@@ -206,76 +205,81 @@ def coleta(numeros, debug=False):
                                   full_page=True)
                     (DEBUG_DIR / ("portal_%s.html" % numero)).write_text(
                         pg.content(), encoding="utf-8")
-                    print("  debug salvo em %s" % DEBUG_DIR, file=sys.stderr)
-                if capturados:
-                    url, cod = capturados[-1]
-                    # confere que a URL é mesmo da nota pedida, e não de outra
-                    if ("/numeroNota/%s/" % numero) in url:
-                        achados[str(numero)] = cod
-                        print("  nota %s: código %s" % (numero, cod))
-                    else:
-                        print("  nota %s: código capturado é de OUTRA nota — descartado"
-                              % numero, file=sys.stderr)
-                else:
-                    print("  nota %s: nenhum código capturado" % numero, file=sys.stderr)
+
+                alvo = next((u for u in (_url_pdf(x) for x in reversed(capturadas)) if u), None)
+                if not alvo:
+                    print("  nota %s: não achei a URL do PDF" % numero, file=sys.stderr)
+                    continue
+                try:
+                    # mesma sessão do navegador => os cookies vão junto
+                    resp = ctx.request.get(alvo, timeout=TIMEOUT)
+                    corpo = resp.body()
+                except Exception as exc:
+                    print("  nota %s: download falhou (%s)" % (numero, type(exc).__name__),
+                          file=sys.stderr)
+                    continue
+                if not corpo.startswith(b"%PDF"):
+                    print("  nota %s: resposta não é PDF (%d bytes)" % (numero, len(corpo)),
+                          file=sys.stderr)
+                    continue
+                caminho = destino / ("nota_%s.pdf" % numero)
+                caminho.write_bytes(corpo)
+                achados[numero] = str(caminho)
+                print("  nota %s: PDF salvo (%d KB)" % (numero, len(corpo) // 1024))
         finally:
             b.close()
     return achados
 
 
 def _abrir_nota(pg, base, numero):
-    """Navega até a nota e dispara a visualização do DANFSE.
+    """Abre a nota na listagem e dispara a visualização do DANFSE.
 
-    ⚠️ Parte FRÁGIL: depende do layout do portal. Quebra ruidosamente (sem
-    código capturado), nunca em silêncio. Use --debug para screenshot + HTML.
+    ⚠️ Parte FRÁGIL: depende do layout do portal. Falha ruidosamente (sem PDF),
+    nunca em silêncio. Use --debug para screenshot + HTML.
 
-    Os ids do JSF são gerados (frmNotaFiscalList:j_idt97) e mudam a cada
-    alteração de layout, então ancoramos no PLACEHOLDER e no TEXTO, que são
-    semânticos. Pelo mesmo motivo nada de `button:...`: no PrimeFaces os botões
-    costumam ser <a> (o de login é).
+    NÃO usamos o campo de busca: o botão "Pesquisar" não é alcançável por
+    texto (é ícone/commandlink do PrimeFaces) e os ids do JSF são gerados
+    (frmNotaFiscalList:j_idt97), mudando a cada ajuste de layout deles. Como a
+    listagem já traz as notas recentes — que é o caso de uma nota recém-emitida
+    — localizamos a LINHA pelo número e agimos nela.
     """
     pg.goto(base + "/notafiscal/paginas/notafiscal/notaFiscalList.jsf",
             wait_until="domcontentloaded", timeout=TIMEOUT)
-    pg.wait_for_timeout(1500)
-
-    # "Informe o nº da nota para visualizar"
-    pg.get_by_placeholder("nota", exact=False).first.fill(numero, timeout=TIMEOUT)
-    pg.get_by_text("Pesquisar", exact=True).first.click(timeout=TIMEOUT)
     pg.wait_for_timeout(2500)
 
-    # menu da linha -> visualizar o DANFSE
-    pg.get_by_text("Ações", exact=True).first.click(timeout=TIMEOUT)
-    pg.wait_for_timeout(1000)
-    pg.get_by_text("Visualizar", exact=True).first.click(timeout=TIMEOUT)
+    linha = pg.locator("tr", has_text=numero).first
+    linha.wait_for(state="visible", timeout=TIMEOUT)
+    linha.get_by_text("Ações", exact=True).first.click(timeout=TIMEOUT)
 
-    # o PDF é pedido por XHR/iframe; é essa requisição que carrega o código
-    pg.wait_for_timeout(6000)
+    # O menu da linha renderiza por AJAX: com 1,2s ele ainda não existia e o
+    # clique caía fora. Em vez de dormir mais, ESPERAMOS o item aparecer.
+    # Nada de fallback para "Imprimir": aquele é o menu de exportação da LISTA
+    # (CSV/PDF/XLS) no topo da tela, e clicar nele abre a caixa errada.
+    # ⚠️ Existe um span "Visualizar" POR LINHA da tabela, quase todos ocultos.
+    # get_by_text(...).first pega o primeiro do DOM, que é oculto, e o clique
+    # nunca acontece ("locator resolved to hidden span"). Filtramos por :visible
+    # para pegar o item do menu que acabou de abrir.
+    item = pg.locator("span.ui-menuitem-text:visible", has_text="Visualizar").first
+    item.wait_for(state="visible", timeout=TIMEOUT)
+    item.click(timeout=TIMEOUT)
+
+    # o PDF é pedido por XHR/iframe; é essa requisição que carrega o pfdrid
+    pg.wait_for_timeout(7000)
 
 
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     debug = "--debug" in sys.argv
-
-    if "--listar" in sys.argv:
-        mapa = carrega()
-        print(json.dumps(mapa, ensure_ascii=False, indent=2) if mapa
-              else "nenhum código coletado ainda")
-        return 0
-
     if not args:
-        print(__doc__.split("Uso:")[1], file=sys.stderr)
+        print("uso: nfse_danfse_portal.py <numero> [...] [--debug]", file=sys.stderr)
         return 2
-
-    print("coletando códigos de %d nota(s) em %s" % (len(args), AMBIENTE))
-    achados = coleta(args, debug=debug)
-    if achados:
-        mapa = carrega()
-        mapa.update(achados)
-        grava(mapa)
+    destino = os.environ.get("NFSE_DANFSE_DIR", str(GROUP / "attachments"))
+    print("baixando DANFSE de %d nota(s) em %s" % (len(args), AMBIENTE))
+    achados = baixa(args, destino, debug=debug)
+    print("baixados: %d de %d" % (len(achados), len(args)))
     faltaram = [n for n in args if str(n) not in achados]
-    print("coletados: %d de %d" % (len(achados), len(args)))
     if faltaram:
-        print("SEM CÓDIGO (PDF fica pendente): %s" % ", ".join(faltaram), file=sys.stderr)
+        print("SEM PDF (fica pendente): %s" % ", ".join(faltaram), file=sys.stderr)
         return 1
     return 0
 
