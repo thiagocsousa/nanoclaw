@@ -450,7 +450,52 @@ Opções, em ordem de preferência:
 ### Fase 5 — PDF
 Conforme o que a Fase 0.3 responder.
 
-### Fase 6 — Integrar com feature flag
+### ✅ Fase 6 FEITA — flag `NFSE_MODO` (2026-10-02)
+
+`nfse_emitir_pipeline.py` passa a escolher o backend:
+
+- **`NFSE_MODO=abrasf`** (padrão) — o caminho de hoje, **byte a byte igual**:
+  o diff da branch ABRASF é só indentação. Enquanto ninguém virar a chave,
+  nada muda no fluxo que atende paciente.
+- **`NFSE_MODO=dps`** — emite pelo padrão nacional, uma DPS por item
+  (o nacional não tem lote), via `emitir_via_dps()`.
+
+Coleta, aprovação no WhatsApp, `nfse_ignorar.py` e o agendamento de entrega
+continuam idênticos. Voltar atrás é mudar uma variável de ambiente — sem
+deploy de código.
+
+**Testado de ponta a ponta em homologação** com um `pending_nfse.json`
+fictício de 2 itens:
+
+```
+✅ *1* nota(s) emitida(s) — protocolo (DPS: sem lote):
+• NFSe *2896* — MARIA DA SILVA SANTOS (consulta) ⚠️ sem telefone (não enviada)
+
+⚠️ *PDF não enviado* (emissão por DPS ainda não tem DANFSE):
+• NFSe *2896* — MARIA DA SILVA SANTOS — a nota FOI emitida; o PDF precisa ser enviado à mão
+
+❌ Falharam: PACIENTE SEM CEP
+Mensagens do servidor: ['PACIENTE SEM CEP: cadastro incompleto, faltou CEP']
+```
+
+Três decisões que valem registro:
+
+1. **PDF pendente aparece no resumo, não no stderr.** Sem isso, em modo DPS a
+   nota seria marcada como emitida e o paciente simplesmente nunca receberia o
+   PDF — o `try/except` existente engoliria a falha num aviso que ninguém lê.
+2. **Cadastro incompleto é barrado ANTES de enviar**, com o campo que falta
+   nomeado. É a lição do "L999 = CEP faltando" aplicada na entrada.
+3. **`nDPS` é uma sequência separada** (`nfse_dps_state.json`), independente do
+   RPS. O `main()` casa item ↔ nota pela chave de RPS, então `emitir_via_dps()`
+   recebe essa chave e devolve o `nDPS` num campo à parte — devolver o nDPS
+   como chave fazia o `main()` marcar como falha uma emissão bem-sucedida
+   (bug que só apareceu no teste de ponta a ponta).
+
+⚠️ **Falta para virar a chave em produção:** o DANFSE (Fase 5). Hoje, em modo
+DPS, a nota é emitida mas o PDF não vai ao paciente. Não ligue `NFSE_MODO=dps`
+em produção antes de resolver isso.
+
+### Fase 6 (original) — Integrar com feature flag
 - `NFSE_MODO=abrasf|dps` (default `abrasf`). O `nfse_emitir.py` escolhe o
   backend; **todo o resto do pipeline fica idêntico**.
 - Permite voltar atrás numa variável de ambiente, sem deploy de código.
