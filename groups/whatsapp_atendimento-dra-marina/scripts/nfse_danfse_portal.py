@@ -37,8 +37,8 @@ Uso:
   python3 nfse_danfse_portal.py 2898 --debug       # salva screenshot + HTML
   python3 nfse_danfse_portal.py --listar           # mostra o que já foi coletado
 
-Env: NFSE_PORTAL_USUARIO (CPF/CNPJ), NFSE_PORTAL_SENHA,
-     NFSE_AMBIENTE (homologacao|producao).
+Env: NFSE_PORTAL_SENHA (obrigatória) e NFSE_AMBIENTE (homologacao|producao).
+     NFSE_PORTAL_USUARIO é opcional — o padrão é o CNPJ da clínica.
 """
 import json
 import os
@@ -79,11 +79,22 @@ def codigo_de(numero):
     return carrega().get(str(numero))
 
 
+def _usuario_padrao():
+    """O login do portal é o CNPJ da clínica — dado público de cadastro, já
+    versionado. Só a senha precisa vir do .env."""
+    try:
+        from nfse_dps import PRESTADOR
+        return PRESTADOR["CNPJ"]
+    except Exception:
+        return "63521918000104"
+
+
 def _login(pg, base):
-    usuario = os.environ.get("NFSE_PORTAL_USUARIO", "")
+    usuario = os.environ.get("NFSE_PORTAL_USUARIO") or _usuario_padrao()
     senha = os.environ.get("NFSE_PORTAL_SENHA", "")
-    if not usuario or not senha:
-        raise SystemExit("defina NFSE_PORTAL_USUARIO e NFSE_PORTAL_SENHA")
+    if not senha:
+        raise SystemExit(
+            "defina NFSE_PORTAL_SENHA no .env (o usuário é o CNPJ, já tem padrão)")
     pg.goto(base + "/notafiscal/paginas/login/login.jsf",
             wait_until="domcontentloaded", timeout=TIMEOUT)
     # O portal tem 3 formas de entrar; usamos "Acesso via senha" (CPF/CNPJ).
