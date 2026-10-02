@@ -61,12 +61,16 @@ CODIGOS_POR_CATEGORIA = {
     "consulta": {"cTribNac": "040101", "cTribMun": "001", "cNBS": "123012200"},
     # 04.03.01.004 — atividade médica ambulatorial com recursos para exames
     "exame":    {"cTribNac": "040301", "cTribMun": "004", "cNBS": "123011900"},
-    # 04.03.01.003 — em "04.03.01 Hospitais e congêneres".
-    # ⚠️ REJEITADO em homologação (2026-10-02) com L0001: "o código de tributação
-    # municipal informado não está vinculado ao cadastro econômico do prestador".
-    # Ou a CARDIOMED não tem o 003 no cadastro, ou o cadastro de homologação está
-    # incompleto. TODO(contador): confirmar se o 003 vale para a clínica — se não
-    # valer, cirurgia provavelmente usa o 004 como os exames.
+    # 04.03.01.003 — em "04.03.01 Hospitais e congêneres". Confirmado pelo
+    # contador como o código correto da clínica.
+    # ⚠️ Em HOMOLOGAÇÃO ele é rejeitado com L0001 ("não vinculado ao cadastro
+    # econômico") porque o cadastro daquele ambiente está desatualizado; em
+    # produção o cadastro está correto. Logo, cirurgia é a única categoria que
+    # NÃO dá para testar de ponta a ponta em homologação — a primeira cirurgia
+    # real é o teste. Se vier L0001 em produção, o cadastro não foi atualizado:
+    # o item falha sozinho, reaparece no dia seguinte e não afeta as outras.
+    # Provado em homologação que o par 040301 + NBS 1.2301.11.00 é válido
+    # (emitiu com cTribMun=004), então o único ponto em aberto é o 003.
     "cirurgia": {"cTribNac": "040301", "cTribMun": "003", "cNBS": "123011100"},
 }
 
