@@ -41,18 +41,33 @@ PRESTADOR = {
     "regEspTrib": "0",          # 0=Nenhum. TODO(contador): confirmar
 }
 
-# NBS (Nomenclatura Brasileira de Serviços) por categoria — informado pelo
-# contador em 2026-10-02. O XSD exige 9 dígitos sem pontos (TSCodNBS).
-# ⚠️ CONFLITO A RESOLVER: o contador passou 1.2301.21.00 (consulta/exame) e
-# 1.2301.11.00 (cirurgia); já a tela do emissor municipal mostra
-# 1.2301.19.00 ("Serviços hospitalares não classificados em subposições
-# anteriores") pareado com o código nacional 04.03.01. Como o par NBS ↔
-# cTribNac é validado pela prefeitura (erro L0010), vale o que o portal aceita.
-# Usando o do portal até o contador confirmar por categoria.
-NBS_POR_CATEGORIA = {
-    "consulta": os.environ.get("NFSE_NBS_CONSULTA", "123011900"),  # 1.2301.19.00
-    "exame":    os.environ.get("NFSE_NBS_EXAME",    "123011900"),
-    "cirurgia": os.environ.get("NFSE_NBS_CIRURGIA", "123011900"),
+# ─────────────── Códigos fiscais por categoria de serviço ───────────────────
+# O trio (cTribNac, cTribMun, cNBS) é validado EM CONJUNTO pela prefeitura:
+#   L0010 = o NBS não combina com o cTribNac
+#   L0008 = o cIndOp não combina com o cTribNac
+#   L0001 = o cTribMun não está no cadastro econômico do prestador
+#   L0017 = o cTribMun é obrigatório (apesar de opcional no XSD nacional)
+# Por isso os três andam juntos aqui: trocar um sozinho quebra.
+#
+# Códigos informados pelo contador (2026-10-02). O de CONSULTA foi conferido
+# contra uma NFS-e REAL de produção da CARDIOMED (DANFSe de 02/10/2026):
+# "04.01.01.001 - ATIVIDADE MEDICA AMBULATORIAL RESTRITA A CONSULTAS",
+# NBS 1.2301.22.00, CST 200 / cClassTrib 200029, cIndOp 030101 — tudo batendo.
+#
+# O cNBS vai SEM pontos (TSCodNBS = [0-9]{9}); o cTribMun vai só com os 3
+# últimos dígitos (TCCodTribMun = [0-9]{3}).
+CODIGOS_POR_CATEGORIA = {
+    # 04.01.01.001 — atividade médica ambulatorial restrita a consultas
+    "consulta": {"cTribNac": "040101", "cTribMun": "001", "cNBS": "123012200"},
+    # 04.03.01.004 — atividade médica ambulatorial com recursos para exames
+    "exame":    {"cTribNac": "040301", "cTribMun": "004", "cNBS": "123011900"},
+    # 04.03.01.003 — em "04.03.01 Hospitais e congêneres".
+    # ⚠️ REJEITADO em homologação (2026-10-02) com L0001: "o código de tributação
+    # municipal informado não está vinculado ao cadastro econômico do prestador".
+    # Ou a CARDIOMED não tem o 003 no cadastro, ou o cadastro de homologação está
+    # incompleto. TODO(contador): confirmar se o 003 vale para a clínica — se não
+    # valer, cirurgia provavelmente usa o 004 como os exames.
+    "cirurgia": {"cTribNac": "040301", "cTribMun": "003", "cNBS": "123011100"},
 }
 
 # As descrições e a identificação profissional são AS MESMAS usadas hoje em
@@ -79,19 +94,6 @@ PROFISSIONAL = _PROFISSIONAL or (
     "SERVIÇOS MÉDICOS PRESTADOS PELA DRA. MARINA COSTA CARVALHO DE SOUSA"
     r"\s\nCRM 3816\s\nRQE 1949")
 
-
-SERVICO = {
-    # Confirmados na tela do emissor municipal (2026-10-02):
-    #   Código Tributação Nacional    = 04.03.01 "Hospitais e congêneres" -> 040301
-    #   Código Complementar Municipal = 04.03.01.004 "ATIVIDADE MEDICA AMBULATORIAL
-    #     COM RECURSOS PARA REALIZACAO DE EXAMES COMPLEMENTARES" -> cTribMun é
-    #     [0-9]{3} no XSD, logo "004".
-    # cTribMun é o MESMO campo que o ABRASF chama CodigoTributacaoMunicipio, que
-    # vinha vazio (TODO(contador)) porque o endpoint antigo tolerava; a DPS exige
-    # (erro L0017) e ainda valida contra o cadastro econômico (L0001).
-    "cTribNac": os.environ.get("NFSE_CTRIB_NAC", "040301"),
-    "cTribMun": os.environ.get("NFSE_CTRIB_MUN", "004"),
-}
 
 ISS = {
     "tribISSQN": "1",           # 1=Operação tributável
@@ -200,11 +202,11 @@ def monta_dps(tomador, valor, *, servico="consulta", serie=SERIE_PADRAO, ndps=1,
     loc = el(serv, "locPrest")
     el(loc, "cLocPrestacao", IBGE_TERESINA)
     cserv = el(serv, "cServ")
-    el(cserv, "cTribNac", SERVICO["cTribNac"])
-    if SERVICO["cTribMun"]:
-        el(cserv, "cTribMun", SERVICO["cTribMun"])
+    cod = CODIGOS_POR_CATEGORIA[categoria]
+    el(cserv, "cTribNac", cod["cTribNac"])
+    el(cserv, "cTribMun", cod["cTribMun"])
     el(cserv, "xDescServ", descricao_servico(descricao))
-    el(cserv, "cNBS", NBS_POR_CATEGORIA[categoria])
+    el(cserv, "cNBS", cod["cNBS"])
 
     valores = el(inf, "valores")
     vserv = el(valores, "vServPrest")
