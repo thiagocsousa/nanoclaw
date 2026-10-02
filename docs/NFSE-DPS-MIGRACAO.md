@@ -374,6 +374,25 @@ SERVIÇOS MÉDICOS PRESTADOS PELA DRA. MARINA COSTA CARVALHO DE SOUSA - CRM 3816
 Só um teste de ponta a ponta pega isso: o XSD valida, a API aceita, e o
 estrago só aparece relendo a nota gravada.
 
+#### Homologação instável — como distinguir culpa nossa da deles
+
+Em 2026-10-02, à tarde, a homologação degradou: `GET` passou de 0,3s para 33s e
+toda emissão voltou `L9999: JDBC exception ... ORA-02049: timeout, transação
+distribuída aguardando bloqueio` (lock no Oracle **deles**).
+
+**Teste de controle que separa as coisas:** reemitir com um conjunto de códigos
+que **comprovadamente já funcionou**. Reemiti com os códigos da nota 2898
+(08:46 do mesmo dia) e deu o mesmo ORA-02049 → ambiente quebrado, não dado
+nosso. Sem esse controle, seria fácil culpar a mudança de códigos.
+
+**Como ler os erros:**
+
+| Erro | De quem é |
+|---|---|
+| `L0001`, `L0008`, `L0010`, `L0017`, `L0022` | **nosso** — regra de negócio sobre os dados |
+| `L9999` + `ORA-*` / `JDBC` | **deles** — infraestrutura |
+| `ReadTimeout` | indefinido — **consultar `GET /nfse/dps/{id}` antes de reenviar** |
+
 #### Nota de operação: timeout
 
 A 1ª emissão estourou 60s de leitura **sem** gerar nota (confirmado com
