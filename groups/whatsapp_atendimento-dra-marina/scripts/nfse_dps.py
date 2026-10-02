@@ -38,12 +38,29 @@ PRESTADOR = {
     "regEspTrib": "0",          # 0=Nenhum. TODO(contador): confirmar
 }
 
+# NBS (Nomenclatura Brasileira de Serviços) por categoria — informado pelo
+# contador em 2026-10-02. O XSD exige 9 dígitos sem pontos (TSCodNBS).
+NBS_POR_CATEGORIA = {
+    "consulta": "123012100",   # 1.2301.21.00
+    "exame":    "123012100",   # 1.2301.21.00 (mesmo da consulta)
+    "cirurgia": "123011100",   # 1.2301.11.00
+}
+
+# Serviço → categoria + descrição. Espelha o SERVICOS do nfse_emitir.py.
+SERVICOS = {
+    "consulta":   ("consulta", "CONSULTA OFTALMOLOGICA"),
+    "topografia": ("exame",    "EXAME TOPOGRAFIA CORNEANA"),
+    "mapeamento": ("exame",    "EXAME MAPEAMENTO DE RETINA"),
+    "lente_faco": ("cirurgia", "CIRURGIA DE FACECTOMIA COM LENTE INTRAOCULAR"),
+    "refrativa":  ("cirurgia", "CIRURGIA REFRATIVA"),
+    "pterigio":   ("cirurgia", "CIRURGIA DE PTERIGIO"),
+    "yag":        ("cirurgia", "PROCEDIMENTO DE CAPSULOTOMIA POR YAG LASER"),
+}
+
 SERVICO = {
-    # TODO(contador): cTribNac, cTribMun e cNBS por categoria de serviço.
+    # TODO(contador): cTribNac e cTribMun ainda pendentes.
     "cTribNac": "040101",       # 4.01 consulta médica, no formato nacional
     "cTribMun": "001",
-    "cNBS": "115069000",
-    "xDescServ": "CONSULTA OFTALMOLOGICA",
 }
 
 ISS = {
@@ -52,17 +69,14 @@ ISS = {
     "pAliq": "3",               # 3% — confirmado na tela do sistema
 }
 
-# IBS/CBS — Reforma Tributária. TODO(contador): TODOS os códigos abaixo.
-# CST = Código de Situação Tributária (3 dígitos); cClassTrib = Código de
-# Classificação Tributária (6 dígitos). São os dois campos que definem como a
-# operação é tributada no novo regime — errar aqui gera nota com efeito fiscal
-# errado, por isso nada aqui vale sem confirmação do contador.
+# IBS/CBS — Reforma Tributária. Valores confirmados pelo contador (2026-10-02),
+# conferidos na tela do próprio emissor municipal.
 IBSCBS = {
-    "finNFSe": "0",       # 0 é o único valor aceito pelo XSD
-    "cIndOp": "100301",   # TODO(contador)
+    "finNFSe": "0",          # 0 é o único valor aceito pelo XSD
     "indDest": "0",
-    "CST": "000",         # TODO(contador) — 3 dígitos
-    "cClassTrib": "000001",  # TODO(contador) — 6 dígitos
+    "CST": "200",            # 200 = Alíquota reduzida
+    "cClassTrib": "200029",  # Fornecimento dos serviços de saúde humana (Anexo III)
+    "cIndOp": "100301",      # TODO(contador): ÚNICO campo de IBS/CBS ainda não confirmado
 }
 
 
@@ -83,8 +97,12 @@ def monta_id(cloc_emi, cnpj, serie, ndps):
     )
 
 
-def monta_dps(tomador, valor, *, serie="00001", ndps=1, tp_amb="2", competencia=None):
+def monta_dps(tomador, valor, *, servico="consulta", serie="00001", ndps=1,
+              tp_amb="2", competencia=None):
     """Monta a DPS. tp_amb: 1=Produção, 2=Homologação."""
+    if servico not in SERVICOS:
+        raise ValueError("serviço desconhecido: %s (use %s)" % (servico, ", ".join(SERVICOS)))
+    categoria, descricao = SERVICOS[servico]
     agora = datetime.now(TZ)
     comp = competencia or agora.date()
     cnpj = PRESTADOR["CNPJ"]
@@ -130,8 +148,8 @@ def monta_dps(tomador, valor, *, serie="00001", ndps=1, tp_amb="2", competencia=
     cserv = el(serv, "cServ")
     el(cserv, "cTribNac", SERVICO["cTribNac"])
     el(cserv, "cTribMun", SERVICO["cTribMun"])
-    el(cserv, "xDescServ", SERVICO["xDescServ"])
-    el(cserv, "cNBS", SERVICO["cNBS"])
+    el(cserv, "xDescServ", descricao)
+    el(cserv, "cNBS", NBS_POR_CATEGORIA[categoria])
 
     valores = el(inf, "valores")
     vserv = el(valores, "vServPrest")
@@ -293,6 +311,7 @@ def main():
     ap.add_argument("--out")
     ap.add_argument("--xsd", default=os.environ.get("NFSE_XSD_DIR", ""))
     ap.add_argument("--valor", default="400.00")
+    ap.add_argument("--servico", default="consulta", choices=sorted(SERVICOS))
     ap.add_argument("--xsd-cru", action="store_true",
                     help="valida sem corrigir o defeito do TSSerieDPS (mostra o bug)")
     ap.add_argument("--assinar", action="store_true", help="assina com o A1 (precisa xmlsec)")
@@ -300,7 +319,7 @@ def main():
     ap.add_argument("--pfx-senha", default=os.environ.get("NFSE_CERT_PASSWORD", ""))
     args = ap.parse_args()
 
-    dps = monta_dps(TOMADOR_FICTICIO, args.valor)
+    dps = monta_dps(TOMADOR_FICTICIO, args.valor, servico=args.servico)
 
     if args.assinar:
         if not args.pfx:

@@ -116,9 +116,24 @@ Cada fase é verificável sozinha. Nenhuma toca produção até a Fase 6.
 
 ### Fase 0 — Destravar as decisões que não são técnicas
 Bloqueiam o resto; começar por aqui.
-1. **Contador**: CST, `cClassTrib` e regime de apuração de IBS/CBS para os
-   serviços da clínica (consulta, lente/faco, refrativa). Mesma classe dos
-   `TODO(contador)` que já existem no `nfse_emitir.py`.
+1. **Contador** — ✅ **respondido em 2026-10-02** (conferido na tela do próprio
+   emissor municipal):
+   - `CST` = **200** (Alíquota reduzida);
+   - `cClassTrib` = **200029** (Fornecimento dos serviços de saúde humana, Anexo III);
+   - `cNBS` por categoria: consulta e exames = **1.2301.21.00** → `123012100`;
+     cirurgia = **1.2301.11.00** → `123011100` (o XSD exige 9 dígitos sem pontos).
+
+   Já aplicados no `nfse_dps.py`; as 5 variações de serviço da clínica validam.
+
+   **Nada mais precisa ser enviado pela redução de alíquota:** a regra confirma
+   que `pRedutor` só vale para compra governamental (E1522/E1523, exige
+   `tpEnteGov`) e que `pAliqEfetUF/Mun/CBS` ficam na **NFS-e de resposta**,
+   calculados pelo autorizador a partir do `cClassTrib`. A DPS fecha com
+   CST + cClassTrib.
+
+   **Ainda pendentes** (menores): `cIndOp` — hoje com `100301`, copiado do XML
+   modelo, é o único campo de IBS/CBS não confirmado — além de `cTribNac` e
+   `cTribMun`.
 2. **SEMF** (notafiscaleletronica.semf@pmt.pi.gov.br): (a) até quando o ABRASF
    2.03 continua aceito? A página fala em coexistência na transição, mas não dá
    data de desligamento. (b) reportar o defeito do `TSSerieDPS` no XSD v1.01
