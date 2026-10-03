@@ -262,3 +262,104 @@ perguntas**, que é o que define a FAQ. Sem ela, a base de conhecimento é chute
 | Resposta certa pela razão errada | Log da intenção + template usados; suíte de regressão em CI |
 | Classificador erra e manda template errado | Limiar de confiança; casos negativos na suíte; template sempre genérico o bastante para não afirmar fato sobre o paciente |
 | Reversão acidental das travas de NFS-e | Caminho novo e separado; `DM_GATED_FOLDERS` permanece |
+
+---
+
+## Diálogos de referência (para a Dra. Marina aprovar)
+
+Todos os textos abaixo são **fixos e versionados**. O que os faz soar humanos é a
+redação e o comportamento de entrega, não geração. `[Ns]` = delay com indicador
+"digitando".
+
+### Contraste: a mesma informação, dois jeitos
+
+❌ **Estilo notificação** (é o tom do lembrete atual — bom para lembrete, ruim
+para conversa):
+> Olá! *Horário de Funcionamento*: Segunda a Sexta, das 08:00 às 18:00.
+> Estamos à disposição! _Clínica Dra. Marina Costa_
+
+✅ **Estilo recepcionista:**
+> oi! sábado a gente não atende não
+>
+> de segunda a sexta, das 8h às 18h 🙂
+
+### 1. Horário
+
+> **paciente:** oi, vcs atendem sábado?
+> `[3s]`
+> **clínica:** sábado a gente não atende não
+> **clínica:** de segunda a sexta, das 8h às 18h 🙂
+
+### 2. Endereço
+
+> **paciente:** qual o endereço de vcs?
+> `[4s]`
+> **clínica:** é na rua desembargador pires de castro, 380 — centro
+> **clínica:** fica no edifício centro médico, sala 1
+
+### 3. Preço
+
+> **paciente:** quanto tá a consulta?
+> `[4s]`
+> **clínica:** a consulta particular está 430 reais
+> **clínica:** aceitamos pix, cartão e dinheiro
+
+*(o valor vem de dado estruturado, não do modelo)*
+
+### 4. Remarcação — escala sem parecer que travou
+
+> **paciente:** preciso remarcar minha consulta de quinta
+> `[3s]`
+> **clínica:** claro, sem problema
+> **clínica:** já tô passando pra recepção, em instantes te retornam aqui mesmo 🙂
+
+→ posta no grupo privado. Repare: **não promete horário** nem confirma nada que
+dependa da agenda.
+
+### 5. Clínico — o caso mais importante
+
+> **paciente:** operei semana passada e tá ardendo muito, é normal?
+> `[2s — mais rápido, é urgência]`
+> **clínica:** entendi, vou chamar a equipe agora pra te orientar
+> **clínica:** se piorar ou doer muito, liga pra gente no (86) 3226-1619, tá?
+
+→ posta no grupo com marcação de **urgente**. O agente **não opina**, não
+tranquiliza ("deve ser normal"), não sugere nada. Dá o caminho humano e o
+telefone.
+
+### 6. Fora do horário
+
+> **paciente** *(22h40)*: oi, queria marcar uma consulta
+> `[3s]`
+> **clínica:** oi! a gente já encerrou o atendimento por hoje
+> **clínica:** amanhã a partir das 8h a recepção te responde 🙂
+
+Responder instantaneamente e perfeito às 22h40 é o que mais entrega um bot.
+
+### 7. "você é um robô?"
+
+> **paciente:** vc é um robô?
+> `[2s]`
+> **clínica:** sou o atendimento automático da clínica 🙂
+> **clínica:** mas se preferir falar com alguém da equipe é só dizer que eu chamo
+
+### 8. Depois de escalado, o paciente insiste
+
+> **paciente:** e aí, conseguiu ver?
+> `[3s]`
+> **clínica:** a recepção já tá com a sua mensagem, logo te retornam 🙂
+
+→ estado `aguardando_humano`: o agente **não volta a responder conteúdo**, só
+reconhece. Isso evita o pior cenário — o bot atropelar um atendimento humano em
+andamento.
+
+### Regras de redação que saem desses exemplos
+
+- minúscula no começo, sem asterisco, sem assinatura em toda mensagem;
+- "a gente" em vez de "nós"; frases curtas; emoji ocasional, nunca em mensagem
+  sobre sintoma;
+- duas mensagens curtas em vez de um parágrafo;
+- **não cumprimentar de novo** se a conversa já começou;
+- delay proporcional ao tamanho (~25 ms por caractere) com `setTyping`, que o
+  canal já tem;
+- nunca markdown.
