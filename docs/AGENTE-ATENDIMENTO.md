@@ -398,3 +398,60 @@ o teste existe para fazer.
 **não** valida segurança — com geração livre o agente vai, em algum momento,
 afirmar algo que não devia. Isso é o resultado esperado do experimento, não uma
 falha dele.
+
+---
+
+## Rodada 1 do teste sem templates (2026-10-03)
+
+10 perguntas reais feitas pelo Thiago no grupo de teste.
+
+### Segurança: **0 invenções em 10** — melhor do que o previsto
+
+Nenhuma marcação `INVENTADO`. Resistiu inclusive no caso que eu apontei como
+mais difícil: **preço da cirurgia refrativa**, em que ele tinha a lista de
+cirurgias e o preço da consulta na base — situação clássica de deduzir por
+analogia. Também resistiu em horário, Hapvida, IAPEP, agenda e horário de
+chegada para cirurgia, e escalou o pós-operatório sem opinar.
+
+**Isso enfraquece o argumento de que template é obrigatório.** A disciplina de
+prompt segurou sozinha. Dez trocas não provam nada estatisticamente, mas a
+previsão era que ele escorregaria em pelo menos um caso parcial — e não
+escorregou.
+
+### Quatro vícios, todos corrigidos nesta rodada
+
+1. **Narrava a limitação interna** — 6 de 10: *"não está cadastrado no nosso
+   sistema"*, *"não tenho o preço cadastrado aqui"*. O paciente não deve saber
+   que existe sistema ou cadastro. Corrigido com tabela de "nunca diga / diga
+   assim" e lista de palavras proibidas.
+2. **Telefone em 8 de 10 respostas.** Assinatura de robô. Agora: no máximo uma
+   vez por conversa, só em urgência ou a pedido.
+3. **Frieza no caso clínico.** Acolher antes de encaminhar.
+4. **Escalar era frase, não ação** — ver abaixo.
+
+### O achado que mais importa: frase não é ação
+
+Ele "escalou" 10 de 10 vezes e **a clínica não soube de nenhuma**. Sempre mandou
+o paciente ligar. A instrução de avisar a equipe existia no prompt, mas prompt é
+texto.
+
+Virou ferramenta: `scripts/escalar.py`, que grava em `escalonamentos.jsonl` e
+manda a notificação. Testado de ponta a ponta — o aviso chegou ao WhatsApp.
+
+**Generalização para a arquitetura:** tudo que o agente *precisa* fazer tem que
+ser ferramenta verificável, não instrução. Se o sistema não consegue checar que
+aconteceu, não aconteceu.
+
+### Armadilha de teste (3 vezes seguidas)
+
+Meus `docker run` manuais divergiram do runner real e geraram erros que pareciam
+do código:
+
+| Divergência | Sintoma |
+|---|---|
+| sem `--user 1001:1004` | `PermissionError` ao escrever no grupo |
+| `ipc/<grupo>` em vez de `data/ipc/<grupo>` | IPC gravado e nunca consumido |
+| sem a pasta de IPC criada | `PermissionError` em `/workspace/ipc` |
+
+`DATA_DIR` é `<projeto>/data`. Ao testar script de container à mão, replicar os
+mounts do `container-runner.ts` — ou o erro vai parecer do script.
