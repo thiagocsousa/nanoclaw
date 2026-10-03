@@ -36,6 +36,10 @@ groups/whatsapp_marina/*
 !groups/whatsapp_marina/scripts/
 !groups/whatsapp_marina/scripts/**
 groups/whatsapp_marina/scripts/__pycache__/
+!groups/whatsapp_atendimento-teste/
+groups/whatsapp_atendimento-teste/*
+!groups/whatsapp_atendimento-teste/CLAUDE.md
+
 !groups/whatsapp_alerta-invest/
 groups/whatsapp_alerta-invest/*
 !groups/whatsapp_alerta-invest/CLAUDE.md

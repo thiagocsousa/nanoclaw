@@ -363,3 +363,38 @@ andamento.
 - delay proporcional ao tamanho (~25 ms por caractere) com `setTyping`, que o
   canal já tem;
 - nunca markdown.
+
+---
+
+## Teste controlado, sem templates (fase 0)
+
+Antes de decidir entre template e geração, vale **medir** em vez de discutir. O
+teste não precisa de **nenhuma linha de código** — é só configuração:
+
+1. criar um **grupo privado de WhatsApp** (Thiago + Dra. Marina) no número
+   **principal**, não no do atendimento;
+2. registrar como `whatsapp_atendimento-teste` com **`requires_trigger = 0`**,
+   para o agente responder a tudo, como faria com paciente;
+3. a persona já está em `groups/whatsapp_atendimento-teste/CLAUDE.md`.
+
+**Por que é seguro:** não há paciente envolvido, nenhuma trava precisa ser
+mexida (o `ipc.ts` continua intacto), e o grupo **não é o `main`** — portanto o
+container não enxerga `store/`, nem as credenciais do WhatsApp.
+
+**O que o teste mede.** Cada resposta sai marcada com
+`[intenção: … | fonte: base|escalado|INVENTADO]`. Duas perguntas:
+1. o tom soa humano?
+2. com que frequência ele afirma algo fora da base?
+
+A segunda é a que decide a arquitetura. Se a taxa de `INVENTADO` for alta, o
+template deixa de ser preferência e vira necessidade.
+
+**Dois fatos ficaram em branco de propósito** na base — horário de funcionamento
+e convênios. Dá para inferir 8h-18h dos horários das rotinas internas, mas
+inferir não é saber, e preencher com palpite estragaria justamente a medição que
+o teste existe para fazer.
+
+**Limite honesto:** este teste mede naturalidade e tendência a inventar. Ele
+**não** valida segurança — com geração livre o agente vai, em algum momento,
+afirmar algo que não devia. Isso é o resultado esperado do experimento, não uma
+falha dele.
