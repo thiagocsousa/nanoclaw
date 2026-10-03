@@ -24,6 +24,7 @@ import random
 import string
 import sys
 import time
+import urllib.request
 from pathlib import Path
 
 GROUP = Path(os.environ.get("NANOCLAW_GROUP_DIR", "/workspace/group"))
@@ -34,6 +35,41 @@ IPC_MESSAGES_DIR = Path("/workspace/ipc/messages")
 # recepção. Nunca é um JID de paciente.
 DESTINO = os.environ.get("ESCALONAMENTO_JID", "558681512111@s.whatsapp.net")
 DESTINO_FOLDER = os.environ.get("ESCALONAMENTO_FOLDER", "whatsapp_main")
+
+# Alarme sonoro (ntfy.sh). Toca em volume de alarme no celular, furando o
+# silencioso — é o substituto gratuito da ligação telefônica.
+# Só dispara em URGENTE: alarme que toca por qualquer dúvida vira ruído e, em
+# pouco tempo, ninguém olha mais.
+NTFY_TOPIC = os.environ.get("NTFY_TOPIC", "")
+NTFY_SERVIDOR = os.environ.get("NTFY_SERVIDOR", "https://ntfy.sh")
+
+
+def toca_alarme():
+    """Dispara o alarme. NUNCA manda dado de paciente.
+
+    ⚠️ O ntfy.sh público é servidor de TERCEIRO e o tópico é legível por quem
+    souber o nome. Por isso o texto é genérico — sem nome, sem sintoma, sem
+    telefone. Quem for atender abre o WhatsApp para ver o caso. Dado de saúde
+    não sai daqui. (Para mandar detalhe, auto-hospedar o ntfy na própria VM.)
+    """
+    if not NTFY_TOPIC:
+        return "sem NTFY_TOPIC configurado"
+    try:
+        req = urllib.request.Request(
+            "%s/%s" % (NTFY_SERVIDOR.rstrip("/"), NTFY_TOPIC),
+            data="Abra o WhatsApp da clinica".encode("utf-8"),
+            headers={
+                "Title": "ATENDIMENTO URGENTE",
+                "Priority": "urgent",
+                "Tags": "rotating_light",
+            },
+        )
+        urllib.request.urlopen(req, timeout=10).read()
+        return "alarme disparado"
+    except Exception as exc:
+        # Alarme é um canal A MAIS. Se falhar, o aviso no WhatsApp já foi — não
+        # pode derrubar o escalonamento.
+        return "alarme falhou: %s" % type(exc).__name__
 
 
 def main():
@@ -69,7 +105,8 @@ def main():
     }, ensure_ascii=False, indent=2), encoding="utf-8")
     tmp.rename(fp)
 
-    print("escalado%s: %s" % (" (URGENTE)" if urgente else "", motivo))
+    alarme = toca_alarme() if urgente else "não urgente, sem alarme"
+    print("escalado%s: %s | %s" % (" (URGENTE)" if urgente else "", motivo, alarme))
     return 0
 
 

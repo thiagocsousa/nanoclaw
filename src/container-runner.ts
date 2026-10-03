@@ -100,6 +100,13 @@ const FORWARDED_ENV_VARS = [
   'NFSE_INICIO',
   'NFSE_PROXY',
   'NFSE_AMBIENTE',
+  // Atendimento ao paciente: alarme sonoro (ntfy) e rota do escalonamento.
+  // Sem isto o escalar.py roda sem alarme e NINGUÉM é acordado — o tipo de
+  // falha silenciosa que só aparece na emergência de verdade.
+  'NTFY_TOPIC',
+  'NTFY_SERVIDOR',
+  'ESCALONAMENTO_JID',
+  'ESCALONAMENTO_FOLDER',
   'ICLINIC_EMAIL',
   'ICLINIC_PASSWORD',
   // iClinic consultório Dra. Marina (laudo de topografia)
