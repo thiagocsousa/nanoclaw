@@ -759,9 +759,11 @@ Sem rodar isso, o paciente mandou os dados dele para ninguém. Ao paciente, depo
 ---
 
 ## F11 · Preciso da nota fiscal. Como faço?
-`evidência: 6 conversas` · `escalar: não` · `volátil: não`
+`evidência: 6 conversas` · `escalar: se for CNPJ` · `volátil: não`
 
 **Variantes:** quero nota fiscal; preciso de recibo pro reembolso; manda a NF.
+
+### Nota em nome de pessoa física
 
 > Para a emissão da nota fiscal precisaremos dos seguintes dados do titular da nota:
 >
@@ -772,6 +774,30 @@ Sem rodar isso, o paciente mandou os dados dele para ninguém. Ao paciente, depo
 > Assim que recebermos essas informações, daremos continuidade à emissão.
 
 > O CEP é obrigatório, sem ele a prefeitura rejeita a emissão.
+
+### Nota em nome de CNPJ: escale
+
+⛔ **Regra do Thiago em 04/10/2026.** Se o paciente disser que a nota é para uma **empresa**,
+mencionar **CNPJ**, **razão social**, pedir nota "pra firma", "pro escritório" ou falar de
+reembolso por pessoa jurídica, **não colete nada**: escale.
+
+```
+python3 /workspace/group/scripts/escalar.py \
+  "nota fiscal em nome de CNPJ" \
+  "<nome do paciente> quer NF para empresa. NAO coletei dados."
+```
+
+Ao paciente, só:
+
+> Só um instante.
+
+⛔ **Não peça CNPJ, razão social, inscrição municipal nem endereço da empresa.** Nota para
+pessoa jurídica tem exigências próprias e quem monta é a recepção. Pedir os dados e depois
+descobrir que falta algo faz o paciente mandar tudo duas vezes.
+
+⚠️ E **não tente adivinhar** pelo formato do documento: 11 dígitos é CPF, 14 é CNPJ, mas
+paciente erra a digitação. O que importa é **para quem** é a nota, não quantos dígitos ele
+mandou.
 
 ---
 
@@ -1032,6 +1058,60 @@ python3 /workspace/group/scripts/escalar.py \
 
 > ⚠️ **"Não atende criança" não é informação clínica.** É regra de agendamento, você pode
 > dizer. O que você não faz é opinar sobre o problema do olho da criança: isso é **F13**.
+
+---
+
+## F17 · "Atende em outro hospital?" e "o plano cobre lá?"
+`evidência: 46 mensagens citam outro local` · `escalar: SIM, sempre` · `volátil: sim`
+
+**Variantes:** atende no Hospital do Olho; atende no Vilar; dá pra marcar lá; o plano cobre
+no hospital; a cirurgia é onde; faz exame em outro lugar.
+
+⛔ **Escale. Você não sabe responder isso, e o que você "acha" vai estar errado.**
+
+```
+python3 /workspace/group/scripts/escalar.py \
+  "pergunta sobre atendimento ou cobertura em outro local" \
+  "<o que ele perguntou>"
+```
+
+Ao paciente:
+
+> Só um instante.
+
+### Por que escalar, e não responder
+
+O que você pode dizer, e só isso: **o consultório fica na Av. Elias João Tajra** (F07).
+Qualquer coisa além — onde a cirurgia acontece, se a médica atende em outro lugar, se o
+plano cobre naquele local, se o exame pode ser feito fora — **não está nesta base**.
+
+⛔ **Nunca diga "o local é definido após a avaliação".** Isso saiu na suíte em 04/10/2026 e
+é invenção: zero ocorrências no histórico. Soa plausível, e é por isso que é perigoso.
+
+### O que o histórico mostra, e que a base NÃO confirma
+
+Registrado aqui para quem for completar este bloco, **não para a agente usar**:
+
+| o que apareceu | quando |
+|---|---|
+| *"Amanhã ela atende no Vilar, e quarta está lotado no consultório dela"* | 21/09/2026 |
+| *"Dá pra fazer agora no Hospital do Olho"* (exame) | 21/09/2026 |
+| *"Pentacam... não fazemos no consultório. Posso agendar pra você no Hospital do Olho"* | 29/09/2026 |
+| taxa de sala hospitalar: Vilar Hospital de Olhos | 29/09/2026 |
+| contato do Vilar para quem tem menos de 18 anos | 02 e 03/10/2026 |
+
+> ❓ **Três perguntas para a clínica, e até lá vale escalar:**
+> 1. A Dra. Marina atende consulta **fora do consultório**, no Vilar ou em outro lugar? O
+>    histórico de 21/09 diz que sim, e o F07 desta base diz que não.
+> 2. **Onde** a cirurgia é feita, e isso varia por convênio?
+> 3. A cobertura do plano **muda conforme o local**? O histórico tem "esse os planos não
+>    cobrem" referindo-se a exame fora do consultório.
+
+> ⚠️ **Contradição a resolver no F06.** Esta base diz "não diga que quinta é o dia de
+> cirurgia", porque a agenda mostra cirurgia em todos os dias úteis. Mas em 28/09/2026 a
+> própria clínica escreveu *"nas terças não atende no consultório, dia de cirurgias"*. Ou
+> mudou, ou "dia de cirurgia" para eles quer dizer "dia sem consulta". Até saber, a agente
+> não afirma qual dia é de cirurgia.
 
 ---
 

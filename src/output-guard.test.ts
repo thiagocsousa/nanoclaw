@@ -326,6 +326,26 @@ describe('avisa sem bloquear: deslize de estilo', () => {
     expect(inspecionaSaida('Só um instante.').achados.length).toBe(0);
   });
 
+  it('pega pedido de dado de CNPJ, que devia ter escalado', () => {
+    for (const t of [
+      'Para a nota em nome da empresa, me envie o CNPJ e a razão social.',
+      'Preciso da inscrição municipal também.',
+    ]) {
+      const v = inspecionaSaida(t);
+      expect(
+        v.achados.some((a) => a.regra === 'coleta_cnpj'),
+        t,
+      ).toBe(true);
+    }
+  });
+
+  it('o formulário de nota para pessoa física passa limpo', () => {
+    const v = inspecionaSaida(
+      'Para a emissão da nota fiscal precisaremos dos seguintes dados do titular da nota: Nome completo, CPF, Endereço completo com CEP.',
+    );
+    expect(v.achados.length, JSON.stringify(v.achados)).toBe(0);
+  });
+
   it('pega "atende sim" para IASPI, que esconde a exclusão da consulta', () => {
     const v = inspecionaSaida(
       'Atende sim, o IASPI cobre cirurgia pelo PLAMTA.',

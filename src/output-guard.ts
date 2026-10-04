@@ -182,6 +182,17 @@ const RX_INCLUI_EXAME =
   /inclu\w+\s+(?:o\s+|os\s+|todos\s+os\s+)?exames?\b|exames?\s+(?:est[ãa]o\s+)?inclu[íi]d/i;
 const NOMEIA_INCLUSO = /fundoscopia|tonometria|dois olhos|ambos os olhos/i;
 
+// --- coletar dados de CNPJ --------------------------------------------------
+
+/**
+ * Nota fiscal para pessoa jurídica escala (F11, regra do Thiago em 04/10/2026):
+ * tem exigências próprias e quem monta é a recepção. Se a agente está PEDINDO
+ * CNPJ, razão social ou inscrição municipal, ela assumiu um caso que não é dela,
+ * e o paciente vai mandar os dados duas vezes.
+ */
+const RX_PEDE_CNPJ =
+  /\bCNPJ\b|\braz[ãa]o social\b|\binscri[çc][ãa]o municipal\b|\bnome fantasia\b/i;
+
 // --- dizer que atende plano que não atende ----------------------------------
 
 /**
@@ -366,7 +377,19 @@ export function inspecionaSaida(bruto: string): Veredito {
   }
   RX_TELEFONE.lastIndex = 0; // regex global: zera entre chamadas
 
-  // 6. flag: disse que atende plano que só cobre cirurgia
+  // 6. flag: pediu dado de pessoa jurídica em vez de escalar
+  const cnpj = texto.match(RX_PEDE_CNPJ);
+  if (cnpj) {
+    achados.push({
+      regra: 'coleta_cnpj',
+      nivel: 'flag',
+      motivo:
+        'pede dado de pessoa jurídica; nota em nome de CNPJ escala para a recepção (F11)',
+      trecho: cnpj[0],
+    });
+  }
+
+  // 7. flag: disse que atende plano que só cobre cirurgia
   if (
     RX_PLANO_PARCIAL.test(texto) &&
     RX_ATENDE_SIM.test(texto) &&
@@ -381,7 +404,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 7. flag: afirmou que a lista de exames está completa
+  // 8. flag: afirmou que a lista de exames está completa
   const compl = texto.match(RX_COMPLETUDE);
   if (compl) {
     achados.push({
@@ -393,7 +416,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 8. block: afirmou ser pessoa
+  // 9. block: afirmou ser pessoa
   const finge = texto.match(RX_FINGE_HUMANA);
   if (finge) {
     achados.push({
@@ -405,7 +428,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 9. flag: abertura sem o menu completo
+  // 10. flag: abertura sem o menu completo
   if (RX_ABERTURA.test(texto) && !RX_MENU_COMPLETO.test(texto)) {
     achados.push({
       regra: 'abertura_malformada',
@@ -416,7 +439,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 10. flag: mandou o paciente ligar
+  // 11. flag: mandou o paciente ligar
   if (RX_CONVITE_LIGAR.test(texto) && RX_DOR.test(texto)) {
     achados.push({
       regra: 'manda_ligar',
@@ -427,7 +450,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 11. flag: mandou o paciente de volta ao menu
+  // 12. flag: mandou o paciente de volta ao menu
   const menu = texto.match(RX_APONTA_MENU);
   if (menu) {
     achados.push({
@@ -438,7 +461,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 12. flag: negou o desconto, contando que ele existe
+  // 13. flag: negou o desconto, contando que ele existe
   const nega = texto.match(RX_NEGA_DESCONTO);
   if (nega) {
     achados.push({
@@ -449,7 +472,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 13. flag: prometeu exame incluso sem nomear o que está incluso
+  // 14. flag: prometeu exame incluso sem nomear o que está incluso
   const inclui = texto.match(RX_INCLUI_EXAME);
   if (inclui && !NOMEIA_INCLUSO.test(texto)) {
     achados.push({
@@ -461,7 +484,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 14. flag: linguagem interna sobrevivendo no texto
+  // 15. flag: linguagem interna sobrevivendo no texto
   const interno = texto.match(RX_INTERNO);
   if (interno) {
     achados.push({
@@ -472,7 +495,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 15. flag: frases proibidas de estilo
+  // 16. flag: frases proibidas de estilo
   for (const [rx, motivo] of PROIBIDAS) {
     const m = texto.match(rx);
     if (m) {

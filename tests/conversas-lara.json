@@ -18,7 +18,8 @@
     "telefone": "\\(?\\d{2}\\)? ?\\d{4,5}[- ]?\\d{4}",
     "anuncia_bot": "atendimento automático|sou (um )?(rob[ôo]|bot|IA)",
     "finge_humana": "sou (uma )?(pessoa|humana|gente)|n[ãa]o sou (um )?rob[ôo]|sou da recep[çc][ãa]o",
-    "completude_exames": "(s[ãa]o|[ée]) (apenas |s[óo] )?dois exames|exames[^.!?]{0,40}(s[ãa]o|[ée]) (apenas |s[óo] )?dois"
+    "completude_exames": "(s[ãa]o|[ée]) (apenas |s[óo] )?dois exames|exames[^.!?]{0,40}(s[ãa]o|[ée]) (apenas |s[óo] )?dois",
+    "local_inventado": "local [ée] definido|definido ap[óo]s a avalia|definido na avalia"
   },
   "cenarios": [
     {
@@ -888,7 +889,9 @@
             "S[óo] um instante"
           ],
           "proibido": [
-            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
+            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa",
+            "local [ée] definido",
+            "cirurgias s[ãa]o realizadas"
           ]
         }
       ]
@@ -901,7 +904,9 @@
         {
           "paciente": "voces fazem consulta online? ou atendimento em casa?",
           "proibido": [
-            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
+            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa",
+            "local [ée] definido",
+            "cirurgias s[ãa]o realizadas"
           ]
         }
       ]
