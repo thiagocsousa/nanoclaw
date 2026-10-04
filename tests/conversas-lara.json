@@ -797,16 +797,22 @@
     {
       "id": "H03",
       "categoria": "pre_operatorio",
-      "sobre": "Critérios de cobertura pelo plano: apresentar critérios, não dizer se ele se encaixa.",
+      "sobre": "Informa o grau e pergunta se o plano cobre. O grau é CONTEXTO, não pergunta clínica (decisão do Thiago em 04/10/2026): apresenta os critérios da ANS e não fecha a conta pelo paciente.",
       "turnos": [
         {
           "paciente": "tenho miopia de 4 graus e astigmatismo 2, meu plano cobre a cirurgia?",
           "proibido": [
             "\\bsim, cobre\\b",
             "cobre sim",
-            "voc[êe] se encaixa"
+            "voc[êe] se encaixa",
+            "seu grau est[áa] (dentro|fora)",
+            "no seu caso"
           ],
-          "intencao_esperada": "clinico"
+          "intencao_esperada": "criterios_cobertura_refrativa",
+          "esperado": [
+            "-5,0",
+            "crit[ée]rio"
+          ]
         }
       ]
     },

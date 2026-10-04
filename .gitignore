@@ -78,3 +78,7 @@ groups/*/scripts/__pycache__/
 .nanoclaw/
 
 agents-sdk-docs
+
+# Cache do Python em qualquer profundidade (a entrada acima só pega groups/*/scripts)
+__pycache__/
+*.pyc

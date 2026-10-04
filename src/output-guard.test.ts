@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+
 import { describe, expect, it } from 'vitest';
 
 import { achaPrecoDeCirurgia, inspecionaSaida } from './output-guard.js';
@@ -528,5 +530,92 @@ describe('achaPrecoDeCirurgia: o sujeito do preço, não a vizinhança', () => {
     );
     expect(a).toBeDefined();
     expect(a?.trecho).toContain('8.000');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// veredito sobre o paciente se encaixar nos critérios (F09)
+//
+// Os critérios da ANS são numéricos e o paciente informa o grau dele na mesma
+// mensagem. Apresentar o critério é o trabalho; fechar a conta por ele, não.
+describe('veredito_criterio', () => {
+  const bloqueia = (t: string) =>
+    inspecionaSaida(t).achados.some((a) => a.regra === 'veredito_criterio');
+
+  it('bloqueia o veredito, em qualquer das formas que ele sai', () => {
+    for (const t of [
+      'Com 4 graus de miopia você não se encaixa nos critérios do plano.',
+      'Você atende os critérios, pode seguir com a autorização.',
+      'Pelo que você falou, o seu grau está dentro do que o plano exige.',
+      'Infelizmente o seu grau está fora da faixa coberta.',
+      'No seu caso o plano cobre sim.',
+      'No seu caso, o plano não vai cobrir.',
+      'Você tem direito à cobertura pelo convênio.',
+      'Com esses graus o plano autoriza.',
+      'O seu caso se encaixa nos critérios da ANS.',
+      'Você não atende aos critérios de cobertura.',
+    ]) {
+      expect(bloqueia(t), t).toBe(true);
+    }
+  });
+
+  it('NÃO bloqueia apresentar o critério, que é exatamente o que ela deve fazer', () => {
+    for (const t of [
+      'Para o plano autorizar a cirurgia refrativa, os critérios são: mais de 18 anos, grau estável há pelo menos um ano, miopia de -5,0 a -10,0 graus, com ou sem astigmatismo de até -4,0.',
+      'Os critérios são da ANS, não da clínica. Quem autoriza é o seu plano, e a indicação é da Dra. Marina depois da avaliação.',
+      'A cirurgia a maioria dos convênios cobre, depende de o seu plano autorizar e de você estar dentro dos critérios que ele exige.',
+      'Hipermetropia até 6,0 graus também entra, com astigmatismo associado de até -4,0.',
+      'O grau precisa estar estável há pelo menos um ano.',
+    ]) {
+      expect(bloqueia(t), t).toBe(false);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Teste estrutural: a guarda não pode bloquear o que a clínica aprovou.
+//
+// Onze falsos positivos meus nesta sessão tiveram todos a mesma forma: o
+// critério de detecção mais estreito que o comportamento correto. Conferir
+// regra por regra à mão não pega isso, porque o erro está justamente no caso
+// que eu não imaginei. Então a tabela inteira passa pela guarda, e a falha vem
+// de graça a cada texto novo que a clínica aprovar.
+describe('a guarda contra a tabela de templates aprovados', () => {
+  const tabela = JSON.parse(
+    readFileSync('groups/whatsapp_atendimento-teste/templates.json', 'utf-8'),
+  ) as { intencoes: Record<string, { textos?: string[] }> };
+
+  const VALOR: Record<string, string> = {
+    valor_consulta: '430,00', valor_desconto: '300,00', dia: 'segunda',
+    data: '06/10', hora: '09:20', dia_pedido: 'sábado',
+  };
+
+  const casos: Array<[string, string]> = [];
+  for (const [nome, d] of Object.entries(tabela.intencoes)) {
+    for (const bruto of d.textos ?? []) {
+      let t = bruto;
+      for (const [k, v] of Object.entries(VALOR)) t = t.split(`{${k}}`).join(v);
+      casos.push([nome, t]);
+    }
+  }
+
+  it('tem texto para conferir', () => {
+    expect(casos.length).toBeGreaterThan(30);
+  });
+
+  it('NENHUM texto aprovado é bloqueado', () => {
+    for (const [nome, t] of casos) {
+      const v = inspecionaSaida(t);
+      const motivos = v.achados
+        .filter((a) => a.nivel === 'block')
+        .map((a) => `${a.regra}: "${a.trecho}"`);
+      expect(motivos, `${nome} bloqueado -> ${motivos.join('; ')}`).toEqual([]);
+    }
+  });
+
+  it('e nenhum carrega travessão nem markdown, que são flag de estilo', () => {
+    for (const [nome, t] of casos) {
+      expect(t, nome).not.toMatch(/[—–]|\*\*/);
+    }
   });
 });

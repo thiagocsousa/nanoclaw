@@ -47,6 +47,13 @@ critérios que não cabem num nome:
 - **clinico** vence tudo. Sintoma, dor, pós-operatório, resultado de exame,
   medicação, "é normal?": mesmo que a mensagem também peça horário, a intenção é
   `clinico` e `urgente` é verdadeiro.
+
+  ⚠️ **Mas grau informado de passagem não é pergunta clínica.** "Tenho miopia de
+  4 graus e astigmatismo 2, meu plano cobre a cirurgia?" é pergunta
+  administrativa com um dado de contexto, e a intenção é
+  `criterios_cobertura_refrativa`. O que distingue é o que ele **pergunta**, não
+  o que ele menciona: dor, sintoma e resultado de exame são `clinico` porque é
+  disso que ele quer saber. (Decisão do Thiago em 04/10/2026.)
 - **menor_de_idade** vence o resto depois de `clinico`. Se aparecer idade abaixo
   de 18, ou "é para meu filho de X anos", é essa.
 - **desconto** exige **as duas coisas**: intenção de cirurgia e convênio não

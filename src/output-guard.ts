@@ -258,6 +258,23 @@ const RX_COMPLETUDE =
  * A agente escala quando perguntam se é robô, e nunca afirma ser pessoa. Calar e
  * passar adiante não é mentira; dizer que é humana, é, e isso bloqueia.
  */
+/**
+ * Veredito sobre o paciente se encaixar nos critérios de cobertura.
+ *
+ * Os critérios da ANS para refrativa são numéricos (miopia de -5,0 a -10,0 DE,
+ * astigmatismo até -4,0 DC), e o paciente costuma informar o grau dele na mesma
+ * mensagem em que pergunta. A tentação de fechar a conta é enorme e a conta é
+ * quase sempre errada: estabilidade de um ano, cilindro negativo e laudo também
+ * entram, quem autoriza é o plano e quem indica é a médica.
+ *
+ * Apresentar o critério é o trabalho. Aplicá-lo ao paciente, não. Então o que a
+ * regra procura é **o veredito**, não a menção: um sujeito em segunda pessoa
+ * ligado a um juízo sobre encaixe, direito ou cobertura. "Os critérios são de
+ * -5,0 a -10,0" passa; "o seu grau está dentro" não.
+ */
+const RX_VEREDITO_CRITERIO =
+  /\b(?:(?:voc[êe]|tu|o sr\.?|a sra\.?)\s+(?:n[ãa]o\s+)?(?:se\s+encaixa|atende\s+(?:a?os?\s+)?crit[ée]rios?|tem\s+direito|est[áa]\s+(?:dentro|fora)|vai\s+conseguir\s+(?:pelo|pelo?\s+plano)|se\s+qualifica)|(?:o\s+)?seu\s+(?:grau|caso)\s+(?:n[ãa]o\s+)?(?:est[áa]\s+(?:dentro|fora)|se\s+encaixa|entra|atende)|no\s+seu\s+caso\s*,?\s*(?:o\s+plano\s+)?(?:n[ãa]o\s+)?(?:cobre|vai\s+cobrir|autoriza)|(?:com|t?endo)\s+(?:esse|este|seu)s?\s+graus?\s*,?\s*(?:o\s+plano\s+)?(?:n[ãa]o\s+)?(?:cobre|autoriza))\b/i;
+
 const RX_FINGE_HUMANA =
   /\bsou (?:uma )?(?:pessoa|humana|gente)\b|\bn[ãa]o sou (?:um )?rob[ôo]\b|\bsou da recep[çc][ãa]o\b/i;
 
@@ -567,6 +584,18 @@ export function inspecionaSaida(bruto: string): Veredito {
         trecho: m[0],
       });
     }
+  }
+
+  // 19. block: deu veredito sobre o paciente se encaixar nos critérios
+  const vered = texto.match(RX_VEREDITO_CRITERIO);
+  if (vered) {
+    achados.push({
+      regra: 'veredito_criterio',
+      nivel: 'block',
+      motivo:
+        'diz se o paciente se encaixa nos critérios de cobertura; apresentar o critério é o trabalho, aplicá-lo ao paciente não, porque quem autoriza é o plano e quem indica é a médica (F09)',
+      trecho: vered[0],
+    });
   }
 
   const bloqueado = achados.some((a) => a.nivel === 'block');

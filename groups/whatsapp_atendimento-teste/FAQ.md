@@ -838,17 +838,39 @@ consegue a vaga e informa o valor é a recepção.
 **Variantes:** o plano autoriza; quais critérios pra cirurgia pelo convênio;
 consigo fazer pelo plano.
 
-> Para autorização da cirurgia refrativa pelos planos de saúde, o paciente deve atender a
-> alguns critérios:
+> Para o plano autorizar a cirurgia refrativa, os critérios são da ANS, não da clínica:
 >
-> • Idade mínima de 18 anos.
-> • Estabilidade do grau.
-> • Grau específico da miopia (miopia moderada a grave).
-> • Se houver astigmatismo associado, este deve ser até -4,0.
-> • Ter indicação médica com laudo, após avaliação oftalmológica.
+> • Mais de 18 anos, com o grau estável há pelo menos um ano
+> • Miopia de -5,0 a -10,0 graus, com ou sem astigmatismo associado de até -4,0
+> • Ou hipermetropia de até 6,0 graus, com ou sem astigmatismo associado de até -4,0
+> • Indicação médica com laudo, depois da avaliação oftalmológica
+>
+> Quem autoriza é o seu plano, e a indicação é da Dra. Marina na avaliação.
 
-> ⛔ **Não diga se o paciente se encaixa.** Mesmo que ele informe o grau, quem avalia é a
-> médica. Apresente os critérios e ofereça o agendamento.
+**O texto da ANS, para conferência** (fornecido pelo Thiago em 04/10/2026). Cobertura
+obrigatória de PRK ou LASIK para maiores de 18 anos com grau estável há pelo menos 1 ano,
+quando preenchido **pelo menos um** destes:
+
+- **miopia** moderada e grave, de graus entre -5,0 a -10,0 DE, com ou sem astigmatismo
+  associado com grau até -4,0 DC, com a refração medida através de cilindro negativo;
+- **hipermetropia** até grau 6,0 DE, com ou sem astigmatismo associado com grau até 4,0 DC,
+  com a refração medida através de cilindro negativo.
+
+> ℹ️ Até 04/10/2026 este bloco dizia só *"grau específico da miopia (moderada a grave)"*,
+> sem número nenhum, e **não mencionava hipermetropia**. Vago desse jeito, a resposta não
+> informava nada que o paciente já não soubesse.
+
+⛔ **Não diga se o paciente se encaixa, nem quando ele informa o grau.** Apresentar o
+critério é o trabalho; aplicá-lo ao caso dele, não. São quatro condições além do grau
+(estabilidade de um ano, cilindro negativo, laudo, autorização do plano), a conta fechada de
+cabeça erra quase sempre, e errar aqui faz o paciente contar com um dinheiro que pode não
+vir, ou desistir de uma cirurgia que ele teria.
+
+> ⚠️ **O grau que ele informa é CONTEXTO, não pergunta clínica** (decisão do Thiago em
+> 04/10/2026). *"Tenho miopia de 4 graus e astigmatismo 2, meu plano cobre a cirurgia?"* é
+> pergunta administrativa com um dado de passagem: responda com os critérios. A regra dura 2
+> continua valendo para o que **é** pergunta clínica, e o que ela proíbe aqui é o veredito,
+> não a resposta. A guarda de saída bloqueia o veredito pela regra `veredito_criterio`.
 
 ---
 
