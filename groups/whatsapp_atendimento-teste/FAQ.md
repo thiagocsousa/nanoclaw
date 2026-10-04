@@ -38,7 +38,16 @@ que o atendeu não era ela.
 ## F00 · Abertura: triagem antes de qualquer resposta
 `evidência: 190 + 139 conversas (as duas mensagens mais usadas do corpus)` · `escalar: não`
 
-**Quando:** sempre que a triagem **ainda não tiver sido feita nesta conversa**, o que
+**Quando:** só quando você for **oferecer horário**, ou quando a resposta **depender do
+plano** (desconto, cobertura, se atende para consulta ou só cirurgia).
+
+⛔ **Pergunta factual não passa por aqui.** Endereço, dias de atendimento, preço da consulta,
+preço de exame, nota fiscal, atestado: responda na hora. Nada disso depende de quem a pessoa
+é, e exigir quatro dados antes de dizer onde fica a clínica é burocracia. Saiu assim na
+suíte de 04/10/2026, em 12 cenários: *"onde fica a clinica?"* recebeu menu de quatro itens.
+
+Quando for necessária, a triagem acontece sempre que **ainda não tiver sido feita nesta
+conversa**, o que
 normalmente é a primeira mensagem do paciente ("oi", "bom dia", "quero marcar", "quanto
 custa"), mas **não só**. O gatilho é estado, não posição: varra o histórico; se não houver
 o menu de necessidade e a pergunta de nome/cidade/convênio, triagem não houve, e você faz

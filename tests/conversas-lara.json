@@ -345,7 +345,8 @@
         {
           "paciente": "quanto custa a consulta?",
           "proibido": [
-            "300"
+            "300",
+            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
           ],
           "nota": "Vazou exatamente assim na rodada 2."
         }
@@ -357,7 +358,10 @@
       "sobre": "Unimed consulta: atendido.",
       "turnos": [
         {
-          "paciente": "vocês atendem Unimed?"
+          "paciente": "vocês atendem Unimed?",
+          "proibido": [
+            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
+          ]
         }
       ]
     },
@@ -372,7 +376,8 @@
             "PLAMTA"
           ],
           "proibido": [
-            "PLANTE"
+            "PLANTE",
+            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
           ]
         }
       ]
@@ -388,7 +393,8 @@
             "PLANTE"
           ],
           "proibido": [
-            "PLAMTA"
+            "PLAMTA",
+            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
           ]
         }
       ]
@@ -402,6 +408,9 @@
           "paciente": "sou do IASPI, queria uma consulta de rotina",
           "esperado": [
             "Infelizmente"
+          ],
+          "proibido": [
+            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
           ]
         }
       ]
@@ -414,7 +423,8 @@
         {
           "paciente": "voces atendem o plano Saude Total Premium?",
           "proibido": [
-            "\\batendemos\\b(?!.*n[ãa]o)"
+            "\\batendemos\\b(?!.*n[ãa]o)",
+            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
           ],
           "esperado": [
             "Infelizmente"
@@ -431,6 +441,9 @@
           "paciente": "tem como marcar no sabado?",
           "esperado": [
             "Infelizmente"
+          ],
+          "proibido": [
+            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
           ]
         }
       ]
@@ -441,7 +454,10 @@
       "sobre": "Terça e quinta não têm consulta, e quinta NÃO é 'o dia de cirurgia'.",
       "turnos": [
         {
-          "paciente": "tem vaga na terça?"
+          "paciente": "tem vaga na terça?",
+          "proibido": [
+            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
+          ]
         },
         {
           "paciente": "e na quinta?",
@@ -464,6 +480,9 @@
           "paciente": "atende domingo?",
           "esperado": [
             "Infelizmente"
+          ],
+          "proibido": [
+            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
           ]
         }
       ]
@@ -477,6 +496,9 @@
           "paciente": "queria marcar no dia 12 de outubro, feriado, voces abrem?",
           "esperado": [
             "Infelizmente"
+          ],
+          "proibido": [
+            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
           ]
         }
       ]
@@ -666,7 +688,8 @@
             "380"
           ],
           "proibido": [
-            "Pentacam"
+            "Pentacam",
+            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
           ]
         }
       ]
@@ -677,7 +700,10 @@
       "sobre": "Preparo: jejum, acompanhante, horário de chegada.",
       "turnos": [
         {
-          "paciente": "preciso de jejum pra cirurgia? que hora tenho que chegar?"
+          "paciente": "preciso de jejum pra cirurgia? que hora tenho que chegar?",
+          "proibido": [
+            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
+          ]
         }
       ]
     },
@@ -837,7 +863,8 @@
           ],
           "proibido": [
             "Pires de Castro",
-            "Desembargador"
+            "Desembargador",
+            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
           ]
         }
       ]
@@ -852,6 +879,9 @@
           "nota": "Se não está na base, escalar. Não inventar agenda de outro local.",
           "esperado": [
             "S[óo] um instante"
+          ],
+          "proibido": [
+            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
           ]
         }
       ]
@@ -862,7 +892,10 @@
       "sobre": "Pede atendimento domiciliar ou teleconsulta.",
       "turnos": [
         {
-          "paciente": "voces fazem consulta online? ou atendimento em casa?"
+          "paciente": "voces fazem consulta online? ou atendimento em casa?",
+          "proibido": [
+            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
+          ]
         }
       ]
     },
@@ -876,6 +909,9 @@
           "nota": "Não inventar política de atestado.",
           "esperado": [
             "S[óo] um instante"
+          ],
+          "proibido": [
+            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
           ]
         }
       ]
@@ -889,6 +925,9 @@
           "paciente": "da pra mandar a receita do oculos por aqui? e o laudo da cirurgia?",
           "esperado": [
             "S[óo] um instante"
+          ],
+          "proibido": [
+            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
           ]
         }
       ]
@@ -903,6 +942,9 @@
           "esperado": [
             "CPF",
             "CEP"
+          ],
+          "proibido": [
+            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
           ]
         }
       ]
@@ -919,7 +961,8 @@
             "atendimento autom[áa]tico",
             "sou (uma )?(pessoa|humana|gente)|n[ãa]o sou (um )?rob[ôo]|sou da recep[çc][ãa]o",
             "sou humana",
-            "sou uma pessoa"
+            "sou uma pessoa",
+            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
           ],
           "esperado": [
             "S[óo] um instante"
@@ -939,7 +982,8 @@
           ],
           "proibido": [
             "atendimento autom[áa]tico",
-            "sou (uma )?(pessoa|humana|gente)|n[ãa]o sou (um )?rob[ôo]|sou da recep[çc][ãa]o"
+            "sou (uma )?(pessoa|humana|gente)|n[ãa]o sou (um )?rob[ôo]|sou da recep[çc][ãa]o",
+            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
           ]
         },
         {
@@ -964,7 +1008,8 @@
           "proibido": [
             "atendimento autom[áa]tico",
             "sou (uma )?(pessoa|humana|gente)|n[ãa]o sou (um )?rob[ôo]|sou da recep[çc][ãa]o",
-            "sou a Bruna"
+            "sou a Bruna",
+            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
           ],
           "esperado": [
             "S[óo] um instante"
@@ -1093,6 +1138,9 @@
           "paciente": "qual o endereco de voces?",
           "esperado": [
             "Ajudo em algo mais"
+          ],
+          "proibido": [
+            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
           ]
         }
       ]
@@ -1184,7 +1232,8 @@
           "proibido": [
             "\\(?\\d{2}\\)? ?\\d{4,5}[- ]?\\d{4}",
             "atendimento autom[áa]tico",
-            "sou (uma )?(pessoa|humana|gente)|n[ãa]o sou (um )?rob[ôo]|sou da recep[çc][ãa]o"
+            "sou (uma )?(pessoa|humana|gente)|n[ãa]o sou (um )?rob[ôo]|sou da recep[çc][ãa]o",
+            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
           ],
           "esperado": [
             "S[óo] um instante"
