@@ -574,13 +574,29 @@ despesa e mesmo assim não tem cobertura aqui.
 
 Texto da clínica (4 ocorrências, redação estável):
 
-> No momento não atendemos o seu convênio.
+> Infelizmente a gente não atende o seu convênio.
 >
-> Oferecemos um desconto especial para pacientes com planos de saúde que não atendemos e
-> desejam realizar a cirurgia. A avaliação, que normalmente custa R$ 430,00, sai por
-> R$ 300,00 com esse desconto.
->
-> Podemos fazer seu agendamento garantindo o desconto?
+> Como você já paga um plano, a avaliação sai por R$ 300,00 em vez de R$ 430,00.
+
+⛔ **Três frases, no máximo. Não junte as duas justificativas.** Saiu assim na suíte em
+04/10/2026, e ficou confuso:
+
+> ❌ "Oferecemos um desconto especial para pacientes com planos de saúde que não atendemos
+> e desejam realizar a cirurgia. A avaliação, que normalmente custa R$ 430,00, sai por
+> R$ 300,00 como você já paga um plano."
+
+Ali estão **os dois motivos na mesma frase**: "desejam realizar a cirurgia", que é o
+critério interno, e "você já paga um plano", que é o motivo dele. O paciente lê duas razões
+concorrentes e não entende qual vale. Fica só a dele.
+
+| ❌ | ✅ |
+|---|---|
+| "...para pacientes com planos de saúde que não atendemos e desejam realizar a cirurgia..." | "Como você já paga um plano, a avaliação sai por R$ 300,00 em vez de R$ 430,00." |
+| "A avaliação, que normalmente custa R$ 430,00, sai por R$ 300,00 com esse desconto." | (uma frase só, com os dois números) |
+
+> ℹ️ O texto longo acima é o template original da clínica, 4 ocorrências no histórico. Foi
+> **substituído** em 04/10/2026 por decisão do Thiago: clareza vale mais que fidelidade ao
+> template, e o original expõe o critério interno ao paciente.
 
 > ⚠️ **Correção de 04/10/2026.** Este bloco dizia antes que o critério era "intenção de
 > cirurgia, independente de plano", eu havia generalizado além do texto da clínica, e por

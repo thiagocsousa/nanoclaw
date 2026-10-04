@@ -21,7 +21,8 @@
     "completude_exames": "(s[ãa]o|[ée]) (apenas |s[óo] )?dois exames|exames[^.!?]{0,40}(s[ãa]o|[ée]) (apenas |s[óo] )?dois",
     "escolhe_hospital": "(vai ser|ser[áa]|normalmente [ée]|geralmente [ée]) no (Vilar|Hospital do Olho|Namir|T[ée]rcio|COE)",
     "recita_orientacao": "\\b(8|6|2) horas antes|aguarde 5 minutos|dormir do lado operado",
-    "valor_pentacam": "[Pp]entacam[^.!?]{0,40}R\\$|R\\$[^.!?]{0,40}[Pp]entacam"
+    "valor_pentacam": "[Pp]entacam[^.!?]{0,40}R\\$|R\\$[^.!?]{0,40}[Pp]entacam",
+    "duas_justificativas": "desejam realizar a cirurgia|e desejam operar"
   },
   "cenarios": [
     {
@@ -275,7 +276,12 @@
           "paciente": "e quanto fica a consulta?",
           "esperado": [
             "300"
-          ]
+          ],
+          "proibido": [
+            "desejam realizar a cirurgia",
+            "desconto especial"
+          ],
+          "nota": "Uma frase, um motivo (o plano dele), os dois números juntos."
         }
       ]
     },
@@ -1474,9 +1480,11 @@
           ],
           "proibido": [
             "porque (voc[êe] )?(quer|vai) operar",
-            "como voc[êe] quer operar"
+            "como voc[êe] quer operar",
+            "desejam realizar a cirurgia",
+            "desconto especial"
           ],
-          "nota": "Motivo dito ao paciente: já paga um plano. Nunca 'porque quer operar'."
+          "nota": "Uma frase, um motivo (o plano dele), os dois números juntos."
         }
       ]
     }
