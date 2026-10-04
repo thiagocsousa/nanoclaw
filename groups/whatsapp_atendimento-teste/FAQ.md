@@ -794,6 +794,13 @@ Resposta ao paciente enquanto escala:
 
 ---
 
+> ⛔ **Nada de "liga pra gente" (regra do Thiago em 04/10/2026).** A pessoa com dor não deve
+> precisar ligar para ninguém: mandar ela ligar é transferir o trabalho de ser atendida.
+> Acolha, rode o `escalar.py --urgente` e diga **"Só um instante."** Quem liga é a clínica.
+>
+> Saiu assim na suíte: *"Se estiver ardendo muito, liga pra gente agora: (86) 3226-1619."*
+> A base dizia para fazer isso, e era a base que estava errada.
+
 ## F14 · Pagamento, taxa de sala e agendamento da cirurgia no hospital
 `evidência: 3 conversas` · `escalar: SIM` · `volátil: sim (valores e dados bancários)`
 

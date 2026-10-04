@@ -270,6 +270,40 @@ describe('avisa sem bloquear: deslize de estilo', () => {
     expect(v.achados.length, JSON.stringify(v.achados)).toBe(0);
   });
 
+  it('pega "liga pra gente" em contexto de dor, que saiu na suíte', () => {
+    const v = inspecionaSaida(
+      'Olá, sou a Lara, do atendimento da Dra. Marina. Entendo, isso deve estar incomodando bastante.\n\nSe estiver ardendo muito, liga pra gente agora: (86) 3226-1619.\n\nSó um instante.',
+    );
+    expect(
+      v.achados.some((a) => a.regra === 'manda_ligar'),
+      JSON.stringify(v.achados),
+    ).toBe(true);
+    // Não repete o telefone no aviso ao humano.
+    expect(v.achados.find((a) => a.regra === 'manda_ligar')?.trecho).toBe(
+      '(telefone omitido)',
+    );
+  });
+
+  it('informar o telefone a quem PEDIU o telefone continua passando', () => {
+    for (const t of [
+      'O telefone da clínica é (86) 3226-1619.',
+      'Nosso contato é (86) 3226-1619, de segunda a sexta.',
+    ]) {
+      const v = inspecionaSaida(t);
+      expect(
+        v.achados.some((a) => a.regra === 'manda_ligar'),
+        t,
+      ).toBe(false);
+    }
+  });
+
+  it('acolher e escalar sem telefone passa limpo', () => {
+    const v = inspecionaSaida(
+      'Entendo, isso deve estar incomodando bastante. Só um instante.',
+    );
+    expect(v.achados.length, JSON.stringify(v.achados)).toBe(0);
+  });
+
   it('nome de bloco do FAQ no texto ao paciente é flag', () => {
     const v = inspecionaSaida('Conforme o F12, tem vaga segunda.');
     expect(v.achados.some((a) => a.regra === 'linguagem_interna')).toBe(true);

@@ -182,6 +182,23 @@ const RX_INCLUI_EXAME =
   /inclu\w+\s+(?:o\s+|os\s+|todos\s+os\s+)?exames?\b|exames?\s+(?:est[ãa]o\s+)?inclu[íi]d/i;
 const NOMEIA_INCLUSO = /fundoscopia|tonometria|dois olhos|ambos os olhos/i;
 
+// --- mandar o paciente ligar ------------------------------------------------
+
+/**
+ * Mandar a pessoa ligar é transferir para ela o trabalho de ser atendida, e em
+ * dor isso é pior ainda: quem liga é a clínica. Regra do Thiago em 04/10/2026,
+ * que corrigiu a MINHA instrução anterior ("dê o número quando houver
+ * urgência").
+ *
+ * Informar o telefone a quem PEDIU o telefone continua certo, então a regra olha
+ * a combinação, não o número solto: telefone mais convite a ligar, ou telefone
+ * mais contexto de dor.
+ */
+const RX_TELEFONE_CLINICA = /\(?86\)?\s*3226[-\s]?1619/;
+const RX_CONVITE_LIGAR = /\b(?:liga|ligue|ligar|nos liga|me liga)\b/i;
+const RX_DOR =
+  /\b(?:dor|doendo|doer|ardendo|arder|incomodando|urg[êe]ncia|urgente|p[óo]s[-\s]?operat[óo]rio|inchad)/i;
+
 // --- mandar de volta ao menu ------------------------------------------------
 
 /**
@@ -279,7 +296,21 @@ export function inspecionaSaida(bruto: string): Veredito {
     break;
   }
 
-  // 6. flag: mandou o paciente de volta ao menu
+  // 6. flag: mandou o paciente ligar
+  if (
+    RX_TELEFONE_CLINICA.test(texto) &&
+    (RX_CONVITE_LIGAR.test(texto) || RX_DOR.test(texto))
+  ) {
+    achados.push({
+      regra: 'manda_ligar',
+      nivel: 'flag',
+      motivo:
+        'manda o paciente ligar; quem liga é a clínica. Acolha, escale com --urgente e diga "Só um instante" (F13)',
+      trecho: '(telefone omitido)',
+    });
+  }
+
+  // 7. flag: mandou o paciente de volta ao menu
   const menu = texto.match(RX_APONTA_MENU);
   if (menu) {
     achados.push({
@@ -290,7 +321,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 7. flag: negou o desconto, contando que ele existe
+  // 8. flag: negou o desconto, contando que ele existe
   const nega = texto.match(RX_NEGA_DESCONTO);
   if (nega) {
     achados.push({
@@ -301,7 +332,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 8. flag: prometeu exame incluso sem nomear o que está incluso
+  // 9. flag: prometeu exame incluso sem nomear o que está incluso
   const inclui = texto.match(RX_INCLUI_EXAME);
   if (inclui && !NOMEIA_INCLUSO.test(texto)) {
     achados.push({
@@ -313,7 +344,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 9. flag: linguagem interna sobrevivendo no texto
+  // 10. flag: linguagem interna sobrevivendo no texto
   const interno = texto.match(RX_INTERNO);
   if (interno) {
     achados.push({
@@ -324,7 +355,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 10. flag: frases proibidas de estilo
+  // 11. flag: frases proibidas de estilo
   for (const [rx, motivo] of PROIBIDAS) {
     const m = texto.match(rx);
     if (m) {
