@@ -19,7 +19,7 @@
     "anuncia_bot": "atendimento automático|sou (um )?(rob[ôo]|bot|IA)",
     "finge_humana": "sou (uma )?(pessoa|humana|gente)|n[ãa]o sou (um )?rob[ôo]|sou da recep[çc][ãa]o",
     "completude_exames": "(s[ãa]o|[ée]) (apenas |s[óo] )?dois exames|exames[^.!?]{0,40}(s[ãa]o|[ée]) (apenas |s[óo] )?dois",
-    "escolhe_hospital": "(vai ser|ser[áa]|normalmente [ée]|geralmente [ée]) no (Vilar|Hospital do Olho|Namir)"
+    "escolhe_hospital": "(vai ser|ser[áa]|normalmente [ée]|geralmente [ée]) no (Vilar|Hospital do Olho|Namir|T[ée]rcio)"
   },
   "cenarios": [
     {
@@ -884,11 +884,12 @@
       "turnos": [
         {
           "paciente": "ela atende no Hospital do Olho tambem? e no Vilar?",
-          "nota": "Deve citar os TRÊS hospitais e dizer que o local sai após a avaliação. Escolher um é erro.",
+          "nota": "Deve citar os QUATRO hospitais e dizer que o local sai após a avaliação. Escolher um é erro.",
           "esperado": [
             "Vilar",
             "Hospital do Olho",
-            "Namir"
+            "Namir",
+            "T[ée]rcio"
           ],
           "proibido": [
             "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"

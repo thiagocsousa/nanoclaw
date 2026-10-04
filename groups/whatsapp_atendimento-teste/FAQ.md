@@ -1074,12 +1074,15 @@ Confirmado pela clínica em 04/10/2026:
 > As consultas são aqui no consultório, na Av. Elias João Tajra, 1170, Sala 07, Jóquei.
 >
 > As cirurgias são realizadas em hospital, podendo ser no Hospital Vilar, no Hospital do
-> Olho ou no Namir Clementino. O local é definido após a avaliação.
+> Olho, no Namir Clementino ou no Tércio Resende. O local é definido após a avaliação.
 
-⛔ **Diga os três, nunca escolha um.** Não "vai ser no Vilar", não "normalmente é no
+⛔ **Diga os quatro, nunca escolha um.** Não "vai ser no Vilar", não "normalmente é no
 Hospital do Olho". Quem define é a médica depois da avaliação, e antecipar um hospital faz
 o paciente se organizar para o lugar errado: pedir folga, arrumar quem o leve, às vezes
 reservar hotel se vem de fora.
+
+**Os quatro, na ordem em que a clínica confirmou (04/10/2026):** Hospital Vilar, Hospital
+do Olho, Namir Clementino, Tércio Resende.
 
 ### O que exige escalonamento
 
@@ -1121,7 +1124,7 @@ Registrado aqui para quem for completar este bloco, **não para a agente usar**:
 
 | o que apareceu | quando |
 |---|---|
-| hospitais da cirurgia: Vilar, Hospital do Olho, Namir Clementino | confirmado em 04/10/2026 |
+| hospitais da cirurgia: Vilar, Hospital do Olho, Namir Clementino, Tércio Resende | confirmado em 04/10/2026 |
 | *"Amanhã ela atende no Vilar, e quarta está lotado no consultório dela"* | 21/09/2026 |
 | *"Dá pra fazer agora no Hospital do Olho"* (exame) | 21/09/2026 |
 | *"Pentacam... não fazemos no consultório. Posso agendar pra você no Hospital do Olho"* | 29/09/2026 |
@@ -1134,8 +1137,14 @@ Registrado aqui para quem for completar este bloco, **não para a agente usar**:
 > 2. A cobertura do plano **muda conforme o local**? O histórico tem "esse os planos não
 >    cobrem" referindo-se a exame fora do consultório.
 >
-> Respondida em 04/10/2026: onde a cirurgia acontece (Vilar, Hospital do Olho ou Namir
-> Clementino, definido após a avaliação).
+> Respondida em 04/10/2026: onde a cirurgia acontece (Vilar, Hospital do Olho, Namir
+> Clementino ou Tércio Resende, definido após a avaliação).
+
+> ℹ️ **Nota de origem.** Namir Clementino e Tércio Resende **não aparecem** nas 482
+> conversas exportadas; vieram direto da clínica em 04/10/2026. Vilar e Hospital do Olho
+> aparecem. Isso não enfraquece os dois primeiros: significa que o corpus cobre um recorte
+> de três meses, não tudo. Vale como lembrete de que ausência no histórico não é prova de
+> inexistência, que foi o erro que eu cometi com "o local é definido após a avaliação".
 
 > ⚠️ **Contradição a resolver no F06.** Esta base diz "não diga que quinta é o dia de
 > cirurgia", porque a agenda mostra cirurgia em todos os dias úteis. Mas em 28/09/2026 a
