@@ -790,7 +790,7 @@
           "proibido": [
             "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
           ],
-          "intencao_esperada": "clinico"
+          "intencao_esperada": "DESCONHECIDO"
         }
       ]
     },

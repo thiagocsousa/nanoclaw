@@ -54,10 +54,21 @@ critérios que não cabem num nome:
   `criterios_cobertura_refrativa`. O que distingue é o que ele **pergunta**, não
   o que ele menciona: dor, sintoma e resultado de exame são `clinico` porque é
   disso que ele quer saber. (Decisão do Thiago em 04/10/2026.)
+
+  **Vale igual para diagnóstico de passagem.** "Meu pai tem catarata nos dois
+  olhos, queria marcar" é pedido de agendamento, não consulta clínica: ele não
+  pergunta nada sobre a catarata, ele pergunta sobre horário. "Tenho glaucoma, e
+  aí, é grave?" é `clinico`, porque aí a pergunta É sobre o quadro.
 - **menor_de_idade** vence o resto depois de `clinico`. Se aparecer idade abaixo
   de 18, ou "é para meu filho de X anos", é essa.
 - **desconto** exige **as duas coisas**: intenção de cirurgia e convênio não
   atendido. Faltando uma, não é desconto.
+
+  ⚠️ **As duas podem já estar no histórico.** Se ele disse que quer operar e que
+  tem um plano que não atendemos, e depois pergunta "e quanto fica a consulta?",
+  a resposta é `desconto`, não `preco_consulta`: ele se qualificou duas
+  mensagens atrás. Mandar o valor cheio aí é cobrar R$ 430,00 de quem tem
+  direito a R$ 300,00.
 - **convenio_cirurgia** é quando ele pergunta se o plano cobre a **cirurgia**.
   Se o plano for Intermed, Hapvida ou Humana, é `convenio_bloqueado`.
 
@@ -89,6 +100,17 @@ critérios que não cabem num nome:
   entrega o convênio e não fica sabendo que ele não é atendido.
 
   `triagem_dados` é para quando o dado **não dispara nada**.
+
+  ⛔ **E isto vale só para mensagem que TRAZ dado.** Duas coisas que a regra não
+  toca, e que ela quebrou na medição de 04/10:
+
+  | a mensagem | a intenção |
+  |---|---|
+  | declara a necessidade sem dado nenhum ("queria saber sobre a cirurgia pra parar de usar óculos") | `triagem_dados`: ele já disse o que precisa, o menu é atalho e você pula para a coleta |
+  | traz **os quatro dados completos** (nome, nascimento, cidade, convênio) | `horario_oferta`: a triagem terminou, o próximo passo é a vaga |
+
+  Pedir de novo o que a pessoa acabou de responder é o jeito mais rápido de
+  parecer máquina, porque máquina é a única coisa que não presta atenção.
 
 - **Pedido de dia, com os dados já na conversa, é `horario_oferta`**, não
   triagem. "Pode ser segunda às 15h?", "consegue pra amanhã?": se o histórico já
