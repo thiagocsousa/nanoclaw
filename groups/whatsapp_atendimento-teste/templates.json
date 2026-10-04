@@ -168,7 +168,7 @@
     },
     "exames_preco": {
       "bloco": "F08",
-      "quando": "quais exames, quanto custam os exames pré-operatórios",
+      "quando": "quais exames, quanto custam os exames pré-operatórios. NÃO serve para o Pentacam: esse texto só tem mapeamento e topografia, e não há valor de Pentacam na base. Pergunta sobre preço ou onde fazer o Pentacam é DESCONHECIDO; só a cobertura dele tem intenção própria (pentacam_cobertura).",
       "acao": "responder",
       "fecho": true,
       "textos": [

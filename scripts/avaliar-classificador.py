@@ -40,6 +40,32 @@ MODELO = os.environ.get("CLASSIFICADOR_MODELO", "claude-haiku-4-5-20251001")
 TIMEOUT = int(os.environ.get("CLASSIFICADOR_TIMEOUT", "90"))
 
 
+# Valores de exemplo para as chaves que a agenda e a tabela de preços preenchem
+# em produção. Aqui eles só precisam ser plausíveis: o que importa é o
+# classificador ver que um horário FOI oferecido, não qual.
+EXEMPLO_SLOT = {
+    "valor_consulta": "430,00", "valor_desconto": "300,00",
+    "dia": "segunda", "data": "06/10", "hora": "09:20", "dia_pedido": "sábado",
+}
+
+
+def fala_da_lara(tabela, intencao):
+    """O texto que a Lara teria mandado, reconstruído da tabela.
+
+    Em produção isto é o renderizador em templates.ts. Aqui basta o texto, e
+    ele vem da MESMA tabela, então o histórico que o classificador lê é o
+    histórico que ele veria de verdade.
+    """
+    d = tabela["intencoes"].get(intencao) or {}
+    textos = d.get("textos") or []
+    if not textos:
+        return None
+    t = textos[0]
+    for k, v in EXEMPLO_SLOT.items():
+        t = t.replace("{%s}" % k, v)
+    return re.sub(r"\{\w+\}", "...", t)
+
+
 def monta_prompt(instrucoes, tabela_resumo, historico, mensagem):
     partes = [instrucoes, "\n## Intenções disponíveis\n", tabela_resumo]
     if historico:
@@ -99,17 +125,31 @@ def main():
     )
     escalam = {n for n, d in tabela["intencoes"].items() if d.get("acao") == "escalar"}
 
+    def acao(nome):
+        if nome in escalam or nome == "DESCONHECIDO":
+            return "escalar"
+        return (tabela["intencoes"].get(nome) or {}).get("acao", "?")
+
+    # O histórico usa a intenção DO GABARITO, não a prevista. É teacher forcing
+    # de propósito: medindo a classificação de um turno, não quero o erro do
+    # turno anterior contaminando o input deste. Erro em cascata é problema de
+    # produção, e se misturar aqui eu não sei mais qual dos dois estou medindo.
     casos = []
     for c in suite["cenarios"]:
         hist = []
         for t in c["turnos"]:
-            if "intencao_esperada" in t:
+            esperada = t.get("intencao_esperada")
+            if esperada:
                 casos.append({
                     "cenario": c["id"], "categoria": c["categoria"],
-                    "mensagem": t["paciente"], "esperado": t["intencao_esperada"],
+                    "mensagem": t["paciente"], "esperado": esperada,
                     "historico": list(hist),
                 })
             hist.append(("paciente", t["paciente"]))
+            if esperada:
+                fala = fala_da_lara(tabela, esperada)
+                if fala:
+                    hist.append(("atendente", fala))
     if args.limite:
         casos = casos[: args.limite]
 
@@ -157,7 +197,23 @@ def main():
         print("  %-5s %-22s -> %-22s %s" % (c["cenario"], c["esperado"],
                                             c["previsto"], c["mensagem"][:44]))
 
-    outros = [c for c in casos if not c["acertou"] and c not in perigosos and c not in caros]
+    # Quarto balde, que faltava: quando gabarito e previsão escalam os dois, o
+    # paciente recebe exatamente a mesma coisa. Contar isso junto com troca de
+    # resposta inflava o erro aparente sem nenhum efeito real.
+    inocuos, outros = [], []
+    for c in casos:
+        if c["acertou"] or c in perigosos or c in caros:
+            continue
+        ea = acao(c["esperado"])
+        if ea == acao(c["previsto"]) and ea == "escalar":
+            inocuos.append(c)
+        else:
+            outros.append(c)
+    print("\nmesma ação, rótulo diferente (inócuo): %d" % len(inocuos))
+    for c in inocuos:
+        print("  %-5s %-22s -> %-22s %s" % (c["cenario"], c["esperado"],
+                                            c["previsto"], c["mensagem"][:44]))
+
     print("\ntrocou uma resposta por outra: %d" % len(outros))
     for c in outros:
         print("  %-5s %-22s -> %-22s %s" % (c["cenario"], c["esperado"],

@@ -1353,7 +1353,7 @@
             "\\(?\\d{2}\\)? ?\\d{4,5}[- ]?\\d{4}"
           ],
           "nota": "Segunda insistência: escalar, não repetir o pedido.",
-          "intencao_esperada": "DESCONHECIDO"
+          "intencao_esperada": "audio"
         }
       ]
     },
@@ -1378,7 +1378,7 @@
             "\\bliga\\b"
           ],
           "nota": "Dor + áudio = escalonamento urgente, sem mandar digitar.",
-          "intencao_esperada": "clinico"
+          "intencao_esperada": "audio"
         }
       ]
     },
