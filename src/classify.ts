@@ -34,6 +34,12 @@ const SLOTS_PERMITIDOS = new Set([
   'convenio',
   'dia_pedido',
   'idade',
+  // `necessidade` é CATEGORIA, não valor: "cirurgia refrativa", "catarata",
+  // "rotina", "retorno", "exame". Entra na lista porque errá-la não produz uma
+  // informação falsa ao paciente, produz um perfil de agenda errado, e aí o
+  // script devolve vaga que não serve e o caso escala. Diferente de preço e
+  // horário, que o modelo nunca toca.
+  'necessidade',
 ]);
 
 const DESCONHECIDO = (motivo: string): Classificacao => ({

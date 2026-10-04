@@ -9,6 +9,23 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const RAIZ = fs.mkdtempSync(path.join(os.tmpdir(), 'exec-'));
 const PASTA = 'whatsapp_exec-teste';
 
+// O que se testa aqui é a decisão do executor: quando ele vai à agenda, e o que
+// faz com o resultado. O iClinic de verdade é testado à mão, contra a agenda
+// real, porque mock de Playwright não prova nada sobre o iClinic.
+const buscou: Array<{ perfil: string; dia?: string }> = [];
+let vagasFalsas: Array<Record<string, string>> = [];
+
+vi.mock('./vagas.js', async (orig) => {
+  const real = await orig<typeof import('./vagas.js')>();
+  return {
+    ...real,
+    buscaVagas: async (_f: string, perfil: string, o: { dia?: string } = {}) => {
+      buscou.push({ perfil, dia: o.dia });
+      return vagasFalsas;
+    },
+  };
+});
+
 vi.mock('./config.js', async (orig) => ({
   ...(await orig<typeof import('./config.js')>()),
   GROUPS_DIR: RAIZ,
@@ -68,6 +85,8 @@ beforeEach(async () => {
   esqueceTabela = (await import('./templates.js')).esqueceTabela;
   esqueceTabela();
   enviadas = [];
+  buscou.length = 0;
+  vagasFalsas = [];
 });
 
 afterEach(() => {
@@ -247,6 +266,48 @@ describe('motivo da escalada: tabela antes do modelo', () => {
   it('sem nada, cai na intenção, para o aviso nunca sair sem motivo', async () => {
     await rodar('{"intencao":"clinico","confianca":0.9,"slots":{}}');
     expect(enviadas[0].text).toContain('intenção clinico');
+  });
+});
+
+// `dia` e `hora` são proibidos ao modelo, então sem o host indo à agenda
+// NENHUMA oferta de horário seria possível. Era o estado da primeira versão.
+describe('oferta de horário: quem vai à agenda é o host', () => {
+  it('com necessidade e convênio, busca com o perfil cruzado e preenche o texto', async () => {
+    vagasFalsas = [
+      { data: '2026-10-06', dia_semana: 'segunda', inicio: '09:20', fim: '09:50' },
+    ];
+    const r = await rodar(
+      '{"intencao":"horario_oferta","confianca":0.95,"slots":{"necessidade":"cirurgia refrativa","convenio":"particular"}}',
+      'tem vaga?',
+    );
+    expect(buscou).toEqual([{ perfil: 'particular-cirurgia', dia: undefined }]);
+    expect(r?.acao).toBe('responder');
+    expect(r?.texto).toBe('Tenho segunda às 09:20.');
+  });
+
+  it('sem convênio NÃO consulta a agenda, e escala', async () => {
+    const r = await rodar(
+      '{"intencao":"horario_oferta","confianca":0.95,"slots":{"necessidade":"rotina"}}',
+    );
+    expect(buscou).toEqual([]);
+    expect(r?.acao).toBe('escalar');
+  });
+
+  it('agenda sem vaga escala, em vez de mandar a chave crua', async () => {
+    vagasFalsas = [];
+    const r = await rodar(
+      '{"intencao":"horario_oferta","confianca":0.95,"slots":{"necessidade":"rotina","convenio":"Unimed"}}',
+    );
+    expect(buscou).toEqual([{ perfil: 'unimed', dia: undefined }]);
+    expect(r?.acao).toBe('escalar');
+    expect(r?.texto).not.toContain('{dia}');
+  });
+
+  it('intenção que não pede horário NÃO consulta a agenda', async () => {
+    await rodar(
+      '{"intencao":"endereco","confianca":0.95,"slots":{"necessidade":"rotina","convenio":"Unimed"}}',
+    );
+    expect(buscou).toEqual([]);
   });
 });
 

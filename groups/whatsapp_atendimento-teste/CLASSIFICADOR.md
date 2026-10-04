@@ -35,9 +35,17 @@ código, sem explicação antes ou depois:
 | `convenio` | plano que ele citou, ou "particular" | "Unimed" |
 | `dia_pedido` | dia que ele pediu | "sábado" |
 | `idade` | só se ele disse um número de idade | "8" |
+| `necessidade` | o que ele veio buscar | "cirurgia refrativa", "catarata", "rotina", "retorno", "exame" |
 
 ⛔ **Nunca preencha `dia`, `data`, `hora` nem valor.** Esses vêm da agenda e da
 tabela de preços, não de você.
+
+ℹ️ **`necessidade` e `convenio` são o que destrava a oferta de horário.** O host
+cruza os dois para escolher o perfil da agenda, que define duração,
+antecedência e cota. **Faltando um dos dois, ele não consulta a agenda e o caso
+escala** — não porque sua resposta estaria errada, mas porque perfil errado
+produz uma vaga que não existe e que já foi prometida ao paciente. Então, quando
+ele disser o que precisa e qual o plano, extraia os dois.
 
 ## Intenções
 

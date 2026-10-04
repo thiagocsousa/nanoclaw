@@ -29,6 +29,7 @@ import { escala, type EscalationSlaDeps } from './escalation-sla.js';
 import { logger } from './logger.js';
 import { interpreta } from './classify.js';
 import { carregaTabela, renderiza, type Resultado } from './templates.js';
+import { buscaVagas, perfilDe, slotsDaVaga } from './vagas.js';
 
 const envConfig = readEnvFile(['TEMPLATE_FOLDERS']);
 
@@ -46,6 +47,18 @@ const FOLDERS = new Set(
  */
 export function wantsTemplates(groupFolder?: string): boolean {
   return !!groupFolder && FOLDERS.has(groupFolder);
+}
+
+/**
+ * O script aceita `--dia` só em ISO. O classificador extrai `dia_pedido` como o
+ * paciente falou ("sábado", "amanhã"), que não é data, então só repassamos o
+ * que já estiver em ISO. O resto vai sem `--dia`, e o script devolve o próximo
+ * disponível, que é a resposta certa para "tem vaga?".
+ */
+function diaIso(dia_pedido?: string): string | undefined {
+  return dia_pedido && /^\d{4}-\d{2}-\d{2}$/.test(dia_pedido)
+    ? dia_pedido
+    : undefined;
 }
 
 export interface SaidaDoExecutor {
@@ -88,9 +101,31 @@ export async function executa(
     );
   }
 
+  // `dia` e `hora` não vêm do modelo, por proibição do parser. Então quando a
+  // intenção exige esses slots, é o host que vai à agenda — senão o
+  // renderizador rebaixa por slot ausente e NENHUMA oferta de horário seria
+  // possível, que era o estado da primeira versão deste arquivo.
+  let slots = c.slots;
+  const exige = tabela.intencoes[c.intencao]?.slots_obrigatorios ?? [];
+  if (exige.includes('dia') || exige.includes('hora')) {
+    const perfil = perfilDe(c.slots.necessidade, c.slots.convenio);
+    if (!perfil) {
+      // "Não rode no chute" (F12): perfil errado é vaga inválida já prometida.
+      logger.info(
+        { groupFolder, intencao: c.intencao, slots: c.slots },
+        'executor: sem perfil para a agenda, vai escalar',
+      );
+    } else {
+      const vagas = await buscaVagas(groupFolder, perfil, {
+        dia: diaIso(c.slots.dia_pedido),
+      });
+      if (vagas.length > 0) slots = { ...slots, ...slotsDaVaga(vagas[0]) };
+    }
+  }
+
   const r = renderiza(tabela, c.intencao, {
     confianca: c.confianca,
-    slots: c.slots,
+    slots,
   });
 
   const saida: SaidaDoExecutor = {
