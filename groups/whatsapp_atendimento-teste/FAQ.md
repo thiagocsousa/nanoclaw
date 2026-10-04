@@ -1005,12 +1005,16 @@ Parece burocrático e não é. Três motivos concretos:
 > de cirurgia. Guardá-los no repositório colocaria dado de saúde de pessoas identificadas no
 > git, onde fica permanente. Quem envia o documento certo, para a pessoa certa, é a equipe.
 
-> ❓ **Uma decisão pendente para a clínica.** Os três documentos trazem o WhatsApp da
-> Dra. Marina no rodapé. Isso contradiz a regra de 04/10/2026 de que a agente nunca passa
-> telefone. As duas coisas podem conviver, porque o número vai **dentro do documento**, que
-> é enviado por humano a quem já é paciente cirúrgico, e não dito pela agente a quem está
-> perguntando preço. Mas vale vocês confirmarem que é isso mesmo: se um paciente pedir "o
-> número da doutora", a agente deve continuar escalando?
+> ✅ **Decidido em 04/10/2026: pedir o número da doutora continua escalando.**
+>
+> Os três documentos trazem o WhatsApp da Dra. Marina no rodapé, e isso **não** abre exceção
+> na regra de nunca passar telefone. A diferença é quem entrega e para quem: o número vai
+> **dentro do documento**, enviado por um humano a quem já é paciente cirúrgico e tem
+> cirurgia marcada. A agente dizer o número a quem está perguntando preço é outra coisa.
+>
+> Se pedirem "o número da doutora", "o WhatsApp dela", "quero falar direto com a médica":
+
+> Só um instante.
 
 ---
 
