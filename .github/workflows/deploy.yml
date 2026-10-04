@@ -18,7 +18,17 @@ jobs:
           # chromium do playwright, export de layers) e estourava o default. 30m cobre.
           command_timeout: 30m
           script: |
+            # `set -e` não é detalhe: sem ele, um `git pull` que falha não para
+            # o script, e o `deploy.sh` roda em seguida reconstruindo o código
+            # VELHO e reportando sucesso. Aconteceu em 04/10/2026, quando um
+            # arquivo rastreado por engano (`nanoclaw.db`) bloqueou o pull com
+            # "untracked working tree files would be overwritten by merge": a VM
+            # ficou 25 min parada enquanto o workflow dizia que tinha
+            # deployado. Deploy que mente é pior que deploy que falha.
+            set -e
             sudo chown -R $USER:$USER ${{ secrets.VM_PROJECT_PATH }} || true
             cd ${{ secrets.VM_PROJECT_PATH }}
-            git pull origin main
+            # --ff-only: se divergiu, é para parar e alguém olhar, não para
+            # criar merge commit na VM.
+            git pull --ff-only origin main
             bash scripts/deploy.sh

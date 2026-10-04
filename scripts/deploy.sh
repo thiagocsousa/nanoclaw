@@ -13,6 +13,17 @@ echo ""
 echo "[2/4] npm ci..."
 npm ci --prefer-offline
 
+# O build é `tsc`, que vem de devDependencies. Em 04/10/2026 a VM estava sem
+# `typescript` e o build morria com "tsc: not found" — o `npm ci` acima tinha
+# rodado em algum momento sem as devDeps. Checar aqui dá erro legível em vez de
+# um 127 no meio do deploy.
+if [ ! -x node_modules/.bin/tsc ]; then
+  echo "FALHOU: node_modules/.bin/tsc não existe depois do npm ci."
+  echo "  O build é tsc e ele vem de devDependencies. Rodar com NODE_ENV=production"
+  echo "  ou --omit=dev deixa a VM sem como compilar."
+  exit 1
+fi
+
 echo "[3/4] build..."
 npm run build
 
