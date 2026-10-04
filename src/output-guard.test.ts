@@ -326,6 +326,26 @@ describe('avisa sem bloquear: deslize de estilo', () => {
     expect(inspecionaSaida('Só um instante.').achados.length).toBe(0);
   });
 
+  it('pega valor do Pentacam, que muda por hospital', () => {
+    for (const t of [
+      'O Pentacam fica R$ 500,00 no Hospital do Olho.',
+      'São 600 reais o pentacam no Vilar.',
+    ]) {
+      const v = inspecionaSaida(t);
+      expect(
+        v.achados.some((a) => a.regra === 'valor_pentacam'),
+        t,
+      ).toBe(true);
+    }
+  });
+
+  it('a resposta de cobertura do Pentacam passa limpa', () => {
+    const v = inspecionaSaida(
+      'O Pentacam nenhum convênio cobre, ele é particular. E não fazemos aqui no consultório.',
+    );
+    expect(v.achados.length, JSON.stringify(v.achados)).toBe(0);
+  });
+
   it('pega pedido de dado de CNPJ, que devia ter escalado', () => {
     for (const t of [
       'Para a nota em nome da empresa, me envie o CNPJ e a razão social.',

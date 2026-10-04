@@ -75,7 +75,14 @@ const CIRURGIA =
   /cirurgi|facectomia|refrativ|catarata|pterígio|pterigio|lasik|prk|yag|capsulotomia|intraocular/i;
 /** Assuntos cujo preço a Lara PODE dizer. */
 const PRECIFICAVEL =
-  /avalia[çc][ãa]o|consulta|retorno|exame|mapeamento|topografi|ceratoscopi|pentacam/i;
+  /avalia[çc][ãa]o|consulta|retorno|exame|mapeamento|topografi|ceratoscopi/i;
+/**
+ * Pentacam saiu do precificável em 04/10/2026: o valor muda por hospital
+ * (R$ 500 no Hospital do Olho, R$ 600 no Vilar), então a agente responde a
+ * cobertura e escala o preço. Qualquer valor junto dele é erro.
+ */
+const RX_PENTACAM_VALOR =
+  /pentacam[^.!?\n]{0,40}(?:R\$\s?\d|\d{3}\s?reais)|(?:R\$\s?\d|\d{3}\s?reais)[^.!?\n]{0,40}pentacam/i;
 
 /**
  * Preço de cirurgia (regra dura 1b).
@@ -377,7 +384,19 @@ export function inspecionaSaida(bruto: string): Veredito {
   }
   RX_TELEFONE.lastIndex = 0; // regex global: zera entre chamadas
 
-  // 6. flag: pediu dado de pessoa jurídica em vez de escalar
+  // 6. flag: citou valor do Pentacam, que varia por hospital
+  const pent = texto.match(RX_PENTACAM_VALOR);
+  if (pent) {
+    achados.push({
+      regra: 'valor_pentacam',
+      nivel: 'flag',
+      motivo:
+        'cita valor do Pentacam; muda por hospital (R$ 500 no Hospital do Olho, R$ 600 no Vilar), quem informa é a recepção (F08)',
+      trecho: pent[0].slice(0, 60),
+    });
+  }
+
+  // 7. flag: pediu dado de pessoa jurídica em vez de escalar
   const cnpj = texto.match(RX_PEDE_CNPJ);
   if (cnpj) {
     achados.push({
@@ -389,7 +408,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 7. flag: disse que atende plano que só cobre cirurgia
+  // 8. flag: disse que atende plano que só cobre cirurgia
   if (
     RX_PLANO_PARCIAL.test(texto) &&
     RX_ATENDE_SIM.test(texto) &&
@@ -404,7 +423,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 8. flag: afirmou que a lista de exames está completa
+  // 9. flag: afirmou que a lista de exames está completa
   const compl = texto.match(RX_COMPLETUDE);
   if (compl) {
     achados.push({
@@ -416,7 +435,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 9. block: afirmou ser pessoa
+  // 10. block: afirmou ser pessoa
   const finge = texto.match(RX_FINGE_HUMANA);
   if (finge) {
     achados.push({
@@ -428,7 +447,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 10. flag: abertura sem o menu completo
+  // 11. flag: abertura sem o menu completo
   if (RX_ABERTURA.test(texto) && !RX_MENU_COMPLETO.test(texto)) {
     achados.push({
       regra: 'abertura_malformada',
@@ -439,7 +458,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 11. flag: mandou o paciente ligar
+  // 12. flag: mandou o paciente ligar
   if (RX_CONVITE_LIGAR.test(texto) && RX_DOR.test(texto)) {
     achados.push({
       regra: 'manda_ligar',
@@ -450,7 +469,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 12. flag: mandou o paciente de volta ao menu
+  // 13. flag: mandou o paciente de volta ao menu
   const menu = texto.match(RX_APONTA_MENU);
   if (menu) {
     achados.push({
@@ -461,7 +480,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 13. flag: negou o desconto, contando que ele existe
+  // 14. flag: negou o desconto, contando que ele existe
   const nega = texto.match(RX_NEGA_DESCONTO);
   if (nega) {
     achados.push({
@@ -472,7 +491,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 14. flag: prometeu exame incluso sem nomear o que está incluso
+  // 15. flag: prometeu exame incluso sem nomear o que está incluso
   const inclui = texto.match(RX_INCLUI_EXAME);
   if (inclui && !NOMEIA_INCLUSO.test(texto)) {
     achados.push({
@@ -484,7 +503,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 15. flag: linguagem interna sobrevivendo no texto
+  // 16. flag: linguagem interna sobrevivendo no texto
   const interno = texto.match(RX_INTERNO);
   if (interno) {
     achados.push({
@@ -495,7 +514,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 16. flag: frases proibidas de estilo
+  // 17. flag: frases proibidas de estilo
   for (const [rx, motivo] of PROIBIDAS) {
     const m = texto.match(rx);
     if (m) {

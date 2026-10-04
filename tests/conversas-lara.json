@@ -19,7 +19,8 @@
     "anuncia_bot": "atendimento automático|sou (um )?(rob[ôo]|bot|IA)",
     "finge_humana": "sou (uma )?(pessoa|humana|gente)|n[ãa]o sou (um )?rob[ôo]|sou da recep[çc][ãa]o",
     "completude_exames": "(s[ãa]o|[ée]) (apenas |s[óo] )?dois exames|exames[^.!?]{0,40}(s[ãa]o|[ée]) (apenas |s[óo] )?dois",
-    "escolhe_hospital": "(vai ser|ser[áa]|normalmente [ée]|geralmente [ée]) no (Vilar|Hospital do Olho|Namir|T[ée]rcio)"
+    "escolhe_hospital": "(vai ser|ser[áa]|normalmente [ée]|geralmente [ée]) no (Vilar|Hospital do Olho|Namir|T[ée]rcio)",
+    "valor_pentacam": "[Pp]entacam[^.!?]{0,40}R\\$|R\\$[^.!?]{0,40}[Pp]entacam"
   },
   "cenarios": [
     {
@@ -1272,6 +1273,43 @@
             "S[óo] um instante"
           ],
           "nota": "Abertura = texto literal do F00, sem acréscimo."
+        }
+      ]
+    },
+    {
+      "id": "H04",
+      "categoria": "pre_operatorio",
+      "sobre": "Pentacam: responde a cobertura, escala preço e local (F08).",
+      "turnos": [
+        {
+          "paciente": "o plano cobre o Pentacam?",
+          "esperado": [
+            "nenhum conv[êe]nio cobre|particular"
+          ],
+          "proibido": [
+            "R\\$\\s?\\d",
+            "500",
+            "600"
+          ],
+          "nota": "Cobertura ela responde. Valor muda por hospital, então não cita."
+        }
+      ]
+    },
+    {
+      "id": "H05",
+      "categoria": "pre_operatorio",
+      "sobre": "Pergunta o preço do Pentacam: escala, porque varia por hospital.",
+      "turnos": [
+        {
+          "paciente": "quanto custa o pentacam e onde faço?",
+          "proibido": [
+            "R\\$\\s?\\d",
+            "500",
+            "600"
+          ],
+          "esperado": [
+            "S[óo] um instante"
+          ]
         }
       ]
     }

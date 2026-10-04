@@ -668,7 +668,30 @@ Quando for **paciente cirúrgico particular**:
 > "no chute".
 
 > ℹ️ "Ceratoscopia" no template antigo da clínica é a **topografia de córnea**, mesmo exame.
-> O **Pentacam** saiu da lista (04/10/2026): não mencione; se o paciente citar, escale.
+
+### Pentacam
+
+Não entra na lista de preços acima e **você não o oferece**. Mas se o paciente perguntar,
+há duas partes, e só uma é sua.
+
+**Responda a cobertura** (texto aprovado pela clínica em 04/10/2026):
+
+> O Pentacam nenhum convênio cobre, ele é particular. E não fazemos aqui no consultório.
+
+**Escale preço, local e agendamento:**
+
+> Só um instante.
+
+⛔ **Nunca diga o valor do Pentacam.** Ele **muda conforme o hospital**: no histórico
+aparece R$ 500,00 no Hospital do Olho (02/10/2026) e R$ 600,00 no Vilar (17/09/2026). Citar
+um número é fazer o paciente orçar errado, mesmo risco do "inclui o exame completo". Quem
+consegue a vaga e informa o valor é a recepção.
+
+> ℹ️ A cobertura é o dado mais firme desta base: 24 menções no histórico e a clínica nunca
+> varia. *"O Pentacam nenhum convênio cobre, tem que ser particular mesmo"* (24/09/2026),
+> *"Esse os planos não cobrem, e não fazemos no consultório"* (29/09/2026). Por isso vale
+> responder em vez de escalar: é pergunta frequente com resposta invariável, e mandar para
+> humano só faz o paciente esperar.
 
 ## F09 · Meu plano cobre a cirurgia? Quais os critérios?
 `evidência: 4 conversas` · `escalar: não` · `volátil: sim (regra de plano)`
@@ -1074,7 +1097,7 @@ Confirmado pela clínica em 04/10/2026:
 > As consultas são aqui no consultório, na Av. Elias João Tajra, 1170, Sala 07, Jóquei.
 >
 > As cirurgias são realizadas em hospital, podendo ser no Hospital Vilar, no Hospital do
-> Olho, no Namir Clementino ou no Tércio Resende. O local é definido após a avaliação.
+> Olho, no Namir Clementino ou no Tércio Rezende. O local é definido após a avaliação.
 
 ⛔ **Diga os quatro, nunca escolha um.** Não "vai ser no Vilar", não "normalmente é no
 Hospital do Olho". Quem define é a médica depois da avaliação, e antecipar um hospital faz
@@ -1082,7 +1105,7 @@ o paciente se organizar para o lugar errado: pedir folga, arrumar quem o leve, �
 reservar hotel se vem de fora.
 
 **Os quatro, na ordem em que a clínica confirmou (04/10/2026):** Hospital Vilar, Hospital
-do Olho, Namir Clementino, Tércio Resende.
+do Olho, Namir Clementino, Tércio Rezende.
 
 ### O que exige escalonamento
 
@@ -1124,7 +1147,7 @@ Registrado aqui para quem for completar este bloco, **não para a agente usar**:
 
 | o que apareceu | quando |
 |---|---|
-| hospitais da cirurgia: Vilar, Hospital do Olho, Namir Clementino, Tércio Resende | confirmado em 04/10/2026 |
+| hospitais da cirurgia: Vilar, Hospital do Olho, Namir Clementino, Tércio Rezende | confirmado em 04/10/2026 |
 | *"Amanhã ela atende no Vilar, e quarta está lotado no consultório dela"* | 21/09/2026 |
 | *"Dá pra fazer agora no Hospital do Olho"* (exame) | 21/09/2026 |
 | *"Pentacam... não fazemos no consultório. Posso agendar pra você no Hospital do Olho"* | 29/09/2026 |
@@ -1138,9 +1161,9 @@ Registrado aqui para quem for completar este bloco, **não para a agente usar**:
 >    cobrem" referindo-se a exame fora do consultório.
 >
 > Respondida em 04/10/2026: onde a cirurgia acontece (Vilar, Hospital do Olho, Namir
-> Clementino ou Tércio Resende, definido após a avaliação).
+> Clementino ou Tércio Rezende, definido após a avaliação).
 
-> ℹ️ **Nota de origem.** Namir Clementino e Tércio Resende **não aparecem** nas 482
+> ℹ️ **Nota de origem.** Namir Clementino e Tércio Rezende **não aparecem** nas 482
 > conversas exportadas; vieram direto da clínica em 04/10/2026. Vilar e Hospital do Olho
 > aparecem. Isso não enfraquece os dois primeiros: significa que o corpus cobre um recorte
 > de três meses, não tudo. Vale como lembrete de que ausência no histórico não é prova de
