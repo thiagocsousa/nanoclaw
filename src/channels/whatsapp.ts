@@ -2,6 +2,8 @@ import { exec } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
+import qrcodeTerminal from 'qrcode-terminal';
+
 import makeWASocket, {
   Browsers,
   DisconnectReason,
@@ -27,7 +29,24 @@ import {
 } from '../audio-transcribe.js';
 import { readEnvFile } from '../env.js';
 
-const envConfig = readEnvFile(['WHATSAPP_PAIRING_NUMBER']);
+const envConfig = readEnvFile([
+  'WHATSAPP_PAIRING_NUMBER',
+  'WHATSAPP_QR_FILE',
+]);
+
+/**
+ * Caminho onde gravar o QR de vinculação, em texto desenhado.
+ *
+ * Existe porque o pareamento por NÚMERO falhou três vezes no aparelho do
+ * atendimento em 04/10/2026: o código era gerado, vivia os 2m40s e expirava
+ * sem o celular conseguir completar ("não foi possível conectar"). O QR é outro
+ * caminho no WhatsApp e não depende daquele fluxo.
+ *
+ * Vazio desliga, e aí vale o pareamento por número. Quando ligado, NÃO se pede
+ * código: os dois fluxos disputariam a mesma vinculação.
+ */
+const QR_FILE =
+  process.env.WHATSAPP_QR_FILE || envConfig.WHATSAPP_QR_FILE || '';
 const PAIRING_NUMBER =
   process.env.WHATSAPP_PAIRING_NUMBER ||
   envConfig.WHATSAPP_PAIRING_NUMBER ||
@@ -143,6 +162,25 @@ export class WhatsAppChannel implements Channel {
       const { connection, lastDisconnect, qr } = update;
 
       if (qr) {
+        if (QR_FILE) {
+          // Desenhado aqui, na VM, de propósito: o QR se renova a cada ~20s, e
+          // trazer a string crua para desenhar do outro lado gastaria uma ida a
+          // mais da janela de quem vai escanear.
+          qrcodeTerminal.generate(qr, { small: true }, (desenho: string) => {
+            try {
+              const tmp = `${QR_FILE}.tmp`;
+              fs.writeFileSync(
+                tmp,
+                `gerado ${new Date().toISOString()}\n\n${desenho}\n`,
+              );
+              fs.renameSync(tmp, QR_FILE);
+              logger.info({ arquivo: QR_FILE }, 'QR de vinculação atualizado');
+            } catch (err) {
+              logger.error({ err, arquivo: QR_FILE }, 'não gravei o QR');
+            }
+          });
+          return;
+        }
         if (pairingNumber) {
           // Pairing code mode — request code instead of showing QR.
           // UMA vez por conexão: ver pairingCodeRequested.
