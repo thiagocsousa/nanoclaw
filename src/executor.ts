@@ -62,6 +62,38 @@ function diaIso(dia_pedido?: string): string | undefined {
     : undefined;
 }
 
+/**
+ * A lista de intenções, para o HOST pôr no prompt.
+ *
+ * ## Por que o host injeta em vez de o agente ler o arquivo
+ *
+ * O `CLAUDE.md` mandava ler `templates.json`, e em 04/10/2026, no primeiro teste
+ * em produção, o agente **não leu**: devolveu `endereco_clinica`, que não existe
+ * (o nome é `endereco`), o parser rejeitou e o caso escalou. Ele inventou o nome
+ * exatamente como o prompt avisava que aconteceria.
+ *
+ * Isso também expôs um furo na medição: o avaliador SEMPRE injetava a lista no
+ * prompt, então os 92,1% foram medidos com ela e produção não a tinha. Pedir ao
+ * modelo que leia um arquivo é depender de ele fazer a coisa certa, que é o que
+ * esta arquitetura existe para não fazer. Agora é o host que põe.
+ */
+export function listaDeIntencoes(groupFolder: string): string | undefined {
+  const tabela = carregaTabela(groupFolder);
+  if (!tabela) return undefined;
+  const linhas = Object.entries(tabela.intencoes)
+    .filter(([nome]) => nome !== 'DESCONHECIDO')
+    .map(([nome, d]) => `- **${nome}**: ${d.quando ?? ''}`);
+  return [
+    '## Intenções disponíveis',
+    '',
+    'Esta é a lista COMPLETA e os nomes são exatos. Nome fora desta lista é',
+    'tratado como DESCONHECIDO e escala, então não invente nem abrevie.',
+    '',
+    ...linhas,
+    '- **DESCONHECIDO**: nada acima serve, ou confiança abaixo do limiar',
+  ].join('\n');
+}
+
 export interface SaidaDoExecutor {
   /** O que enviar ao paciente. Vazio só se a tabela não tiver texto algum. */
   texto: string;

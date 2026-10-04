@@ -384,3 +384,29 @@ describe('sem tabela, não improvisa', () => {
     expect(r).toBeUndefined();
   });
 });
+
+// O furo que a produção achou e a medição não: o avaliador SEMPRE injetava a
+// lista no prompt, então os 92,1% foram medidos com ela. Produção mandava o
+// agente ler o arquivo, ele não leu, e inventou `endereco_clinica`.
+describe('listaDeIntencoes: a lista vai no prompt, não num arquivo a abrir', () => {
+  it('traz todos os nomes da tabela, com o critério', async () => {
+    const { listaDeIntencoes } = await import('./executor.js');
+    const lista = listaDeIntencoes(PASTA) as string;
+    expect(lista).toContain('**endereco**');
+    expect(lista).toContain('**clinico**');
+    expect(lista).toContain('**horario_oferta**');
+    expect(lista).toContain('**DESCONHECIDO**');
+  });
+
+  it('avisa que nome fora da lista escala, que é o que de fato acontece', async () => {
+    const { listaDeIntencoes } = await import('./executor.js');
+    expect(listaDeIntencoes(PASTA)).toMatch(/n[ãa]o invente/i);
+  });
+
+  it('sem tabela devolve undefined, e o host não emenda nada', async () => {
+    fs.rmSync(path.join(RAIZ, PASTA, 'templates.json'));
+    esqueceTabela();
+    const { listaDeIntencoes } = await import('./executor.js');
+    expect(listaDeIntencoes(PASTA)).toBeUndefined();
+  });
+});

@@ -79,7 +79,7 @@ import {
   podeDarBaixa,
   startEscalationSla,
 } from './escalation-sla.js';
-import { executa, wantsTemplates } from './executor.js';
+import { executa, listaDeIntencoes, wantsTemplates } from './executor.js';
 import {
   inspecionaSaida,
   resumoDoAviso,
@@ -269,7 +269,17 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
     if (!hasTrigger) return true;
   }
 
-  const prompt = formatMessages(missedMessages, TIMEZONE);
+  let prompt = formatMessages(missedMessages, TIMEZONE);
+
+  // Na pasta que responde por tabela, a lista de intenções vai NO PROMPT. O
+  // CLAUDE.md mandava o agente ler `templates.json` e no primeiro teste em
+  // produção ele não leu: inventou `endereco_clinica`, que não existe, e o caso
+  // escalou. Depender de o modelo abrir um arquivo é depender de ele fazer a
+  // coisa certa, e é isso que esta arquitetura existe para não fazer.
+  if (wantsTemplates(group.folder)) {
+    const lista = listaDeIntencoes(group.folder);
+    if (lista) prompt = `${lista}\n\n${prompt}`;
+  }
 
   // Advance cursor so the piping path in startMessageLoop won't re-fetch
   // these messages. Save the old cursor so we can roll back on error.
