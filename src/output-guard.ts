@@ -182,6 +182,25 @@ const RX_INCLUI_EXAME =
   /inclu\w+\s+(?:o\s+|os\s+|todos\s+os\s+)?exames?\b|exames?\s+(?:est[ãa]o\s+)?inclu[íi]d/i;
 const NOMEIA_INCLUSO = /fundoscopia|tonometria|dois olhos|ambos os olhos/i;
 
+// --- abertura malformada ----------------------------------------------------
+
+/**
+ * A abertura é o texto literal do F00, com os quatro itens do menu. Qualquer
+ * coisa que se apresente como "Sou a Lara" sem o menu é abertura adulterada, e
+ * foi assim que apareceram os dois piores casos da suíte:
+ *
+ *   "Sou a Lara, atendimento automático..." (anunciou que é bot sem ninguém
+ *   perguntar, e no lugar do menu)
+ *   "2. Avaliação para cirurgia" (menu resumido, perdendo refrativa/catarata)
+ *
+ * A persona distingue as duas formas de propósito: "Sou a Lara" é abertura,
+ * "aqui é a Lara" é reidentificação no meio da conversa. Só a primeira exige
+ * menu, então reidentificar não cai aqui.
+ */
+const RX_ABERTURA = /\bsou a Lara\b/i;
+const RX_MENU_COMPLETO =
+  /Cirurgia Refrativa[\s\S]*Cirurgia de Catarata[\s\S]*Rotina/i;
+
 // --- mandar o paciente ligar ------------------------------------------------
 
 /**
@@ -302,7 +321,18 @@ export function inspecionaSaida(bruto: string): Veredito {
   }
   RX_TELEFONE.lastIndex = 0; // regex global: zera entre chamadas
 
-  // 6. flag: mandou o paciente ligar
+  // 6. flag: abertura sem o menu completo
+  if (RX_ABERTURA.test(texto) && !RX_MENU_COMPLETO.test(texto)) {
+    achados.push({
+      regra: 'abertura_malformada',
+      nivel: 'flag',
+      motivo:
+        'abertura com "Sou a Lara" sem os quatro itens do menu; a abertura é o texto literal do F00',
+      trecho: texto.slice(0, 90),
+    });
+  }
+
+  // 7. flag: mandou o paciente ligar
   if (RX_CONVITE_LIGAR.test(texto) && RX_DOR.test(texto)) {
     achados.push({
       regra: 'manda_ligar',
@@ -313,7 +343,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 7. flag: mandou o paciente de volta ao menu
+  // 8. flag: mandou o paciente de volta ao menu
   const menu = texto.match(RX_APONTA_MENU);
   if (menu) {
     achados.push({
@@ -324,7 +354,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 8. flag: negou o desconto, contando que ele existe
+  // 9. flag: negou o desconto, contando que ele existe
   const nega = texto.match(RX_NEGA_DESCONTO);
   if (nega) {
     achados.push({
@@ -335,7 +365,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 9. flag: prometeu exame incluso sem nomear o que está incluso
+  // 10. flag: prometeu exame incluso sem nomear o que está incluso
   const inclui = texto.match(RX_INCLUI_EXAME);
   if (inclui && !NOMEIA_INCLUSO.test(texto)) {
     achados.push({
@@ -347,7 +377,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 10. flag: linguagem interna sobrevivendo no texto
+  // 11. flag: linguagem interna sobrevivendo no texto
   const interno = texto.match(RX_INTERNO);
   if (interno) {
     achados.push({
@@ -358,7 +388,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 11. flag: frases proibidas de estilo
+  // 12. flag: frases proibidas de estilo
   for (const [rx, motivo] of PROIBIDAS) {
     const m = texto.match(rx);
     if (m) {

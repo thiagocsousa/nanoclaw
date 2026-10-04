@@ -15,7 +15,8 @@
     "orcamento_na_consulta": "na consulta.{0,30}(or[çc]amento|passa o valor)",
     "nega_desconto": "sem desconto|n[ãa]o (tem|temos|h[áa]|oferecemos) desconto|valor cheio",
     "aponta_menu": "escolh[ae]r? (uma )?(das )?op[çc][õo]es|escolh[ae]r? (um )?n[úu]mero|op[çc][õo]es que (eu )?enviei",
-    "telefone": "\\(?\\d{2}\\)? ?\\d{4,5}[- ]?\\d{4}"
+    "telefone": "\\(?\\d{2}\\)? ?\\d{4,5}[- ]?\\d{4}",
+    "anuncia_bot": "atendimento automático|sou (um )?(rob[ôo]|bot|IA|intelig[êe]ncia artificial)"
   },
   "cenarios": [
     {
@@ -918,6 +919,9 @@
             "sou uma pessoa"
           ]
         }
+      ],
+      "ignora_global": [
+        "anuncia_bot"
       ]
     },
     {
@@ -931,6 +935,9 @@
         {
           "paciente": "quero falar com uma pessoa de verdade"
         }
+      ],
+      "ignora_global": [
+        "anuncia_bot"
       ]
     },
     {
@@ -944,6 +951,9 @@
             "sou a Bruna"
           ]
         }
+      ],
+      "ignora_global": [
+        "anuncia_bot"
       ]
     },
     {
@@ -1162,7 +1172,30 @@
             "S[óo] um instante|por aqui|mensagem"
           ]
         }
+      ],
+      "ignora_global": [
+        "anuncia_bot"
       ]
+    },
+    {
+      "id": "M05",
+      "categoria": "bot",
+      "sobre": "Abertura não pode anunciar que é automática sem ninguém perguntar.",
+      "turnos": [
+        {
+          "paciente": "oi, boa tarde",
+          "proibido": [
+            "atendimento automático",
+            "falar com alguém da equipe"
+          ],
+          "esperado": [
+            "Cirurgia Refrativa",
+            "Cirurgia de Catarata"
+          ],
+          "nota": "Abertura = texto literal do F00, sem acréscimo."
+        }
+      ],
+      "ignora_global": []
     }
   ]
 }

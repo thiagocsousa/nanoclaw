@@ -307,6 +307,32 @@ describe('avisa sem bloquear: deslize de estilo', () => {
     expect(v.achados.length, JSON.stringify(v.achados)).toBe(0);
   });
 
+  it('pega a abertura que anuncia ser bot no lugar do menu', () => {
+    const v = inspecionaSaida(
+      'Olá! Sou a Lara, atendimento automático da Dra. Marina Costa. Se preferir falar com alguém da equipe, é só me dizer.',
+    );
+    expect(
+      v.achados.some((a) => a.regra === 'abertura_malformada'),
+      JSON.stringify(v.achados),
+    ).toBe(true);
+  });
+
+  it('a abertura literal do F00 passa limpa', () => {
+    const v = inspecionaSaida(
+      'Olá, tudo bem? Sou a Lara, assistente da Dra. Marina Costa. Para agilizarmos o seu atendimento, escolha a opção que melhor se adequa à sua necessidade:\n\n1 - Avaliação para Cirurgia Refrativa\n2 - Avaliação para Cirurgia de Catarata\n3 - Consulta Oftalmológica de Rotina\n4 - Outros',
+    );
+    expect(v.achados.length, JSON.stringify(v.achados)).toBe(0);
+  });
+
+  it('reidentificar no meio da conversa não exige menu', () => {
+    const v = inspecionaSaida(
+      'Oi! Aqui é a Lara, do atendimento da Dra. Marina.',
+    );
+    expect(v.achados.some((a) => a.regra === 'abertura_malformada')).toBe(
+      false,
+    );
+  });
+
   it('nome de bloco do FAQ no texto ao paciente é flag', () => {
     const v = inspecionaSaida('Conforme o F12, tem vaga segunda.');
     expect(v.achados.some((a) => a.regra === 'linguagem_interna')).toBe(true);

@@ -20,6 +20,11 @@ import {
   STORE_DIR,
   isBotText,
 } from '../config.js';
+import {
+  marcadorDeAudio,
+  textoParaAgente,
+  transcreveAudio,
+} from '../audio-transcribe.js';
 import { readEnvFile } from '../env.js';
 
 const envConfig = readEnvFile(['WHATSAPP_PAIRING_NUMBER']);
@@ -267,14 +272,35 @@ export class WhatsAppChannel implements Channel {
               normalized.videoMessage?.caption ||
               '';
 
-            // Áudio não é transcrito (não há STT no projeto), mas também não
-            // pode ser descartado: sem isto o content fica vazio, o `continue`
-            // abaixo engole a mensagem e o paciente que mandou um áudio nunca é
-            // respondido. Um marcador deixa o agente saber que a pessoa falou e
-            // pedir por escrito, em vez de silêncio.
+            // Áudio: baixa, transcreve localmente e entrega o texto ao agente.
+            // Antes de 04/10/2026 isto era descartado em silêncio (content ficava
+            // vazio e o `continue` abaixo engolia a mensagem), então quem mandava
+            // áudio nunca era respondido.
+            //
+            // Qualquer falha ou transcrição incerta cai no marcador, e o FAQ
+            // (F00d) manda pedir por escrito: agir sobre palpite é pior que
+            // admitir que não entendeu.
             if (!content && normalized.audioMessage) {
-              const seg = Math.round(normalized.audioMessage.seconds || 0);
-              content = `[áudio recebido${seg ? `, ${seg}s` : ''}, não transcrito]`;
+              const seg = normalized.audioMessage.seconds || 0;
+              content = marcadorDeAudio(seg);
+              try {
+                const buffer = await downloadMediaMessage(msg, 'buffer', {});
+                const groupDir = path.join(GROUPS_DIR, groups[chatJid].folder);
+                const audioDir = path.join(groupDir, 'audios');
+                fs.mkdirSync(audioDir, { recursive: true });
+                // O arquivo FICA no disco: é a fonte para o humano conferir a
+                // transcrição no escalonamento.
+                const nome = `${msg.key.id || Date.now()}.ogg`;
+                const filePath = path.join(audioDir, nome);
+                fs.writeFileSync(filePath, buffer as Buffer);
+                const t = await transcreveAudio(filePath);
+                content = textoParaAgente(t, seg);
+              } catch (err) {
+                logger.warn(
+                  { err, jid: chatJid },
+                  'Failed to download audio, keeping marker',
+                );
+              }
             }
 
             if (normalized.documentMessage?.mimetype === 'application/pdf') {
