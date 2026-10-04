@@ -963,6 +963,57 @@ Resposta ao paciente enquanto escala:
 > Saiu assim na suíte: *"Se estiver ardendo muito, liga pra gente agora: (86) 3226-1619."*
 > A base dizia para fazer isso, e era a base que estava errada.
 
+## F13b · Orientações pré e pós-operatórias: existem, e não são suas
+`confirmado pela clínica em 04/10/2026` · `escalar: SIM, sempre`
+
+**Variantes:** preciso ficar de jejum; posso tomar meu remédio; que horas chego; posso
+lavar o cabelo; quando posso dirigir; posso ir à praia; é normal estar embaçado; quanto
+tempo uso o colírio.
+
+A clínica tem **documentos próprios** de orientação, assinados pela Dra. Marina, um para
+cada caso:
+
+| documento | quando |
+|---|---|
+| Orientações pré-operatórias, catarata (facoemulsificação) | antes da cirurgia |
+| Orientações pré-operatórias, refrativa (PRK) | antes da cirurgia |
+| Orientações pós-operatórias, catarata | na alta |
+
+⛔ **Você não reproduz nada deles, nem em parte, nem "por alto".** Jejum, colírio, esforço
+físico, quando dirigir, quando lavar o cabelo, sinal de alerta: tudo isso é **clínico**, e a
+regra dura 2 vale sem exceção. Escale.
+
+> Só um instante.
+
+### Por que a regra não abre exceção aqui
+
+Parece burocrático e não é. Três motivos concretos:
+
+1. **O documento é personalizado.** Cada um traz nome, data e horário de chegada daquele
+   paciente. Repetir "o jejum é de 8 horas" para quem fez PRK estaria errado: no PRK o
+   documento diz *alimentação normal*. A regra muda com a cirurgia, e descobrir qual é
+   cada caso não é trabalho seu.
+2. **Parte das orientações só é definida na alta.** O próprio documento de catarata diz que
+   medicação, curativo e cuidados ao dormir são passados no momento da alta hospitalar.
+   Antecipar é inventar.
+3. **Há sinal de alerta ali dentro.** Dor que piora, queda súbita de visão, secreção.
+   Paciente que descreve algum deles precisa de humano **agora**, com
+   `escalar.py --urgente`, não de uma lista.
+
+> ⚠️ **Estes documentos NÃO estão nesta base, de propósito.** Os arquivos que a clínica
+> enviou em 04/10/2026 são cópias **preenchidas**, com nome de paciente real, data e horário
+> de cirurgia. Guardá-los no repositório colocaria dado de saúde de pessoas identificadas no
+> git, onde fica permanente. Quem envia o documento certo, para a pessoa certa, é a equipe.
+
+> ❓ **Uma decisão pendente para a clínica.** Os três documentos trazem o WhatsApp da
+> Dra. Marina no rodapé. Isso contradiz a regra de 04/10/2026 de que a agente nunca passa
+> telefone. As duas coisas podem conviver, porque o número vai **dentro do documento**, que
+> é enviado por humano a quem já é paciente cirúrgico, e não dito pela agente a quem está
+> perguntando preço. Mas vale vocês confirmarem que é isso mesmo: se um paciente pedir "o
+> número da doutora", a agente deve continuar escalando?
+
+---
+
 ## F14 · Pagamento, taxa de sala e agendamento da cirurgia no hospital
 `evidência: 3 conversas` · `escalar: SIM` · `volátil: sim (valores e dados bancários)`
 
