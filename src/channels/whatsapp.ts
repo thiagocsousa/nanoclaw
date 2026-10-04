@@ -74,6 +74,20 @@ export class WhatsAppChannel implements Channel {
 
   private sock!: WASocket;
   private connected = false;
+  /**
+   * Código de pareamento já pedido nesta conexão.
+   *
+   * O baileys emite `connection.update` com `qr` a cada ~20s enquanto espera
+   * autenticação, e pedir um código em cada evento tem duas consequências, as
+   * duas ruins: cada código novo invalida o anterior, e **um humano não digita
+   * 8 caracteres num celular em 20 segundos**. Pior, em 04/10/2026 o app seguiu
+   * pedindo código DEPOIS de `registered: true` ter sido gravado, e o vínculo
+   * recém-criado morreu com 401 no boot seguinte.
+   *
+   * Então o código é pedido uma vez por conexão. A janela passa a ser a do
+   * WhatsApp, não os 20s do refresh.
+   */
+  private pairingCodeRequested = false;
   private lidToPhoneMap: Record<string, string> = {};
   private outgoingQueue: Array<{ jid: string; text: string }> = [];
   private flushing = false;
@@ -130,7 +144,10 @@ export class WhatsAppChannel implements Channel {
 
       if (qr) {
         if (pairingNumber) {
-          // Pairing code mode — request code instead of showing QR
+          // Pairing code mode — request code instead of showing QR.
+          // UMA vez por conexão: ver pairingCodeRequested.
+          if (this.pairingCodeRequested) return;
+          this.pairingCodeRequested = true;
           this.sock
             .requestPairingCode(pairingNumber.replace(/\D/g, ''))
             .then((code) => {
@@ -191,6 +208,7 @@ export class WhatsAppChannel implements Channel {
         }
       } else if (connection === 'open') {
         this.connected = true;
+        this.pairingCodeRequested = false;
         logger.info('Connected to WhatsApp');
 
         this.sock.sendPresenceUpdate('available').catch((err) => {
