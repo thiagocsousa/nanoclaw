@@ -171,7 +171,7 @@ mesmo que o classificador ache que entendeu.
 
 ### 4. Gate de saída
 
-Com template fixo o gate fica quase trivial, que é o objetivo:
+Com template fixo o gate ficaria quase trivial:
 
 1. a intenção está na lista permitida?
 2. existe template para ela?
@@ -180,6 +180,43 @@ Com template fixo o gate fica quase trivial, que é o objetivo:
 Se qualquer resposta for não → **não envia nada ao paciente**; vira post no grupo.
 O caminho padrão em caso de dúvida é o silêncio seguro, não o palpite. Mesma
 filosofia da trava do `ipc.ts`: falhar fechado.
+
+#### 4a. O que existe hoje: `src/output-guard.ts`
+
+> **Decisão do Thiago em 04/10/2026: não ter a tabela de templates fixos
+> agora.** O agente redige livremente enquanto o conjunto de intenções ainda
+> cresce (só em 04/10 nasceram F00, F15, F16 e a regra de fecho). O grupo de
+> teste existe para descobrir quais são as intenções reais.
+
+Então a guarda implementada inspeciona **texto livre**, não escolha de template.
+Ela não substitui a tabela e não torna invenção impossível: pega as falhas
+**mecanicamente detectáveis**, que são exatamente as que vinham sendo achadas à
+mão, lendo transcrição depois do fato.
+
+São três níveis, porque "falhar fechado" é a regra certa para o que machuca, não
+para tudo. Jogar fora uma resposta correta por causa de um travessão deixaria o
+paciente sem resposta por um deslize de estilo, o que é pior para ele que o
+deslize:
+
+| nível | o que faz | regras |
+|---|---|---|
+| `sanitize` | conserta e envia | travessão → vírgula; linha de telemetria que escapou do `<internal>` |
+| `flag` | envia e avisa um humano | frases proibidas de estilo, nome de bloco do FAQ ou de script no texto |
+| `block` | **não envia**, vira aviso para humano | preço de cirurgia, afirmar que está marcado, CPF ou telefone de terceiro |
+
+**Precisão importa mais que cobertura.** O texto do F05, o mais importante de
+conversão, diz *"desejam realizar a cirurgia. A avaliação, que normalmente custa
+R$ 430,00, sai por R$ 300,00"*: dinheiro e "cirurgia" na mesma frase. Regra de
+proximidade ingênua bloquearia justamente ele. Por isso a checagem procura o
+**sujeito do preço**, não a vizinhança. Metade dos 17 testes é de falso
+positivo, com texto real da clínica que precisa passar intacto: guarda que
+bloqueia o certo é desligada pela equipe em uma semana, e aí não guarda nada.
+
+Bloqueio **não vira silêncio**: o texto e o motivo vão para o humano no mesmo
+destino do escalonamento, senão o paciente espera por uma resposta que ninguém
+sabe que foi barrada.
+
+Ligada por pasta em `OUTPUT_GUARD_FOLDERS`, vazia por default.
 
 ### 4b. Determinismo é testável — e deve ser testado
 

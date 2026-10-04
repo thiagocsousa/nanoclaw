@@ -75,9 +75,15 @@ import { recordAgentMarking } from './agent-marking.js';
 import {
   baixaPorCodigo,
   codigoDaBaixa,
+  destinoDoAviso,
   podeDarBaixa,
   startEscalationSla,
 } from './escalation-sla.js';
+import {
+  inspecionaSaida,
+  resumoDoAviso,
+  wantsOutputGuard,
+} from './output-guard.js';
 import { humanDelayMs, sleep, wantsHumanCadence } from './human-cadence.js';
 import { logger } from './logger.js';
 
@@ -293,9 +299,46 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
       // terminou SEM responder (result: null): a chamada obrigatória virou o
       // turno. Carona numa saída que ele já produz não tem esse caminho.
       recordAgentMarking(group.folder, raw);
-      if (text) {
+
+      // Guarda de saída: última inspeção antes de o paciente ler. Bloqueio não
+      // vira silêncio: vira aviso para humano, com o texto e o motivo, senão o
+      // paciente espera por uma resposta que ninguém sabe que foi barrada.
+      let paraEnviar = text;
+      if (text && wantsOutputGuard(group.folder)) {
+        const veredito = inspecionaSaida(text);
+        const precisaAvisar = veredito.achados.some(
+          (a) => a.nivel !== 'sanitize',
+        );
+        if (veredito.bloqueado || precisaAvisar) {
+          const { jid, folder } = destinoDoAviso();
+          const canalAviso =
+            findChannelForGroup(channels, folder) || findChannel(channels, jid);
+          canalAviso
+            ?.sendMessage(jid, resumoDoAviso(veredito, text))
+            .catch((err) =>
+              logger.warn({ err }, 'output-guard: aviso não saiu'),
+            );
+        }
+        if (veredito.bloqueado) {
+          logger.warn(
+            { group: group.name, achados: veredito.achados },
+            'output-guard: resposta BLOQUEADA',
+          );
+          paraEnviar = '';
+        } else {
+          if (veredito.achados.length > 0) {
+            logger.info(
+              { group: group.name, achados: veredito.achados },
+              'output-guard: achados',
+            );
+          }
+          paraEnviar = veredito.texto;
+        }
+      }
+
+      if (paraEnviar) {
         if (wantsHumanCadence(group.folder)) {
-          const espera = humanDelayMs(text, Date.now() - inicioDoTurno);
+          const espera = humanDelayMs(paraEnviar, Date.now() - inicioDoTurno);
           if (espera > 0) {
             logger.debug(
               { group: group.name, espera },
@@ -307,7 +350,7 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
             await sleep(espera);
           }
         }
-        await channel.sendMessage(chatJid, text);
+        await channel.sendMessage(chatJid, paraEnviar);
         outputSentToUser = true;
       }
       // Only reset idle timer on actual results, not session-update markers (result: null)

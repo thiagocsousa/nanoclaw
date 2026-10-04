@@ -146,6 +146,11 @@ export function baixaPorCodigo(codigo: string): Pendencia | undefined {
   return undefined;
 }
 
+/** Para onde vai aviso de humano: mesmo destino do escalonamento. */
+export function destinoDoAviso(): { jid: string; folder: string } {
+  return { jid: DESTINO_JID, folder: DESTINO_FOLDER };
+}
+
 /**
  * Só quem recebe a cobrança pode dar baixa. Sem isso, qualquer pessoa num grupo
  * registrado desligaria o alarme digitando "ok XXXX" por acaso.
