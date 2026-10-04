@@ -15,9 +15,10 @@ import makeWASocket, {
 
 import {
   ASSISTANT_HAS_OWN_NUMBER,
-  ASSISTANT_NAME,
+  BOT_MARK,
   GROUPS_DIR,
   STORE_DIR,
+  isBotText,
 } from '../config.js';
 import { readEnvFile } from '../env.js';
 
@@ -73,6 +74,10 @@ export class WhatsAppChannel implements Channel {
   private flushing = false;
   private groupSyncTimerStarted = false;
   private jsonlAppends: Record<string, number> = {};
+  // Rede de segurança para a classificação do echo: se a marca invisível for
+  // removida em trânsito, o id ainda identifica a mensagem como nossa. Sem
+  // isso, a falha seria o bot respondendo a si mesmo em loop.
+  private sentIds = new Set<string>();
 
   private opts: WhatsAppChannelOpts;
 
@@ -298,7 +303,7 @@ export class WhatsAppChannel implements Channel {
             const fromMe = msg.key.fromMe || false;
             const isBotMessage = ASSISTANT_HAS_OWN_NUMBER
               ? fromMe
-              : content.startsWith(`${ASSISTANT_NAME}:`);
+              : isBotText(content) || this.wasSentByUs(msg.key.id);
 
             this.opts.onMessage(chatJid, {
               id: msg.key.id || '',
@@ -402,6 +407,24 @@ export class WhatsAppChannel implements Channel {
         logger.warn({ err }, 'captureSlaTimeline: failed for a message');
       }
     }
+  }
+
+  // Teto do registro de ids: a classificação do echo acontece em segundos, e
+  // só a marca invisível importa depois disso. 500 cobre qualquer rajada sem
+  // o Set crescer para sempre no processo, que fica meses de pé.
+  private static readonly SENT_IDS_MAX = 500;
+
+  private rememberSentId(id?: string | null): void {
+    if (!id) return;
+    if (this.sentIds.size >= WhatsAppChannel.SENT_IDS_MAX) {
+      // Set preserva ordem de inserção: o primeiro do iterador é o mais antigo.
+      this.sentIds.delete(this.sentIds.values().next().value as string);
+    }
+    this.sentIds.add(id);
+  }
+
+  private wasSentByUs(id?: string | null): boolean {
+    return !!id && this.sentIds.has(id);
   }
 
   // Registra o id de cada mensagem que O BOT enviou por esta instância. O
@@ -526,6 +549,7 @@ export class WhatsAppChannel implements Channel {
     }
     try {
       const sent = await this.sock.sendMessage(jid, msg);
+      this.rememberSentId(sent?.key?.id);
       this.recordBotSentId(jid, sent?.key?.id);
       this.auditSecondaryDm(jid, 'image', caption || imagePath);
       logger.info({ jid, imagePath }, 'Image sent');
@@ -588,6 +612,7 @@ export class WhatsAppChannel implements Channel {
     const target = await this.resolveWaJid(jid);
     try {
       const sent = await this.sock.sendMessage(target, msg);
+      this.rememberSentId(sent?.key?.id);
       this.recordBotSentId(target, sent?.key?.id);
       this.auditSecondaryDm(target, 'document', caption || name);
       logger.info({ jid, target, filePath }, 'Document sent');
@@ -597,10 +622,12 @@ export class WhatsAppChannel implements Channel {
   }
 
   async sendMessage(jid: string, text: string): Promise<void> {
+    // Instância secundária tem número próprio, e ASSISTANT_HAS_OWN_NUMBER diz
+    // que o bot tem o dele: nos dois casos fromMe já basta e nada é marcado.
     const prefixed =
       this.opts.groupFolderOwner || ASSISTANT_HAS_OWN_NUMBER
         ? text
-        : `${ASSISTANT_NAME}: ${text}`;
+        : `${BOT_MARK}${text}`;
 
     if (!this.connected) {
       this.outgoingQueue.push({ jid, text: prefixed });
@@ -613,6 +640,7 @@ export class WhatsAppChannel implements Channel {
     const target = await this.resolveWaJid(jid);
     try {
       const sent = await this.sock.sendMessage(target, { text: prefixed });
+      this.rememberSentId(sent?.key?.id);
       this.recordBotSentId(target, sent?.key?.id);
       this.auditSecondaryDm(target, 'text', prefixed);
       logger.info({ jid, target, length: prefixed.length }, 'Message sent');
@@ -732,6 +760,7 @@ export class WhatsAppChannel implements Channel {
         const item = this.outgoingQueue.shift()!;
         const target = await this.resolveWaJid(item.jid);
         const sent = await this.sock.sendMessage(target, { text: item.text });
+        this.rememberSentId(sent?.key?.id);
         this.recordBotSentId(target, sent?.key?.id);
         this.auditSecondaryDm(target, 'text:queued', item.text);
         logger.info(

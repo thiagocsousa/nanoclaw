@@ -20,6 +20,29 @@ export const ASSISTANT_NAME =
 export const ASSISTANT_HAS_OWN_NUMBER =
   (process.env.ASSISTANT_HAS_OWN_NUMBER ||
     envConfig.ASSISTANT_HAS_OWN_NUMBER) === 'true';
+
+// Marca que identifica uma mensagem escrita pelo bot quando ele divide o
+// número com o humano dono da conta. É o ÚNICO discriminador nesse caso: o
+// echo do WhatsApp chega com fromMe=true tanto para o que o humano digitou
+// quanto para o que o bot enviou (verificado no grupo de teste: as duas
+// metades da conversa com is_from_me=1). Sem a marca o bot lê a própria
+// resposta como mensagem nova e entra em loop.
+//
+// U+2063 INVISIBLE SEPARATOR não renderiza nada e não é whitespace, então
+// sobrevive a trim(). Até 2026-10 a marca era o texto visível
+// `${ASSISTANT_NAME}: `, que o destinatário lia — ruim para um agente que
+// conversa com paciente. A detecção aceita as duas formas porque o histórico
+// no banco está todo com o prefixo antigo.
+// Construída pelo codepoint de propósito: escrita como caractere literal, a
+// marca é um byte invisível no fonte que editor, cópia ou patch podem comer
+// calados — e aí o bot volta a responder a si mesmo.
+export const BOT_MARK = String.fromCharCode(0x2063);
+export const LEGACY_BOT_PREFIX = `${ASSISTANT_NAME}:`;
+
+export function isBotText(content: string): boolean {
+  return content.startsWith(BOT_MARK) || content.startsWith(LEGACY_BOT_PREFIX);
+}
+
 export const POLL_INTERVAL = 2000;
 export const SCHEDULER_POLL_INTERVAL = 60000;
 

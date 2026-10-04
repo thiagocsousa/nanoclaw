@@ -2,7 +2,7 @@ import Database from 'better-sqlite3';
 import fs from 'fs';
 import path from 'path';
 
-import { ASSISTANT_NAME, DATA_DIR, STORE_DIR } from './config.js';
+import { ASSISTANT_NAME, BOT_MARK, DATA_DIR, STORE_DIR } from './config.js';
 import { isValidGroupFolder } from './group-folder.js';
 import { logger } from './logger.js';
 import {
@@ -344,8 +344,10 @@ export function getNewMessages(
   if (jids.length === 0) return { messages: [], newTimestamp: lastTimestamp };
 
   const placeholders = jids.map(() => '?').join(',');
-  // Filter bot messages using both the is_bot_message flag AND the content
-  // prefix as a backstop for messages written before the migration ran.
+  // Filter bot messages using the is_bot_message flag AND the content marks as
+  // a backstop: o prefixo visível antigo (`Nome:`) para o que já estava no
+  // banco, e a marca invisível atual para qualquer linha gravada antes de o
+  // flag ter sido calculado.
   // Subquery takes the N most recent, outer query re-sorts chronologically.
   const sql = `
     SELECT * FROM (
@@ -353,7 +355,7 @@ export function getNewMessages(
              reply_to_message_id, reply_to_message_content, reply_to_sender_name
       FROM messages
       WHERE timestamp > ? AND chat_jid IN (${placeholders})
-        AND is_bot_message = 0 AND content NOT LIKE ?
+        AND is_bot_message = 0 AND content NOT LIKE ? AND content NOT LIKE ?
         AND content != '' AND content IS NOT NULL
       ORDER BY timestamp DESC
       LIMIT ?
@@ -362,7 +364,13 @@ export function getNewMessages(
 
   const rows = db
     .prepare(sql)
-    .all(lastTimestamp, ...jids, `${botPrefix}:%`, limit) as NewMessage[];
+    .all(
+      lastTimestamp,
+      ...jids,
+      `${botPrefix}:%`,
+      `${BOT_MARK}%`,
+      limit,
+    ) as NewMessage[];
 
   let newTimestamp = lastTimestamp;
   for (const row of rows) {
@@ -378,8 +386,10 @@ export function getMessagesSince(
   botPrefix: string,
   limit: number = 200,
 ): NewMessage[] {
-  // Filter bot messages using both the is_bot_message flag AND the content
-  // prefix as a backstop for messages written before the migration ran.
+  // Filter bot messages using the is_bot_message flag AND the content marks as
+  // a backstop: o prefixo visível antigo (`Nome:`) para o que já estava no
+  // banco, e a marca invisível atual para qualquer linha gravada antes de o
+  // flag ter sido calculado.
   // Subquery takes the N most recent, outer query re-sorts chronologically.
   const sql = `
     SELECT * FROM (
@@ -387,7 +397,7 @@ export function getMessagesSince(
              reply_to_message_id, reply_to_message_content, reply_to_sender_name
       FROM messages
       WHERE chat_jid = ? AND timestamp > ?
-        AND is_bot_message = 0 AND content NOT LIKE ?
+        AND is_bot_message = 0 AND content NOT LIKE ? AND content NOT LIKE ?
         AND content != '' AND content IS NOT NULL
       ORDER BY timestamp DESC
       LIMIT ?
@@ -395,7 +405,13 @@ export function getMessagesSince(
   `;
   return db
     .prepare(sql)
-    .all(chatJid, sinceTimestamp, `${botPrefix}:%`, limit) as NewMessage[];
+    .all(
+      chatJid,
+      sinceTimestamp,
+      `${botPrefix}:%`,
+      `${BOT_MARK}%`,
+      limit,
+    ) as NewMessage[];
 }
 
 export function getLastBotMessageTimestamp(
@@ -405,9 +421,12 @@ export function getLastBotMessageTimestamp(
   const row = db
     .prepare(
       `SELECT MAX(timestamp) as ts FROM messages
-       WHERE chat_jid = ? AND (is_bot_message = 1 OR content LIKE ?)`,
+       WHERE chat_jid = ?
+         AND (is_bot_message = 1 OR content LIKE ? OR content LIKE ?)`,
     )
-    .get(chatJid, `${botPrefix}:%`) as { ts: string | null } | undefined;
+    .get(chatJid, `${botPrefix}:%`, `${BOT_MARK}%`) as
+    | { ts: string | null }
+    | undefined;
   return row?.ts ?? undefined;
 }
 
