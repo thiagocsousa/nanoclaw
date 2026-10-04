@@ -73,7 +73,10 @@ export async function executa(
   if (!tabela) {
     // Sem tabela não há como responder por template, e improvisar seria
     // exatamente o que esta arquitetura evita.
-    logger.error({ groupFolder }, 'executor: templates.json ausente ou inválido');
+    logger.error(
+      { groupFolder },
+      'executor: templates.json ausente ou inválido',
+    );
     return undefined;
   }
 
@@ -100,9 +103,12 @@ export async function executa(
     saida.codigo = await escala(
       {
         folder: groupFolder,
-        // A observação do classificador é para humano e pode conter o porquê da
-        // dúvida, que é o que a recepção precisa ler primeiro.
-        motivo: c.observacao || `intenção ${r.intencao}`,
+        // O motivo da TABELA vem primeiro: é texto aprovado por humano e é ele
+        // que enquadra o caso para quem atende. A observação do modelo entra
+        // como detalhe, nunca no lugar do enquadramento.
+        motivo:
+          [r.motivoEscalada, c.observacao].filter(Boolean).join(' | ') ||
+          `intenção ${r.intencao}`,
         pergunta: perguntaDoPaciente,
         urgente: r.urgente,
       },

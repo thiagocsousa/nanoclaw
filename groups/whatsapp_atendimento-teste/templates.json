@@ -331,6 +331,17 @@
       "textos": [
         "Para o plano autorizar a cirurgia refrativa, os critérios são da ANS, não da clínica:\n\n• Mais de 18 anos, com o grau estável há pelo menos um ano\n• Miopia de -5,0 a -10,0 graus, com ou sem astigmatismo associado de até -4,0\n• Ou hipermetropia de até 6,0 graus, com ou sem astigmatismo associado de até -4,0\n• Indicação médica com laudo, depois da avaliação oftalmológica\n\nQuem autoriza é o seu plano, e a indicação é da Dra. Marina na avaliação."
       ]
+    },
+    "cobertura_no_hospital": {
+      "bloco": "F17",
+      "quando": "pergunta se o plano cobre NAQUELE hospital, ou se o hospital aceita o plano dele. A cobertura muda por hospital, é raro, e quando não aceita o caminho é particular, que envolve valor de cirurgia e portanto é humano. Nunca responder que não cobre.",
+      "acao": "escalar",
+      "urgente": false,
+      "fecho": false,
+      "motivo_escalada": "cobertura do plano naquele hospital (CASO DE CONVERSÃO: se o hospital não aceitar o plano, o caminho é particular)",
+      "textos": [
+        "Só um instante."
+      ]
     }
   }
 }

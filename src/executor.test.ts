@@ -34,7 +34,14 @@ const TABELA = {
     clinico: {
       acao: 'escalar',
       urgente: true,
-      textos: ['Entendo, isso deve estar incomodando bastante. Só um instante.'],
+      textos: [
+        'Entendo, isso deve estar incomodando bastante. Só um instante.',
+      ],
+    },
+    cobertura_no_hospital: {
+      acao: 'escalar',
+      motivo_escalada: 'cobertura naquele hospital (CASO DE CONVERSÃO)',
+      textos: ['Só um instante.'],
     },
     DESCONHECIDO: { acao: 'escalar', textos: ['Só um instante.'] },
   },
@@ -96,7 +103,9 @@ describe('wantsTemplates', () => {
 
 describe('o texto do paciente vem SEMPRE da tabela', () => {
   it('rótulo válido devolve o texto aprovado, com o fecho', async () => {
-    const r = await rodar('{"intencao":"endereco","confianca":0.95,"slots":{}}');
+    const r = await rodar(
+      '{"intencao":"endereco","confianca":0.95,"slots":{}}',
+    );
     expect(r?.texto).toBe('Av. Elias João Tajra, 1170.\n\nAjudo em algo mais?');
     expect(r?.acao).toBe('responder');
   });
@@ -210,11 +219,44 @@ describe('escalada é AÇÃO do host', () => {
   });
 });
 
+// O enquadramento do caso é o que faz a recepção ver oportunidade em vez de
+// problema, e ele é texto aprovado por humano. A observação do modelo entra como
+// detalhe, nunca no lugar dele.
+describe('motivo da escalada: tabela antes do modelo', () => {
+  it('o motivo da tabela vem primeiro, e a observação do modelo depois', async () => {
+    const r = await rodar(
+      '{"intencao":"cobertura_no_hospital","confianca":0.9,"slots":{},"observacao":"citou o Hospital do Olho"}',
+      'o hospital do olho aceita meu plano?',
+    );
+    expect(r?.acao).toBe('escalar');
+    const aviso = enviadas[0].text;
+    const iTabela = aviso.indexOf('CASO DE CONVERSÃO');
+    const iModelo = aviso.indexOf('citou o Hospital do Olho');
+    expect(iTabela, aviso).toBeGreaterThan(-1);
+    expect(iModelo, aviso).toBeGreaterThan(iTabela);
+  });
+
+  it('sem motivo na tabela, usa só a observação do modelo', async () => {
+    await rodar(
+      '{"intencao":"clinico","confianca":0.9,"slots":{},"observacao":"dor pós-operatória"}',
+    );
+    expect(enviadas[0].text).toContain('dor pós-operatória');
+    expect(enviadas[0].text).not.toContain('CASO DE CONVERSÃO');
+  });
+
+  it('sem nada, cai na intenção, para o aviso nunca sair sem motivo', async () => {
+    await rodar('{"intencao":"clinico","confianca":0.9,"slots":{}}');
+    expect(enviadas[0].text).toContain('intenção clinico');
+  });
+});
+
 describe('sem tabela, não improvisa', () => {
   it('devolve undefined em vez de deixar o modelo escrever', async () => {
     fs.rmSync(path.join(RAIZ, PASTA, 'templates.json'));
     esqueceTabela();
-    const r = await rodar('{"intencao":"endereco","confianca":0.95,"slots":{}}');
+    const r = await rodar(
+      '{"intencao":"endereco","confianca":0.95,"slots":{}}',
+    );
     expect(r).toBeUndefined();
   });
 });

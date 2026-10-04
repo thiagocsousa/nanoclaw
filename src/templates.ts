@@ -36,6 +36,14 @@ export interface Intencao {
   fecho?: boolean;
   textos?: string[];
   slots_obrigatorios?: string[];
+  /**
+   * Como o caso deve chegar à recepção, quando esta intenção escala. Escrito
+   * por humano e aprovado, e por isso vale mais que a observação do modelo: é o
+   * enquadramento que faz quem atende ver oportunidade em vez de problema. O
+   * caso que motivou isto é a cobertura por hospital, que parece um "não" e é
+   * uma bifurcação paga.
+   */
+  motivo_escalada?: string;
 }
 
 export interface Tabela {
@@ -88,6 +96,8 @@ export interface Resultado {
   intencao: string;
   /** Por que rebaixou, quando rebaixou. */
   motivo?: string;
+  /** `motivo_escalada` da intenção, quando ela define um. */
+  motivoEscalada?: string;
 }
 
 function preenche(
@@ -161,6 +171,7 @@ export function renderiza(
       texto: '',
       acao: def.acao,
       urgente: def.urgente === true,
+      motivoEscalada: def.motivo_escalada,
       intencao,
     };
   }
@@ -180,6 +191,7 @@ export function renderiza(
     texto: comFecho,
     acao: def.acao,
     urgente: def.urgente === true,
+    motivoEscalada: def.motivo_escalada,
     intencao,
   };
 }

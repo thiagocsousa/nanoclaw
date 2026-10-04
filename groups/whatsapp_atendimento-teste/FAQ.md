@@ -1397,8 +1397,20 @@ sala (**F14**). Quem monta isso é a recepção, junto com o endereço, de uma v
 
 Duas coisas, e só:
 
-1. **Se o plano cobre naquele hospital.** Não está na base, e o histórico mostra que varia
-   (*"esse os planos não cobrem"*, sobre exame fora do consultório).
+1. **Se o plano cobre naquele hospital.** Respondido pelo Thiago em 04/10/2026: **a
+   cobertura muda sim**, porque há hospital que não aceita o plano do paciente. É **raro**,
+   e quando acontece **não é um não: é particular**, e a clínica trata como conversão.
+
+   ⛔ **Nunca diga que o plano não cobre naquele hospital.** Mesma forma do item 2: o "não"
+   fecha um caso que tem alternativa paga, e fechar você não pode, porque valor de cirurgia
+   você não passa (regra dura 1b). Escale, e o escalonamento sai marcado como caso de
+   conversão para quem atender saber que é oportunidade, não problema.
+
+   ⛔ **E não levante o assunto por conta própria.** A ressalva do hospital **não entra** na
+   resposta de cobertura do F04. É raro, e avisar todo mundo sobre um caso raro planta
+   dúvida em quem seria coberto: perde-se mais do que se ganha. A frase do F04 já é
+   condicional (*"depende de o seu plano autorizar"*) e não promete hospital nenhum, então
+   ela está correta como está.
 2. **Se a médica atende consulta em outro endereço.** Respondido pelo Thiago em
    04/10/2026: **ela atende fora do consultório, e a gente não diz os hospitais.** Então
    isto não é mais pendência, é política, e muda o motivo de escalar sem mudar a ação.
@@ -1455,18 +1467,18 @@ Registrado aqui para quem for completar este bloco, **não para a agente usar**:
 > Também respondido em 04/10/2026: os cinco hospitais de cirurgia, seus endereços, e que o
 > local é definido após a avaliação.
 >
-> ❓ **Uma pergunta ainda aberta: a cobertura do plano muda conforme o HOSPITAL?**
+> ✅ **Respondido pelo Thiago em 04/10/2026: a cobertura muda conforme o hospital**, porque
+> há hospital que não aceita o plano do paciente. É **raro**, e é **fator de conversão para
+> particular**.
 >
-> Hoje a resposta do F04 para "meu plano cobre a cirurgia?" tem **duas** condições, o plano
-> autorizar e o paciente estar nos critérios, e não menciona hospital. Se hospital precisa
-> ser credenciado ao plano, falta uma terceira, e é a pior das três: é a única que **ninguém
-> pode conferir na hora**, porque o hospital só é definido depois da avaliação.
+> Eu havia levantado isto como risco de o paciente pagar R$ 430,00 contando com uma
+> cobertura que não existiria. O risco é real mas pequeno, e a resposta da clínica reenquadra
+> o caso: quando o hospital não aceita, o paciente ainda opera, pagando particular. Não é uma
+> promessa quebrada, é uma bifurcação, e quem a apresenta é humano, porque envolve valor de
+> cirurgia.
 >
-> O risco concreto: paciente com Unimed ouve "a maioria dos convênios cobre", paga os
-> R$ 430,00 contando com isso, e a cirurgia é indicada num hospital não credenciado ao plano
-> dele. Ele descobre no fim que a cobertura não existia, e pagou a avaliação em cima de uma
-> premissa que **a clínica** deu. Até a resposta vir, "o plano cobre naquele hospital" segue
-> escalando (item 1 acima).
+> Por isso a resposta do F04 **não muda** e a ressalva **não é anunciada**: ver item 1 de "O
+> que exige escalonamento" acima.
 
 > ℹ️ **Nota de origem.** Namir Clementino e Tércio Rezende **não aparecem** nas 482
 > conversas exportadas; vieram direto da clínica em 04/10/2026. Vilar e Hospital do Olho

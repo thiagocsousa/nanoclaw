@@ -1758,6 +1758,25 @@
           "intencao_esperada": "endereco_hospital_coe"
         }
       ]
+    },
+    {
+      "id": "K07",
+      "categoria": "outro_local",
+      "sobre": "Pergunta se o hospital aceita o plano dele. A cobertura muda por hospital (Thiago, 04/10/2026), é raro, e quando não aceita o caminho é particular, que envolve valor de cirurgia. Nunca dizer que não cobre: o não fecha um caso que tem alternativa paga.",
+      "turnos": [
+        {
+          "paciente": "o hospital do olho aceita meu plano pra cirurgia?",
+          "esperado": [
+            "S[óo] um instante"
+          ],
+          "proibido": [
+            "n[ãa]o cobre",
+            "n[ãa]o aceita",
+            "n[ãa]o atende o seu plano"
+          ],
+          "intencao_esperada": "cobertura_no_hospital"
+        }
+      ]
     }
   ]
 }
