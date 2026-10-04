@@ -13,7 +13,11 @@
  *
  *   escalonamento aberto
  *     + 3 min sem baixa  → cobrança no WhatsApp do Thiago
- *     + 5 min sem baixa  → alarme sonoro (ntfy) no celular do atendimento
+ *     + 5 min sem baixa  → alarme sonoro (ntfy), **só se urgente**
+ *
+ * O alarme ficou restrito a `--urgente` em 04/10/2026: pedido de atestado e de
+ * receita antiga também escalam e são comuns, e alarme que toca por burocracia
+ * ensina a clínica a ignorá-lo.
  *
  * Cada degrau dispara **uma vez**. Alarme que repete vira ruído e, em pouco
  * tempo, ninguém olha mais, que é o mesmo fim de não ter alarme.
@@ -112,7 +116,11 @@ export function proximoDegrau(
   agora: number,
 ): 'nada' | 'cobrar' | 'alarmar' {
   const idade = agora - p.quando;
-  if (idade >= ALARME_MS && !p.alarmado) return 'alarmar';
+  // O alarme sonoro é SÓ para urgente. Pedido de atestado e de receita antiga
+  // também escalam, e são comuns: se cada um tocasse alarme em 5 min, a clínica
+  // aprenderia a ignorar o alarme em uma semana, e aí ele não guarda mais nada.
+  // Mesmo critério que o escalar.py já aplica ao disparar o ntfy.
+  if (p.urgente && idade >= ALARME_MS && !p.alarmado) return 'alarmar';
   if (idade >= COBRANCA_MS && !p.cobrado) return 'cobrar';
   return 'nada';
 }
@@ -215,8 +223,10 @@ export async function tickEscalationSla(
           DESTINO_JID,
           `⏰ *${p.codigo}* sem baixa há ${minutos} min\n\n` +
             `*Motivo:* ${p.motivo}\n*Paciente perguntou:* ${p.pergunta}\n\n` +
-            `Responda *ok ${p.codigo}* para dar baixa. ` +
-            `Em ${Math.ceil(ALARME_MS / 60_000)} min do escalonamento o alarme toca.`,
+            `Responda *ok ${p.codigo}* para dar baixa.` +
+            (p.urgente
+              ? ` Em ${Math.ceil(ALARME_MS / 60_000)} min do escalonamento o alarme toca.`
+              : ''),
           DESTINO_FOLDER,
         );
         logger.info({ folder, codigo: p.codigo }, 'escalation-sla: cobrado');

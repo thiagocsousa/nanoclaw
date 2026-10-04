@@ -38,19 +38,37 @@ describe('proximoDegrau', () => {
     );
   });
 
-  it('alarma aos 5 min mesmo já tendo cobrado', () => {
-    expect(proximoDegrau(pend({ cobrado: true }), ALARME_MS)).toBe('alarmar');
+  it('alarma aos 5 min mesmo já tendo cobrado, SE urgente', () => {
+    expect(
+      proximoDegrau(pend({ urgente: true, cobrado: true }), ALARME_MS),
+    ).toBe('alarmar');
+  });
+
+  it('NÃO alarma quando não é urgente, nem depois de muito tempo', () => {
+    // Atestado e receita antiga escalam e são comuns. Alarme por burocracia
+    // ensina a clínica a ignorar o alarme, e aí ele não guarda mais nada.
+    expect(proximoDegrau(pend({ cobrado: true }), ALARME_MS)).toBe('nada');
+    expect(proximoDegrau(pend({ cobrado: true }), 60 * 60_000)).toBe('nada');
+  });
+
+  it('não urgente ainda é cobrado aos 3 min', () => {
+    expect(proximoDegrau(pend(), COBRANCA_MS)).toBe('cobrar');
   });
 
   it('alarma uma vez só', () => {
     expect(
-      proximoDegrau(pend({ cobrado: true, alarmado: true }), ALARME_MS * 10),
+      proximoDegrau(
+        pend({ urgente: true, cobrado: true, alarmado: true }),
+        ALARME_MS * 10,
+      ),
     ).toBe('nada');
   });
 
-  it('processo parado entre os degraus vai direto ao alarme, não à cobrança', () => {
+  it('processo parado entre os degraus vai direto ao alarme, se urgente', () => {
     // Host caiu aos 2 min e voltou aos 9: o degrau devido é o alarme.
-    expect(proximoDegrau(pend(), 9 * 60_000)).toBe('alarmar');
+    expect(proximoDegrau(pend({ urgente: true }), 9 * 60_000)).toBe('alarmar');
+    // Não urgente no mesmo cenário: cobra, não alarma.
+    expect(proximoDegrau(pend(), 9 * 60_000)).toBe('cobrar');
   });
 
   it('pendência baixada não existe mais, então nada a fazer', () => {
