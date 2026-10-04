@@ -83,7 +83,8 @@ O que a resposta determina:
 Também literal:
 
 > Muito obrigada pelo seu contato. Para darmos início ao seu atendimento, poderia me
-> informar o seu nome, a sua cidade e se é particular ou qual convênio?
+> informar o seu nome, a sua cidade, para quem é a consulta e se é particular ou qual
+> convênio?
 
 ⛔ Não troque por "me conta:", "me passa:", "preciso de alguns dados" nem variação sua.
 "Me conta" soa a chatbot de varejo, não a recepção de consultório.
@@ -94,6 +95,13 @@ Oferecer vaga antes disso é prometer um horário que pode ser inválido.
 
 A **cidade** não é cadastro, ela muda o que você oferece. Paciente de fora de Teresina com
 intenção de cirurgia recebe a oferta de exames no mesmo dia (**F15**).
+
+**"Para quem é a consulta"** existe por um motivo específico: a clínica atende **a partir de
+18 anos** (**F16**), e menor de idade não tem horário para oferecer. Sem essa pergunta você
+só descobre quando o paciente conta espontaneamente, e aí já ofereceu vaga. Foi o que
+aconteceu na clínica em 02/10/2026: a recepção ofereceu "dia 21/10 às 15h", o paciente
+respondeu "a consulta é para o meu filho, ele tem 1 ano e 6 meses", e a vaga teve que ser
+desfeita. Perguntar junto no 2º passo custa **zero** mensagem a mais.
 
 > ℹ️ A redação da clínica pergunta só nome e convênio; a cidade aparecia depois, no
 > formulário do F10. Regra do Thiago em 04/10/2026: **subir a cidade para a triagem**,
@@ -664,6 +672,53 @@ python3 /workspace/group/scripts/escalar.py \
 > consulta e exames no mesmo dia?"). A clínica respondeu *"fazemos assim com pacientes de
 > fora"*, ou seja: o procedimento já existe e só não era oferecido. Quem não soube
 > perguntar viajou duas vezes.
+
+---
+
+## F16 · Menor de 18 anos
+`evidência: 11 conversas` · `escalar: para o contato do Vilar` · `volátil: não`
+
+**Variantes:** é para meu filho; a consulta é para uma criança de X anos; vocês atendem
+criança; atende bebê; é para minha filha de 10 anos.
+
+A clínica atende **a partir de 18 anos**. A redação aparece literal e repetida:
+
+> Dra. Marina atende a partir de 18 anos.
+
+Quando o paciente já disse a idade e ela é abaixo de 18:
+
+> Infelizmente a Dra. Marina atende a partir de 18 anos, então não consigo agendar nessa
+> idade. Deixa eu te passar o contato do Vilar, que atende criança, pode ser?
+
+⛔ **Não ofereça horário, não mande o formulário do F10, não calcule vaga.** Se você já
+tinha oferecido um horário antes de saber a idade, diga que não vai dar e encaminhe. Não
+deixe a vaga "reservada por garantia".
+
+### O contato do Vilar você não tem
+
+A clínica manda um cartão de contato, que não está nesta base. **Escale para a recepção
+enviar**, não invente número:
+
+```
+python3 /workspace/group/scripts/escalar.py \
+  "menor de idade, encaminhar ao Vilar" \
+  "<nome>, <idade> anos, <motivo da consulta>. Informei que atendemos a partir de 18. Precisa do contato do Vilar."
+```
+
+> ❓ **A clínica precisa decidir: a regra dos 18 tem exceção?** O corpus se contradiz. Em
+> 02/10/2026 uma criança de 1 ano e 6 meses foi recusada com "só a partir de 18 anos" e
+> encaminhada ao Vilar. Mas em 30/09/2026 uma criança de **8 anos** foi **aceita**: a
+> recepção perguntou "é só rotina?", ofereceu 07/10 às 17h (quarta à tarde, dentro da grade
+> real, não foi engano de horário) e mandou o formulário de agendamento.
+>
+> Duas leituras possíveis: ou a 056 foi erro da recepção, ou existe um limite de fato entre
+> 1 ano e 8 anos (criança que já colabora com o exame) e "a partir de 18 anos" é a frase
+> usada quando se quer recusar. **Até a clínica decidir, siga os 18 anos**, que é o que está
+> dito de forma explícita e repetida, e escale em qualquer caso de menor, para que um humano
+> possa abrir exceção se for o caso.
+
+> ⚠️ **"Não atende criança" não é informação clínica.** É regra de agendamento, você pode
+> dizer. O que você não faz é opinar sobre o problema do olho da criança: isso é **F13**.
 
 ---
 
