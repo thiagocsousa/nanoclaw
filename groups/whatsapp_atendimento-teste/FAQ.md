@@ -1067,7 +1067,28 @@ python3 /workspace/group/scripts/escalar.py \
 **Variantes:** atende no Hospital do Olho; atende no Vilar; dá pra marcar lá; o plano cobre
 no hospital; a cirurgia é onde; faz exame em outro lugar.
 
-⛔ **Escale. Você não sabe responder isso, e o que você "acha" vai estar errado.**
+### O que você PODE dizer
+
+Confirmado pela clínica em 04/10/2026:
+
+> As consultas são aqui no consultório, na Av. Elias João Tajra, 1170, Sala 07, Jóquei.
+>
+> As cirurgias são realizadas em hospital, podendo ser no Hospital Vilar, no Hospital do
+> Olho ou no Namir Clementino. O local é definido após a avaliação.
+
+⛔ **Diga os três, nunca escolha um.** Não "vai ser no Vilar", não "normalmente é no
+Hospital do Olho". Quem define é a médica depois da avaliação, e antecipar um hospital faz
+o paciente se organizar para o lugar errado: pedir folga, arrumar quem o leve, às vezes
+reservar hotel se vem de fora.
+
+### O que exige escalonamento
+
+Duas coisas, e só:
+
+1. **Se o plano cobre naquele hospital.** Não está na base, e o histórico mostra que varia
+   (*"esse os planos não cobrem"*, sobre exame fora do consultório).
+2. **Se a médica atende consulta em outro endereço.** O histórico de 21/09/2026 diz
+   *"Amanhã ela atende no Vilar"*, o que contradiz o F07. Até a clínica resolver, escale.
 
 ```
 python3 /workspace/group/scripts/escalar.py \
@@ -1079,14 +1100,20 @@ Ao paciente:
 
 > Só um instante.
 
-### Por que escalar, e não responder
+### Por que o resto escala
 
-O que você pode dizer, e só isso: **o consultório fica na Av. Elias João Tajra** (F07).
-Qualquer coisa além — onde a cirurgia acontece, se a médica atende em outro lugar, se o
-plano cobre naquele local, se o exame pode ser feito fora — **não está nesta base**.
+**Qual** hospital, cobertura do plano por local e atendimento de consulta fora do
+consultório não estão nesta base. Afirmar qualquer um deles é chute.
 
-⛔ **Nunca diga "o local é definido após a avaliação".** Isso saiu na suíte em 04/10/2026 e
-é invenção: zero ocorrências no histórico. Soa plausível, e é por isso que é perigoso.
+> ⚠️ **Correção de uma leitura minha errada.** Em 04/10/2026 eu marquei *"o local é definido
+> após a avaliação"* como invenção, porque tem zero ocorrências no histórico exportado, e
+> cheguei a proibir a frase. O Thiago confirmou que **está correta**: era a minha base que
+> estava incompleta, não a resposta dela.
+>
+> Foi o quarto falso positivo meu no mesmo dia, e o padrão é sempre o mesmo: vejo uma
+> afirmação plausível que não reconheço e presumo invenção. A regra que eu passo a seguir é
+> perguntar antes de proibir, porque proibir o certo é mais caro que deixar passar o
+> duvidoso uma vez.
 
 ### O que o histórico mostra, e que a base NÃO confirma
 
@@ -1094,18 +1121,21 @@ Registrado aqui para quem for completar este bloco, **não para a agente usar**:
 
 | o que apareceu | quando |
 |---|---|
+| hospitais da cirurgia: Vilar, Hospital do Olho, Namir Clementino | confirmado em 04/10/2026 |
 | *"Amanhã ela atende no Vilar, e quarta está lotado no consultório dela"* | 21/09/2026 |
 | *"Dá pra fazer agora no Hospital do Olho"* (exame) | 21/09/2026 |
 | *"Pentacam... não fazemos no consultório. Posso agendar pra você no Hospital do Olho"* | 29/09/2026 |
 | taxa de sala hospitalar: Vilar Hospital de Olhos | 29/09/2026 |
 | contato do Vilar para quem tem menos de 18 anos | 02 e 03/10/2026 |
 
-> ❓ **Três perguntas para a clínica, e até lá vale escalar:**
-> 1. A Dra. Marina atende consulta **fora do consultório**, no Vilar ou em outro lugar? O
+> ❓ **Duas perguntas que restam para a clínica, e até lá vale escalar:**
+> 1. A Dra. Marina atende **consulta** fora do consultório, no Vilar ou em outro lugar? O
 >    histórico de 21/09 diz que sim, e o F07 desta base diz que não.
-> 2. **Onde** a cirurgia é feita, e isso varia por convênio?
-> 3. A cobertura do plano **muda conforme o local**? O histórico tem "esse os planos não
+> 2. A cobertura do plano **muda conforme o local**? O histórico tem "esse os planos não
 >    cobrem" referindo-se a exame fora do consultório.
+>
+> Respondida em 04/10/2026: onde a cirurgia acontece (Vilar, Hospital do Olho ou Namir
+> Clementino, definido após a avaliação).
 
 > ⚠️ **Contradição a resolver no F06.** Esta base diz "não diga que quinta é o dia de
 > cirurgia", porque a agenda mostra cirurgia em todos os dias úteis. Mas em 28/09/2026 a
