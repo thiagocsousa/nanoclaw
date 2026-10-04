@@ -258,6 +258,70 @@
       "textos": [
         "Só um instante."
       ]
+    },
+    "endereco_hospital_vilar": {
+      "bloco": "F17",
+      "quando": "pergunta o endereço, a localização ou como chegar NO Hospital Vilar, nomeando esse hospital",
+      "acao": "responder",
+      "fecho": true,
+      "textos": [
+        "O Hospital Vilar fica na Rua Benjamin Constant, 2290, Centro (Norte), Teresina, PI, 64000-280\nhttps://www.google.com/maps/search/?api=1&query=Vilar%20Hospital%20de%20Olhos%2C%20Rua%20Benjamin%20Constant%2C%202290%2C%20Centro%20%28Norte%29%2C%20Teresina%2C%20PI%2C%2064000-280"
+      ]
+    },
+    "endereco_hospital_olho": {
+      "bloco": "F17",
+      "quando": "pergunta o endereço, a localização ou como chegar NO Hospital do Olho, nomeando esse hospital",
+      "acao": "responder",
+      "fecho": true,
+      "textos": [
+        "O Hospital do Olho fica na R. Magalhães Filho, 161, Centro (Sul), Teresina, PI\nhttps://www.google.com/maps/search/?api=1&query=Hospital%20do%20Olho%2C%20R.%20Magalh%C3%A3es%20Filho%2C%20161%2C%20Centro%20%28Sul%29%2C%20Teresina%2C%20PI"
+      ]
+    },
+    "endereco_hospital_namir": {
+      "bloco": "F17",
+      "quando": "pergunta o endereço, a localização ou como chegar NO Namir Clementino, nomeando esse hospital",
+      "acao": "responder",
+      "fecho": true,
+      "textos": [
+        "O Namir Clementino fica na R. Áurea Freire, 1440, Jóquei, Teresina, PI, 64049-160\nhttps://www.google.com/maps/search/?api=1&query=Namir%20Clementino%2C%20R.%20%C3%81urea%20Freire%2C%201440%2C%20J%C3%B3quei%2C%20Teresina%2C%20PI%2C%2064049-160"
+      ]
+    },
+    "endereco_hospital_tercio": {
+      "bloco": "F17",
+      "quando": "pergunta o endereço, a localização ou como chegar NO Tércio Rezende, nomeando esse hospital",
+      "acao": "responder",
+      "fecho": true,
+      "textos": [
+        "O Tércio Rezende fica na R. Gabriel Ferreira, 262, Centro (Sul), Teresina, PI, 64001-250\nhttps://www.google.com/maps/search/?api=1&query=T%C3%A9rcio%20Rezende%2C%20R.%20Gabriel%20Ferreira%2C%20262%2C%20Centro%20%28Sul%29%2C%20Teresina%2C%20PI%2C%2064001-250"
+      ]
+    },
+    "endereco_hospital_coe": {
+      "bloco": "F17",
+      "quando": "pergunta o endereço, a localização ou como chegar NO COE, nomeando esse hospital",
+      "acao": "responder",
+      "fecho": true,
+      "textos": [
+        "O COE fica na R. Coelho Rodrigues, 2041, Centro (Norte), Teresina, PI, 64000-080\nhttps://www.google.com/maps/search/?api=1&query=COE%2C%20R.%20Coelho%20Rodrigues%2C%202041%2C%20Centro%20%28Norte%29%2C%20Teresina%2C%20PI%2C%2064000-080"
+      ]
+    },
+    "sem_telefone": {
+      "bloco": "F00d",
+      "quando": "pede telefone, número para ligar, quer falar por voz. A clínica não recebe ligação, só mensagem e áudio, e NÃO existe número a informar",
+      "acao": "responder",
+      "fecho": false,
+      "textos": [
+        "O atendimento é por aqui mesmo, por mensagem. Pode me escrever o que você precisa, que eu te oriento."
+      ]
+    },
+    "audio_escala": {
+      "bloco": "F00d",
+      "quando": "SEGUNDO áudio seguido, depois de já ter pedido para escrever uma vez. Pode ser quem não consegue digitar, e insistir no texto deixa a pessoa sem atendimento",
+      "acao": "escalar",
+      "urgente": false,
+      "fecho": false,
+      "textos": [
+        "Só um instante."
+      ]
     }
   }
 }

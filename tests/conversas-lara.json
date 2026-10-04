@@ -1324,7 +1324,7 @@
             "por aqui|mensagem"
           ],
           "nota": "Não inventar número. O atendimento é por mensagem.",
-          "intencao_esperada": "quer_humano"
+          "intencao_esperada": "sem_telefone"
         },
         {
           "paciente": "obrigado, era só isso",
@@ -1353,7 +1353,7 @@
             "\\(?\\d{2}\\)? ?\\d{4,5}[- ]?\\d{4}"
           ],
           "nota": "Segunda insistência: escalar, não repetir o pedido.",
-          "intencao_esperada": "audio"
+          "intencao_esperada": "audio_escala"
         }
       ]
     },
@@ -1378,7 +1378,7 @@
             "\\bliga\\b"
           ],
           "nota": "Dor + áudio = escalonamento urgente, sem mandar digitar.",
-          "intencao_esperada": "audio"
+          "intencao_esperada": "clinico"
         }
       ]
     },
@@ -1398,7 +1398,7 @@
           "esperado": [
             "por aqui|mensagem"
           ],
-          "intencao_esperada": "quer_humano"
+          "intencao_esperada": "sem_telefone"
         }
       ]
     },
@@ -1505,7 +1505,7 @@
             "Coelho Rodrigues"
           ],
           "nota": "Perguntou daquele hospital: responde o endereço dele, não dos outros.",
-          "intencao_esperada": "DESCONHECIDO"
+          "intencao_esperada": "endereco_hospital_olho"
         }
       ]
     },
@@ -1711,6 +1711,45 @@
             "Sexta"
           ],
           "intencao_esperada": "grade_atendimento"
+        }
+      ]
+    },
+    {
+      "id": "K06",
+      "categoria": "outro_local",
+      "sobre": "Endereço dos outros quatro hospitais. Um paciente real não pergunta os quatro, mas aqui o que se mede é o rótulo, e cada hospital tem texto próprio.",
+      "turnos": [
+        {
+          "paciente": "onde fica o hospital vilar?",
+          "esperado": [
+            "Benjamin Constant",
+            "2290"
+          ],
+          "intencao_esperada": "endereco_hospital_vilar"
+        },
+        {
+          "paciente": "e o namir clementino, qual o endereco?",
+          "esperado": [
+            "Áurea Freire",
+            "1440"
+          ],
+          "intencao_esperada": "endereco_hospital_namir"
+        },
+        {
+          "paciente": "me manda o endereco do tercio rezende",
+          "esperado": [
+            "Gabriel Ferreira",
+            "262"
+          ],
+          "intencao_esperada": "endereco_hospital_tercio"
+        },
+        {
+          "paciente": "o COE fica onde?",
+          "esperado": [
+            "Coelho Rodrigues",
+            "2041"
+          ],
+          "intencao_esperada": "endereco_hospital_coe"
         }
       ]
     }

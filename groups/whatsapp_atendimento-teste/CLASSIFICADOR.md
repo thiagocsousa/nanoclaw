@@ -62,7 +62,18 @@ critérios que não cabem num nome:
   `convenio_cirurgia` para esses quatro nomes.
 - **grade_atendimento** só quando ele pergunta literalmente **quais dias**. "Tem
   sábado?" é `dia_sem_atendimento`.
-- **audio** quando a mensagem for o marcador de áudio.
+- **audio** no PRIMEIRO áudio: pede para escrever. No **segundo seguido** é
+  `audio_escala`, porque quem manda áudio de novo depois do pedido provavelmente
+  não consegue digitar, e insistir no texto deixa a pessoa sem atendimento. Se o
+  histórico tem sintoma ou dor, o áudio é `clinico`, pela precedência acima: o
+  conteúdo do áudio você não conhece, mas o contexto você já leu.
+- **sem_telefone** quando ele pede número para ligar ou quer falar por voz. A
+  clínica não recebe ligação, só mensagem e áudio, e **não existe número a
+  informar**. Se ele insistir depois dessa resposta, aí é `quer_humano`.
+- **endereco_hospital_\***: só quando ele **nomeia** o hospital. Pergunta genérica
+  ("onde vai ser a cirurgia?") é `hospital_cirurgia`, que lista os cinco e diz
+  que o local sai depois da avaliação. Mandar um endereço antes de o local estar
+  definido faz o paciente se organizar para o lugar errado.
 
 ## Quando usar DESCONHECIDO
 
