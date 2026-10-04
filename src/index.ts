@@ -72,6 +72,12 @@ import { startSessionCleanup } from './session-cleanup.js';
 import { startSchedulerLoop } from './task-scheduler.js';
 import { Channel, NewMessage, RegisteredGroup } from './types.js';
 import { recordAgentMarking } from './agent-marking.js';
+import {
+  baixaPorCodigo,
+  codigoDaBaixa,
+  podeDarBaixa,
+  startEscalationSla,
+} from './escalation-sla.js';
 import { humanDelayMs, sleep, wantsHumanCadence } from './human-cadence.js';
 import { logger } from './logger.js';
 
@@ -654,6 +660,25 @@ async function main(): Promise<void> {
         return;
       }
 
+      // Baixa de escalonamento: "ok E7K2" de quem recebe a cobrança.
+      if (!msg.is_bot_message && podeDarBaixa(chatJid)) {
+        const codigo = codigoDaBaixa(trimmed);
+        if (codigo) {
+          const baixada = baixaPorCodigo(codigo);
+          const resposta = baixada
+            ? `✅ ${codigo} baixado: ${baixada.motivo}`
+            : `não achei ${codigo} em aberto (já baixado, ou código errado)`;
+          const canal = findChannel(channels, chatJid);
+          canal
+            ?.sendMessage(chatJid, resposta)
+            .catch((err) =>
+              logger.warn({ err, codigo }, 'escalation-sla: ack falhou'),
+            );
+          storeMessage(msg);
+          return;
+        }
+      }
+
       // Sender allowlist drop mode: discard messages from denied senders before storing
       if (!msg.is_from_me && !msg.is_bot_message && registeredGroups[chatJid]) {
         const cfg = loadSenderAllowlist();
@@ -747,6 +772,18 @@ async function main(): Promise<void> {
       }
       const text = formatOutbound(rawText);
       if (text) await channel.sendMessage(jid, text);
+    },
+  });
+  startEscalationSla({
+    sendMessage: (jid, text, groupFolder) => {
+      const channel =
+        (groupFolder && findChannelForGroup(channels, groupFolder)) ||
+        findChannel(channels, jid);
+      if (!channel) {
+        logger.warn({ jid }, 'escalation-sla: nenhum canal para o destino');
+        return;
+      }
+      return channel.sendMessage(jid, text);
     },
   });
   startIpcWatcher({

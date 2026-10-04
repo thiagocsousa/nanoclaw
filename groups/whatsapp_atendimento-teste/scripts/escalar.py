@@ -29,7 +29,13 @@ from pathlib import Path
 
 GROUP = Path(os.environ.get("NANOCLAW_GROUP_DIR", "/workspace/group"))
 LOG = GROUP / "escalonamentos.jsonl"
+PENDENTES = GROUP / "escalonamentos_pendentes.json"
 IPC_MESSAGES_DIR = Path("/workspace/ipc/messages")
+
+# Alfabeto do código do caso: sem 0/O, 1/I/L, 5/S, 2/Z. O código é lido em voz
+# alta e digitado de volta às pressas ("ok E7K2"), então par ambíguo é baixa que
+# não acontece e alarme que toca sem motivo.
+ALFABETO_CODIGO = "ABCDEFGHJKMNPQRTUVWXY34679"
 
 # Para onde vai o aviso. No teste, o próprio Thiago; em produção, o grupo da
 # recepção. Nunca é um JID de paciente.
@@ -72,6 +78,47 @@ def toca_alarme():
         return "alarme falhou: %s" % type(exc).__name__
 
 
+def gera_codigo(usados):
+    """Código de 4 caracteres, único entre as pendências abertas."""
+    for _ in range(50):
+        c = "".join(random.choices(ALFABETO_CODIGO, k=4))
+        if c not in usados:
+            return c
+    return "".join(random.choices(ALFABETO_CODIGO, k=4))
+
+
+def abre_pendencia(motivo, pergunta, urgente):
+    """Registra o caso para a escada de cobrança do host (3 min / 5 min).
+
+    O host faz a escada porque ela precisa de precisão de minuto, e task
+    agendada custaria um container por minuto. Aqui só se abre o caso.
+    """
+    try:
+        atuais = json.loads(PENDENTES.read_text(encoding="utf-8"))
+        if not isinstance(atuais, list):
+            atuais = []
+    except (OSError, json.JSONDecodeError):
+        atuais = []
+
+    codigo = gera_codigo({p.get("codigo") for p in atuais})
+    atuais.append({
+        "codigo": codigo,
+        "quando": int(time.time() * 1000),
+        "motivo": motivo,
+        "pergunta": pergunta,
+        "urgente": urgente,
+    })
+    try:
+        tmp = Path(str(PENDENTES) + ".tmp")
+        tmp.write_text(json.dumps(atuais, ensure_ascii=False, indent=2), encoding="utf-8")
+        tmp.rename(PENDENTES)
+    except OSError as exc:
+        # Sem pendência não há cobrança, mas o aviso imediato ainda vale mais
+        # que abortar o escalonamento inteiro.
+        print("aviso: nao gravou pendencia (%s)" % exc, file=sys.stderr)
+    return codigo
+
+
 def main():
     if len(sys.argv) < 3:
         print("uso: escalar.py '<motivo>' '<pergunta do paciente>' [--urgente]",
@@ -80,8 +127,11 @@ def main():
     motivo, pergunta = sys.argv[1], sys.argv[2]
     urgente = "--urgente" in sys.argv
 
+    codigo = abre_pendencia(motivo, pergunta, urgente)
+
     registro = {
         "quando": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+        "codigo": codigo,
         "motivo": motivo,
         "pergunta": pergunta,
         "urgente": urgente,
@@ -90,7 +140,9 @@ def main():
         f.write(json.dumps(registro, ensure_ascii=False) + "\n")
 
     cabecalho = "🚨 *Atendimento URGENTE*" if urgente else "🙋 *Atendimento aguardando*"
-    texto = "%s\n\n*Motivo:* %s\n*Paciente perguntou:* %s" % (cabecalho, motivo, pergunta)
+    texto = ("%s  `%s`\n\n*Motivo:* %s\n*Paciente perguntou:* %s\n\n"
+             "Responda *ok %s* ao resolver. Sem baixa: cobrança em 3 min, "
+             "alarme em 5 min." % (cabecalho, codigo, motivo, pergunta, codigo))
 
     IPC_MESSAGES_DIR.mkdir(parents=True, exist_ok=True)
     rid = "".join(random.choices(string.ascii_lowercase + string.digits, k=6))
@@ -106,7 +158,8 @@ def main():
     tmp.rename(fp)
 
     alarme = toca_alarme() if urgente else "não urgente, sem alarme"
-    print("escalado%s: %s | %s" % (" (URGENTE)" if urgente else "", motivo, alarme))
+    print("escalado%s [%s]: %s | %s" % (
+        " (URGENTE)" if urgente else "", codigo, motivo, alarme))
     return 0
 
 

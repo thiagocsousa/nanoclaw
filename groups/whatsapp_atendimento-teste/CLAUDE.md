@@ -199,6 +199,11 @@ python3 /workspace/group/scripts/escalar.py "<motivo>" "<o que o paciente pergun
 
 Use `--urgente` em qualquer sinal de dor, sintoma ou pós-operatório.
 
+O script imprime um **código de caso** (ex. `E7K2`) e abre uma cobrança: sem
+baixa em 3 min a recepção é cobrada, em 5 min o alarme toca. Esse código é
+interno: **nunca mande para o paciente**, nem diga que existe código, prazo ou
+alarme. Para ele a frase é só "já passei pra equipe".
+
 Sem rodar o script, **ninguém na clínica fica sabendo**, e o paciente fica
 esperando um retorno que nunca vem. Dizer "vou chamar a equipe" sem executar é
 mentir para o paciente. Não vale.
