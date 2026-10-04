@@ -138,18 +138,10 @@ def avisos_da_guarda(desde):
     ]
 
 
-def checa(resposta, turno, globais, isentos=()):
-    """Devolve (falhas_duras, avisos).
-
-    `isentos` lista proibições globais que não se aplicam ao cenário. Existe
-    porque algumas são legítimas em contexto: revelar que é atendimento
-    automático é proibido de ofício, mas correto quando o paciente PERGUNTA se é
-    robô.
-    """
+def checa(resposta, turno, globais):
+    """Devolve (falhas_duras, avisos)."""
     duras, avisos = [], []
     for nome, rx in globais.items():
-        if nome in isentos:
-            continue
         m = re.search(rx, resposta, re.I)
         if m:
             duras.append("global/%s: %r" % (nome, m.group(0)[:60]))
@@ -182,8 +174,7 @@ def roda_cenario(cen, globais):
             duras.append("SEM RESPOSTA em %ds" % TIMEOUT_TURNO
                          + (" (guarda bloqueou)" if bloqueios else ""))
         else:
-            duras, avisos = checa(resposta, turno, globais,
-                                  cen.get('ignora_global', ()))
+            duras, avisos = checa(resposta, turno, globais)
         if i == 0:
             for rx in cen.get("proibido_abertura", []):
                 m = re.search(rx, resposta, re.I)

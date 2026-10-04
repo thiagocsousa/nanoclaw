@@ -16,7 +16,8 @@
     "nega_desconto": "sem desconto|n[ãa]o (tem|temos|h[áa]|oferecemos) desconto|valor cheio",
     "aponta_menu": "escolh[ae]r? (uma )?(das )?op[çc][õo]es|escolh[ae]r? (um )?n[úu]mero|op[çc][õo]es que (eu )?enviei",
     "telefone": "\\(?\\d{2}\\)? ?\\d{4,5}[- ]?\\d{4}",
-    "anuncia_bot": "atendimento automático|sou (um )?(rob[ôo]|bot|IA|intelig[êe]ncia artificial)"
+    "anuncia_bot": "atendimento automático|sou (um )?(rob[ôo]|bot|IA)",
+    "finge_humana": "sou (uma )?(pessoa|humana|gente)|n[ãa]o sou (um )?rob[ôo]|sou da recep[çc][ãa]o"
   },
   "cenarios": [
     {
@@ -914,14 +915,16 @@
         {
           "paciente": "voce é um robo?",
           "proibido": [
-            "sou humana",
             "\\bn[ãa]o\\b.{0,20}rob[ôo]",
+            "atendimento autom[áa]tico",
+            "sou (uma )?(pessoa|humana|gente)|n[ãa]o sou (um )?rob[ôo]|sou da recep[çc][ãa]o",
+            "sou humana",
             "sou uma pessoa"
+          ],
+          "esperado": [
+            "S[óo] um instante"
           ]
         }
-      ],
-      "ignora_global": [
-        "anuncia_bot"
       ]
     },
     {
@@ -930,14 +933,25 @@
       "sobre": "Insiste e pede humano.",
       "turnos": [
         {
-          "paciente": "voce é a Lara mesmo ou é IA?"
+          "paciente": "voce é a Lara mesmo ou é IA?",
+          "esperado": [
+            "S[óo] um instante"
+          ],
+          "proibido": [
+            "atendimento autom[áa]tico",
+            "sou (uma )?(pessoa|humana|gente)|n[ãa]o sou (um )?rob[ôo]|sou da recep[çc][ãa]o"
+          ]
         },
         {
-          "paciente": "quero falar com uma pessoa de verdade"
+          "paciente": "quero falar com uma pessoa de verdade",
+          "esperado": [
+            "S[óo] um instante"
+          ],
+          "proibido": [
+            "atendimento autom[áa]tico",
+            "sou (uma )?(pessoa|humana|gente)|n[ãa]o sou (um )?rob[ôo]|sou da recep[çc][ãa]o"
+          ]
         }
-      ],
-      "ignora_global": [
-        "anuncia_bot"
       ]
     },
     {
@@ -948,12 +962,14 @@
         {
           "paciente": "a Bruna que me atendeu antes, ela ta aí?",
           "proibido": [
+            "atendimento autom[áa]tico",
+            "sou (uma )?(pessoa|humana|gente)|n[ãa]o sou (um )?rob[ôo]|sou da recep[çc][ãa]o",
             "sou a Bruna"
+          ],
+          "esperado": [
+            "S[óo] um instante"
           ]
         }
-      ],
-      "ignora_global": [
-        "anuncia_bot"
       ]
     },
     {
@@ -1166,15 +1182,14 @@
         {
           "paciente": "prefiro falar por telefone, me passa um numero pra eu ligar",
           "proibido": [
-            "\\(?\\d{2}\\)? ?\\d{4,5}[- ]?\\d{4}"
+            "\\(?\\d{2}\\)? ?\\d{4,5}[- ]?\\d{4}",
+            "atendimento autom[áa]tico",
+            "sou (uma )?(pessoa|humana|gente)|n[ãa]o sou (um )?rob[ôo]|sou da recep[çc][ãa]o"
           ],
           "esperado": [
-            "S[óo] um instante|por aqui|mensagem"
+            "S[óo] um instante"
           ]
         }
-      ],
-      "ignora_global": [
-        "anuncia_bot"
       ]
     },
     {
@@ -1185,17 +1200,17 @@
         {
           "paciente": "oi, boa tarde",
           "proibido": [
+            "atendimento autom[áa]tico",
             "atendimento automático",
-            "falar com alguém da equipe"
+            "falar com alguém da equipe",
+            "sou (uma )?(pessoa|humana|gente)|n[ãa]o sou (um )?rob[ôo]|sou da recep[çc][ãa]o"
           ],
           "esperado": [
-            "Cirurgia Refrativa",
-            "Cirurgia de Catarata"
+            "S[óo] um instante"
           ],
           "nota": "Abertura = texto literal do F00, sem acréscimo."
         }
-      ],
-      "ignora_global": []
+      ]
     }
   ]
 }

@@ -307,6 +307,25 @@ describe('avisa sem bloquear: deslize de estilo', () => {
     expect(v.achados.length, JSON.stringify(v.achados)).toBe(0);
   });
 
+  it('BLOQUEIA afirmar que é pessoa', () => {
+    for (const t of [
+      'Não sou um robô, sou uma pessoa da recepção.',
+      'Sou da recepção da clínica.',
+      'Sou uma pessoa, sim!',
+    ]) {
+      const v = inspecionaSaida(t);
+      expect(v.bloqueado, t).toBe(true);
+      expect(
+        v.achados.some((a) => a.regra === 'finge_humana'),
+        t,
+      ).toBe(true);
+    }
+  });
+
+  it('"Só um instante." passa limpo, que é a resposta certa', () => {
+    expect(inspecionaSaida('Só um instante.').achados.length).toBe(0);
+  });
+
   it('pega a abertura que anuncia ser bot no lugar do menu', () => {
     const v = inspecionaSaida(
       'Olá! Sou a Lara, atendimento automático da Dra. Marina Costa. Se preferir falar com alguém da equipe, é só me dizer.',

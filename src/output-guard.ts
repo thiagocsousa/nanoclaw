@@ -182,6 +182,15 @@ const RX_INCLUI_EXAME =
   /inclu\w+\s+(?:o\s+|os\s+|todos\s+os\s+)?exames?\b|exames?\s+(?:est[ãa]o\s+)?inclu[íi]d/i;
 const NOMEIA_INCLUSO = /fundoscopia|tonometria|dois olhos|ambos os olhos/i;
 
+// --- fingir-se humana -------------------------------------------------------
+
+/**
+ * A agente escala quando perguntam se é robô, e nunca afirma ser pessoa. Calar e
+ * passar adiante não é mentira; dizer que é humana, é, e isso bloqueia.
+ */
+const RX_FINGE_HUMANA =
+  /\bsou (?:uma )?(?:pessoa|humana|gente)\b|\bn[ãa]o sou (?:um )?rob[ôo]\b|\bsou da recep[çc][ãa]o\b/i;
+
 // --- abertura malformada ----------------------------------------------------
 
 /**
@@ -321,7 +330,19 @@ export function inspecionaSaida(bruto: string): Veredito {
   }
   RX_TELEFONE.lastIndex = 0; // regex global: zera entre chamadas
 
-  // 6. flag: abertura sem o menu completo
+  // 6. block: afirmou ser pessoa
+  const finge = texto.match(RX_FINGE_HUMANA);
+  if (finge) {
+    achados.push({
+      regra: 'finge_humana',
+      nivel: 'block',
+      motivo:
+        'afirma ser pessoa; quando perguntam se é robô a resposta é escalar e "Só um instante" (F00e)',
+      trecho: finge[0],
+    });
+  }
+
+  // 7. flag: abertura sem o menu completo
   if (RX_ABERTURA.test(texto) && !RX_MENU_COMPLETO.test(texto)) {
     achados.push({
       regra: 'abertura_malformada',
@@ -332,7 +353,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 7. flag: mandou o paciente ligar
+  // 8. flag: mandou o paciente ligar
   if (RX_CONVITE_LIGAR.test(texto) && RX_DOR.test(texto)) {
     achados.push({
       regra: 'manda_ligar',
@@ -343,7 +364,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 8. flag: mandou o paciente de volta ao menu
+  // 9. flag: mandou o paciente de volta ao menu
   const menu = texto.match(RX_APONTA_MENU);
   if (menu) {
     achados.push({
@@ -354,7 +375,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 9. flag: negou o desconto, contando que ele existe
+  // 10. flag: negou o desconto, contando que ele existe
   const nega = texto.match(RX_NEGA_DESCONTO);
   if (nega) {
     achados.push({
@@ -365,7 +386,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 10. flag: prometeu exame incluso sem nomear o que está incluso
+  // 11. flag: prometeu exame incluso sem nomear o que está incluso
   const inclui = texto.match(RX_INCLUI_EXAME);
   if (inclui && !NOMEIA_INCLUSO.test(texto)) {
     achados.push({
@@ -377,7 +398,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 11. flag: linguagem interna sobrevivendo no texto
+  // 12. flag: linguagem interna sobrevivendo no texto
   const interno = texto.match(RX_INTERNO);
   if (interno) {
     achados.push({
@@ -388,7 +409,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 12. flag: frases proibidas de estilo
+  // 13. flag: frases proibidas de estilo
   for (const [rx, motivo] of PROIBIDAS) {
     const m = texto.match(rx);
     if (m) {
