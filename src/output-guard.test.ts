@@ -242,6 +242,34 @@ describe('avisa sem bloquear: deslize de estilo', () => {
     }
   });
 
+  it('pega "escolha uma das opções", que é apontar para o menu', () => {
+    for (const t of [
+      'Para verificar a disponibilidade, preciso saber qual é a sua necessidade. Escolha uma das opções que enviei para eu te ajudar.',
+      'Escolha um número para continuarmos.',
+      'Selecione a opção que melhor se adequa.',
+    ]) {
+      const v = inspecionaSaida(t);
+      expect(
+        v.achados.some((a) => a.regra === 'aponta_menu'),
+        t,
+      ).toBe(true);
+    }
+  });
+
+  it('o menu em si passa: o proibido é mandar de volta a ele', () => {
+    const v = inspecionaSaida(
+      'Olá, tudo bem? Sou a Lara, assistente da Dra. Marina Costa.\n\n1 - Avaliação para Cirurgia Refrativa\n2 - Avaliação para Cirurgia de Catarata\n3 - Consulta Oftalmológica de Rotina\n4 - Outros',
+    );
+    expect(v.achados.length, JSON.stringify(v.achados)).toBe(0);
+  });
+
+  it('pedir para explicar passa, que é o jeito certo', () => {
+    const v = inspecionaSaida(
+      'Pode me explicar o que você está precisando? Assim eu já vejo o horário.',
+    );
+    expect(v.achados.length, JSON.stringify(v.achados)).toBe(0);
+  });
+
   it('nome de bloco do FAQ no texto ao paciente é flag', () => {
     const v = inspecionaSaida('Conforme o F12, tem vaga segunda.');
     expect(v.achados.some((a) => a.regra === 'linguagem_interna')).toBe(true);

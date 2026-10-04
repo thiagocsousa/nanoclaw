@@ -13,7 +13,8 @@
     "empurra_trabalho": "como posso (te )?ajudar|o que posso fazer por voc|em que posso (te )?ajudar",
     "exames_inclusos": "inclu\\w+ (o |os |todos os )?exames?\\b",
     "orcamento_na_consulta": "na consulta.{0,30}(or[çc]amento|passa o valor)",
-    "nega_desconto": "sem desconto|n[ãa]o (tem|temos|h[áa]|oferecemos) desconto|valor cheio"
+    "nega_desconto": "sem desconto|n[ãa]o (tem|temos|h[áa]|oferecemos) desconto|valor cheio",
+    "aponta_menu": "escolh[ae]r? (uma )?(das )?op[çc][õo]es|escolh[ae]r? (um )?n[úu]mero|op[çc][õo]es que (eu )?enviei"
   },
   "cenarios": [
     {
@@ -126,7 +127,7 @@
           "proibido": [
             "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
           ],
-          "nota": "O menu já foi na 1ª. Na 3ª não pode aparecer de novo."
+          "nota": "Nem repetir o menu, nem APONTAR pra ele. Deve pedir pra explicar."
         }
       ]
     },

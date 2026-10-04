@@ -182,6 +182,17 @@ const RX_INCLUI_EXAME =
   /inclu\w+\s+(?:o\s+|os\s+|todos\s+os\s+)?exames?\b|exames?\s+(?:est[ãa]o\s+)?inclu[íi]d/i;
 const NOMEIA_INCLUSO = /fundoscopia|tonometria|dois olhos|ambos os olhos/i;
 
+// --- mandar de volta ao menu ------------------------------------------------
+
+/**
+ * Apontar para o menu ("escolha uma das opções que enviei") é o mesmo vício que
+ * reenviá-lo, e soa a atendimento eletrônico de telefone. O certo é pedir para a
+ * pessoa explicar. Saiu na suíte em 04/10/2026, numa forma que a regra de "não
+ * repetir o menu" não cobria.
+ */
+const RX_APONTA_MENU =
+  /escolh[ae]r?\s+(?:uma\s+)?(?:das\s+)?op[çc][õo]es|escolh[ae]r?\s+(?:um\s+)?n[úu]mero|selecion[ae]r?\s+(?:a\s+)?op[çc][ãa]o|op[çc][õo]es que (?:eu\s+)?enviei/i;
+
 // --- negar o desconto -------------------------------------------------------
 
 /**
@@ -268,7 +279,18 @@ export function inspecionaSaida(bruto: string): Veredito {
     break;
   }
 
-  // 6. flag: negou o desconto, contando que ele existe
+  // 6. flag: mandou o paciente de volta ao menu
+  const menu = texto.match(RX_APONTA_MENU);
+  if (menu) {
+    achados.push({
+      regra: 'aponta_menu',
+      nivel: 'flag',
+      motivo: 'manda o paciente escolher no menu; peça para ele explicar (F00)',
+      trecho: menu[0],
+    });
+  }
+
+  // 7. flag: negou o desconto, contando que ele existe
   const nega = texto.match(RX_NEGA_DESCONTO);
   if (nega) {
     achados.push({
@@ -279,7 +301,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 7. flag: prometeu exame incluso sem nomear o que está incluso
+  // 8. flag: prometeu exame incluso sem nomear o que está incluso
   const inclui = texto.match(RX_INCLUI_EXAME);
   if (inclui && !NOMEIA_INCLUSO.test(texto)) {
     achados.push({
@@ -291,7 +313,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 8. flag: linguagem interna sobrevivendo no texto
+  // 9. flag: linguagem interna sobrevivendo no texto
   const interno = texto.match(RX_INTERNO);
   if (interno) {
     achados.push({
@@ -302,7 +324,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 9. flag: frases proibidas de estilo
+  // 10. flag: frases proibidas de estilo
   for (const [rx, motivo] of PROIBIDAS) {
     const m = texto.match(rx);
     if (m) {
