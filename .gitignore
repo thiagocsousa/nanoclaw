@@ -41,6 +41,8 @@ groups/whatsapp_atendimento-teste/*
 !groups/whatsapp_atendimento-teste/FAQ.md
 !groups/whatsapp_atendimento-teste/scripts/
 !groups/whatsapp_atendimento-teste/scripts/**
+!groups/whatsapp_atendimento-teste/templates.json
+!groups/whatsapp_atendimento-teste/CLASSIFICADOR.md
 
 !groups/whatsapp_alerta-invest/
 groups/whatsapp_alerta-invest/*

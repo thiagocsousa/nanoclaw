@@ -1,0 +1,263 @@
+{
+  "_sobre": "Tabela de intenções e respostas fixas da Lara. O LLM NÃO escreve o que o paciente lê: ele classifica a mensagem numa intenção, e o host escolhe o texto daqui. Derivado do FAQ.md, que por sua vez veio de 482 conversas reais mais as correções da clínica em 04/10/2026.",
+  "_contrato": {
+    "acao": "responder = manda o texto | escalar = roda escalar.py e manda 'Só um instante.' | triagem = pede os dados que faltam | recusar_e_triagem = informa o não e emenda a triagem",
+    "slots": "{dia} {hora} vêm do iclinic_vagas.py; {valor_consulta} é 430,00; {valor_desconto} é 300,00. Nunca preenchidos pelo modelo.",
+    "fecho": "true = acrescenta 'Ajudo em algo mais?' (F00f). Nunca em escalonamento nem em dor.",
+    "variantes": "quando há mais de um texto, o host sorteia. Dá naturalidade sem geração."
+  },
+  "_niveis_de_confianca": {
+    "limiar": 0.75,
+    "abaixo_do_limiar": "trata como DESCONHECIDO e escala. Silêncio seguro em vez de palpite."
+  },
+  "intencoes": {
+    "abertura": {
+      "bloco": "F00",
+      "quando": "primeira mensagem, sem intenção declarada: 'oi', 'bom dia', emoji, 'informação'",
+      "acao": "responder",
+      "fecho": false,
+      "textos": [
+        "Olá, tudo bem? Sou a Lara, assistente da Dra. Marina Costa. Para agilizarmos o seu atendimento, escolha a opção que melhor se adequa à sua necessidade:\n\n1 - Avaliação para Cirurgia Refrativa\n2 - Avaliação para Cirurgia de Catarata\n3 - Consulta Oftalmológica de Rotina\n4 - Outros"
+      ]
+    },
+    "pedir_esclarecimento": {
+      "bloco": "F00",
+      "quando": "escolheu '4 - Outros', ou escreveu algo vago como 'informação'; e o menu já foi uma vez",
+      "acao": "responder",
+      "fecho": false,
+      "textos": [
+        "Pode me explicar o que você está precisando? Assim eu já te oriento."
+      ]
+    },
+    "triagem_dados": {
+      "bloco": "F00",
+      "quando": "intenção conhecida e faltam os quatro dados",
+      "acao": "triagem",
+      "fecho": false,
+      "textos": [
+        "Muito obrigada pelo seu contato. Para darmos início ao seu atendimento, poderia me informar:\n\nNome completo do paciente:\nData de nascimento:\nCidade:\nConvênio (ou particular):"
+      ],
+      "parcial": "Faltando um ou dois dados, o host monta a frase: 'Poderia me informar {campos}?' Nunca a lista inteira."
+    },
+    "preco_consulta": {
+      "bloco": "F01",
+      "quando": "quanto custa a consulta, valor da avaliação",
+      "acao": "responder",
+      "fecho": true,
+      "textos": [
+        "A avaliação com a Dra. Marina é R$ {valor_consulta}. Inclui o exame oftalmológico completo, com fundoscopia e tonometria, e a possibilidade de retorno em até 30 dias."
+      ]
+    },
+    "preco_cirurgia": {
+      "bloco": "F03",
+      "quando": "quanto custa a cirurgia, me dá uma média, é 5 mil?",
+      "acao": "responder",
+      "fecho": false,
+      "textos": [
+        "O valor da cirurgia é definido depois da avaliação, porque depende da técnica indicada para o seu caso. A avaliação é R$ {valor_consulta}, e após a consulta já te passamos o orçamento fechado.",
+        "Não tem como passar valor antes da avaliação, depende da técnica e quem define é a Dra. Marina vendo seu exame. A avaliação é R$ {valor_consulta}."
+      ]
+    },
+    "desconto": {
+      "bloco": "F05",
+      "quando": "intenção de cirurgia E plano não atendido. Nunca oferecido de saída.",
+      "acao": "responder",
+      "fecho": false,
+      "textos": [
+        "Infelizmente a gente não atende o seu convênio.\n\nComo você já paga um plano, a avaliação sai por R$ {valor_desconto} em vez de R$ {valor_consulta}."
+      ]
+    },
+    "convenio_consulta": {
+      "bloco": "F04",
+      "quando": "atende [plano] para consulta",
+      "acao": "responder",
+      "fecho": true,
+      "textos": [
+        "Para consulta a gente atende particular e Unimed."
+      ]
+    },
+    "convenio_nao_atendido": {
+      "bloco": "F04",
+      "quando": "plano fora de particular/Unimed, pergunta sobre consulta",
+      "acao": "recusar_e_triagem",
+      "fecho": false,
+      "textos": [
+        "Infelizmente esse convênio a gente não atende para consulta, seria particular, no valor de R$ {valor_consulta}."
+      ]
+    },
+    "convenio_cirurgia": {
+      "bloco": "F04",
+      "quando": "pergunta se o plano cobre a CIRURGIA (qualquer plano fora de Intermed, Hapvida, Humana)",
+      "acao": "responder",
+      "fecho": false,
+      "textos": [
+        "A cirurgia a maioria dos convênios cobre, depende de o seu plano autorizar e de você estar dentro dos critérios que ele exige. Isso a gente vê depois da avaliação com a Dra. Marina."
+      ]
+    },
+    "convenio_bloqueado": {
+      "bloco": "F04",
+      "quando": "Intermed, Hapvida ou Humana",
+      "acao": "responder",
+      "fecho": false,
+      "textos": [
+        "Infelizmente esse convênio a gente não atende, nem para consulta nem para cirurgia."
+      ]
+    },
+    "convenio_iaspi": {
+      "bloco": "F04",
+      "quando": "IASPI ou IAPEP",
+      "acao": "responder",
+      "fecho": false,
+      "textos": [
+        "Infelizmente a consulta pelo IASPI a gente não atende, seria particular.\nJá a cirurgia conseguimos fazer pelo PLAMTA, caso você esteja dentro dos critérios que o plano exige."
+      ]
+    },
+    "convenio_ipmt": {
+      "bloco": "F04",
+      "quando": "IPMT",
+      "acao": "responder",
+      "fecho": false,
+      "textos": [
+        "Infelizmente a consulta pelo IPMT a gente não atende, seria particular.\nJá a cirurgia conseguimos fazer pelo PLANTE, caso você esteja dentro dos critérios que o plano exige."
+      ]
+    },
+    "horario_oferta": {
+      "bloco": "F12",
+      "quando": "tem vaga, quero marcar, e os quatro dados estão completos",
+      "acao": "responder",
+      "fecho": false,
+      "slots_obrigatorios": [
+        "dia",
+        "hora"
+      ],
+      "textos": [
+        "Tenho {dia}, dia {data}, às {hora}. Esse horário funciona para você?",
+        "O próximo horário disponível é {dia}, dia {data}, às {hora}. Consegue nesse dia?"
+      ]
+    },
+    "dia_sem_atendimento": {
+      "bloco": "F06",
+      "quando": "sábado, domingo, terça, quinta, feriado",
+      "acao": "responder",
+      "fecho": false,
+      "slots_obrigatorios": [
+        "dia",
+        "hora"
+      ],
+      "textos": [
+        "Infelizmente {dia_pedido} não temos atendimento. O próximo horário é {dia}, dia {data}, às {hora}."
+      ]
+    },
+    "grade_atendimento": {
+      "bloco": "F06",
+      "quando": "SÓ quando perguntam literalmente quais dias ela atende",
+      "acao": "responder",
+      "fecho": true,
+      "textos": [
+        "A Dra. Marina atende:\n• Segunda, de manhã\n• Quarta, à tarde\n• Sexta, de manhã"
+      ]
+    },
+    "endereco": {
+      "bloco": "F07",
+      "quando": "onde fica, endereço, como chego, manda a localização",
+      "acao": "responder",
+      "fecho": true,
+      "textos": [
+        "A clínica fica na Av. Elias João Tajra, 1170, Sala 07, Jóquei, Teresina.\nPrédio Medical, onde era a Caixa Econômica.\nhttps://maps.app.goo.gl/NrLmYPxQgV9zZAAW8"
+      ]
+    },
+    "exames_preco": {
+      "bloco": "F08",
+      "quando": "quais exames, quanto custam os exames pré-operatórios",
+      "acao": "responder",
+      "fecho": true,
+      "textos": [
+        "Aqui no consultório a gente faz dois, com a Dra. Marina, e o valor já inclui os dois olhos:\n\n• Mapeamento de retina: R$ 300,00\n• Topografia de córnea: R$ 380,00\n\nDependendo do seu caso a Dra. Marina pode pedir outros exames, alguns feitos fora da clínica. Isso ela define na avaliação."
+      ]
+    },
+    "pentacam_cobertura": {
+      "bloco": "F08",
+      "quando": "o plano cobre o Pentacam",
+      "acao": "responder",
+      "fecho": false,
+      "textos": [
+        "O Pentacam nenhum convênio cobre, ele é particular. E não fazemos aqui no consultório."
+      ]
+    },
+    "hospital_cirurgia": {
+      "bloco": "F17",
+      "quando": "onde a cirurgia é feita, em qual hospital",
+      "acao": "responder",
+      "fecho": false,
+      "textos": [
+        "As cirurgias são realizadas em hospital, podendo ser no Hospital Vilar, no Hospital do Olho, no Namir Clementino, no Tércio Rezende ou no COE. O local é definido após a avaliação."
+      ]
+    },
+    "nota_fiscal_pf": {
+      "bloco": "F11",
+      "quando": "nota fiscal em nome de pessoa física",
+      "acao": "responder",
+      "fecho": false,
+      "textos": [
+        "Para a emissão da nota fiscal precisaremos dos seguintes dados do titular da nota:\n\n• Nome completo\n• CPF\n• Endereço completo com CEP\n\nAssim que recebermos essas informações, daremos continuidade à emissão."
+      ]
+    },
+    "paciente_de_fora": {
+      "bloco": "F15",
+      "quando": "cidade fora de Teresina E intenção de cirurgia",
+      "acao": "responder",
+      "fecho": false,
+      "textos": [
+        "Como você vem de fora, a gente consegue deixar tudo no mesmo dia: você faz os exames e já passa com a Dra. Marina na sequência.\n\nAssim você sai daqui já sabendo se está apto para a cirurgia. Prefere desse jeito?"
+      ]
+    },
+    "menor_de_idade": {
+      "bloco": "F16",
+      "quando": "paciente com menos de 18 anos",
+      "acao": "escalar",
+      "urgente": false,
+      "fecho": false,
+      "textos": [
+        "Infelizmente a Dra. Marina atende a partir de 18 anos, então não consigo agendar nessa idade."
+      ]
+    },
+    "clinico": {
+      "bloco": "F13",
+      "quando": "sintoma, dor, pós-operatório, resultado de exame, medicação, 'é normal?'",
+      "acao": "escalar",
+      "urgente": true,
+      "fecho": false,
+      "textos": [
+        "Entendo, isso deve estar incomodando bastante. Só um instante."
+      ]
+    },
+    "quer_humano": {
+      "bloco": "F00e",
+      "quando": "você é um robô, quero falar com uma pessoa, me passa um telefone",
+      "acao": "escalar",
+      "urgente": false,
+      "fecho": false,
+      "textos": [
+        "Só um instante."
+      ]
+    },
+    "audio": {
+      "bloco": "F00d",
+      "quando": "mensagem de áudio",
+      "acao": "responder",
+      "fecho": false,
+      "textos": [
+        "Não consigo ouvir áudio por aqui. Pode me escrever o que você precisa?"
+      ]
+    },
+    "DESCONHECIDO": {
+      "quando": "qualquer coisa que não casa com o acima, ou confiança abaixo de 0.75",
+      "acao": "escalar",
+      "urgente": false,
+      "fecho": false,
+      "textos": [
+        "Só um instante."
+      ]
+    }
+  }
+}
