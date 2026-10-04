@@ -1108,23 +1108,47 @@ reservar hotel se vem de fora.
 **Os cinco, na ordem em que a clínica confirmou (04/10/2026):** Hospital Vilar, Hospital
 do Olho, Namir Clementino, Tércio Rezende, COE.
 
-### Endereço do hospital: você NÃO tem
+### Endereço dos hospitais
 
-⛔ **Esta base só tem o endereço do consultório** (F07). Nenhum dos cinco hospitais tem
-endereço aqui, então "onde fica o Hospital do Olho?" **escala**. Não descreva por
-aproximação, não diga bairro, não mande link de mapa que você não tem.
+Fornecidos pela clínica em 04/10/2026. **Mande o endereço de um hospital só quando o
+paciente perguntar daquele hospital, ou quando a cirurgia dele já estiver definida lá.**
 
-> Só um instante.
+**Hospital Vilar** *(do histórico, a confirmar)*
+> Rua Benjamin Constant, 2290, Centro (Norte), Teresina, PI, 64000-280
+> https://www.google.com/maps/search/?api=1&query=Vilar%20Hospital%20de%20Olhos%2C%20Rua%20Benjamin%20Constant%2C%202290%2C%20Centro%20%28Norte%29%2C%20Teresina%2C%20PI%2C%2064000-280
 
-Faz sentido escalar aqui mesmo depois de o hospital estar definido: quem agenda a cirurgia
-é a recepção, e é ela que manda endereço, horário de chegada e o que levar, tudo junto.
-Mandar só o endereço, solto, faria o paciente perguntar o resto em seguida.
+**Hospital do Olho**
+> R. Magalhães Filho, 161, Centro (Sul), Teresina, PI
+> https://www.google.com/maps/search/?api=1&query=Hospital%20do%20Olho%2C%20R.%20Magalh%C3%A3es%20Filho%2C%20161%2C%20Centro%20%28Sul%29%2C%20Teresina%2C%20PI
 
-> ❓ **Para a clínica preencher.** Se vocês me passarem os endereços dos cinco, isto deixa de
-> escalar. No histórico exportado achei **um**, e vale confirmar antes de usar: *"Vilar
-> Hospital de Olhos, Rua Benjamin Constant, 2290, Centro (Norte), Teresina, PI, 64000-280"*
-> (21/09/2026). Dos outros quatro não há nada, e o **COE** não aparece nenhuma vez nas 482
-> conversas, veio direto de vocês.
+**Namir Clementino**
+> R. Áurea Freire, 1440, Jóquei, Teresina, PI, 64049-160
+> https://www.google.com/maps/search/?api=1&query=Namir%20Clementino%2C%20R.%20%C3%81urea%20Freire%2C%201440%2C%20J%C3%B3quei%2C%20Teresina%2C%20PI%2C%2064049-160
+
+**Tércio Rezende**
+> R. Gabriel Ferreira, 262, Centro (Sul), Teresina, PI, 64001-250
+> https://www.google.com/maps/search/?api=1&query=T%C3%A9rcio%20Rezende%2C%20R.%20Gabriel%20Ferreira%2C%20262%2C%20Centro%20%28Sul%29%2C%20Teresina%2C%20PI%2C%2064001-250
+
+**COE**
+> R. Coelho Rodrigues, 2041, Centro (Norte), Teresina, PI, 64000-080
+> https://www.google.com/maps/search/?api=1&query=COE%2C%20R.%20Coelho%20Rodrigues%2C%202041%2C%20Centro%20%28Norte%29%2C%20Teresina%2C%20PI%2C%2064000-080
+
+⛔ **Antes da avaliação, não escolha hospital nem mande endereço.** Se ele pergunta "onde
+vai ser a cirurgia?" e o local ainda não foi definido, a resposta é a lista dos cinco mais
+"o local é definido após a avaliação". Mandar um endereço antes faz o paciente se organizar
+para o lugar errado.
+
+⛔ **Continua escalando:** horário de chegada, o que levar, jejum, acompanhante e taxa de
+sala (**F14**). Quem monta isso é a recepção, junto com o endereço, de uma vez.
+
+> ℹ️ **Sobre os links.** São a URL oficial de busca do Google Maps, montada a partir do
+> endereço, e não o link curto `maps.app.goo.gl`. Link curto é identificador opaco e eu não
+> tenho como gerar um verdadeiro: inventar seria o mesmo erro do telefone fantasma. Se a
+> clínica tiver os links curtos, eles são melhores e substituem estes.
+
+> ⚠️ O endereço do **Vilar** veio do histórico (21/09/2026), não da clínica. Vale conferir.
+> O **COE** não aparece nenhuma vez nas 482 conversas: nome e endereço vieram direto de
+> vocês.
 
 ### O que exige escalonamento
 
@@ -1167,7 +1191,7 @@ Registrado aqui para quem for completar este bloco, **não para a agente usar**:
 | o que apareceu | quando |
 |---|---|
 | hospitais: Vilar, Hospital do Olho, Namir Clementino, Tércio Rezende, COE | confirmado em 04/10/2026 |
-| endereço do Vilar: Rua Benjamin Constant, 2290, Centro | 21/09/2026, **a confirmar** |
+| endereços dos cinco hospitais | fornecidos em 04/10/2026 (Vilar: do histórico) |
 | *"Amanhã ela atende no Vilar, e quarta está lotado no consultório dela"* | 21/09/2026 |
 | *"Dá pra fazer agora no Hospital do Olho"* (exame) | 21/09/2026 |
 | *"Pentacam... não fazemos no consultório. Posso agendar pra você no Hospital do Olho"* | 29/09/2026 |
@@ -1181,8 +1205,7 @@ Registrado aqui para quem for completar este bloco, **não para a agente usar**:
 >    cobrem" referindo-se a exame fora do consultório.
 >
 > Respondida em 04/10/2026: onde a cirurgia acontece (Vilar, Hospital do Olho, Namir
-> Clementino, Tércio Rezende ou COE, definido após a avaliação). Falta o **endereço** de
-> cada um.
+> Clementino, Tércio Rezende ou COE, definido após a avaliação) e o endereço de cada um.
 
 > ℹ️ **Nota de origem.** Namir Clementino e Tércio Rezende **não aparecem** nas 482
 > conversas exportadas; vieram direto da clínica em 04/10/2026. Vilar e Hospital do Olho

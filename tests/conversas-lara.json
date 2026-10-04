@@ -1317,19 +1317,44 @@
     {
       "id": "K04",
       "categoria": "outro_local",
-      "sobre": "Pede o endereço do hospital da cirurgia: não está na base, escala (F17).",
+      "sobre": "Endereço do hospital ANTES da definição: lista os cinco, não escolhe um nem manda endereço.",
       "turnos": [
         {
           "paciente": "qual o endereco do hospital onde vai ser a cirurgia?",
           "esperado": [
-            "S[óo] um instante"
+            "Vilar",
+            "Hospital do Olho",
+            "Namir",
+            "T[ée]rcio",
+            "COE"
           ],
           "proibido": [
-            "[Rr]ua \\w+",
-            "[Aa]v\\.? \\w+",
-            "maps\\.app"
+            "Magalh[ãa]es Filho",
+            "Benjamin Constant",
+            "Coelho Rodrigues",
+            "[ÁA]urea Freire",
+            "Gabriel Ferreira"
           ],
-          "nota": "Não tem endereço de hospital na base. Não inventar nem dar bairro."
+          "nota": "Local ainda não definido: não pode mandar endereço de nenhum."
+        }
+      ]
+    },
+    {
+      "id": "K05",
+      "categoria": "outro_local",
+      "sobre": "Pede o endereço de um hospital específico: pode informar (F17).",
+      "turnos": [
+        {
+          "paciente": "onde fica o Hospital do Olho?",
+          "esperado": [
+            "Magalh[ãa]es Filho",
+            "161"
+          ],
+          "proibido": [
+            "Benjamin Constant",
+            "Coelho Rodrigues"
+          ],
+          "nota": "Perguntou daquele hospital: responde o endereço dele, não dos outros."
         }
       ]
     }
