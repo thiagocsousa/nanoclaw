@@ -37,7 +37,7 @@
       "textos": [
         "Muito obrigada pelo seu contato. Para darmos início ao seu atendimento, poderia me informar:\n\nNome completo do paciente:\nData de nascimento:\nCidade:\nConvênio (ou particular):"
       ],
-      "parcial": "Faltando um ou dois dados, o host monta a frase: 'Poderia me informar {campos}?' Nunca a lista inteira."
+      "parcial": "IMPLEMENTADO em src/triagem.ts (04/10/2026). O host conta quais dos quatro campos o classificador extraiu: faltando os quatro, manda este texto; faltando de um a três, monta 'Para eu já ver um horário, poderia me informar <o que falta>?'. Em recusar_e_triagem a recusa vem primeiro e o pedido emenda na mesma mensagem, sem repetir o convênio que o paciente acabou de informar."
     },
     "preco_consulta": {
       "bloco": "F01",

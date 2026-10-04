@@ -64,6 +64,18 @@ const TABELA = {
       motivo_escalada: 'cobertura naquele hospital (CASO DE CONVERSÃO)',
       textos: ['Só um instante.'],
     },
+    triagem_dados: {
+      acao: 'triagem',
+      textos: [
+        'Muito obrigada pelo seu contato. Para darmos início ao seu atendimento, poderia me informar:\n\nNome completo do paciente:\nData de nascimento:\nCidade:\nConvênio (ou particular):',
+      ],
+    },
+    convenio_nao_atendido: {
+      acao: 'recusar_e_triagem',
+      textos: [
+        'Infelizmente esse convênio a gente não atende para consulta, seria particular, no valor de R$ {valor_consulta}.',
+      ],
+    },
     DESCONHECIDO: { acao: 'escalar', textos: ['Só um instante.'] },
   },
 };
@@ -317,6 +329,42 @@ describe('oferta de horário: quem vai à agenda é o host', () => {
       '{"intencao":"endereco","confianca":0.95,"slots":{"necessidade":"rotina","convenio":"Unimed"}}',
     );
     expect(buscou).toEqual([]);
+  });
+});
+
+describe('triagem: pede só o que falta', () => {
+  it('sem nenhum dado, manda o formulário aprovado', async () => {
+    const r = await rodar('{"intencao":"triagem_dados","confianca":0.9,"slots":{}}');
+    expect(r?.texto).toContain('Nome completo do paciente:');
+  });
+
+  it('com dado na mão, frase corrida e sem formulário', async () => {
+    const r = await rodar(
+      '{"intencao":"triagem_dados","confianca":0.9,"slots":{"nome":"Joana","cidade":"Teresina","convenio":"IASPI"}}',
+    );
+    expect(r?.texto).not.toContain('Nome completo do paciente:');
+    expect(r?.texto).toContain('poderia me informar a data de nascimento de Joana');
+  });
+
+  it('a recusa vem primeiro e o pedido emenda, sem repetir o convênio', async () => {
+    const r = await rodar(
+      '{"intencao":"convenio_nao_atendido","confianca":0.93,"slots":{"nome":"Bruno","cidade":"Teresina","convenio":"Bradesco Saúde"}}',
+      'tenho bradesco, atende?',
+    );
+    expect(r?.texto).toMatch(/^Infelizmente esse conv/);
+    expect(r?.texto).toContain('R$ 430,00');
+    expect(r?.texto).toContain('poderia me informar a data de nascimento de Bruno');
+    // Ele acabou de dizer o convênio: perguntar de novo é o vício que o Thiago
+    // apontou em 04/10/2026.
+    expect(r?.texto).not.toMatch(/informar.*conv[êe]nio/i);
+  });
+
+  it('recusa com tudo preenchido não pendura pergunta no fim', async () => {
+    const r = await rodar(
+      '{"intencao":"convenio_nao_atendido","confianca":0.93,"slots":{"nome":"Bruno","nascimento":"10/03/1980","cidade":"Teresina","convenio":"Amil"}}',
+    );
+    expect(r?.texto).not.toContain('poderia me informar');
+    expect(r?.texto.trimEnd()).toMatch(/430,00\.$/);
   });
 });
 

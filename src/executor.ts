@@ -29,6 +29,7 @@ import { escala, type EscalationSlaDeps } from './escalation-sla.js';
 import { logger } from './logger.js';
 import { interpreta } from './classify.js';
 import { carregaTabela, renderiza, type Resultado } from './templates.js';
+import { fraseDeTriagem } from './triagem.js';
 import { buscaVagas, perfilDe, slotsDaVaga } from './vagas.js';
 
 const envConfig = readEnvFile(['TEMPLATE_FOLDERS']);
@@ -128,8 +129,26 @@ export async function executa(
     slots,
   });
 
+  // Triagem: pedir só o que falta. O texto da tabela é o formulário de quatro
+  // tópicos, que só serve a quem não deu nada ainda; com qualquer dado na mão a
+  // frase vira corrida. Pedir de novo o que a pessoa acabou de responder é o
+  // jeito mais rápido de parecer máquina.
+  let texto = r.texto;
+  if (r.acao === 'triagem' || r.acao === 'recusar_e_triagem') {
+    const formulario =
+      tabela.intencoes.triagem_dados?.textos?.[0] ?? r.texto;
+    const pedido = fraseDeTriagem(slots, { textoCompleto: formulario });
+    texto =
+      r.acao === 'triagem'
+        ? pedido || r.texto
+        : // A recusa vem primeiro e o pedido emenda, na mesma mensagem: o F04
+          // manda não gastar um turno só perguntando. Sem nada faltando, só a
+          // recusa, sem pergunta pendurada no fim.
+          [r.texto, pedido].filter(Boolean).join('\n\n');
+  }
+
   const saida: SaidaDoExecutor = {
-    texto: r.texto,
+    texto,
     intencao: r.intencao,
     acao: r.acao,
   };
