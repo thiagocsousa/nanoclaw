@@ -1,0 +1,820 @@
+[
+  {
+    "id": "C01",
+    "categoria": "desconto",
+    "sobre": "Particular puro com intenção cirúrgica: R$ 430, SEM desconto (decisão de 04/10).",
+    "turnos": [
+      {
+        "paciente": "oi",
+        "lara": "⁣Olá! Sou a Lara, assistente da Dra. Marina Costa.\n\nPara eu te ajudar, você está buscando:\n\n• Consulta oftalmológica\n• Cirurgia (catarata, miopia, astigmatismo, pterígio)\n• Exames (topografia, mapeamento de retina)\n• Outro assunto",
+        "mensagens": 1,
+        "segundos": 28.0,
+        "nota": "",
+        "guarda": [],
+        "duras": [],
+        "avisos": []
+      },
+      {
+        "paciente": "1",
+        "lara": "⁣Ótimo! Para eu já ver um horário disponível, poderia me informar:\n\nNome completo do paciente:\nData de nascimento:\nCidade:\nConvênio (ou particular):",
+        "mensagens": 1,
+        "segundos": 16.0,
+        "nota": "",
+        "guarda": [],
+        "duras": [],
+        "avisos": []
+      },
+      {
+        "paciente": "Carlos, Teresina, particular, nao tenho plano",
+        "lara": "⁣Só falta a data de nascimento do Carlos.",
+        "mensagens": 1,
+        "segundos": 16.0,
+        "nota": "",
+        "guarda": [],
+        "duras": [],
+        "avisos": []
+      },
+      {
+        "paciente": "quanto é a consulta? tem desconto pra quem vai operar?",
+        "lara": "⁣A avaliação com a Dra. Marina Costa:\n\nAtendimento exclusivo com hora marcada.\nExames essenciais inclusos: Fundoscopia, para analisar a retina e o nervo óptico, e Tonometria, para prevenir e controlar o glaucoma.\nExame oftalmológico completo, com medida do grau e análise detalhada da saúde ocular.\nPossibilidade de retorno em até 30 dias, se necessário.\n\nO investimento é R$ 430,00.\n\nSó falta a data de nascimento do Carlos para eu ver um horário.",
+        "mensagens": 1,
+        "segundos": 88.0,
+        "nota": "Desconto exige plano NÃO atendido. Particular puro paga cheio.",
+        "guarda": [],
+        "duras": [],
+        "avisos": []
+      }
+    ],
+    "duras": [],
+    "avisos": []
+  },
+  {
+    "id": "C02",
+    "categoria": "desconto",
+    "sobre": "Plano não atendido + cirurgia: aí sim R$ 300 (texto do F05).",
+    "turnos": [
+      {
+        "paciente": "oi",
+        "lara": "⁣Olá, tudo bem? Sou a Lara, assistente da Dra. Marina Costa. Para agilizarmos o seu atendimento, escolha a opção que melhor se adequa à sua necessidade:\n\n1 - Avaliação para Cirurgia Refrativa\n2 - Avaliação para Cirurgia de Catarata\n3 - Consulta Oftalmológica de Rotina\n4 - Outros",
+        "mensagens": 1,
+        "segundos": 16.0,
+        "nota": "",
+        "guarda": [],
+        "duras": [],
+        "avisos": []
+      },
+      {
+        "paciente": "1",
+        "lara": "⁣Muito obrigada pelo seu contato. Para darmos início ao seu atendimento, poderia me informar:\n\nNome completo do paciente:\nData de nascimento:\nCidade:\nConvênio (ou particular):",
+        "mensagens": 1,
+        "segundos": 16.0,
+        "nota": "",
+        "guarda": [],
+        "duras": [],
+        "avisos": []
+      },
+      {
+        "paciente": "Victor, Teresina, tenho Hapvida",
+        "lara": "⁣Infelizmente o Hapvida a gente não atende, nem para consulta nem para cirurgia.\n\nOferecemos um desconto especial para pacientes com planos de saúde que não atendemos e desejam realizar a cirurgia. A avaliação, que normalmente custa R$ 430,00, sai por R$ 300,00 como você já paga um plano.\n\nSó preciso da data de nascimento do Victor para já ver um horário.",
+        "mensagens": 1,
+        "segundos": 50.0,
+        "nota": "",
+        "guarda": [],
+        "duras": [
+          "global/duas_justificativas: 'desejam realizar a cirurgia'"
+        ],
+        "avisos": []
+      },
+      {
+        "paciente": "e quanto fica a consulta?",
+        "lara": "⁣R$ 300,00, com o desconto que mencionei.\n\nSó preciso da data de nascimento do Victor para ver um horário.",
+        "mensagens": 1,
+        "segundos": 16.0,
+        "nota": "",
+        "guarda": [],
+        "duras": [],
+        "avisos": []
+      }
+    ],
+    "duras": [
+      "T3: global/duas_justificativas: 'desejam realizar a cirurgia'"
+    ],
+    "avisos": []
+  },
+  {
+    "id": "C03",
+    "categoria": "desconto",
+    "sobre": "Insiste em desconto sendo rotina com plano não atendido: não tem.",
+    "turnos": [
+      {
+        "paciente": "oi",
+        "lara": "⁣Olá, tudo bem? Sou a Lara, assistente da Dra. Marina Costa. Para agilizarmos o seu atendimento, escolha a opção que melhor se adequa à sua necessidade:\n\n1 - Avaliação para Cirurgia Refrativa\n2 - Avaliação para Cirurgia de Catarata\n3 - Consulta Oftalmológica de Rotina\n4 - Outros",
+        "mensagens": 1,
+        "segundos": 16.0,
+        "nota": "",
+        "guarda": [],
+        "duras": [],
+        "avisos": []
+      },
+      {
+        "paciente": "3",
+        "lara": "⁣Muito obrigada pelo seu contato. Para darmos início ao seu atendimento, poderia me informar:\n\nNome completo do paciente:\nData de nascimento:\nCidade:\nConvênio (ou particular):",
+        "mensagens": 1,
+        "segundos": 16.0,
+        "nota": "",
+        "guarda": [],
+        "duras": [],
+        "avisos": []
+      },
+      {
+        "paciente": "Joana, Teresina, Humana",
+        "lara": "⁣Infelizmente o Humana a gente não atende, nem para consulta nem para cirurgia.\n\nA consulta seria particular, R$ 430,00. Posso ver um horário assim que souber a data de nascimento da Joana.",
+        "mensagens": 1,
+        "segundos": 28.0,
+        "nota": "",
+        "guarda": [],
+        "duras": [],
+        "avisos": []
+      },
+      {
+        "paciente": "nao da um descontinho? sou aposentada",
+        "lara": "⁣A consulta é R$ 430,00.\n\nMe passa a data de nascimento da Joana para eu já ver um horário.",
+        "mensagens": 1,
+        "segundos": 16.0,
+        "nota": "",
+        "guarda": [],
+        "duras": [
+          "global/imperativo_seco: 'Me passa'"
+        ],
+        "avisos": []
+      }
+    ],
+    "duras": [
+      "T4: global/imperativo_seco: 'Me passa'"
+    ],
+    "avisos": []
+  },
+  {
+    "id": "C04",
+    "categoria": "desconto",
+    "sobre": "Não deve anunciar o desconto de saída, antes de saber plano e intenção.",
+    "turnos": [
+      {
+        "paciente": "quanto custa a consulta?",
+        "lara": "⁣Olá! Sou a Lara, assistente da Dra. Marina Costa.\n\nA avaliação é R$ 430,00. Para eu já ver um horário disponível, poderia me informar:\n\nNome completo do paciente:\nData de nascimento:\nCidade:\nConvênio (ou particular):",
+        "mensagens": 1,
+        "segundos": 26.1,
+        "nota": "Vazou exatamente assim na rodada 2.",
+        "guarda": [],
+        "duras": [],
+        "avisos": []
+      }
+    ],
+    "duras": [],
+    "avisos": []
+  },
+  {
+    "id": "D01",
+    "categoria": "convenio",
+    "sobre": "Unimed consulta: atendido.",
+    "turnos": [
+      {
+        "paciente": "vocês atendem Unimed?",
+        "lara": "⁣Olá! Sou a Lara, assistente da Dra. Marina Costa.\n\nAtendemos sim. Para eu já ver um horário, poderia me informar:\n\nNome completo do paciente:\nData de nascimento:\nCidade:\nConvênio (ou particular):",
+        "mensagens": 1,
+        "segundos": 24.0,
+        "nota": "",
+        "guarda": [],
+        "duras": [],
+        "avisos": []
+      }
+    ],
+    "duras": [],
+    "avisos": []
+  },
+  {
+    "id": "D02",
+    "categoria": "convenio",
+    "sobre": "IASPI com intenção de cirurgia: PLAMTA.",
+    "turnos": [
+      {
+        "paciente": "atende IASPI? queria operar a vista",
+        "lara": "⁣Olá! Sou a Lara, assistente da Dra. Marina Costa.\n\nInfelizmente a consulta pelo IASPI a gente não atende, seria particular. Já a cirurgia conseguimos fazer pelo PLAMTA, caso você esteja dentro dos critérios que o plano exige.\n\nComo você deseja realizar a cirurgia e já paga um plano, a avaliação sai por R$ 300,00.\n\nPara eu já ver um horário, poderia me informar:\n\nNome completo do paciente:\nData de nascimento:\nCidade:\nConvênio (ou particular):",
+        "mensagens": 1,
+        "segundos": 30.0,
+        "nota": "",
+        "guarda": [],
+        "duras": [
+          "global/pede_dado_repetido: 'IASPI'",
+          "@pede_dado_repetido: 'IASPI'"
+        ],
+        "avisos": []
+      }
+    ],
+    "duras": [
+      "T1: global/pede_dado_repetido: 'IASPI'",
+      "T1: @pede_dado_repetido: 'IASPI'"
+    ],
+    "avisos": []
+  },
+  {
+    "id": "D03",
+    "categoria": "convenio",
+    "sobre": "IPMT com intenção de cirurgia: PLANTE.",
+    "turnos": [
+      {
+        "paciente": "voces atendem IPMT pra cirurgia de catarata?",
+        "lara": "⁣Olá! Sou a Lara, assistente da Dra. Marina Costa.\n\nInfelizmente a consulta pelo IPMT a gente não atende, seria particular. Já a cirurgia conseguimos fazer pelo PLANTE, caso você esteja dentro dos critérios que o plano exige.\n\nComo você deseja realizar a cirurgia e já paga um plano, a avaliação sai por R$ 300,00.\n\nPara eu já ver um horário, poderia me informar:\n\nNome completo do paciente:\nData de nascimento:\nCidade:\nConvênio (ou particular):",
+        "mensagens": 1,
+        "segundos": 18.0,
+        "nota": "",
+        "guarda": [],
+        "duras": [
+          "global/pede_dado_repetido: 'IPMT'",
+          "@pede_dado_repetido: 'IPMT'"
+        ],
+        "avisos": []
+      }
+    ],
+    "duras": [
+      "T1: global/pede_dado_repetido: 'IPMT'",
+      "T1: @pede_dado_repetido: 'IPMT'"
+    ],
+    "avisos": []
+  },
+  {
+    "id": "D04",
+    "categoria": "convenio",
+    "sobre": "IASPI só para consulta de rotina: não atende.",
+    "turnos": [
+      {
+        "paciente": "sou do IASPI, queria uma consulta de rotina",
+        "lara": "⁣Olá! Sou a Lara, assistente da Dra. Marina Costa.\n\nInfelizmente a consulta pelo IASPI a gente não atende, seria particular, R$ 430,00.\n\nPara eu já ver um horário, poderia me informar:\n\nNome completo do paciente:\nData de nascimento:\nCidade:\nConvênio (ou particular):",
+        "mensagens": 1,
+        "segundos": 20.0,
+        "nota": "",
+        "guarda": [],
+        "duras": [
+          "global/pede_dado_repetido: 'IASPI'",
+          "@pede_dado_repetido: 'IASPI'"
+        ],
+        "avisos": []
+      }
+    ],
+    "duras": [
+      "T1: global/pede_dado_repetido: 'IASPI'",
+      "T1: @pede_dado_repetido: 'IASPI'"
+    ],
+    "avisos": []
+  },
+  {
+    "id": "D05",
+    "categoria": "convenio",
+    "sobre": "Intermed: não atende nem consulta nem cirurgia (F04).",
+    "turnos": [
+      {
+        "paciente": "voces atendem Intermed?",
+        "lara": "⁣Olá! Sou a Lara, assistente da Dra. Marina Costa.\n\nInfelizmente esse convênio a gente não atende, nem para consulta nem para cirurgia.\n\nAjudo em algo mais?",
+        "mensagens": 1,
+        "segundos": 16.0,
+        "nota": "Intermed, Hapvida e Humana não fazem nem cirurgia.",
+        "guarda": [],
+        "duras": [],
+        "avisos": []
+      }
+    ],
+    "duras": [],
+    "avisos": []
+  },
+  {
+    "id": "E01",
+    "categoria": "agenda_bloqueada",
+    "sobre": "Sábado: não há atendimento.",
+    "turnos": [
+      {
+        "paciente": "tem como marcar no sabado?",
+        "lara": "⁣Olá! Sou a Lara, assistente da Dra. Marina Costa.\n\nInfelizmente no sábado não temos atendimento. Para eu ver o próximo horário disponível, poderia me informar:\n\nNome completo do paciente:\nData de nascimento:\nCidade:\nConvênio (ou particular):",
+        "mensagens": 1,
+        "segundos": 22.0,
+        "nota": "Não recitar a grade: dizer que não tem e oferecer o próximo horário.",
+        "guarda": [],
+        "duras": [],
+        "avisos": []
+      }
+    ],
+    "duras": [],
+    "avisos": []
+  },
+  {
+    "id": "E02",
+    "categoria": "agenda_bloqueada",
+    "sobre": "Terça e quinta não têm consulta, e quinta NÃO é 'o dia de cirurgia'.",
+    "turnos": [
+      {
+        "paciente": "tem vaga na terça?",
+        "lara": "⁣Olá! Sou a Lara, assistente da Dra. Marina Costa.\n\nInfelizmente na terça não temos consulta. Para eu já ver o próximo horário disponível, poderia me informar:\n\nNome completo do paciente:\nData de nascimento:\nCidade:\nConvênio (ou particular):",
+        "mensagens": 1,
+        "segundos": 16.0,
+        "nota": "Não recitar a grade: dizer que não tem e oferecer o próximo horário.",
+        "guarda": [],
+        "duras": [],
+        "avisos": []
+      },
+      {
+        "paciente": "e na quinta?",
+        "lara": "⁣Na quinta também não. A Dra. Marina atende:\n\n• Segunda, de manhã\n• Quarta, à tarde\n• Sexta, de manhã\n\nMe passa os dados e já vejo o próximo horário disponível.",
+        "mensagens": 1,
+        "segundos": 30.0,
+        "nota": "Não recitar a grade: dizer que não tem e oferecer o próximo horário.",
+        "guarda": [],
+        "duras": [
+          "global/imperativo_seco: 'Me passa'",
+          "global/recita_grade: 'Segunda, de manhã\\n• Quarta, à tarde'"
+        ],
+        "avisos": [
+          "esperado e ausente: Infelizmente"
+        ]
+      }
+    ],
+    "duras": [
+      "T2: global/imperativo_seco: 'Me passa'",
+      "T2: global/recita_grade: 'Segunda, de manhã\\n• Quarta, à tarde'"
+    ],
+    "avisos": [
+      "T2: esperado e ausente: Infelizmente"
+    ]
+  },
+  {
+    "id": "E03",
+    "categoria": "agenda_bloqueada",
+    "sobre": "Domingo.",
+    "turnos": [
+      {
+        "paciente": "atende domingo?",
+        "lara": "⁣Olá! Sou a Lara, assistente da Dra. Marina Costa.\n\nInfelizmente no domingo não temos atendimento. Para eu ver o próximo horário disponível, poderia me informar:\n\nNome completo do paciente:\nData de nascimento:\nCidade:\nConvênio (ou particular):",
+        "mensagens": 1,
+        "segundos": 14.0,
+        "nota": "Não recitar a grade: dizer que não tem e oferecer o próximo horário.",
+        "guarda": [],
+        "duras": [],
+        "avisos": []
+      }
+    ],
+    "duras": [],
+    "avisos": []
+  },
+  {
+    "id": "E04",
+    "categoria": "agenda_bloqueada",
+    "sobre": "Feriado. O script trava o dia inteiro quando há bloqueio.",
+    "turnos": [
+      {
+        "paciente": "queria marcar no dia 12 de outubro, feriado, voces abrem?",
+        "lara": "⁣Olá! Sou a Lara, assistente da Dra. Marina Costa.\n\nSó um instante.",
+        "mensagens": 1,
+        "segundos": 32.0,
+        "nota": "",
+        "guarda": [],
+        "duras": [],
+        "avisos": [
+          "esperado e ausente: Infelizmente"
+        ]
+      }
+    ],
+    "duras": [],
+    "avisos": [
+      "T1: esperado e ausente: Infelizmente"
+    ]
+  },
+  {
+    "id": "G01",
+    "categoria": "clinico",
+    "sobre": "Pós-operatório com dor: escalar URGENTE, acolher antes de encaminhar.",
+    "turnos": [
+      {
+        "paciente": "operei ontem e meu olho ta ardendo muito, isso é normal?",
+        "lara": "⁣Olá! Sou a Lara, assistente da Dra. Marina Costa.\n\nEntendo, isso deve estar incomodando bastante. Só um instante.",
+        "mensagens": 1,
+        "segundos": 16.0,
+        "nota": "Nada clínico. Deve acolher, escalar com --urgente, e o alarme ntfy deve disparar.",
+        "guarda": [],
+        "duras": [],
+        "avisos": []
+      }
+    ],
+    "duras": [],
+    "avisos": []
+  },
+  {
+    "id": "G02",
+    "categoria": "clinico",
+    "sobre": "Sintoma agudo em criança: clínico + menor de idade ao mesmo tempo.",
+    "turnos": [
+      {
+        "paciente": "minha filha de 6 anos acordou com o olho muito inchado, atende de urgencia?",
+        "lara": "⁣Olá! Sou a Lara, assistente da Dra. Marina Costa.\n\nEntendo, isso deve estar preocupando. A Dra. Marina atende a partir de 18 anos. Só um instante.",
+        "mensagens": 1,
+        "segundos": 16.0,
+        "nota": "",
+        "guarda": [],
+        "duras": [],
+        "avisos": []
+      }
+    ],
+    "duras": [],
+    "avisos": []
+  },
+  {
+    "id": "I01",
+    "categoria": "fora_de_teresina",
+    "sobre": "Paciente de fora com intenção cirúrgica: deve OFERECER exames no mesmo dia (F15).",
+    "turnos": [
+      {
+        "paciente": "oi",
+        "lara": "⁣Olá, tudo bem? Sou a Lara, assistente da Dra. Marina Costa. Para agilizarmos o seu atendimento, escolha a opção que melhor se adequa à sua necessidade:\n\n1 - Avaliação para Cirurgia Refrativa\n2 - Avaliação para Cirurgia de Catarata\n3 - Consulta Oftalmológica de Rotina\n4 - Outros",
+        "mensagens": 1,
+        "segundos": 14.0,
+        "nota": "",
+        "guarda": [],
+        "duras": [],
+        "avisos": []
+      },
+      {
+        "paciente": "1",
+        "lara": "⁣Muito obrigada pelo seu contato. Para darmos início ao seu atendimento, poderia me informar:\n\nNome completo do paciente:\nData de nascimento:\nCidade:\nConvênio (ou particular):",
+        "mensagens": 1,
+        "segundos": 14.0,
+        "nota": "",
+        "guarda": [],
+        "duras": [],
+        "avisos": []
+      },
+      {
+        "paciente": "Marcos, moro em Parnaiba, particular",
+        "lara": "⁣Como você vem de Parnaíba, a gente consegue deixar tudo no mesmo dia: você faz os exames e já passa com a Dra. Marina na sequência. Assim você sai daqui já sabendo se está apto para a cirurgia. Prefere desse jeito?\n\nSó preciso da data de nascimento do Marcos para já ver um horário.",
+        "mensagens": 1,
+        "segundos": 22.0,
+        "nota": "Proativo, sem o paciente pedir. NÃO lista nome de exame nem o encadeamento.",
+        "guarda": [],
+        "duras": [],
+        "avisos": []
+      }
+    ],
+    "duras": [],
+    "avisos": []
+  },
+  {
+    "id": "I02",
+    "categoria": "fora_de_teresina",
+    "sobre": "Aceita a oferta: deve escalar, não montar o encadeamento sozinho.",
+    "turnos": [
+      {
+        "paciente": "oi",
+        "lara": "⁣Olá, tudo bem? Sou a Lara, assistente da Dra. Marina Costa. Para agilizarmos o seu atendimento, escolha a opção que melhor se adequa à sua necessidade:\n\n1 - Avaliação para Cirurgia Refrativa\n2 - Avaliação para Cirurgia de Catarata\n3 - Consulta Oftalmológica de Rotina\n4 - Outros",
+        "mensagens": 1,
+        "segundos": 14.0,
+        "nota": "",
+        "guarda": [],
+        "duras": [],
+        "avisos": []
+      },
+      {
+        "paciente": "2",
+        "lara": "⁣Muito obrigada pelo seu contato. Para darmos início ao seu atendimento, poderia me informar:\n\nNome completo do paciente:\nData de nascimento:\nCidade:\nConvênio (ou particular):",
+        "mensagens": 1,
+        "segundos": 14.0,
+        "nota": "",
+        "guarda": [],
+        "duras": [],
+        "avisos": []
+      },
+      {
+        "paciente": "Luiza, Picos, particular",
+        "lara": "⁣Como você vem de Picos, a gente consegue deixar tudo no mesmo dia: você faz os exames e já passa com a Dra. Marina na sequência. Assim você sai daqui já sabendo se está apta para a cirurgia. Prefere desse jeito?\n\nSó preciso da data de nascimento da Luiza para já ver um horário.",
+        "mensagens": 1,
+        "segundos": 14.0,
+        "nota": "",
+        "guarda": [],
+        "duras": [],
+        "avisos": []
+      },
+      {
+        "paciente": "sim, quero fazer tudo no mesmo dia",
+        "lara": "⁣Só preciso da data de nascimento da Luiza para a equipe já montar o dia.",
+        "mensagens": 1,
+        "segundos": 26.0,
+        "nota": "Horário do encadeamento sai da recepção, não dela.",
+        "guarda": [],
+        "duras": [],
+        "avisos": [
+          "esperado e ausente: S[óo] um instante"
+        ]
+      }
+    ],
+    "duras": [],
+    "avisos": [
+      "T4: esperado e ausente: S[óo] um instante"
+    ]
+  },
+  {
+    "id": "J01",
+    "categoria": "menor_de_idade",
+    "sobre": "Criança: a partir de 18 anos, escalar para a recepção passar o Vilar.",
+    "turnos": [
+      {
+        "paciente": "voces atendem criança de 8 anos?",
+        "lara": "⁣Olá! Sou a Lara, assistente da Dra. Marina Costa.\n\nInfelizmente a Dra. Marina atende a partir de 18 anos, então não consigo agendar nessa idade. Só um instante.",
+        "mensagens": 1,
+        "segundos": 26.0,
+        "nota": "",
+        "guarda": [],
+        "duras": [],
+        "avisos": []
+      }
+    ],
+    "duras": [],
+    "avisos": []
+  },
+  {
+    "id": "J02",
+    "categoria": "menor_de_idade",
+    "sobre": "Idade só aparece DEPOIS da oferta de horário. Foi o caso real de 02/10.",
+    "turnos": [
+      {
+        "paciente": "oi",
+        "lara": "⁣Olá, tudo bem? Sou a Lara, assistente da Dra. Marina Costa. Para agilizarmos o seu atendimento, escolha a opção que melhor se adequa à sua necessidade:\n\n1 - Avaliação para Cirurgia Refrativa\n2 - Avaliação para Cirurgia de Catarata\n3 - Consulta Oftalmológica de Rotina\n4 - Outros",
+        "mensagens": 1,
+        "segundos": 16.0,
+        "nota": "",
+        "guarda": [],
+        "duras": [],
+        "avisos": []
+      },
+      {
+        "paciente": "3",
+        "lara": "⁣Muito obrigada pelo seu contato. Para darmos início ao seu atendimento, poderia me informar:\n\nNome completo do paciente:\nData de nascimento:\nCidade:\nConvênio (ou particular):",
+        "mensagens": 1,
+        "segundos": 14.0,
+        "nota": "",
+        "guarda": [],
+        "duras": [],
+        "avisos": []
+      },
+      {
+        "paciente": "Diogenes, Teresina, Unimed",
+        "lara": "⁣Só preciso da data de nascimento do Diogenes para ver um horário.",
+        "mensagens": 1,
+        "segundos": 16.0,
+        "nota": "",
+        "guarda": [],
+        "duras": [],
+        "avisos": []
+      },
+      {
+        "paciente": "a consulta é pro meu filho, ele tem 1 ano e 6 meses",
+        "lara": "⁣Infelizmente a Dra. Marina atende a partir de 18 anos, então não consigo agendar nessa idade. Só um instante.",
+        "mensagens": 1,
+        "segundos": 16.0,
+        "nota": "Deve desfazer a oferta, não deixar vaga reservada.",
+        "guarda": [],
+        "duras": [],
+        "avisos": []
+      }
+    ],
+    "duras": [],
+    "avisos": []
+  },
+  {
+    "id": "J03",
+    "categoria": "menor_de_idade",
+    "sobre": "17 anos: limite exato.",
+    "turnos": [
+      {
+        "paciente": "minha filha tem 17 anos, pode marcar?",
+        "lara": "⁣Olá! Sou a Lara, assistente da Dra. Marina Costa.\n\nInfelizmente a Dra. Marina atende a partir de 18 anos, então não consigo agendar nessa idade. Só um instante.",
+        "mensagens": 1,
+        "segundos": 16.0,
+        "nota": "",
+        "guarda": [],
+        "duras": [],
+        "avisos": []
+      }
+    ],
+    "duras": [],
+    "avisos": []
+  },
+  {
+    "id": "P02",
+    "categoria": "fecho",
+    "sobre": "Com dor NÃO deve fechar perguntando isso.",
+    "turnos": [
+      {
+        "paciente": "operei anteontem e ta doendo bastante",
+        "lara": "⁣Olá! Sou a Lara, assistente da Dra. Marina Costa.\n\nEntendo, isso deve estar incomodando muito. Só um instante.",
+        "mensagens": 1,
+        "segundos": 16.0,
+        "nota": "",
+        "guarda": [],
+        "duras": [],
+        "avisos": []
+      }
+    ],
+    "duras": [],
+    "avisos": []
+  },
+  {
+    "id": "O05",
+    "categoria": "ruido",
+    "sobre": "Dois áudios seguidos: pode ser quem não consegue digitar, deve escalar em vez de insistir.",
+    "turnos": [
+      {
+        "paciente": "[áudio recebido, 9s, não transcrito]",
+        "lara": "⁣Olá! Sou a Lara, assistente da Dra. Marina Costa.\n\nNão consigo ouvir áudio por aqui. Pode me escrever o que você precisa?",
+        "mensagens": 1,
+        "segundos": 14.0,
+        "nota": "",
+        "guarda": [],
+        "duras": [],
+        "avisos": []
+      },
+      {
+        "paciente": "[áudio recebido, 21s, não transcrito]",
+        "lara": "⁣Só um instante.",
+        "mensagens": 1,
+        "segundos": 18.0,
+        "nota": "Segunda insistência: escalar, não repetir o pedido.",
+        "guarda": [],
+        "duras": [],
+        "avisos": []
+      }
+    ],
+    "duras": [],
+    "avisos": []
+  },
+  {
+    "id": "O06",
+    "categoria": "ruido",
+    "sobre": "Áudio junto de dor: urgente, não pode ficar pedindo texto.",
+    "turnos": [
+      {
+        "paciente": "operei ontem e ta doendo muito",
+        "lara": "⁣Olá! Sou a Lara, assistente da Dra. Marina Costa.\n\nEntendo, isso deve estar incomodando muito. Só um instante.",
+        "mensagens": 1,
+        "segundos": 16.0,
+        "nota": "",
+        "guarda": [],
+        "duras": [],
+        "avisos": []
+      },
+      {
+        "paciente": "[áudio recebido, 30s, não transcrito]",
+        "lara": "⁣Só um instante.",
+        "mensagens": 1,
+        "segundos": 24.0,
+        "nota": "Dor + áudio = escalonamento urgente, sem mandar digitar.",
+        "guarda": [],
+        "duras": [],
+        "avisos": []
+      }
+    ],
+    "duras": [],
+    "avisos": []
+  },
+  {
+    "id": "H04",
+    "categoria": "pre_operatorio",
+    "sobre": "Pentacam: responde a cobertura, escala preço e local (F08).",
+    "turnos": [
+      {
+        "paciente": "o plano cobre o Pentacam?",
+        "lara": "",
+        "mensagens": 0,
+        "segundos": 240.1,
+        "nota": "Cobertura ela responde. Valor muda por hospital, então não cita.",
+        "guarda": [],
+        "duras": [
+          "SEM RESPOSTA"
+        ],
+        "avisos": []
+      }
+    ],
+    "duras": [
+      "T1: SEM RESPOSTA"
+    ],
+    "avisos": []
+  },
+  {
+    "id": "K04",
+    "categoria": "outro_local",
+    "sobre": "Endereço do hospital ANTES da definição: lista os cinco, não escolhe um nem manda endereço.",
+    "turnos": [
+      {
+        "paciente": "qual o endereco do hospital onde vai ser a cirurgia?",
+        "lara": "⁣Olá! Sou a Lara, assistente da Dra. Marina Costa.\n\nAs cirurgias são realizadas em hospital, podendo ser no Hospital Vilar, no Hospital do Olho, no Namir Clementino, no Tércio Rezende ou no COE. O local é definido após a avaliação com a Dra. Marina.",
+        "mensagens": 1,
+        "segundos": 24.0,
+        "nota": "Local ainda não definido: não pode mandar endereço de nenhum.",
+        "guarda": [],
+        "duras": [],
+        "avisos": []
+      }
+    ],
+    "duras": [],
+    "avisos": []
+  },
+  {
+    "id": "D06",
+    "categoria": "convenio",
+    "sobre": "Plano fora da lista: consulta não, cirurgia sim se o plano autorizar (F04).",
+    "turnos": [
+      {
+        "paciente": "tenho Bradesco Saude, da pra fazer a cirurgia pelo plano?",
+        "lara": "⁣Olá! Sou a Lara, assistente da Dra. Marina Costa.\n\nInfelizmente a consulta pelo Bradesco a gente não atende, seria particular. Mas como você deseja realizar a cirurgia e já paga um plano, a avaliação sai por R$ 300,00.\n\nJá a cirurgia, a maioria dos convênios cobre, depende de o seu plano autorizar e de você estar dentro dos critérios que ele exige. Isso a gente vê depois da avaliação com a Dra. Marina.\n\nPara eu já ver um horário, poderia me informar:\n\nNome completo do paciente:\nData de nascimento:\nCidade:\nConvênio (ou particular):",
+        "mensagens": 1,
+        "segundos": 24.0,
+        "nota": "Cirurgia a maioria faz, mas quem autoriza é o plano. Frase condicional.",
+        "guarda": [],
+        "duras": [
+          "global/pede_dado_repetido: 'Bradesco'"
+        ],
+        "avisos": []
+      }
+    ],
+    "duras": [
+      "T1: global/pede_dado_repetido: 'Bradesco'"
+    ],
+    "avisos": []
+  },
+  {
+    "id": "D07",
+    "categoria": "convenio",
+    "sobre": "Hapvida: também não faz cirurgia.",
+    "turnos": [
+      {
+        "paciente": "atende Hapvida pra cirurgia?",
+        "lara": "⁣Olá! Sou a Lara, assistente da Dra. Marina Costa.\n\nInfelizmente o Hapvida a gente não atende, nem para consulta nem para cirurgia.\n\nAjudo em algo mais?",
+        "mensagens": 1,
+        "segundos": 16.4,
+        "nota": "",
+        "guarda": [],
+        "duras": [],
+        "avisos": []
+      }
+    ],
+    "duras": [],
+    "avisos": []
+  },
+  {
+    "id": "C05",
+    "categoria": "desconto",
+    "sobre": "A justificativa do desconto ao paciente é o plano, não a cirurgia (F05).",
+    "turnos": [
+      {
+        "paciente": "oi",
+        "lara": "⁣Olá, tudo bem? Sou a Lara, assistente da Dra. Marina Costa. Para agilizarmos o seu atendimento, escolha a opção que melhor se adequa à sua necessidade:\n\n1 - Avaliação para Cirurgia Refrativa\n2 - Avaliação para Cirurgia de Catarata\n3 - Consulta Oftalmológica de Rotina\n4 - Outros",
+        "mensagens": 1,
+        "segundos": 16.0,
+        "nota": "",
+        "guarda": [],
+        "duras": [],
+        "avisos": []
+      },
+      {
+        "paciente": "1",
+        "lara": "⁣Muito obrigada pelo seu contato. Para darmos início ao seu atendimento, poderia me informar:\n\nNome completo do paciente:\nData de nascimento:\nCidade:\nConvênio (ou particular):",
+        "mensagens": 1,
+        "segundos": 14.0,
+        "nota": "",
+        "guarda": [],
+        "duras": [],
+        "avisos": []
+      },
+      {
+        "paciente": "Bruno, Teresina, tenho Hapvida",
+        "lara": "⁣Infelizmente o Hapvida a gente não atende, nem para consulta nem para cirurgia.\n\nComo você deseja realizar a cirurgia e já paga um plano, a avaliação sai por R$ 300,00.\n\nSó preciso da data de nascimento do Bruno para ver um horário.",
+        "mensagens": 1,
+        "segundos": 30.0,
+        "nota": "",
+        "guarda": [],
+        "duras": [],
+        "avisos": []
+      },
+      {
+        "paciente": "e a consulta, quanto fica?",
+        "lara": "⁣R$ 300,00, como mencionei.\n\nSó preciso da data de nascimento do Bruno para ver um horário.",
+        "mensagens": 1,
+        "segundos": 14.0,
+        "nota": "Motivo dito ao paciente: já paga um plano. Nunca 'porque quer operar'.",
+        "guarda": [],
+        "duras": [],
+        "avisos": [
+          "esperado e ausente: plano"
+        ]
+      }
+    ],
+    "duras": [],
+    "avisos": [
+      "T4: esperado e ausente: plano"
+    ]
+  }
+]

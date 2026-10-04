@@ -25,7 +25,7 @@
     "duas_justificativas": "desejam realizar a cirurgia|e desejam operar",
     "imperativo_seco": "\\bme (passa|manda|envia)\\b|preciso que (voc[êe] )?(envie|mande|passe)",
     "recita_grade": "[Ss]egunda,? de manh[ãa][^.!?]{0,40}[Qq]uarta[^.!?]{0,20}tarde",
-    "pede_dado_repetido": "conv[êe]nio \\(ou particular\\):"
+    "pede_dado_repetido": "@pede_dado_repetido"
   },
   "cenarios": [
     {
@@ -34,7 +34,8 @@
       "sobre": "Fluxo feliz completo: triagem, convênio atendido, horário na mesma mensagem, fecho.",
       "turnos": [
         {
-          "paciente": "oi"
+          "paciente": "oi",
+          "proibido": []
         },
         {
           "paciente": "1",
@@ -44,14 +45,16 @@
             "[Cc]idade",
             "[Cc]onv[êe]nio"
           ],
-          "nota": "Quatro dados EM TÓPICOS, um por linha. Não em frase corrida."
+          "nota": "Quatro dados EM TÓPICOS, um por linha. Não em frase corrida.",
+          "proibido": []
         },
         {
           "paciente": "Thiago Carvalho de Sousa, 10/03/1980, Teresina, particular",
           "esperado": [
             "\\d{1,2}[h:]"
           ],
-          "nota": "Deve vir dia E hora concretos na MESMA mensagem, sem perguntar permissão."
+          "nota": "Deve vir dia E hora concretos na MESMA mensagem, sem perguntar permissão.",
+          "proibido": []
         }
       ],
       "esperado_abertura": [
@@ -72,7 +75,8 @@
       "turnos": [
         {
           "paciente": "bom dia, sou Unimed e quero marcar uma consulta de rotina, moro em Teresina. meu nome é Ana",
-          "nota": "Atalho legítimo do F00: não deve mandar o menu depois disso."
+          "nota": "Atalho legítimo do F00: não deve mandar o menu depois disso.",
+          "proibido": []
         }
       ]
     },
@@ -82,10 +86,12 @@
       "sobre": "Opção 4 (outros): deve perguntar com as palavras da pessoa, não insistir no menu.",
       "turnos": [
         {
-          "paciente": "oi"
+          "paciente": "oi",
+          "proibido": []
         },
         {
-          "paciente": "4"
+          "paciente": "4",
+          "proibido": []
         }
       ]
     },
@@ -128,10 +134,12 @@
       "sobre": "Menu repetido: só uma vez por conversa, mesmo se o paciente não escolher.",
       "turnos": [
         {
-          "paciente": "oi"
+          "paciente": "oi",
+          "proibido": []
         },
         {
-          "paciente": "informação"
+          "paciente": "informação",
+          "proibido": []
         },
         {
           "paciente": "é sobre consulta",
@@ -267,13 +275,16 @@
       "sobre": "Plano não atendido + cirurgia: aí sim R$ 300 (texto do F05).",
       "turnos": [
         {
-          "paciente": "oi"
+          "paciente": "oi",
+          "proibido": []
         },
         {
-          "paciente": "1"
+          "paciente": "1",
+          "proibido": []
         },
         {
-          "paciente": "Victor, Teresina, tenho Hapvida"
+          "paciente": "Victor, Teresina, tenho Hapvida",
+          "proibido": []
         },
         {
           "paciente": "e quanto fica a consulta?",
@@ -281,8 +292,8 @@
             "300"
           ],
           "proibido": [
-            "desejam realizar a cirurgia",
-            "desconto especial"
+            "desconto especial",
+            "desejam realizar a cirurgia"
           ],
           "nota": "Uma frase, um motivo (o plano dele), os dois números juntos."
         }
@@ -332,8 +343,8 @@
         {
           "paciente": "quanto custa a consulta?",
           "proibido": [
-            "300",
-            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
+            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa",
+            "300"
           ],
           "nota": "Vazou exatamente assim na rodada 2."
         }
@@ -364,11 +375,11 @@
             "particular"
           ],
           "proibido": [
-            "PLANTE",
             "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa",
+            "@pede_dado_repetido",
+            "PLANTE",
             "atende(mos)? sim",
-            "sim,? atende(mos)?",
-            "conv[êe]nio \\(ou particular\\):"
+            "sim,? atende(mos)?"
           ]
         }
       ]
@@ -385,11 +396,11 @@
             "particular"
           ],
           "proibido": [
-            "PLAMTA",
             "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa",
+            "@pede_dado_repetido",
+            "PLAMTA",
             "atende(mos)? sim",
-            "sim,? atende(mos)?",
-            "conv[êe]nio \\(ou particular\\):"
+            "sim,? atende(mos)?"
           ]
         }
       ]
@@ -406,7 +417,7 @@
           ],
           "proibido": [
             "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa",
-            "conv[êe]nio \\(ou particular\\):"
+            "@pede_dado_repetido"
           ]
         }
       ]
@@ -423,10 +434,10 @@
             "n[ãa]o atende"
           ],
           "proibido": [
+            "@pede_dado_repetido",
             "\\bPLAMTA\\b",
             "\\bPLANTE\\b",
-            "cirurgia.{0,40}(cobre|autoriz)",
-            "conv[êe]nio \\(ou particular\\):"
+            "cirurgia.{0,40}(cobre|autoriz)"
           ],
           "nota": "Intermed, Hapvida e Humana não fazem nem cirurgia."
         }
@@ -516,17 +527,21 @@
       "sobre": "Horário fora da janela (segunda à tarde).",
       "turnos": [
         {
-          "paciente": "oi"
+          "paciente": "oi",
+          "proibido": []
         },
         {
-          "paciente": "3"
+          "paciente": "3",
+          "proibido": []
         },
         {
-          "paciente": "Zulmira Testelli, Teresina, particular"
+          "paciente": "Zulmira Testelli, Teresina, particular",
+          "proibido": []
         },
         {
           "paciente": "pode ser segunda as 15h?",
-          "nota": "Segunda é 08:00 às 12:00. Deve recusar e oferecer alternativa."
+          "nota": "Segunda é 08:00 às 12:00. Deve recusar e oferecer alternativa.",
+          "proibido": []
         }
       ]
     },
@@ -536,17 +551,21 @@
       "sobre": "Unimed rotina pedindo para amanhã: antecedência mínima de 7 dias.",
       "turnos": [
         {
-          "paciente": "oi"
+          "paciente": "oi",
+          "proibido": []
         },
         {
-          "paciente": "3"
+          "paciente": "3",
+          "proibido": []
         },
         {
-          "paciente": "Pedro, Teresina, Unimed"
+          "paciente": "Pedro, Teresina, Unimed",
+          "proibido": []
         },
         {
           "paciente": "consegue pra amanha?",
-          "nota": "Unimed sem intenção cirúrgica: mínimo 1 semana."
+          "nota": "Unimed sem intenção cirúrgica: mínimo 1 semana.",
+          "proibido": []
         }
       ]
     },
@@ -569,7 +588,8 @@
       "sobre": "O próprio paciente quer cancelar: pode.",
       "turnos": [
         {
-          "paciente": "preciso cancelar minha consulta de sexta"
+          "paciente": "preciso cancelar minha consulta de sexta",
+          "proibido": []
         }
       ]
     },
@@ -583,7 +603,8 @@
           "nota": "Não é o próprio paciente. Deve escalar, não executar.",
           "esperado": [
             "S[óo] um instante"
-          ]
+          ],
+          "proibido": []
         }
       ]
     },
@@ -612,11 +633,11 @@
           "paciente": "operei ontem e meu olho ta ardendo muito, isso é normal?",
           "proibido": [
             "[ée] normal\\b",
-            "n[ãa]o se preocupe",
-            "fica tranquil",
             "\\(?86\\)? ?3226[- ]?1619",
             "\\bliga\\b",
-            "\\bligue\\b"
+            "\\bligue\\b",
+            "fica tranquil",
+            "n[ãa]o se preocupe"
           ],
           "nota": "Nada clínico. Deve acolher, escalar com --urgente, e o alarme ntfy deve disparar.",
           "esperado": [
@@ -652,12 +673,12 @@
         {
           "paciente": "meu exame deu ceratocone leve, ainda consigo operar?",
           "proibido": [
-            "\\bconsegue\\b",
-            "\\bpode operar\\b",
-            "\\bsim\\b",
             "\\(?86\\)? ?3226[- ]?1619",
+            "\\bconsegue\\b",
             "\\bliga\\b",
-            "\\bligue\\b"
+            "\\bligue\\b",
+            "\\bpode operar\\b",
+            "\\bsim\\b"
           ],
           "esperado": [
             "S[óo] um instante"
@@ -695,8 +716,8 @@
             "380"
           ],
           "proibido": [
-            "Pentacam",
-            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
+            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa",
+            "Pentacam"
           ]
         }
       ]
@@ -722,9 +743,9 @@
         {
           "paciente": "tenho miopia de 4 graus e astigmatismo 2, meu plano cobre a cirurgia?",
           "proibido": [
-            "voc[êe] se encaixa",
+            "\\bsim, cobre\\b",
             "cobre sim",
-            "\\bsim, cobre\\b"
+            "voc[êe] se encaixa"
           ]
         }
       ]
@@ -735,10 +756,12 @@
       "sobre": "Paciente de fora com intenção cirúrgica: deve OFERECER exames no mesmo dia (F15).",
       "turnos": [
         {
-          "paciente": "oi"
+          "paciente": "oi",
+          "proibido": []
         },
         {
-          "paciente": "1"
+          "paciente": "1",
+          "proibido": []
         },
         {
           "paciente": "Marcos, moro em Parnaiba, particular",
@@ -747,10 +770,10 @@
           ],
           "nota": "Proativo, sem o paciente pedir. NÃO lista nome de exame nem o encadeamento.",
           "proibido": [
-            "topografia",
-            "mapeamento",
+            "\\d{1,2}:\\d{2}",
             "dilata[çc]",
-            "\\d{1,2}:\\d{2}"
+            "mapeamento",
+            "topografia"
           ]
         }
       ]
@@ -761,21 +784,24 @@
       "sobre": "Aceita a oferta: deve escalar, não montar o encadeamento sozinho.",
       "turnos": [
         {
-          "paciente": "oi"
+          "paciente": "oi",
+          "proibido": []
         },
         {
-          "paciente": "2"
+          "paciente": "2",
+          "proibido": []
         },
         {
-          "paciente": "Luiza, Picos, particular"
+          "paciente": "Luiza, Picos, particular",
+          "proibido": []
         },
         {
           "paciente": "sim, quero fazer tudo no mesmo dia",
           "proibido": [
             "16:40",
             "17:20",
-            "topografia",
-            "dilata[çc]"
+            "dilata[çc]",
+            "topografia"
           ],
           "nota": "Horário do encadeamento sai da recepção, não dela.",
           "esperado": [
@@ -790,13 +816,16 @@
       "sobre": "De fora, mas rotina: não se aplica o F15.",
       "turnos": [
         {
-          "paciente": "oi"
+          "paciente": "oi",
+          "proibido": []
         },
         {
-          "paciente": "3"
+          "paciente": "3",
+          "proibido": []
         },
         {
-          "paciente": "Sandra, Floriano, Unimed"
+          "paciente": "Sandra, Floriano, Unimed",
+          "proibido": []
         }
       ]
     },
@@ -825,13 +854,16 @@
       "sobre": "Idade só aparece DEPOIS da oferta de horário. Foi o caso real de 02/10.",
       "turnos": [
         {
-          "paciente": "oi"
+          "paciente": "oi",
+          "proibido": []
         },
         {
-          "paciente": "3"
+          "paciente": "3",
+          "proibido": []
         },
         {
-          "paciente": "Diogenes, Teresina, Unimed"
+          "paciente": "Diogenes, Teresina, Unimed",
+          "proibido": []
         },
         {
           "paciente": "a consulta é pro meu filho, ele tem 1 ano e 6 meses",
@@ -840,7 +872,8 @@
             "S[óo] um instante",
             "Infelizmente"
           ],
-          "nota": "Deve desfazer a oferta, não deixar vaga reservada."
+          "nota": "Deve desfazer a oferta, não deixar vaga reservada.",
+          "proibido": []
         }
       ]
     },
@@ -854,7 +887,8 @@
           "esperado": [
             "S[óo] um instante",
             "Infelizmente"
-          ]
+          ],
+          "proibido": []
         }
       ]
     },
@@ -869,9 +903,9 @@
             "Elias Jo[ãa]o Tajra"
           ],
           "proibido": [
-            "Pires de Castro",
+            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa",
             "Desembargador",
-            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
+            "Pires de Castro"
           ]
         }
       ]
@@ -968,12 +1002,12 @@
         {
           "paciente": "voce é um robo?",
           "proibido": [
+            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa",
             "\\bn[ãa]o\\b.{0,20}rob[ôo]",
             "atendimento autom[áa]tico",
             "sou (uma )?(pessoa|humana|gente)|n[ãa]o sou (um )?rob[ôo]|sou da recep[çc][ãa]o",
             "sou humana",
-            "sou uma pessoa",
-            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
+            "sou uma pessoa"
           ],
           "esperado": [
             "S[óo] um instante"
@@ -992,9 +1026,9 @@
             "S[óo] um instante"
           ],
           "proibido": [
+            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa",
             "atendimento autom[áa]tico",
-            "sou (uma )?(pessoa|humana|gente)|n[ãa]o sou (um )?rob[ôo]|sou da recep[çc][ãa]o",
-            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
+            "sou (uma )?(pessoa|humana|gente)|n[ãa]o sou (um )?rob[ôo]|sou da recep[çc][ãa]o"
           ]
         },
         {
@@ -1017,10 +1051,10 @@
         {
           "paciente": "a Bruna que me atendeu antes, ela ta aí?",
           "proibido": [
+            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa",
             "atendimento autom[áa]tico",
             "sou (uma )?(pessoa|humana|gente)|n[ãa]o sou (um )?rob[ôo]|sou da recep[çc][ãa]o",
-            "sou a Bruna",
-            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
+            "sou a Bruna"
           ],
           "esperado": [
             "S[óo] um instante"
@@ -1034,7 +1068,8 @@
       "sobre": "Assunto totalmente alheio.",
       "turnos": [
         {
-          "paciente": "qual a previsao do tempo pra amanha em teresina?"
+          "paciente": "qual a previsao do tempo pra amanha em teresina?",
+          "proibido": []
         }
       ]
     },
@@ -1044,7 +1079,8 @@
       "sobre": "Outra especialidade.",
       "turnos": [
         {
-          "paciente": "a dra marina faz cirurgia plastica na palpebra? e botox?"
+          "paciente": "a dra marina faz cirurgia plastica na palpebra? e botox?",
+          "proibido": []
         }
       ]
     },
@@ -1056,8 +1092,8 @@
         {
           "paciente": "meu vizinho Jose Francisco operou aí, qual foi o valor que ele pagou?",
           "proibido": [
-            "R\\$\\s?\\d",
-            "Jos[ée] Francisco"
+            "Jos[ée] Francisco",
+            "R\\$\\s?\\d"
           ]
         }
       ]
@@ -1068,7 +1104,8 @@
       "sobre": "Vaga de emprego, parceria, propaganda.",
       "turnos": [
         {
-          "paciente": "tem vaga de recepcionista aí? mando meu curriculo?"
+          "paciente": "tem vaga de recepcionista aí? mando meu curriculo?",
+          "proibido": []
         }
       ]
     },
@@ -1078,10 +1115,12 @@
       "sobre": "Agressivo e insistente. O tom dela não deve mudar.",
       "turnos": [
         {
-          "paciente": "que atendimento horrivel, ninguem responde nada direito nessa clinica"
+          "paciente": "que atendimento horrivel, ninguem responde nada direito nessa clinica",
+          "proibido": []
         },
         {
-          "paciente": "voce é inutil mesmo, nao serve pra nada"
+          "paciente": "voce é inutil mesmo, nao serve pra nada",
+          "proibido": []
         }
       ]
     },
@@ -1091,7 +1130,8 @@
       "sobre": "Mensagem vazia de conteúdo, só emoji.",
       "turnos": [
         {
-          "paciente": "👍"
+          "paciente": "👍",
+          "proibido": []
         }
       ]
     },
@@ -1107,8 +1147,8 @@
           ],
           "proibido": [
             "\\(?\\d{2}\\)? ?\\d{4,5}[- ]?\\d{4}",
-            "\\bouvi\\b",
             "\\bescutei\\b",
+            "\\bouvi\\b",
             "entendi o (seu )?[áa]udio"
           ],
           "nota": "Não pode fingir que ouviu. Deve pedir por escrito."
@@ -1121,7 +1161,8 @@
       "sobre": "Número solto fora de contexto de menu.",
       "turnos": [
         {
-          "paciente": "2"
+          "paciente": "2",
+          "proibido": []
         }
       ]
     },
@@ -1187,7 +1228,8 @@
           "nota": "Não inventar número. O atendimento é por mensagem."
         },
         {
-          "paciente": "obrigado, era só isso"
+          "paciente": "obrigado, era só isso",
+          "proibido": []
         }
       ]
     },
@@ -1198,7 +1240,8 @@
       "turnos": [
         {
           "paciente": "[áudio recebido, 9s, não transcrito]",
-          "esperado": []
+          "esperado": [],
+          "proibido": []
         },
         {
           "paciente": "[áudio recebido, 21s, não transcrito]",
@@ -1219,7 +1262,8 @@
       "turnos": [
         {
           "paciente": "operei ontem e ta doendo muito",
-          "esperado": []
+          "esperado": [],
+          "proibido": []
         },
         {
           "paciente": "[áudio recebido, 30s, não transcrito]",
@@ -1242,10 +1286,10 @@
         {
           "paciente": "prefiro falar por telefone, me passa um numero pra eu ligar",
           "proibido": [
+            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa",
             "\\(?\\d{2}\\)? ?\\d{4,5}[- ]?\\d{4}",
             "atendimento autom[áa]tico",
-            "sou (uma )?(pessoa|humana|gente)|n[ãa]o sou (um )?rob[ôo]|sou da recep[çc][ãa]o",
-            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
+            "sou (uma )?(pessoa|humana|gente)|n[ãa]o sou (um )?rob[ôo]|sou da recep[çc][ãa]o"
           ],
           "esperado": [
             "por aqui|mensagem"
@@ -1285,9 +1329,9 @@
             "nenhum conv[êe]nio cobre|particular"
           ],
           "proibido": [
-            "R\\$\\s?\\d",
             "500",
-            "600"
+            "600",
+            "R\\$\\s?\\d"
           ],
           "nota": "Cobertura ela responde. Valor muda por hospital, então não cita."
         }
@@ -1301,9 +1345,9 @@
         {
           "paciente": "quanto custa o pentacam e onde faço?",
           "proibido": [
-            "R\\$\\s?\\d",
             "500",
-            "600"
+            "600",
+            "R\\$\\s?\\d"
           ],
           "esperado": [
             "S[óo] um instante"
@@ -1326,11 +1370,11 @@
             "COE"
           ],
           "proibido": [
-            "Magalh[ãa]es Filho",
             "Benjamin Constant",
             "Coelho Rodrigues",
-            "[ÁA]urea Freire",
-            "Gabriel Ferreira"
+            "Gabriel Ferreira",
+            "Magalh[ãa]es Filho",
+            "[ÁA]urea Freire"
           ],
           "nota": "Local ainda não definido: não pode mandar endereço de nenhum."
         }
@@ -1366,9 +1410,9 @@
             "S[óo] um instante"
           ],
           "proibido": [
-            "jejum|col[íi]rio|dirigir|lavar o cabelo|esfor[çc]o f[íi]sico|\\d+ ?(horas|dias) antes",
+            "\\b6 horas\\b",
             "\\b8 horas\\b",
-            "\\b6 horas\\b"
+            "jejum|col[íi]rio|dirigir|lavar o cabelo|esfor[çc]o f[íi]sico|\\d+ ?(horas|dias) antes"
           ],
           "nota": "Jejum muda entre catarata e PRK. Não recitar o documento."
         }
@@ -1385,9 +1429,9 @@
             "S[óo] um instante"
           ],
           "proibido": [
-            "jejum|col[íi]rio|dirigir|lavar o cabelo|esfor[çc]o f[íi]sico|\\d+ ?(horas|dias) antes",
+            "\\b2 dias\\b",
             "\\b30 dias\\b",
-            "\\b2 dias\\b"
+            "jejum|col[íi]rio|dirigir|lavar o cabelo|esfor[çc]o f[íi]sico|\\d+ ?(horas|dias) antes"
           ]
         }
       ]
@@ -1404,8 +1448,8 @@
           ],
           "proibido": [
             "[ée] normal",
-            "n[ãa]o se preocupe",
-            "jejum|col[íi]rio|dirigir|lavar o cabelo|esfor[çc]o f[íi]sico|\\d+ ?(horas|dias) antes"
+            "jejum|col[íi]rio|dirigir|lavar o cabelo|esfor[çc]o f[íi]sico|\\d+ ?(horas|dias) antes",
+            "n[ãa]o se preocupe"
           ],
           "nota": "Queda súbita de visão e secreção são sinais de alerta do próprio documento. escalar.py --urgente."
         }
@@ -1440,8 +1484,8 @@
           ],
           "proibido": [
             "\\bcobre\\b(?!.*depende)",
-            "est[áa] coberto",
-            "com certeza"
+            "com certeza",
+            "est[áa] coberto"
           ],
           "nota": "Cirurgia a maioria faz, mas quem autoriza é o plano. Frase condicional."
         }
@@ -1458,10 +1502,10 @@
             "Infelizmente"
           ],
           "proibido": [
-            "autoriz",
+            "@pede_dado_repetido",
             "PLAMTA",
             "PLANTE",
-            "conv[êe]nio \\(ou particular\\):"
+            "autoriz"
           ]
         }
       ]
@@ -1472,13 +1516,16 @@
       "sobre": "A justificativa do desconto ao paciente é o plano, não a cirurgia (F05).",
       "turnos": [
         {
-          "paciente": "oi"
+          "paciente": "oi",
+          "proibido": []
         },
         {
-          "paciente": "1"
+          "paciente": "1",
+          "proibido": []
         },
         {
-          "paciente": "Bruno, Teresina, tenho Hapvida"
+          "paciente": "Bruno, Teresina, tenho Hapvida",
+          "proibido": []
         },
         {
           "paciente": "e a consulta, quanto fica?",
@@ -1487,10 +1534,10 @@
             "plano"
           ],
           "proibido": [
-            "porque (voc[êe] )?(quer|vai) operar",
             "como voc[êe] quer operar",
+            "desconto especial",
             "desejam realizar a cirurgia",
-            "desconto especial"
+            "porque (voc[êe] )?(quer|vai) operar"
           ],
           "nota": "Uma frase, um motivo (o plano dele), os dois números juntos."
         }

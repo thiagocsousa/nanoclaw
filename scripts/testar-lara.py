@@ -174,7 +174,28 @@ def acha_preco_de_cirurgia(texto):
     return None
 
 
-CHECAGENS = {"@preco_cirurgia": acha_preco_de_cirurgia}
+RX_FORM_CONVENIO = re.compile(r"conv[êe]nio\s*\(ou particular\)\s*:", re.I)
+RX_CITA_PLANO = re.compile(
+    r"\b(?:IASPI|IAPEP|IPMT|Unimed|Hapvida|Humana|Intermed|Bradesco|Amil|SulAm[ée]rica)\b", re.I)
+
+
+def pede_dado_repetido(texto):
+    """Pedir o convênio de volta a quem acabou de dizer o plano.
+
+    Espelha a regra do host. A versão crua (só procurar o bloco dos quatro
+    campos) reprovava o formulário legítimo de quem não disse nada, que é o
+    erro que eu venho cometendo o dia todo: critério mais estreito que o
+    comportamento correto.
+    """
+    if RX_FORM_CONVENIO.search(texto) and RX_CITA_PLANO.search(texto):
+        return RX_CITA_PLANO.search(texto).group(0)
+    return None
+
+
+CHECAGENS = {
+    "@preco_cirurgia": acha_preco_de_cirurgia,
+    "@pede_dado_repetido": pede_dado_repetido,
+}
 
 
 def checa(resposta, turno, globais):
