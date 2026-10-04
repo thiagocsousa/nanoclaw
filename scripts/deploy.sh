@@ -23,15 +23,57 @@ echo "[3.6/4] container build..."
 bash container/build.sh
 
 echo "[4/4] pm2 restart..."
-# Kill any stale node processes holding port 3001
-STALE=$(ss -tlnp 2>/dev/null | grep ':3001' | grep -oP 'pid=\K[0-9]+' || true)
-if [ -n "$STALE" ]; then
-  echo "Killing stale process on port 3001 (pid $STALE)..."
-  kill -9 "$STALE" 2>/dev/null || true
+# Depois de um crash, um node zumbi pode segurar a 3001 e impedir o start. Mas o
+# nanoclaw gerenciado pelo pm2 TAMBÉM escuta nessa porta: em 04/10/2026 este bloco
+# matou o próprio app, o pm2 perdeu a referência ("Process 0 not found") e o deploy
+# terminou com o processo em "waiting restart" — reportando sucesso. Então só
+# matamos quem NÃO é o processo do pm2; do dele, o restart cuida.
+PM2_PID=$(pm2 jlist 2>/dev/null | node -e '
+let s = "";
+process.stdin.on("data", (d) => (s += d)).on("end", () => {
+  try {
+    const p = JSON.parse(s).find((x) => x.name === "nanoclaw");
+    process.stdout.write(String((p && p.pid) || ""));
+  } catch {}
+});' || true)
+
+for PID in $(ss -tlnp 2>/dev/null | grep ':3001' | grep -oP 'pid=\K[0-9]+' | sort -u || true); do
+  if [ -n "$PM2_PID" ] && [ "$PID" = "$PM2_PID" ]; then
+    echo "  porta 3001 ocupada pelo nanoclaw do pm2 (pid $PID) — o restart cuida"
+    continue
+  fi
+  echo "  matando processo órfão na porta 3001 (pid $PID)..."
+  kill -9 "$PID" 2>/dev/null || true
   sleep 1
-fi
+done
+
 pm2 reset nanoclaw 2>/dev/null || true
 pm2 startOrRestart ecosystem.config.cjs --update-env
+
+# O deploy não pode dizer "sucesso" sem o app no ar — foi exatamente o que
+# aconteceu em 04/10/2026. pm2 leva alguns segundos para estabilizar.
+echo "[4.2/4] verificando que subiu..."
+VIVO=""
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+  sleep 2
+  if [ "$(pm2 jlist 2>/dev/null | node -e '
+let s = "";
+process.stdin.on("data", (d) => (s += d)).on("end", () => {
+  try {
+    const p = JSON.parse(s).find((x) => x.name === "nanoclaw");
+    process.stdout.write(p && p.pm2_env && p.pm2_env.status === "online" ? "online" : "");
+  } catch {}
+});' || true)" = "online" ]; then
+    VIVO="sim"; break
+  fi
+done
+if [ -z "$VIVO" ]; then
+  echo "FALHOU: nanoclaw não está online depois do restart."
+  pm2 list || true
+  pm2 logs nanoclaw --lines 30 --nostream 2>/dev/null | tail -30 || true
+  exit 1
+fi
+echo "  nanoclaw online."
 
 echo "[4.5/4] limpeza docker (evita encher o disco da VM)..."
 # roda DEPOIS do build/restart: remove só o lixo, preservando o cache recente
