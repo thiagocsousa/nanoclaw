@@ -82,3 +82,11 @@ agents-sdk-docs
 # Cache do Python em qualquer profundidade (a entrada acima só pega groups/*/scripts)
 __pycache__/
 *.pyc
+
+# Banco local e mídia solta na raiz. Entraram no repo em 04/10/2026 por um
+# `git add -A` sem escopo meu, e o `nanoclaw.db` rastreado travou o deploy na
+# VM, que tem o dela própria: "untracked working tree files would be
+# overwritten by merge".
+nanoclaw.db
+/logo.png
+/short.mp4
