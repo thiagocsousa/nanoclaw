@@ -29,10 +29,7 @@ import {
 } from '../audio-transcribe.js';
 import { readEnvFile } from '../env.js';
 
-const envConfig = readEnvFile([
-  'WHATSAPP_PAIRING_NUMBER',
-  'WHATSAPP_QR_FILE',
-]);
+const envConfig = readEnvFile(['WHATSAPP_PAIRING_NUMBER', 'WHATSAPP_QR_FILE']);
 
 /**
  * Caminho onde gravar o QR de vinculação, em texto desenhado.
@@ -174,6 +171,17 @@ export class WhatsAppChannel implements Channel {
                 `gerado ${new Date().toISOString()}\n\n${desenho}\n`,
               );
               fs.renameSync(tmp, QR_FILE);
+              // A string crua também, para quem quiser desenhar o QR de outro
+              // jeito. QR em caracteres de terminal depende da fonte e do
+              // tamanho da tela, e no aparelho do atendimento não escaneou.
+              //
+              // ⚠️ Esta string AUTORIZA vincular um dispositivo à conta. Ela
+              // fica no disco da VM e não vai para serviço nenhum: publicá-la
+              // em qualquer lugar alcançável daria a conta a quem abrisse o
+              // link.
+              const bruto = `${QR_FILE}.raw`;
+              fs.writeFileSync(`${bruto}.tmp`, qr, { mode: 0o600 });
+              fs.renameSync(`${bruto}.tmp`, bruto);
               logger.info({ arquivo: QR_FILE }, 'QR de vinculação atualizado');
             } catch (err) {
               logger.error({ err, arquivo: QR_FILE }, 'não gravei o QR');
