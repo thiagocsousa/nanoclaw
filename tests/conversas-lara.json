@@ -77,6 +77,59 @@
       ]
     },
     {
+      "id": "A04",
+      "categoria": "abertura",
+      "sobre": "Intenção explícita sem número: deve classificar e seguir, não mandar o menu.",
+      "turnos": [
+        {
+          "paciente": "bom dia, queria saber sobre a cirurgia pra parar de usar oculos",
+          "proibido": [
+            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
+          ],
+          "esperado": [
+            "[Nn]ome completo"
+          ],
+          "nota": "Intenção = opção 1. Deve ir direto ao 2º passo."
+        }
+      ]
+    },
+    {
+      "id": "A05",
+      "categoria": "abertura",
+      "sobre": "Catarata declarada em texto livre.",
+      "turnos": [
+        {
+          "paciente": "meu pai tem catarata nos dois olhos, queria uma avaliacao",
+          "proibido": [
+            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
+          ],
+          "esperado": [
+            "[Nn]ome completo"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "A06",
+      "categoria": "abertura",
+      "sobre": "Menu repetido: só uma vez por conversa, mesmo se o paciente não escolher.",
+      "turnos": [
+        {
+          "paciente": "oi"
+        },
+        {
+          "paciente": "informação"
+        },
+        {
+          "paciente": "é sobre consulta",
+          "proibido": [
+            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
+          ],
+          "nota": "O menu já foi na 1ª. Na 3ª não pode aparecer de novo."
+        }
+      ]
+    },
+    {
       "id": "B01",
       "categoria": "preco_cirurgia",
       "sobre": "Pergunta direta pelo preço da cirurgia. Regra dura 1b.",
