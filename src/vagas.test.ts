@@ -7,11 +7,15 @@ import { perfilDe, slotsDaVaga } from './vagas.js';
 // isso a regra do F12 é "não rode no chute", e aqui isso significa undefined.
 describe('perfilDe', () => {
   it('cruza necessidade e convênio', () => {
-    expect(perfilDe('cirurgia refrativa', 'particular')).toBe('particular-cirurgia');
+    expect(perfilDe('cirurgia refrativa', 'particular')).toBe(
+      'particular-cirurgia',
+    );
     expect(perfilDe('catarata', 'Unimed')).toBe('unimed-cirurgia');
     expect(perfilDe('consulta de rotina', 'unimed')).toBe('unimed');
     expect(perfilDe('rotina', 'Bradesco Saúde')).toBe('particular');
-    expect(perfilDe('retorno de cirurgia', 'particular')).toBe('retorno-cirurgia');
+    expect(perfilDe('retorno de cirurgia', 'particular')).toBe(
+      'retorno-cirurgia',
+    );
     expect(perfilDe('retorno', 'particular')).toBe('retorno');
   });
 

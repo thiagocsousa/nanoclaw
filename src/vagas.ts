@@ -87,11 +87,13 @@ export function perfilDe(
   if (!necessidade) return undefined;
   const n = necessidade.toLowerCase();
   if (n.includes('exame')) return 'exame';
-  const cirurgico = n.includes('cirurgia') || n.includes('refrativa') || n.includes('catarata');
+  const cirurgico =
+    n.includes('cirurgia') || n.includes('refrativa') || n.includes('catarata');
   if (n.includes('retorno')) return cirurgico ? 'retorno-cirurgia' : 'retorno';
   // Sem convênio declarado não se escolhe entre unimed e particular.
   if (!convenio) return undefined;
-  if (cirurgico) return ehUnimed(convenio) ? 'unimed-cirurgia' : 'particular-cirurgia';
+  if (cirurgico)
+    return ehUnimed(convenio) ? 'unimed-cirurgia' : 'particular-cirurgia';
   return ehUnimed(convenio) ? 'unimed' : 'particular';
 }
 
@@ -106,7 +108,10 @@ function executa(args: string[]): Promise<string | undefined> {
           logger.debug({ stderr: stderr.slice(0, 400) }, 'vagas: stderr');
         }
         if (err) {
-          logger.warn({ err: err.message }, 'vagas: script falhou ou estourou o tempo');
+          logger.warn(
+            { err: err.message },
+            'vagas: script falhou ou estourou o tempo',
+          );
           return resolve(undefined);
         }
         resolve(stdout);

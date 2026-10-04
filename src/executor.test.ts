@@ -19,7 +19,11 @@ vi.mock('./vagas.js', async (orig) => {
   const real = await orig<typeof import('./vagas.js')>();
   return {
     ...real,
-    buscaVagas: async (_f: string, perfil: string, o: { dia?: string } = {}) => {
+    buscaVagas: async (
+      _f: string,
+      perfil: string,
+      o: { dia?: string } = {},
+    ) => {
       buscou.push({ perfil, dia: o.dia });
       return vagasFalsas;
     },
@@ -274,7 +278,12 @@ describe('motivo da escalada: tabela antes do modelo', () => {
 describe('oferta de horário: quem vai à agenda é o host', () => {
   it('com necessidade e convênio, busca com o perfil cruzado e preenche o texto', async () => {
     vagasFalsas = [
-      { data: '2026-10-06', dia_semana: 'segunda', inicio: '09:20', fim: '09:50' },
+      {
+        data: '2026-10-06',
+        dia_semana: 'segunda',
+        inicio: '09:20',
+        fim: '09:50',
+      },
     ];
     const r = await rodar(
       '{"intencao":"horario_oferta","confianca":0.95,"slots":{"necessidade":"cirurgia refrativa","convenio":"particular"}}',

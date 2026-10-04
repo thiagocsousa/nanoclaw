@@ -115,7 +115,10 @@ def main():
     ap.add_argument("--saida", default="/tmp/avaliacao.json")
     args = ap.parse_args()
 
-    instrucoes = (GRUPO / "CLASSIFICADOR.md").read_text(encoding="utf-8")
+    # O prompt do classificador é o CLAUDE.md da pasta desde 04/10/2026: é o
+    # único arquivo que o container carrega sozinho, então ele TEM que ser o
+    # prompt, senão o agente nunca lê a instrução.
+    instrucoes = (GRUPO / "CLAUDE.md").read_text(encoding="utf-8")
     tabela = json.loads((GRUPO / "templates.json").read_text(encoding="utf-8"))
     suite = json.loads(SUITE.read_text(encoding="utf-8"))
 
