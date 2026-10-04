@@ -371,6 +371,23 @@ describe('avisa sem bloquear: deslize de estilo', () => {
     expect(v.achados.length, JSON.stringify(v.achados)).toBe(0);
   });
 
+  it('pega pedido do convênio para quem acabou de dizer o plano', () => {
+    const v = inspecionaSaida(
+      'Infelizmente a consulta pelo IASPI a gente não atende, seria particular, R$ 430,00.\n\nPara eu já ver um horário, poderia me informar:\n\nNome completo do paciente:\nData de nascimento:\nCidade:\nConvênio (ou particular):',
+    );
+    expect(
+      v.achados.some((a) => a.regra === 'pede_dado_repetido'),
+      JSON.stringify(v.achados),
+    ).toBe(true);
+  });
+
+  it('o formulário completo para quem não disse nada passa limpo', () => {
+    const v = inspecionaSaida(
+      'Muito obrigada pelo seu contato. Para darmos início ao seu atendimento, poderia me informar:\n\nNome completo do paciente:\nData de nascimento:\nCidade:\nConvênio (ou particular):',
+    );
+    expect(v.achados.length, JSON.stringify(v.achados)).toBe(0);
+  });
+
   it('pega pedido de dado de CNPJ, que devia ter escalado', () => {
     for (const t of [
       'Para a nota em nome da empresa, me envie o CNPJ e a razão social.',

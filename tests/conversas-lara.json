@@ -23,7 +23,9 @@
     "recita_orientacao": "\\b(8|6|2) horas antes|aguarde 5 minutos|dormir do lado operado",
     "valor_pentacam": "[Pp]entacam[^.!?]{0,40}R\\$|R\\$[^.!?]{0,40}[Pp]entacam",
     "duas_justificativas": "desejam realizar a cirurgia|e desejam operar",
-    "imperativo_seco": "\\bme (passa|manda|envia)\\b|preciso que (voc[êe] )?(envie|mande|passe)"
+    "imperativo_seco": "\\bme (passa|manda|envia)\\b|preciso que (voc[êe] )?(envie|mande|passe)",
+    "recita_grade": "[Ss]egunda,? de manh[ãa][^.!?]{0,40}[Qq]uarta[^.!?]{0,20}tarde",
+    "pede_dado_repetido": "conv[êe]nio \\(ou particular\\):"
   },
   "cenarios": [
     {
@@ -365,7 +367,8 @@
             "PLANTE",
             "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa",
             "atende(mos)? sim",
-            "sim,? atende(mos)?"
+            "sim,? atende(mos)?",
+            "conv[êe]nio \\(ou particular\\):"
           ]
         }
       ]
@@ -385,7 +388,8 @@
             "PLAMTA",
             "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa",
             "atende(mos)? sim",
-            "sim,? atende(mos)?"
+            "sim,? atende(mos)?",
+            "conv[êe]nio \\(ou particular\\):"
           ]
         }
       ]
@@ -401,7 +405,8 @@
             "Infelizmente"
           ],
           "proibido": [
-            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
+            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa",
+            "conv[êe]nio \\(ou particular\\):"
           ]
         }
       ]
@@ -420,7 +425,8 @@
           "proibido": [
             "\\bPLAMTA\\b",
             "\\bPLANTE\\b",
-            "cirurgia.{0,40}(cobre|autoriz)"
+            "cirurgia.{0,40}(cobre|autoriz)",
+            "conv[êe]nio \\(ou particular\\):"
           ],
           "nota": "Intermed, Hapvida e Humana não fazem nem cirurgia."
         }
@@ -1454,7 +1460,8 @@
           "proibido": [
             "autoriz",
             "PLAMTA",
-            "PLANTE"
+            "PLANTE",
+            "conv[êe]nio \\(ou particular\\):"
           ]
         }
       ]

@@ -195,6 +195,21 @@ const RX_INCLUI_EXAME =
   /inclu\w+\s+(?:o\s+|os\s+|todos\s+os\s+)?exames?\b|exames?\s+(?:est[ãa]o\s+)?inclu[íi]d/i;
 const NOMEIA_INCLUSO = /fundoscopia|tonometria|dois olhos|ambos os olhos/i;
 
+// --- pedir dado que o paciente já deu ---------------------------------------
+
+/**
+ * Mandar o bloco dos quatro campos numa mensagem que CITA o convênio do paciente
+ * significa que ela está pedindo de volta o que ele acabou de dizer. Saiu assim
+ * em 04/10/2026: "Infelizmente a consulta pelo IASPI a gente não atende (...)
+ * Convênio (ou particular):".
+ *
+ * Só dispara com o nome de um convênio no texto, então o formulário completo
+ * para quem não disse nada passa limpo.
+ */
+const RX_FORM_CONVENIO = /conv[êe]nio\s*\(ou particular\)\s*:/i;
+const RX_CITA_PLANO =
+  /\b(?:IASPI|IAPEP|IPMT|Unimed|Hapvida|Humana|Intermed|Bradesco|Amil|SulAm[ée]rica)\b/i;
+
 // --- coletar dados de CNPJ --------------------------------------------------
 
 /**
@@ -390,7 +405,18 @@ export function inspecionaSaida(bruto: string): Veredito {
   }
   RX_TELEFONE.lastIndex = 0; // regex global: zera entre chamadas
 
-  // 6. flag: citou valor do Pentacam, que varia por hospital
+  // 6. flag: pediu o convênio de volta para quem já disse qual é
+  if (RX_FORM_CONVENIO.test(texto) && RX_CITA_PLANO.test(texto)) {
+    achados.push({
+      regra: 'pede_dado_repetido',
+      nivel: 'flag',
+      motivo:
+        'pede o convênio na lista numa mensagem que já nomeia o plano do paciente; peça só o que falta (F00)',
+      trecho: RX_CITA_PLANO.exec(texto)?.[0] ?? '',
+    });
+  }
+
+  // 7. flag: citou valor do Pentacam, que varia por hospital
   const pent = texto.match(RX_PENTACAM_VALOR);
   if (pent) {
     achados.push({
@@ -402,7 +428,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 7. flag: pediu dado de pessoa jurídica em vez de escalar
+  // 8. flag: pediu dado de pessoa jurídica em vez de escalar
   const cnpj = texto.match(RX_PEDE_CNPJ);
   if (cnpj) {
     achados.push({
@@ -414,7 +440,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 8. flag: disse que atende plano que só cobre cirurgia
+  // 9. flag: disse que atende plano que só cobre cirurgia
   if (
     RX_PLANO_PARCIAL.test(texto) &&
     RX_ATENDE_SIM.test(texto) &&
@@ -429,7 +455,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 9. flag: afirmou que a lista de exames está completa
+  // 10. flag: afirmou que a lista de exames está completa
   const compl = texto.match(RX_COMPLETUDE);
   if (compl) {
     achados.push({
@@ -441,7 +467,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 10. block: afirmou ser pessoa
+  // 11. block: afirmou ser pessoa
   const finge = texto.match(RX_FINGE_HUMANA);
   if (finge) {
     achados.push({
@@ -453,7 +479,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 11. flag: anunciou que é automática, ou resumiu o menu
+  // 12. flag: anunciou que é automática, ou resumiu o menu
   const anuncia = texto.match(RX_ANUNCIA_BOT);
   if (anuncia) {
     achados.push({
@@ -474,7 +500,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 12. flag: mandou o paciente ligar
+  // 13. flag: mandou o paciente ligar
   if (RX_CONVITE_LIGAR.test(texto) && RX_DOR.test(texto)) {
     achados.push({
       regra: 'manda_ligar',
@@ -485,7 +511,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 13. flag: mandou o paciente de volta ao menu
+  // 14. flag: mandou o paciente de volta ao menu
   const menu = texto.match(RX_APONTA_MENU);
   if (menu) {
     achados.push({
@@ -496,7 +522,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 14. flag: negou o desconto, contando que ele existe
+  // 15. flag: negou o desconto, contando que ele existe
   const nega = texto.match(RX_NEGA_DESCONTO);
   if (nega) {
     achados.push({
@@ -507,7 +533,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 15. flag: prometeu exame incluso sem nomear o que está incluso
+  // 16. flag: prometeu exame incluso sem nomear o que está incluso
   const inclui = texto.match(RX_INCLUI_EXAME);
   if (inclui && !NOMEIA_INCLUSO.test(texto)) {
     achados.push({
@@ -519,7 +545,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 16. flag: linguagem interna sobrevivendo no texto
+  // 17. flag: linguagem interna sobrevivendo no texto
   const interno = texto.match(RX_INTERNO);
   if (interno) {
     achados.push({
@@ -530,7 +556,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 17. flag: frases proibidas de estilo
+  // 18. flag: frases proibidas de estilo
   for (const [rx, motivo] of PROIBIDAS) {
     const m = texto.match(rx);
     if (m) {
