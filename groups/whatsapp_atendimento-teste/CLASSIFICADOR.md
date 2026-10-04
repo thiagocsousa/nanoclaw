@@ -53,6 +53,13 @@ critérios que não cabem num nome:
   atendido. Faltando uma, não é desconto.
 - **convenio_cirurgia** é quando ele pergunta se o plano cobre a **cirurgia**.
   Se o plano for Intermed, Hapvida ou Humana, é `convenio_bloqueado`.
+
+- **IASPI, IAPEP e PLAMTA sempre caem em `convenio_iaspi`.** IPMT e PLANTE sempre
+  em `convenio_ipmt`. Em qualquer contexto, consulta ou cirurgia, e mesmo que ele
+  diga só o nome do plano cirúrgico. Quem pergunta "atende IPMT pra cirurgia?"
+  está pensando no PLANTE, e o texto dessas intenções já responde as duas
+  metades: a consulta não é coberta, a cirurgia vai pelo plano cirúrgico. Não use
+  `convenio_cirurgia` para esses quatro nomes.
 - **grade_atendimento** só quando ele pergunta literalmente **quais dias**. "Tem
   sábado?" é `dia_sem_atendimento`.
 - **audio** quando a mensagem for o marcador de áudio.
@@ -80,6 +87,9 @@ paciente: quanto custa a cirurgia de miopia?
 
 paciente: atende IASPI? queria operar a vista
 {"intencao": "convenio_iaspi", "confianca": 0.93, "slots": {"convenio": "IASPI"}, "observacao": "intenção de cirurgia declarada"}
+
+paciente: voces fazem pelo PLANTE?
+{"intencao": "convenio_ipmt", "confianca": 0.9, "slots": {"convenio": "IPMT"}, "observacao": "citou o plano cirúrgico direto"}
 
 paciente: Marcos, moro em Parnaiba, particular
 {"intencao": "triagem_dados", "confianca": 0.9, "slots": {"nome": "Marcos", "cidade": "Parnaíba", "convenio": "particular"}, "observacao": "falta nascimento"}

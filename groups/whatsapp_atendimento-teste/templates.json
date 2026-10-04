@@ -87,7 +87,7 @@
     },
     "convenio_cirurgia": {
       "bloco": "F04",
-      "quando": "pergunta se o plano cobre a CIRURGIA (qualquer plano fora de Intermed, Hapvida, Humana)",
+      "quando": "pergunta se o plano cobre a CIRURGIA, para plano que não seja IASPI/IAPEP/IPMT (esses têm intenção própria) nem Intermed/Hapvida/Humana (esses são convenio_bloqueado)",
       "acao": "responder",
       "fecho": false,
       "textos": [
@@ -105,7 +105,7 @@
     },
     "convenio_iaspi": {
       "bloco": "F04",
-      "quando": "IASPI ou IAPEP",
+      "quando": "IASPI, IAPEP ou PLAMTA, em QUALQUER contexto. Quem pergunta por IASPI pensando em cirurgia está pensando no PLAMTA, e o texto já responde as duas metades. Nunca cai em convenio_cirurgia.",
       "acao": "responder",
       "fecho": false,
       "textos": [
@@ -114,7 +114,7 @@
     },
     "convenio_ipmt": {
       "bloco": "F04",
-      "quando": "IPMT",
+      "quando": "IPMT ou PLANTE, em QUALQUER contexto. Quem pergunta por IPMT pensando em cirurgia está pensando no PLANTE, e o texto já responde as duas metades. Nunca cai em convenio_cirurgia.",
       "acao": "responder",
       "fecho": false,
       "textos": [

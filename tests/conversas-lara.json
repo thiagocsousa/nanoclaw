@@ -1662,6 +1662,57 @@
           "intencao_esperada": "desconto"
         }
       ]
+    },
+    {
+      "id": "D08",
+      "categoria": "convenio",
+      "sobre": "Paciente cita o plano cirúrgico direto (PLAMTA).",
+      "turnos": [
+        {
+          "paciente": "voces fazem cirurgia pelo PLAMTA?",
+          "esperado": [
+            "PLAMTA"
+          ],
+          "proibido": [
+            "PLANTE"
+          ],
+          "intencao_esperada": "convenio_iaspi",
+          "nota": "PLAMTA é o plano cirúrgico do IASPI: mesma intenção."
+        }
+      ]
+    },
+    {
+      "id": "D09",
+      "categoria": "convenio",
+      "sobre": "Mesmo caso com PLANTE.",
+      "turnos": [
+        {
+          "paciente": "to com o PLANTE, da pra operar?",
+          "esperado": [
+            "PLANTE"
+          ],
+          "proibido": [
+            "PLAMTA"
+          ],
+          "intencao_esperada": "convenio_ipmt"
+        }
+      ]
+    },
+    {
+      "id": "E07",
+      "categoria": "agenda",
+      "sobre": "Pergunta literal pelos dias: aí sim a grade aparece (F06).",
+      "turnos": [
+        {
+          "paciente": "quais dias a dra marina atende?",
+          "esperado": [
+            "Segunda",
+            "Quarta",
+            "Sexta"
+          ],
+          "intencao_esperada": "grade_atendimento"
+        }
+      ]
     }
   ]
 }

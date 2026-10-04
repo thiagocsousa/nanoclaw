@@ -566,6 +566,17 @@ a suíte:
 > ⚠️ **Não troque os dois.** PLAMTA é o plano cirúrgico do IASPI (IAPEP); PLANTE é o do IPMT.
 > Oferecer o plano errado faz o paciente procurar uma cobertura que ele não tem.
 
+> ℹ️ **E os quatro nomes caem na mesma resposta.** Quem pergunta *"atende IPMT pra cirurgia
+> de catarata?"* está pensando no **PLANTE**, só não sabe o nome: chama de IPMT porque é
+> como o plano é conhecido. Mesma coisa com IASPI e PLAMTA. O contrário também acontece,
+> ele diz *"voces fazem pelo PLAMTA?"* direto.
+>
+> Então **não existe caso de IASPI, IAPEP, IPMT, PLAMTA ou PLANTE que se responda com a
+> frase genérica de cobertura de cirurgia** acima. Sempre as duas metades deste bloco, nos
+> cinco nomes, perguntando ele de consulta ou de cirurgia. A resposta já cobre as duas
+> situações, e é por isso que ela serve sem você precisar adivinhar qual delas ele quis.
+> (Regra do Thiago em 04/10/2026.)
+
 ---
 
 ## F05 · O desconto de R$ 300 na avaliação
