@@ -178,6 +178,31 @@ describe('avisa sem bloquear: deslize de estilo', () => {
     }
   });
 
+  it('pega imperativo seco ao pedir dado', () => {
+    for (const t of [
+      'Me passa a data de nascimento da Joana para eu já ver um horário.',
+      'Me manda seu nome completo.',
+      'Preciso que você envie a cidade.',
+    ]) {
+      const v = inspecionaSaida(t);
+      expect(
+        v.achados.some((a) => a.regra === 'frase_proibida'),
+        t,
+      ).toBe(true);
+    }
+  });
+
+  it('pedido com cortesia passa limpo', () => {
+    for (const t of [
+      'Poderia me informar a data de nascimento da Joana? Assim eu já vejo um horário.',
+      'Qual o seu nome completo, por favor?',
+      'De qual cidade você é?',
+    ]) {
+      const v = inspecionaSaida(t);
+      expect(v.achados.length, t + ' -> ' + JSON.stringify(v.achados)).toBe(0);
+    }
+  });
+
   it('pega "o que posso fazer por você", o mesmo vício com outras palavras', () => {
     // Apareceu na leva 1 da suíte (cenário A03) e passou, porque o regex só
     // conhecia "como posso ajudar".

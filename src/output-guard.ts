@@ -146,7 +146,13 @@ const RX_INTERNO = /\bF\d{2}\b|\b\w+\.py\b|\biclinic_vagas\b|\bescalar\.py\b/;
 
 const PROIBIDAS: Array<[RegExp, string]> = [
   [/\bme conta\b/i, 'soa a chatbot de varejo'],
-  [/\bme passa\b\s*:/i, 'soa a chatbot de varejo'],
+  // "me passa"/"me manda" sem atenuante é ordem, não pedido. O detector antigo
+  // exigia dois-pontos ("me passa:") e deixou escapar "Me passa a data de
+  // nascimento da Joana", que o Thiago apontou como bruto em 04/10/2026.
+  [
+    /\bme (?:passa|manda|envia)\b|\bpreciso que (?:voc[êe] )?(?:envie|mande|passe)\b/i,
+    'imperativo seco ao pedir dado; use "poderia me informar" ou "qual é" (F10)',
+  ],
   [
     /quer que eu (?:veja|confira|busque|procure)/i,
     'pede permissão para fazer o próprio trabalho',
