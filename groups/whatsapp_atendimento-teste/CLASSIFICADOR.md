@@ -73,6 +73,10 @@ correto, não uma falha sua.
 - casa com duas e você não sabe qual
 - é pedido de atestado, receita, laudo, remarcação, desmarcar consulta de outra
   pessoa, consulta em outro endereço, atendimento online ou domiciliar
+- é pedido de **encaixe ou lista de espera**: "me avisa se alguém desmarcar",
+  "não tem nada essa semana?", "tira alguém pra me encaixar que eu pago mais".
+  Mexer na consulta de um terceiro é a regra dura 3b, e furar fila por dinheiro
+  não é decisão que o atendimento toma
 - é assunto alheio à clínica
 - você entendeu, mas ficaria menos de 0,75 confiante
 
