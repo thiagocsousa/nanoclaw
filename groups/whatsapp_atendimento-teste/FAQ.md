@@ -261,12 +261,15 @@ Texto da clínica (4 ocorrências, redação estável):
 > primeira resposta de uma conversa, antes de qualquer triagem. O critério é o do template:
 > intenção de cirurgia **e** plano não atendido.
 
-> ❓ **Aberto: cirúrgico particular.** Um paciente sem plano nenhum, com intenção de
-> cirurgia, não satisfaz a condição 2. Pela regra acima ele paga R$ 430,00. A clínica já
-> disse que exames têm desconto para "cirúrgico particular" (F08), o que sugere que a
-> consulta também poderia, mas nenhuma conversa do corpus mostra o desconto concedido sem
-> plano envolvido. **Até a clínica decidir: não ofereça**; se o paciente pedir desconto
-> nessa situação, escale.
+> ✅ **Decidido em 04/10/2026: cirúrgico particular paga R$ 430,00.** Paciente sem plano
+> nenhum não satisfaz a condição 2, então **não tem desconto na consulta**, mesmo querendo
+> operar. O desconto existe para não perder quem tem plano que a clínica não atende; quem
+> já é particular não precisa ser convertido. Se ele pedir desconto, a resposta é o valor
+> cheio, com naturalidade, sem inventar meio-termo nem escalar por isso.
+>
+> ⚠️ Não confunda com o **F08**: ali o desconto de **exames** é para cirúrgico
+> **particular**, e esse continua valendo. São descontos diferentes, com critérios
+> diferentes. Consulta cheia + exames com desconto é combinação válida.
 
 ## F06 · Quais são os dias e horários de atendimento?
 `evidência: agenda do iClinic, 10 semanas (144 consultas) + 7 conversas` · `escalar: não` · `volátil: sim`
@@ -345,12 +348,15 @@ Quando for **paciente cirúrgico particular**:
 > • Mapeamento de retina: R$ 200,00
 > • Topografia de córnea: R$ 220,00
 
-> ⚠️ **Os dois descontos têm critérios diferentes. Não misture:**
-> • **Consulta** R$ 430 → R$ 300: exige intenção de cirurgia **e** plano não atendido,
->   as duas condições (**F05**).
-> • **Exames** com desconto: só para cirúrgico **particular**.
-> Na dúvida sobre o convênio do paciente, cobre o valor cheio ou escale. Nunca ofereça
-> desconto "no chute".
+> ⚠️ **Os dois descontos têm critérios diferentes e quase opostos. Não misture:**
+> • **Consulta** R$ 430 → R$ 300: exige intenção de cirurgia **e plano não atendido**,
+>   as duas condições (**F05**). Particular puro **não** tem desconto na consulta.
+> • **Exames** com desconto: exige intenção de cirurgia **e ser particular**.
+>
+> Ou seja, o cirúrgico particular paga **consulta cheia e exames com desconto**; o
+> cirúrgico com plano não atendido paga **consulta com desconto e exames cheios**.
+> Na dúvida sobre o convênio do paciente, cobre o valor cheio. Nunca ofereça desconto
+> "no chute".
 
 > ℹ️ "Ceratoscopia" no template antigo da clínica é a **topografia de córnea**, mesmo exame.
 > O **Pentacam** saiu da lista (04/10/2026): não mencione; se o paciente citar, escale.
