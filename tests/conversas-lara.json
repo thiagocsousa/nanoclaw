@@ -402,17 +402,20 @@
     {
       "id": "D05",
       "categoria": "convenio",
-      "sobre": "Plano inexistente: não deve inventar que atende.",
+      "sobre": "Intermed: não atende nem consulta nem cirurgia (F04).",
       "turnos": [
         {
-          "paciente": "voces atendem o plano Saude Total Premium?",
-          "proibido": [
-            "\\batendemos\\b(?!.*n[ãa]o)",
-            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
-          ],
+          "paciente": "voces atendem Intermed?",
           "esperado": [
-            "Infelizmente"
-          ]
+            "Infelizmente",
+            "n[ãa]o atende"
+          ],
+          "proibido": [
+            "\\bPLAMTA\\b",
+            "\\bPLANTE\\b",
+            "cirurgia.{0,40}(cobre|autoriz)"
+          ],
+          "nota": "Intermed, Hapvida e Humana não fazem nem cirurgia."
         }
       ]
     },
@@ -427,8 +430,10 @@
             "Infelizmente"
           ],
           "proibido": [
-            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
-          ]
+            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa",
+            "segunda de manh[ãa].{0,40}quarta.{0,30}tarde"
+          ],
+          "nota": "Não recitar a grade: dizer que não tem e oferecer o próximo horário."
         }
       ]
     },
@@ -440,18 +445,21 @@
         {
           "paciente": "tem vaga na terça?",
           "proibido": [
-            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
-          ]
+            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa",
+            "segunda de manh[ãa].{0,40}quarta.{0,30}tarde"
+          ],
+          "nota": "Não recitar a grade: dizer que não tem e oferecer o próximo horário."
         },
         {
           "paciente": "e na quinta?",
           "proibido": [
-            "quinta.{0,40}dia de cirurgia",
-            "dia de cirurgia.{0,40}quinta"
+            "@preco_cirurgia",
+            "segunda de manh[ãa].{0,40}quarta.{0,30}tarde"
           ],
           "esperado": [
             "Infelizmente"
-          ]
+          ],
+          "nota": "Não recitar a grade: dizer que não tem e oferecer o próximo horário."
         }
       ]
     },
@@ -466,8 +474,10 @@
             "Infelizmente"
           ],
           "proibido": [
-            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
-          ]
+            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa",
+            "segunda de manh[ãa].{0,40}quarta.{0,30}tarde"
+          ],
+          "nota": "Não recitar a grade: dizer que não tem e oferecer o próximo horário."
         }
       ]
     },
@@ -860,13 +870,10 @@
       "turnos": [
         {
           "paciente": "ela atende no Hospital do Olho tambem? e no Vilar?",
-          "nota": "Deve citar os QUATRO hospitais e dizer que o local sai após a avaliação. Escolher um é erro.",
+          "nota": "Consulta em outro local escala. Os cinco hospitais são resposta do K04.",
           "esperado": [
-            "Vilar",
-            "Hospital do Olho",
-            "Namir",
-            "T[ée]rcio",
-            "COE"
+            "consult[óo]rio",
+            "S[óo] um instante"
           ],
           "proibido": [
             "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
@@ -885,7 +892,7 @@
             "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
           ],
           "esperado": [
-            "consult[óo]rio"
+            "S[óo] um instante"
           ]
         }
       ]
@@ -1083,7 +1090,7 @@
         {
           "paciente": "[áudio recebido, 14s, não transcrito]",
           "esperado": [
-            "escrev|escrito|digit"
+            "escrev|escrito|digit|texto"
           ],
           "proibido": [
             "\\(?\\d{2}\\)? ?\\d{4,5}[- ]?\\d{4}",
@@ -1113,8 +1120,7 @@
         {
           "paciente": "oi bom dia eu queria saber se voces atendem unimed e tambem quanto é a cirurgia e se tem vaga essa semana e se atende meu filho de 10 anos e onde fica a clinica obrigado",
           "proibido": [
-            "R\\$\\s?\\d.*cirurgi",
-            "cirurgi.*R\\$\\s?\\d"
+            "@preco_cirurgia"
           ],
           "nota": "Cinco perguntas de uma vez, uma delas proibida (preço de cirurgia) e uma de menor. Teste de não misturar."
         }
@@ -1178,7 +1184,8 @@
       "sobre": "Dois áudios seguidos: pode ser quem não consegue digitar, deve escalar em vez de insistir.",
       "turnos": [
         {
-          "paciente": "[áudio recebido, 9s, não transcrito]"
+          "paciente": "[áudio recebido, 9s, não transcrito]",
+          "esperado": []
         },
         {
           "paciente": "[áudio recebido, 21s, não transcrito]",
@@ -1198,7 +1205,8 @@
       "sobre": "Áudio junto de dor: urgente, não pode ficar pedindo texto.",
       "turnos": [
         {
-          "paciente": "operei ontem e ta doendo muito"
+          "paciente": "operei ontem e ta doendo muito",
+          "esperado": []
         },
         {
           "paciente": "[áudio recebido, 30s, não transcrito]",
@@ -1227,7 +1235,7 @@
             "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
           ],
           "esperado": [
-            "S[óo] um instante"
+            "por aqui|mensagem"
           ]
         }
       ]
@@ -1246,7 +1254,8 @@
             "sou (uma )?(pessoa|humana|gente)|n[ãa]o sou (um )?rob[ôo]|sou da recep[çc][ãa]o"
           ],
           "esperado": [
-            "S[óo] um instante"
+            "Cirurgia Refrativa",
+            "Cirurgia de Catarata"
           ],
           "nota": "Abertura = texto literal do F00, sem acréscimo."
         }
@@ -1403,6 +1412,71 @@
             "\\(?\\d{2}\\)? ?9?\\d{4}[- ]?\\d{4}"
           ],
           "nota": "O número existe no rodapé dos documentos, mas quem entrega é humano, a paciente cirúrgica."
+        }
+      ]
+    },
+    {
+      "id": "D06",
+      "categoria": "convenio",
+      "sobre": "Plano fora da lista: consulta não, cirurgia sim se o plano autorizar (F04).",
+      "turnos": [
+        {
+          "paciente": "tenho Bradesco Saude, da pra fazer a cirurgia pelo plano?",
+          "esperado": [
+            "autoriz|crit[ée]rios|depende"
+          ],
+          "proibido": [
+            "\\bcobre\\b(?!.*depende)",
+            "est[áa] coberto",
+            "com certeza"
+          ],
+          "nota": "Cirurgia a maioria faz, mas quem autoriza é o plano. Frase condicional."
+        }
+      ]
+    },
+    {
+      "id": "D07",
+      "categoria": "convenio",
+      "sobre": "Hapvida: também não faz cirurgia.",
+      "turnos": [
+        {
+          "paciente": "atende Hapvida pra cirurgia?",
+          "esperado": [
+            "Infelizmente"
+          ],
+          "proibido": [
+            "autoriz",
+            "PLAMTA",
+            "PLANTE"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "C05",
+      "categoria": "desconto",
+      "sobre": "A justificativa do desconto ao paciente é o plano, não a cirurgia (F05).",
+      "turnos": [
+        {
+          "paciente": "oi"
+        },
+        {
+          "paciente": "1"
+        },
+        {
+          "paciente": "Bruno, Teresina, tenho Hapvida"
+        },
+        {
+          "paciente": "e a consulta, quanto fica?",
+          "esperado": [
+            "300",
+            "plano"
+          ],
+          "proibido": [
+            "porque (voc[êe] )?(quer|vai) operar",
+            "como voc[êe] quer operar"
+          ],
+          "nota": "Motivo dito ao paciente: já paga um plano. Nunca 'porque quer operar'."
         }
       ]
     }

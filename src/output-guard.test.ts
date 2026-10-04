@@ -417,30 +417,42 @@ describe('avisa sem bloquear: deslize de estilo', () => {
     ).toBe(false);
   });
 
-  it('pega a abertura que anuncia ser bot no lugar do menu', () => {
-    const v = inspecionaSaida(
-      'Olá! Sou a Lara, atendimento automático da Dra. Marina Costa. Se preferir falar com alguém da equipe, é só me dizer.',
-    );
-    expect(
-      v.achados.some((a) => a.regra === 'abertura_malformada'),
-      JSON.stringify(v.achados),
-    ).toBe(true);
+  it('pega quem anuncia ser automática, em qualquer lugar da mensagem', () => {
+    for (const t of [
+      'Olá! Sou a Lara, atendimento automático da Dra. Marina Costa.',
+      'Sou a assistente virtual da clínica.',
+    ]) {
+      const v = inspecionaSaida(t);
+      expect(
+        v.achados.some((a) => a.regra === 'anuncia_bot'),
+        t,
+      ).toBe(true);
+    }
   });
 
-  it('a abertura literal do F00 passa limpa', () => {
+  it('pega menu numerado sem separar refrativa de catarata', () => {
     const v = inspecionaSaida(
-      'Olá, tudo bem? Sou a Lara, assistente da Dra. Marina Costa. Para agilizarmos o seu atendimento, escolha a opção que melhor se adequa à sua necessidade:\n\n1 - Avaliação para Cirurgia Refrativa\n2 - Avaliação para Cirurgia de Catarata\n3 - Consulta Oftalmológica de Rotina\n4 - Outros',
+      'Escolha:\n1 - Avaliação para cirurgia\n2 - Consulta de rotina\n3 - Outros',
+    );
+    expect(v.achados.some((a) => a.regra === 'menu_resumido')).toBe(true);
+  });
+
+  it('cumprimentar e responder um fato, SEM menu, passa limpo', () => {
+    // 68 dos 70 avisos da 3ª passada eram a regra antiga reprovando isto.
+    for (const t of [
+      'Olá! Sou a Lara, assistente da Dra. Marina Costa. A clínica fica na Av. Elias João Tajra, 1170.',
+      'Boa tarde! Sou a Lara. A avaliação é R$ 430,00.',
+    ]) {
+      const v = inspecionaSaida(t);
+      expect(v.achados.length, t + ' -> ' + JSON.stringify(v.achados)).toBe(0);
+    }
+  });
+
+  it('o menu completo passa limpo', () => {
+    const v = inspecionaSaida(
+      'Olá, tudo bem? Sou a Lara, assistente da Dra. Marina Costa.\n\n1 - Avaliação para Cirurgia Refrativa\n2 - Avaliação para Cirurgia de Catarata\n3 - Consulta Oftalmológica de Rotina\n4 - Outros',
     );
     expect(v.achados.length, JSON.stringify(v.achados)).toBe(0);
-  });
-
-  it('reidentificar no meio da conversa não exige menu', () => {
-    const v = inspecionaSaida(
-      'Oi! Aqui é a Lara, do atendimento da Dra. Marina.',
-    );
-    expect(v.achados.some((a) => a.regra === 'abertura_malformada')).toBe(
-      false,
-    );
   });
 
   it('nome de bloco do FAQ no texto ao paciente é flag', () => {

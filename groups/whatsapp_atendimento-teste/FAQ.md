@@ -438,30 +438,53 @@ atende pelo meu plano; faço pelo IPMT.
 | **Unimed** | sim | sim |
 | **IASPI (IAPEP)** | **não** | sim, pelo **PLAMTA** |
 | **IPMT** | **não** | sim, pelo **PLANTE** |
-| **qualquer outro** | **não** | **não** |
+| **Intermed, Hapvida, Humana** | **não** | **não** |
+| **qualquer outro plano** | **não** | **sim**, se o próprio plano autorizar |
 
-Esta tabela é **completa**: fora dela, a clínica não atende. Pode dizer que não atende.
+### Consulta: só particular e Unimed
 
-Para quem pergunta em geral:
+> Para consulta a gente atende particular e Unimed.
 
-> Para consulta a gente atende **particular e Unimed**.
+Qualquer outro plano, **informe que não atende e pare por aí**. Não explique, não compare,
+não sugira alternativa de consulta:
 
-Para quem tem **IASPI (IAPEP)**, o plano cirúrgico dele é o **PLAMTA**:
+> Infelizmente esse convênio a gente não atende para consulta, seria particular.
+
+### Cirurgia: quase todos, e a decisão é do plano
+
+⚠️ **Corrigido em 04/10/2026, e a versão anterior estava bem errada.** Esta base dizia que
+só IASPI e IPMT faziam cirurgia por plano e que "qualquer outro: não". O certo é o oposto:
+**a cirurgia a maioria dos planos faz**, desde que o convênio autorize e o paciente esteja
+dentro dos parâmetros que **aquele plano** exige.
+
+**As três exceções, que não fazem nem cirurgia:** Intermed, Hapvida e Humana.
+
+> A cirurgia a maioria dos convênios cobre, depende de o seu plano autorizar e de você
+> estar dentro dos critérios que ele exige. Isso a gente vê depois da avaliação com a
+> Dra. Marina.
+
+⛔ **Nunca diga que o plano dele cobre.** Quem autoriza é o convênio, não a clínica, e os
+critérios são do plano. A frase é sempre condicional: *"depende de o seu plano autorizar"*.
+Afirmar cobertura faz o paciente contar com um dinheiro que pode não vir.
+
+Para **IASPI (IAPEP)** e **IPMT** há nome próprio do plano cirúrgico, e aí dá para ser
+específico:
 
 > Infelizmente a consulta pelo IASPI a gente não atende, seria particular.
-> Já a **cirurgia** conseguimos fazer pelo **PLAMTA**, caso você esteja dentro dos critérios
-> que o plano exige.
-
-Para quem tem **IPMT**, o plano cirúrgico dele é o **PLANTE**:
+> Já a cirurgia conseguimos fazer pelo PLAMTA, caso você esteja dentro dos critérios que o
+> plano exige.
 
 > Infelizmente a consulta pelo IPMT a gente não atende, seria particular.
-> Já a **cirurgia** conseguimos fazer pelo **PLANTE**, caso você esteja dentro dos critérios
-> que o plano exige.
+> Já a cirurgia conseguimos fazer pelo PLANTE, caso você esteja dentro dos critérios que o
+> plano exige.
 
-Para qualquer plano fora da tabela:
+### Intermed, Hapvida e Humana: não, para nada
 
-> Infelizmente esse convênio a gente não atende, nem pra consulta nem pra cirurgia.
-> Seria particular, no valor de R$ 430,00.
+> Infelizmente esse convênio a gente não atende, nem para consulta nem para cirurgia.
+
+### O que vem depois, em todos os casos
+
+Emende a triagem na mesma mensagem, porque o próximo passo é oferecer horário:
 >
 > Para eu já ver um horário, poderia me informar:
 >
@@ -535,6 +558,20 @@ que não precisa de defesa.
 > consulta, sem desconto."* A regra anterior dizia só "responda o valor cheio com
 > naturalidade", e não foi suficiente.
 
+### A justificativa que o paciente ouve NÃO é a que você usa para decidir
+
+Para você, o critério é **intenção de cirurgia mais plano não atendido**. Para ele, o motivo
+é **que ele já paga um plano**. Regra do Thiago em 04/10/2026.
+
+| ❌ nunca diga | ✅ diga |
+|---|---|
+| "como você quer operar, sai por R$ 300" | "como você já paga um plano, a gente faz por R$ 300" |
+
+Dizer que o desconto é "porque você quer operar" soa a preço que sobe conforme o interesse,
+e faz a pessoa achar que falar em cirurgia encarece ou barateia a consulta. "Porque você já
+paga um plano" é o que a clínica realmente quis dizer: um reconhecimento de que ele já tem
+despesa e mesmo assim não tem cobertura aqui.
+
 Texto da clínica (4 ocorrências, redação estável):
 
 > No momento não atendemos o seu convênio.
@@ -565,6 +602,17 @@ Texto da clínica (4 ocorrências, redação estável):
 
 **Variantes:** que dias ela atende; tem atendimento na quinta; atende de tarde;
 qual o horário de vocês.
+
+⛔ **Não recite os turnos. Ofereça horário.** Regra do Thiago em 04/10/2026: "segunda de
+manhã, quarta à tarde e sexta de manhã" faz o paciente ter que descobrir sozinho qual
+horário existe. Rode o `iclinic_vagas.py` e dê o próximo dia e hora concretos.
+
+| ❌ | ✅ |
+|---|---|
+| "Não temos sábado. Atendemos segunda de manhã, quarta à tarde e sexta de manhã." | "Sábado não temos atendimento. O próximo horário é segunda, dia 06/10, às 10h." |
+| "Às terças não temos consulta." | "Terça não temos consulta. Tenho quarta, dia 08/10, às 15h20." |
+
+A grade só aparece se ele **perguntar quais são os dias**:
 
 > A Dra. Marina atende:
 > • Segunda, de manhã
@@ -1086,7 +1134,7 @@ python3 /workspace/group/scripts/escalar.py \
 ---
 
 ## F16 · Menor de 18 anos
-`evidência: 11 conversas` · `escalar: para o contato do Vilar` · `volátil: não`
+`evidência: 11 conversas` · `escalar: sim, sem indicar outro serviço` · `volátil: não`
 
 **Variantes:** é para meu filho; a consulta é para uma criança de X anos; vocês atendem
 criança; atende bebê; é para minha filha de 10 anos.
@@ -1099,8 +1147,14 @@ Quando o paciente já disse a idade e ela é abaixo de 18:
 
 > Infelizmente a Dra. Marina atende a partir de 18 anos, então não consigo agendar nessa
 > idade.
->
-> Só um instante, vou pedir pra recepção te enviar o contato do Vilar, que atende criança.
+
+⛔ **Não indique outro serviço.** Regra do Thiago em 04/10/2026: nada de "vou te passar o
+contato do Vilar, lá eles atendem". O histórico mostra a clínica fazendo isso, e não é mais
+para fazer. Informe a idade mínima e pare.
+
+Se o paciente pedir uma indicação, **escale** em vez de sugerir:
+
+> Só um instante.
 
 ⚠️ Note o que a frase **não** diz: ela não promete que *você* vai mandar o contato, porque
 você não o tem. Quem envia é a recepção, depois do escalonamento. "Deixa eu te passar o
@@ -1111,16 +1165,17 @@ pode cumprir. E só diga "já pedi" **depois** de rodar o `escalar.py`.
 tinha oferecido um horário antes de saber a idade, diga que não vai dar e encaminhe. Não
 deixe a vaga "reservada por garantia".
 
-### O contato do Vilar você não tem
-
-A clínica manda um cartão de contato, que não está nesta base. **Escale para a recepção
-enviar**, não invente número:
+### Escale o caso, sem indicar ninguém
 
 ```
 python3 /workspace/group/scripts/escalar.py \
-  "menor de idade, encaminhar ao Vilar" \
-  "<nome>, <idade> anos, <motivo da consulta>. Informei que atendemos a partir de 18. Precisa do contato do Vilar."
+  "menor de idade" \
+  "<nome>, <idade> anos, <motivo da consulta>. Informei que atendemos a partir de 18."
 ```
+
+> ⚠️ Até 04/10/2026 este bloco mandava oferecer o contato do Vilar, porque é o que o
+> histórico mostra a clínica fazendo (4 ocorrências em 02 e 03/10). O Thiago cortou:
+> indicar outro serviço não é papel da agente.
 
 > ❓ **A clínica precisa decidir: a regra dos 18 tem exceção?** O corpus se contradiz. Em
 > 02/10/2026 uma criança de 1 ano e 6 meses foi recusada com "só a partir de 18 anos" e
@@ -1251,7 +1306,7 @@ Registrado aqui para quem for completar este bloco, **não para a agente usar**:
 | *"Dá pra fazer agora no Hospital do Olho"* (exame) | 21/09/2026 |
 | *"Pentacam... não fazemos no consultório. Posso agendar pra você no Hospital do Olho"* | 29/09/2026 |
 | taxa de sala hospitalar: Vilar Hospital de Olhos | 29/09/2026 |
-| contato do Vilar para quem tem menos de 18 anos | 02 e 03/10/2026 |
+| ~~contato do Vilar para menor de 18~~ (04/10/2026: não indicar) | 02 e 03/10/2026 |
 
 > ❓ **Duas perguntas que restam para a clínica, e até lá vale escalar:**
 > 1. A Dra. Marina atende **consulta** fora do consultório, no Vilar ou em outro lugar? O

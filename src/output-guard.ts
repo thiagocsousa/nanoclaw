@@ -240,27 +240,27 @@ const RX_COMPLETUDE =
 const RX_FINGE_HUMANA =
   /\bsou (?:uma )?(?:pessoa|humana|gente)\b|\bn[ãa]o sou (?:um )?rob[ôo]\b|\bsou da recep[çc][ãa]o\b/i;
 
-// --- abertura malformada ----------------------------------------------------
+// --- abertura adulterada ---------------------------------------------------
 
 /**
- * A abertura é o texto literal do F00, com os quatro itens do menu. Qualquer
- * coisa que se apresente como "Sou a Lara" sem o menu é abertura adulterada, e
- * foi assim que apareceram os dois piores casos da suíte:
+ * A regra anterior (`abertura_malformada`) exigia o menu completo em toda
+ * mensagem que começasse com "Olá, Sou a Lara", e virou ruído puro: **68 dos 70
+ * avisos** da 3ª passada eram ela. Canal de alerta com 97% de ruído é pior que
+ * não ter alerta, que é a mesma fadiga de alarme que o ntfy evita.
  *
- *   "Sou a Lara, atendimento automático..." (anunciou que é bot sem ninguém
- *   perguntar, e no lugar do menu)
- *   "2. Avaliação para cirurgia" (menu resumido, perdendo refrativa/catarata)
+ * A causa foi a correção da regra 0 no mesmo dia: desde que a triagem deixou de
+ * ser pré-requisito de resposta, cumprimentar e responder um fato SEM menu
+ * passou a ser o comportamento correto.
  *
- * A persona distingue as duas formas de propósito: "Sou a Lara" é abertura,
- * "aqui é a Lara" é reidentificação no meio da conversa. Só a primeira exige
- * menu, então reidentificar não cai aqui.
+ * Sobraram os dois casos que motivaram a regra, agora detectados direto.
  */
-// Só a forma de SAUDAÇÃO exige menu. Desde que a triagem deixou de ser
-// pré-requisito de resposta (regra 0, 04/10/2026), "Sou a Lara, assistente..."
-// numa resposta factual é legítimo: foi o 3º falso positivo que eu criei hoje.
-// Sem \b depois da saudação: em JS o \w é só ASCII, então "á" não é letra e
-// `\bol[áa]\b` nunca casa em "Olá!". Levei um teste vermelho para lembrar.
-const RX_ABERTURA = /(?:ol[áa]|oi)[^\n]{0,34}?\bsou a Lara\b/i;
+
+/** Anunciar que é automática sem ninguém perguntar (F00e). */
+const RX_ANUNCIA_BOT =
+  /atendimento autom[áa]tico|assistente virtual|sou (?:um |uma )?(?:rob[ôo]|bot|IA|intelig[êe]ncia artificial)/i;
+
+/** Menu numerado sem separar refrativa de catarata (F00). */
+const RX_MENU_NUMERADO = /^\s*1\s*[-.)]\s*\S/m;
 const RX_MENU_COMPLETO =
   /Cirurgia Refrativa[\s\S]*Cirurgia de Catarata[\s\S]*Rotina/i;
 
@@ -447,14 +447,24 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 11. flag: abertura sem o menu completo
-  if (RX_ABERTURA.test(texto) && !RX_MENU_COMPLETO.test(texto)) {
+  // 11. flag: anunciou que é automática, ou resumiu o menu
+  const anuncia = texto.match(RX_ANUNCIA_BOT);
+  if (anuncia) {
     achados.push({
-      regra: 'abertura_malformada',
+      regra: 'anuncia_bot',
       nivel: 'flag',
       motivo:
-        'abertura com "Sou a Lara" sem os quatro itens do menu; a abertura é o texto literal do F00',
-      trecho: texto.slice(0, 90),
+        'anuncia que é automática; quando perguntam, a resposta é escalar e "Só um instante" (F00e)',
+      trecho: anuncia[0],
+    });
+  }
+  if (RX_MENU_NUMERADO.test(texto) && !RX_MENU_COMPLETO.test(texto)) {
+    achados.push({
+      regra: 'menu_resumido',
+      nivel: 'flag',
+      motivo:
+        'menu numerado sem separar Cirurgia Refrativa de Cirurgia de Catarata (F00)',
+      trecho: texto.slice(0, 80),
     });
   }
 
