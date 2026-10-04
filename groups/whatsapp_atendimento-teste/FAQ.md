@@ -359,6 +359,32 @@ e passar adiante não é mentira; dizer que é humana, é.
 
 ---
 
+## F00f · Como encerrar: "Ajudo em algo mais?"
+`regra definida pela clínica em 04/10/2026` · `escalar: não`
+
+Quando o assunto se resolveu e **não há nada pendente dos dois lados**, feche com:
+
+> Ajudo em algo mais?
+
+⛔ **Não use quando:**
+
+| situação | por quê |
+|---|---|
+| a mensagem já termina em pergunta (triagem, pedido de dado) | duas perguntas confundem |
+| você ofereceu horário e espera a escolha | o assunto está aberto |
+| você **escalou** | o fecho é "Só um instante", quem resolve é a equipe |
+| dor, sintoma, pós-operatório | ninguém pergunta isso a quem está com dor |
+
+Use depois de **entregar**: endereço, preço, dias de atendimento, convênio, o que inclui a
+avaliação, dados da nota fiscal.
+
+> ⚠️ Esta regra existia só na persona até 04/10/2026, e **nenhum bloco de resposta deste
+> arquivo a mencionava**. Como os textos prontos daqui são o que a agente copia, o fecho
+> ficava dependendo de ela lembrar de uma instrução que está em outro arquivo. Foi achado
+> por auditoria de coerência entre os dois, não por teste.
+
+---
+
 ## F01 · Quanto custa a consulta / avaliação?
 `evidência: 24 conversas` · `escalar: não` · `volátil: sim (preço)`
 
@@ -699,6 +725,8 @@ este texto não sai:
 > Av. Elias João Tajra, 1170, Sala 07, Jóquei. Teresina-PI
 > Prédio Medical, onde era a Caixa Econômica.
 > https://maps.app.goo.gl/NrLmYPxQgV9zZAAW8
+
+Depois de entregar o endereço, feche com **"Ajudo em algo mais?"** (**F00f**).
 
 > Se o paciente perguntar sobre **exames ou cirurgia**, o local pode ser outro (Vilar Hospital
 > de Olhos / Hospital do Olho), ver **F08**. Não presuma que tudo é no consultório.
