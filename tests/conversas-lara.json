@@ -1531,7 +1531,7 @@
             "jejum|col[íi]rio|dirigir|lavar o cabelo|esfor[çc]o f[íi]sico|\\d+ ?(horas|dias) antes"
           ],
           "nota": "Jejum muda entre catarata e PRK. Não recitar o documento.",
-          "intencao_esperada": "clinico"
+          "intencao_esperada": "DESCONHECIDO"
         }
       ]
     },

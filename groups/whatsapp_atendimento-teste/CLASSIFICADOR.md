@@ -97,6 +97,17 @@ critérios que não cabem num nome:
 
 - **grade_atendimento** só quando ele pergunta literalmente **quais dias**. "Tem
   sábado?" é `dia_sem_atendimento`.
+- **quer_humano** cobre três coisas que parecem diferentes e não são: "você é um
+  robô?", "é IA mesmo?" e pedir uma **pessoa específica** ("a Bruna que me
+  atendeu antes, ela tá aí?", "quero falar com a Dra. Marina"). Quem pode
+  responder isso é um humano. `DESCONHECIDO` também escalaria, então o paciente
+  recebe o mesmo, mas o rótulo certo é o que deixa a métrica legível.
+
+- ⚠️ **Jejum, horário de chegada, o que levar, acompanhante e taxa de sala NÃO
+  são `clinico`.** É logística de pré-operatório, quem monta é a recepção, e vai
+  em `DESCONHECIDO` (F14). `clinico` é sintoma, dor, resultado de exame e
+  medicação: o que diz respeito ao corpo dele, não ao preparo.
+
 - **audio** no PRIMEIRO áudio: pede para escrever. No **segundo seguido** é
   `audio_escala`, porque quem manda áudio de novo depois do pedido provavelmente
   não consegue digitar, e insistir no texto deixa a pessoa sem atendimento. Se o
