@@ -149,7 +149,7 @@ const PROIBIDAS: Array<[RegExp, string]> = [
     'pede permissão para fazer o próprio trabalho',
   ],
   [
-    /como posso (?:te )?ajudar/i,
+    /como posso (?:te )?ajudar|o que posso fazer por (?:voc[êe]|ti)|em que posso (?:te )?ajudar|como posso (?:te )?ser [úu]til/i,
     'empurra o trabalho para quem já disse o que quer',
   ],
   [

@@ -174,6 +174,22 @@ describe('avisa sem bloquear: deslize de estilo', () => {
     }
   });
 
+  it('pega "o que posso fazer por você", o mesmo vício com outras palavras', () => {
+    // Apareceu na leva 1 da suíte (cenário A03) e passou, porque o regex só
+    // conhecia "como posso ajudar".
+    for (const t of [
+      'Claro! O que posso fazer por você?',
+      'Em que posso te ajudar?',
+      'Como posso ser útil?',
+    ]) {
+      const v = inspecionaSaida(t);
+      expect(
+        v.achados.some((a) => a.regra === 'frase_proibida'),
+        t,
+      ).toBe(true);
+    }
+  });
+
   it('nome de bloco do FAQ no texto ao paciente é flag', () => {
     const v = inspecionaSaida('Conforme o F12, tem vaga segunda.');
     expect(v.achados.some((a) => a.regra === 'linguagem_interna')).toBe(true);
