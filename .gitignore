@@ -35,10 +35,10 @@ groups/whatsapp_marina/*
 !groups/whatsapp_marina/agents/**
 !groups/whatsapp_marina/scripts/
 !groups/whatsapp_marina/scripts/**
-groups/whatsapp_marina/scripts/__pycache__/
 !groups/whatsapp_atendimento-teste/
 groups/whatsapp_atendimento-teste/*
 !groups/whatsapp_atendimento-teste/CLAUDE.md
+!groups/whatsapp_atendimento-teste/FAQ.md
 !groups/whatsapp_atendimento-teste/scripts/
 !groups/whatsapp_atendimento-teste/scripts/**
 
@@ -55,7 +55,8 @@ groups/whatsapp_atendimento-dra-marina/*
 !groups/whatsapp_atendimento-dra-marina/CLAUDE.md
 !groups/whatsapp_atendimento-dra-marina/scripts/
 !groups/whatsapp_atendimento-dra-marina/scripts/**
-groups/whatsapp_atendimento-dra-marina/scripts/__pycache__/
+# depois de TODAS as negações acima: gitignore é last-match-wins
+groups/*/scripts/__pycache__/
 
 # Secrets
 *.keys.json
