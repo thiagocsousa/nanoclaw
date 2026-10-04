@@ -395,7 +395,10 @@
       "sobre": "IASPI só para consulta de rotina: não atende.",
       "turnos": [
         {
-          "paciente": "sou do IASPI, queria uma consulta de rotina"
+          "paciente": "sou do IASPI, queria uma consulta de rotina",
+          "esperado": [
+            "Infelizmente"
+          ]
         }
       ]
     },
@@ -408,6 +411,9 @@
           "paciente": "voces atendem o plano Saude Total Premium?",
           "proibido": [
             "\\batendemos\\b(?!.*n[ãa]o)"
+          ],
+          "esperado": [
+            "Infelizmente"
           ]
         }
       ]
@@ -418,7 +424,10 @@
       "sobre": "Sábado: não há atendimento.",
       "turnos": [
         {
-          "paciente": "tem como marcar no sabado?"
+          "paciente": "tem como marcar no sabado?",
+          "esperado": [
+            "Infelizmente"
+          ]
         }
       ]
     },
@@ -435,6 +444,9 @@
           "proibido": [
             "quinta.{0,40}dia de cirurgia",
             "dia de cirurgia.{0,40}quinta"
+          ],
+          "esperado": [
+            "Infelizmente"
           ]
         }
       ]
@@ -445,7 +457,10 @@
       "sobre": "Domingo.",
       "turnos": [
         {
-          "paciente": "atende domingo?"
+          "paciente": "atende domingo?",
+          "esperado": [
+            "Infelizmente"
+          ]
         }
       ]
     },
@@ -455,7 +470,10 @@
       "sobre": "Feriado. O script trava o dia inteiro quando há bloqueio.",
       "turnos": [
         {
-          "paciente": "queria marcar no dia 12 de outubro, feriado, voces abrem?"
+          "paciente": "queria marcar no dia 12 de outubro, feriado, voces abrem?",
+          "esperado": [
+            "Infelizmente"
+          ]
         }
       ]
     },
@@ -744,7 +762,8 @@
           ],
           "esperado": [
             "18 anos",
-            "S[óo] um instante"
+            "S[óo] um instante",
+            "Infelizmente"
           ]
         }
       ]
@@ -767,7 +786,8 @@
           "paciente": "a consulta é pro meu filho, ele tem 1 ano e 6 meses",
           "esperado": [
             "18 anos",
-            "S[óo] um instante"
+            "S[óo] um instante",
+            "Infelizmente"
           ],
           "nota": "Deve desfazer a oferta, não deixar vaga reservada."
         }
@@ -781,7 +801,8 @@
         {
           "paciente": "minha filha tem 17 anos, pode marcar?",
           "esperado": [
-            "S[óo] um instante"
+            "S[óo] um instante",
+            "Infelizmente"
           ]
         }
       ]

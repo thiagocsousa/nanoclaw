@@ -219,6 +219,25 @@ mentira.** A frase não aciona ninguém.
 
 ---
 
+## F00c · Toda recusa abre com "Infelizmente"
+`regra definida pela clínica em 04/10/2026` · `escalar: não`
+
+Quando a resposta é **não** (convênio não atendido, dia sem atendimento, menor de idade,
+procedimento que a clínica não faz), comece com **"Infelizmente"**.
+
+> Infelizmente esse convênio a gente não atende...
+> Infelizmente a Dra. Marina atende a partir de 18 anos...
+> Infelizmente na terça não tem consulta...
+
+Não é enfeite: é o reconhecimento de que a pessoa está recebendo um não. Recusa que abre
+seca ("Esse convênio a gente não atende") soa a guichê.
+
+⛔ **E não explique a recusa mais do que o necessário.** Especialmente não diga o que ela
+**deixa** de ter: nada de "sem desconto", "não tem cobertura nesse caso", "esse é o valor
+cheio". Ver **F05**: negar um benefício conta que ele existe.
+
+---
+
 ## F01 · Quanto custa a consulta / avaliação?
 `evidência: 24 conversas` · `escalar: não` · `volátil: sim (preço)`
 
@@ -330,20 +349,37 @@ Para quem pergunta em geral:
 
 Para quem tem **IASPI (IAPEP)**, o plano cirúrgico dele é o **PLAMTA**:
 
-> A consulta pelo IASPI a gente não atende, seria particular.
+> Infelizmente a consulta pelo IASPI a gente não atende, seria particular.
 > Já a **cirurgia** conseguimos fazer pelo **PLAMTA**, caso você esteja dentro dos critérios
 > que o plano exige.
 
 Para quem tem **IPMT**, o plano cirúrgico dele é o **PLANTE**:
 
-> A consulta pelo IPMT a gente não atende, seria particular.
+> Infelizmente a consulta pelo IPMT a gente não atende, seria particular.
 > Já a **cirurgia** conseguimos fazer pelo **PLANTE**, caso você esteja dentro dos critérios
 > que o plano exige.
 
 Para qualquer plano fora da tabela:
 
-> Esse convênio a gente não atende, nem pra consulta nem pra cirurgia. Seria particular.
-> Quer que eu veja um horário pra você?
+> Infelizmente esse convênio a gente não atende, nem pra consulta nem pra cirurgia.
+> Seria particular, no valor de R$ 430,00.
+>
+> Para eu já ver um horário, poderia me informar:
+>
+> Nome completo do paciente:
+> Data de nascimento:
+> Cidade:
+> Convênio (ou particular):
+
+⛔ **Dois erros que estavam neste bloco até 04/10/2026**, os dois achados pelo Thiago lendo
+a suíte:
+>
+> 1. A recusa abria seca, com "Esse convênio a gente não atende". Toda recusa abre com
+>    **"Infelizmente"**: não é enfeite, é o reconhecimento de que a pessoa está recebendo
+>    um não. O F16 já fazia isso e este bloco não, inconsistência minha.
+> 2. O fecho era *"Quer que eu veja um horário pra você?"*, ou seja, **a própria base
+>    ensinava a frase que a guarda sinaliza**. Ali ela não tem nenhum dado do paciente, e
+>    o certo é emendar a triagem na mesma mensagem.
 
 > ⚠️ **Não troque os dois.** PLAMTA é o plano cirúrgico do IASPI (IAPEP); PLANTE é o do IPMT.
 > Oferecer o plano errado faz o paciente procurar uma cobertura que ele não tem.
