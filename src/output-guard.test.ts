@@ -218,6 +218,30 @@ describe('avisa sem bloquear: deslize de estilo', () => {
     }
   });
 
+  it('pega a negação do desconto, que conta que o desconto existe', () => {
+    for (const t of [
+      'A avaliação é R$ 430,00. Para pacientes particulares esse é o valor da consulta, sem desconto.',
+      'Não temos desconto para o seu caso.',
+      'Esse é o valor cheio mesmo.',
+    ]) {
+      const v = inspecionaSaida(t);
+      expect(
+        v.achados.some((a) => a.regra === 'nega_desconto'),
+        t,
+      ).toBe(true);
+    }
+  });
+
+  it('informar só o valor passa, que é o jeito certo', () => {
+    for (const t of [
+      'A avaliação é R$ 430,00.',
+      'O valor da consulta é R$ 430,00.',
+      'É R$ 430,00, e já inclui a fundoscopia e a tonometria.',
+    ]) {
+      expect(inspecionaSaida(t).achados.length, t).toBe(0);
+    }
+  });
+
   it('nome de bloco do FAQ no texto ao paciente é flag', () => {
     const v = inspecionaSaida('Conforme o F12, tem vaga segunda.');
     expect(v.achados.some((a) => a.regra === 'linguagem_interna')).toBe(true);

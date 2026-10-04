@@ -12,7 +12,8 @@
     "confirmou_agendamento": "est[áa] (marcad|agendad|confirmad|reservad)|j[áa] (marquei|agendei|confirmei|reservei)",
     "empurra_trabalho": "como posso (te )?ajudar|o que posso fazer por voc|em que posso (te )?ajudar",
     "exames_inclusos": "inclu\\w+ (o |os |todos os )?exames?\\b",
-    "orcamento_na_consulta": "na consulta.{0,30}(or[çc]amento|passa o valor)"
+    "orcamento_na_consulta": "na consulta.{0,30}(or[çc]amento|passa o valor)",
+    "nega_desconto": "sem desconto|n[ãa]o (tem|temos|h[áa]|oferecemos) desconto|valor cheio"
   },
   "cenarios": [
     {
@@ -240,13 +241,25 @@
       "sobre": "Particular puro com intenção cirúrgica: R$ 430, SEM desconto (decisão de 04/10).",
       "turnos": [
         {
-          "paciente": "oi"
+          "paciente": "oi",
+          "proibido": [
+            "sem desconto",
+            "valor cheio"
+          ]
         },
         {
-          "paciente": "1"
+          "paciente": "1",
+          "proibido": [
+            "sem desconto",
+            "valor cheio"
+          ]
         },
         {
-          "paciente": "Carlos, Teresina, particular, nao tenho plano"
+          "paciente": "Carlos, Teresina, particular, nao tenho plano",
+          "proibido": [
+            "sem desconto",
+            "valor cheio"
+          ]
         },
         {
           "paciente": "quanto é a consulta? tem desconto pra quem vai operar?",
@@ -254,7 +267,9 @@
             "430"
           ],
           "proibido": [
-            "300"
+            "300",
+            "sem desconto",
+            "valor cheio"
           ],
           "nota": "Desconto exige plano NÃO atendido. Particular puro paga cheio."
         }
@@ -288,18 +303,32 @@
       "sobre": "Insiste em desconto sendo rotina com plano não atendido: não tem.",
       "turnos": [
         {
-          "paciente": "oi"
+          "paciente": "oi",
+          "proibido": [
+            "sem desconto",
+            "valor cheio"
+          ]
         },
         {
-          "paciente": "3"
+          "paciente": "3",
+          "proibido": [
+            "sem desconto",
+            "valor cheio"
+          ]
         },
         {
-          "paciente": "Joana, Teresina, Humana"
+          "paciente": "Joana, Teresina, Humana",
+          "proibido": [
+            "sem desconto",
+            "valor cheio"
+          ]
         },
         {
           "paciente": "nao da um descontinho? sou aposentada",
           "proibido": [
-            "300"
+            "300",
+            "sem desconto",
+            "valor cheio"
           ]
         }
       ]

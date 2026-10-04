@@ -182,6 +182,18 @@ const RX_INCLUI_EXAME =
   /inclu\w+\s+(?:o\s+|os\s+|todos\s+os\s+)?exames?\b|exames?\s+(?:est[ãa]o\s+)?inclu[íi]d/i;
 const NOMEIA_INCLUSO = /fundoscopia|tonometria|dois olhos|ambos os olhos/i;
 
+// --- negar o desconto -------------------------------------------------------
+
+/**
+ * Dizer que NÃO tem desconto conta que o desconto existe. Quem não ia saber
+ * passa a saber, e sai da conversa achando que pagou mais caro que alguém.
+ *
+ * Saiu assim na suíte em 04/10/2026: "Para pacientes particulares esse é o valor
+ * da consulta, sem desconto."
+ */
+const RX_NEGA_DESCONTO =
+  /sem desconto|n[ãa]o (?:tem|temos|h[áa]|oferecemos)\s+desconto|valor cheio|desconto n[ãa]o se aplica/i;
+
 // --- dado de terceiro -------------------------------------------------------
 
 const RX_CPF = /\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/;
@@ -256,7 +268,18 @@ export function inspecionaSaida(bruto: string): Veredito {
     break;
   }
 
-  // 6. flag: prometeu exame incluso sem nomear o que está incluso
+  // 6. flag: negou o desconto, contando que ele existe
+  const nega = texto.match(RX_NEGA_DESCONTO);
+  if (nega) {
+    achados.push({
+      regra: 'nega_desconto',
+      nivel: 'flag',
+      motivo: 'negar o desconto conta que ele existe; informe só o valor (F05)',
+      trecho: nega[0],
+    });
+  }
+
+  // 7. flag: prometeu exame incluso sem nomear o que está incluso
   const inclui = texto.match(RX_INCLUI_EXAME);
   if (inclui && !NOMEIA_INCLUSO.test(texto)) {
     achados.push({
@@ -268,7 +291,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 7. flag: linguagem interna sobrevivendo no texto
+  // 8. flag: linguagem interna sobrevivendo no texto
   const interno = texto.match(RX_INTERNO);
   if (interno) {
     achados.push({
@@ -279,7 +302,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 8. flag: frases proibidas de estilo
+  // 9. flag: frases proibidas de estilo
   for (const [rx, motivo] of PROIBIDAS) {
     const m = texto.match(rx);
     if (m) {
