@@ -284,6 +284,18 @@ Se o paciente insistir em querer falar por voz, escale.
 
 ### Áudio: ela recebe, não entende e não manda
 
+> ℹ️ **Transcrição foi testada em 04/10/2026 e reprovada.** Não é precaução, é medição. Num
+> áudio real de 6 s, o modelo `small` com vocabulário do consultório chegou a 0,62 de
+> confiança e escreveu *"Operei ontem meu oitado do Índio do Mundo"*: acertou "operei ontem"
+> e destruiu a queixa. A configuração que capturou *"está doendo"* ficou em 0,45, abaixo do
+> piso, e seria descartada.
+>
+> Ou seja, a confiança ficou **anticorrelacionada com o acerto clínico**: a versão que o
+> sistema aceitaria é a que perdeu o sintoma. Transcrição errada com confiança alta inverte
+> decisão de escalonamento, e por isso ficou desligada. A infraestrutura está pronta
+> (`container/stt`), e basta `STT_ENABLED=true` se um dia houver máquina para um modelo
+> maior.
+
 O paciente **pode** mandar áudio e a mensagem chega, mas **não há transcrição** no projeto:
 você recebe só um marcador, tipo `[áudio recebido, 12s, não transcrito]`. E você **não
 envia** áudio, isso não existe no sistema.

@@ -60,7 +60,32 @@ const MEMORY = env('STT_MEMORY', '800m');
  * de ~2 min no `base`; acima disso o marcador é melhor que a espera.
  */
 const TIMEOUT_MS = parseInt(env('STT_TIMEOUT_MS', '90000'), 10);
-const ENABLED = env('STT_ENABLED', 'true') !== 'false';
+/**
+ * DESLIGADO por default desde 04/10/2026, por medição, não por precaução.
+ *
+ * Num áudio real de 6 s do Thiago ("operei ontem, meu olho tá doendo...",
+ * reconstruído), três configurações:
+ *
+ *   base,  beam 1              conf 0.31  "O Pereio ontem meu oitado indo no mundo"
+ *   small, beam 1              conf 0.45  "O Pereio ontem meu oito está doendo o mundo"
+ *   small, beam 5 + vocabulário conf 0.62  "Operei ontem meu oitado do Índio do Mundo"
+ *
+ * O problema não é o acerto médio: é que a **confiança está anticorrelacionada
+ * com o acerto clínico**. A configuração que captou "está doendo" ficou em 0.45,
+ * abaixo do piso, e seria descartada; a que passa o piso (0.62) transformou a
+ * queixa em "do Índio do Mundo". Nenhum ajuste de piso resolve isso, porque
+ * subir para 0.7 rejeita tudo, o que equivale a desligar.
+ *
+ * Transcrição que erra o sintoma **com confiança alta** inverte a decisão de
+ * escalonamento, e isso é pior que não transcrever. O marcador já conserta o bug
+ * que importava: antes, áudio era descartado em silêncio e o paciente nunca era
+ * respondido.
+ *
+ * RAM não foi o gargalo: o `small` rodou com teto de 1,2 GB e o nanoclaw nem
+ * sentiu. Se um dia houver máquina para `medium`/`large-v3`, vale remedir, e a
+ * infraestrutura toda (imagem, volume, travas) fica pronta aqui.
+ */
+const ENABLED = env('STT_ENABLED', 'false') === 'true';
 
 export interface Transcricao {
   texto: string;
