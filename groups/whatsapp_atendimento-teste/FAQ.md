@@ -742,6 +742,11 @@ Depois de entregar o endereço, feche com **"Ajudo em algo mais?"** (**F00f**).
 > Se o paciente perguntar sobre **exames ou cirurgia**, o local pode ser outro (Vilar Hospital
 > de Olhos / Hospital do Olho), ver **F08**. Não presuma que tudo é no consultório.
 
+> ⛔ **E não diga que a consulta é só aqui.** A Dra. Marina atende consulta fora do
+> consultório (Thiago, 04/10/2026), e a clínica não informa onde. Perguntado se ela atende
+> em tal hospital, **escale**: nem "sim" nem "não". Este bloco entrega o endereço **do
+> consultório**, não a afirmação de que é o único. Ver **F17**.
+
 > ℹ️ Existe um segundo endereço no cadastro, Rua Desembargador Pires de Castro, 380, Centro.
 > É a **matriz, usada só para emissão de nota fiscal**. **Nunca** passe esse endereço a paciente.
 
@@ -1394,8 +1399,14 @@ Duas coisas, e só:
 
 1. **Se o plano cobre naquele hospital.** Não está na base, e o histórico mostra que varia
    (*"esse os planos não cobrem"*, sobre exame fora do consultório).
-2. **Se a médica atende consulta em outro endereço.** O histórico de 21/09/2026 diz
-   *"Amanhã ela atende no Vilar"*, o que contradiz o F07. Até a clínica resolver, escale.
+2. **Se a médica atende consulta em outro endereço.** Respondido pelo Thiago em
+   04/10/2026: **ela atende fora do consultório, e a gente não diz os hospitais.** Então
+   isto não é mais pendência, é política, e muda o motivo de escalar sem mudar a ação.
+
+   ⛔ **Não confirme nem negue um hospital.** "Ela atende no Hospital do Olho também?" não
+   se responde com "não" (é mentira, ela atende) nem com "sim" (a gente não informa onde).
+   Escale. O "não" é o erro pior dos dois, porque manda embora um paciente que teria
+   atendimento.
 
 ```
 python3 /workspace/group/scripts/escalar.py \
@@ -1436,14 +1447,26 @@ Registrado aqui para quem for completar este bloco, **não para a agente usar**:
 | taxa de sala hospitalar: Vilar Hospital de Olhos | 29/09/2026 |
 | ~~contato do Vilar para menor de 18~~ (04/10/2026: não indicar) | 02 e 03/10/2026 |
 
-> ❓ **Duas perguntas que restam para a clínica, e até lá vale escalar:**
-> 1. A Dra. Marina atende **consulta** fora do consultório, no Vilar ou em outro lugar? O
->    histórico de 21/09 diz que sim, e o F07 desta base diz que não.
-> 2. A cobertura do plano **muda conforme o local**? O histórico tem "esse os planos não
->    cobrem" referindo-se a exame fora do consultório.
+> ✅ **Respondido pelo Thiago em 04/10/2026:** a Dra. Marina **atende consulta fora do
+> consultório**, e a clínica **não informa em quais hospitais**. (O "contradiz o F07" que eu
+> havia escrito era inferência minha: o F07 só dá o endereço do consultório, nunca afirmou
+> exclusividade. Eu li ausência de menção como negação.)
 >
-> Respondida em 04/10/2026: onde a cirurgia acontece (Vilar, Hospital do Olho, Namir
-> Clementino, Tércio Rezende ou COE, definido após a avaliação) e o endereço de cada um.
+> Também respondido em 04/10/2026: os cinco hospitais de cirurgia, seus endereços, e que o
+> local é definido após a avaliação.
+>
+> ❓ **Uma pergunta ainda aberta: a cobertura do plano muda conforme o HOSPITAL?**
+>
+> Hoje a resposta do F04 para "meu plano cobre a cirurgia?" tem **duas** condições, o plano
+> autorizar e o paciente estar nos critérios, e não menciona hospital. Se hospital precisa
+> ser credenciado ao plano, falta uma terceira, e é a pior das três: é a única que **ninguém
+> pode conferir na hora**, porque o hospital só é definido depois da avaliação.
+>
+> O risco concreto: paciente com Unimed ouve "a maioria dos convênios cobre", paga os
+> R$ 430,00 contando com isso, e a cirurgia é indicada num hospital não credenciado ao plano
+> dele. Ele descobre no fim que a cobertura não existia, e pagou a avaliação em cima de uma
+> premissa que **a clínica** deu. Até a resposta vir, "o plano cobre naquele hospital" segue
+> escalando (item 1 acima).
 
 > ℹ️ **Nota de origem.** Namir Clementino e Tércio Rezende **não aparecem** nas 482
 > conversas exportadas; vieram direto da clínica em 04/10/2026. Vilar e Hospital do Olho

@@ -79,6 +79,7 @@ import {
   podeDarBaixa,
   startEscalationSla,
 } from './escalation-sla.js';
+import { executa, wantsTemplates } from './executor.js';
 import {
   inspecionaSaida,
   resumoDoAviso,
@@ -120,6 +121,26 @@ function loadState(): void {
  * Return the message cursor for a group, recovering from the last bot reply
  * if lastAgentTimestamp is missing (new group, corrupted state, restart).
  */
+/**
+ * Envio para um destino interno (recepção, aviso de guarda, escalonamento).
+ * Mesma resolução de canal que o SLA e o IPC já fazem, num lugar só: três
+ * cópias da mesma lógica é onde uma delas fica atrás das outras.
+ */
+function enviaParaDestino(
+  jid: string,
+  text: string,
+  groupFolder?: string,
+): Promise<unknown> | unknown {
+  const channel =
+    (groupFolder && findChannelForGroup(channels, groupFolder)) ||
+    findChannel(channels, jid);
+  if (!channel) {
+    logger.warn({ jid, groupFolder }, 'sem canal para o destino interno');
+    return;
+  }
+  return channel.sendMessage(jid, text);
+}
+
 function getOrRecoverCursor(chatJid: string): string {
   const existing = lastAgentTimestamp[chatJid];
   if (existing) return existing;
@@ -304,8 +325,39 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
       // vira silêncio: vira aviso para humano, com o texto e o motivo, senão o
       // paciente espera por uma resposta que ninguém sabe que foi barrada.
       let paraEnviar = text;
-      if (text && wantsOutputGuard(group.folder)) {
-        const veredito = inspecionaSaida(text);
+
+      // Executor da tabela: quando a pasta responde por template, o texto vem
+      // da tabela e o modelo só entregou um rótulo. A guarda abaixo continua
+      // rodando, agora sobre texto aprovado: é defesa em profundidade, e o
+      // teste estrutural dela garante que nenhum texto aprovado é bloqueado.
+      if (wantsTemplates(group.folder)) {
+        const ultima = missedMessages[missedMessages.length - 1];
+        const r = await executa(group.folder, raw, ultima?.content ?? '', {
+          sendMessage: enviaParaDestino,
+        });
+        if (!r) {
+          // Sem tabela não há texto aprovado, e improvisar é o que esta
+          // arquitetura existe para impedir. Avisa humano e cala.
+          const { jid, folder } = destinoDoAviso();
+          enviaParaDestino(
+            jid,
+            '⛔ *Executor sem tabela*\n\nA pasta está configurada para ' +
+              `responder por template e \`${group.folder}/templates.json\` não ` +
+              'carregou. Nenhuma resposta foi enviada ao paciente.',
+            folder,
+          );
+          return;
+        }
+        paraEnviar = r.texto;
+      }
+
+      // A guarda roda nos DOIS caminhos. No de template ela inspeciona texto
+      // já aprovado, o que parece redundante e não é: quem aprova é humano, e
+      // o teste estrutural existe justamente porque um texto novo pode trazer
+      // um travessão ou um valor trocado. Defesa em profundidade só vale se a
+      // segunda camada não for pulada pela primeira.
+      if (paraEnviar && wantsOutputGuard(group.folder)) {
+        const veredito = inspecionaSaida(paraEnviar);
         const precisaAvisar = veredito.achados.some(
           (a) => a.nivel !== 'sanitize',
         );
@@ -314,7 +366,7 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
           const canalAviso =
             findChannelForGroup(channels, folder) || findChannel(channels, jid);
           canalAviso
-            ?.sendMessage(jid, resumoDoAviso(veredito, text))
+            ?.sendMessage(jid, resumoDoAviso(veredito, paraEnviar))
             .catch((err) =>
               logger.warn({ err }, 'output-guard: aviso não saiu'),
             );

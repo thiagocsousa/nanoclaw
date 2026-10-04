@@ -193,6 +193,112 @@ async function tocaAlarme(): Promise<void> {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Abrir o escalonamento, do lado do host
+//
+// Decisão do Thiago em 04/10/2026: **quem escala é o host.** Até aqui era o
+// agente, chamando `escalar.py` dentro do container, e isso tinha um furo que a
+// arquitetura de templates existe justamente para fechar: a escalada dependia
+// de o modelo lembrar de chamar a ferramenta. Em 03/10 ele "escalou" 10 de 10
+// vezes e a clínica não soube de nenhuma.
+//
+// Com o executor, o host decide pela tabela (`acao: 'escalar'`) e age. Não há
+// caminho em que a intenção seja de escalonamento e nada aconteça.
+//
+// O formato dos arquivos é o MESMO do escalar.py, de propósito: a escada de
+// cobrança acima, a auditoria em escalonamentos.jsonl e a baixa por código
+// continuam funcionando sem saber quem abriu o caso.
+
+/**
+ * Alfabeto do código do caso. Sem 0/O, 1/I/L, 5/S e 2/Z: o código é lido em voz
+ * alta e digitado de volta às pressas ("ok E7K2"), então par ambíguo é baixa
+ * que não acontece e alarme que toca sem motivo. Igual ao do escalar.py.
+ */
+const ALFABETO_CODIGO = 'ABCDEFGHJKMNPQRTUVWXY34679';
+
+function geraCodigo(usados: Set<string>): string {
+  for (let i = 0; i < 50; i++) {
+    let c = '';
+    for (let j = 0; j < 4; j++) {
+      c += ALFABETO_CODIGO[Math.floor(Math.random() * ALFABETO_CODIGO.length)];
+    }
+    if (!usados.has(c)) return c;
+  }
+  // 26^4 é folgado para o número de pendências abertas numa clínica; se os 50
+  // sorteios colidirem, o relógio desempata em vez de devolver duplicata.
+  return `Z${Date.now().toString(36).slice(-3).toUpperCase()}`;
+}
+
+export interface PedidoDeEscalada {
+  folder: string;
+  motivo: string;
+  /** O que o paciente escreveu. Vai no aviso ao humano, nunca ao ntfy. */
+  pergunta: string;
+  urgente?: boolean;
+}
+
+/**
+ * Abre o escalonamento: pendência, auditoria, aviso ao humano e, se urgente,
+ * alarme. Devolve o código do caso, ou undefined se nada pôde ser registrado.
+ *
+ * A ordem importa. A pendência vem primeiro porque é ela que sustenta a
+ * cobrança: um aviso que sai sem pendência é um caso que ninguém cobra se a
+ * recepção não vir a mensagem, e foi exatamente esse o furo original.
+ */
+export async function escala(
+  pedido: PedidoDeEscalada,
+  deps: EscalationSlaDeps,
+): Promise<string | undefined> {
+  const { folder, motivo, pergunta } = pedido;
+  const urgente = pedido.urgente === true;
+
+  const itens = lePendencias(folder);
+  const codigo = geraCodigo(new Set(itens.map((p) => p.codigo)));
+  itens.push({ codigo, quando: Date.now(), motivo, pergunta, urgente });
+  gravaPendencias(folder, itens);
+
+  // Auditoria: é por aqui que se confere se escalada é ação ou só frase.
+  try {
+    const log = path.join(GROUPS_DIR, folder, 'escalonamentos.jsonl');
+    fs.mkdirSync(path.dirname(log), { recursive: true });
+    fs.appendFileSync(
+      log,
+      `${JSON.stringify({
+        quando: new Date().toISOString(),
+        codigo,
+        motivo,
+        pergunta,
+        urgente,
+        origem: 'host',
+      })}\n`,
+    );
+  } catch (err) {
+    logger.warn({ err, folder, codigo }, 'escala: não gravou auditoria');
+  }
+
+  const cabecalho = urgente
+    ? '🚨 *Atendimento URGENTE*'
+    : '🙋 *Atendimento aguardando*';
+  const texto =
+    `${cabecalho}  \`${codigo}\`\n\n*Motivo:* ${motivo}\n` +
+    `*Paciente perguntou:* ${pergunta}\n\n` +
+    `Responda *ok ${codigo}* ao resolver. Sem baixa: cobrança em ` +
+    `${COBRANCA_MS / 60_000} min, alarme em ${ALARME_MS / 60_000} min.`;
+
+  try {
+    await deps.sendMessage(DESTINO_JID, texto, DESTINO_FOLDER);
+  } catch (err) {
+    // O caso já está registrado e a escada vai cobrar. Perder o aviso imediato
+    // é ruim, perder o registro seria pior.
+    logger.error({ err, folder, codigo }, 'escala: aviso ao humano não saiu');
+  }
+
+  if (urgente) await tocaAlarme();
+
+  logger.info({ folder, codigo, motivo, urgente }, 'escala: caso aberto');
+  return codigo;
+}
+
 export interface EscalationSlaDeps {
   sendMessage: (
     jid: string,

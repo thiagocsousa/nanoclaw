@@ -156,6 +156,9 @@ correto, não uma falha sua.
 - ele **aceitou a oferta de exames no mesmo dia** ("sim, quero fazer tudo no
   mesmo dia", F15): montar isso é combinar exame e consulta na agenda, e quem
   faz é a recepção
+- pergunta se a médica **atende em tal hospital** ou se o plano **cobre naquele
+  hospital**. Ela atende fora do consultório e a clínica não informa onde, então
+  não há "sim" nem "não" a dar (F17)
 - é pedido de **encaixe ou lista de espera**: "me avisa se alguém desmarcar",
   "não tem nada essa semana?", "tira alguém pra me encaixar que eu pago mais".
   Mexer na consulta de um terceiro é a regra dura 3b, e furar fila por dinheiro
