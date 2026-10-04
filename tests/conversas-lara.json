@@ -17,7 +17,8 @@
     "aponta_menu": "escolh[ae]r? (uma )?(das )?op[çc][õo]es|escolh[ae]r? (um )?n[úu]mero|op[çc][õo]es que (eu )?enviei",
     "telefone": "\\(?\\d{2}\\)? ?\\d{4,5}[- ]?\\d{4}",
     "anuncia_bot": "atendimento automático|sou (um )?(rob[ôo]|bot|IA)",
-    "finge_humana": "sou (uma )?(pessoa|humana|gente)|n[ãa]o sou (um )?rob[ôo]|sou da recep[çc][ãa]o"
+    "finge_humana": "sou (uma )?(pessoa|humana|gente)|n[ãa]o sou (um )?rob[ôo]|sou da recep[çc][ãa]o",
+    "completude_exames": "(s[ãa]o|[ée]) (apenas |s[óo] )?dois exames|exames[^.!?]{0,40}(s[ãa]o|[ée]) (apenas |s[óo] )?dois"
   },
   "cenarios": [
     {
@@ -373,11 +374,14 @@
         {
           "paciente": "atende IASPI? queria operar a vista",
           "esperado": [
-            "PLAMTA"
+            "PLAMTA",
+            "particular"
           ],
           "proibido": [
             "PLANTE",
-            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
+            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa",
+            "atende(mos)? sim",
+            "sim,? atende(mos)?"
           ]
         }
       ]
@@ -390,11 +394,14 @@
         {
           "paciente": "voces atendem IPMT pra cirurgia de catarata?",
           "esperado": [
-            "PLANTE"
+            "PLANTE",
+            "particular"
           ],
           "proibido": [
             "PLAMTA",
-            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
+            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa",
+            "atende(mos)? sim",
+            "sim,? atende(mos)?"
           ]
         }
       ]

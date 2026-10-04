@@ -29,7 +29,10 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --no-cache-dir faster-whisper==1.0.3
+# `requests` não vem como dependência do faster-whisper, mas o download do
+# modelo passa pelo huggingface_hub e quebra sem ele:
+#   ModuleNotFoundError: No module named 'requests'
+RUN pip install --no-cache-dir faster-whisper==1.0.3 requests
 
 # Baixa o modelo na build e congela em /modelo. CT2 int8 reduz o peso e a RAM
 # com perda pequena de acerto.

@@ -326,6 +326,57 @@ describe('avisa sem bloquear: deslize de estilo', () => {
     expect(inspecionaSaida('Só um instante.').achados.length).toBe(0);
   });
 
+  it('pega "atende sim" para IASPI, que esconde a exclusão da consulta', () => {
+    const v = inspecionaSaida(
+      'Atende sim, o IASPI cobre cirurgia pelo PLAMTA.',
+    );
+    expect(
+      v.achados.some((a) => a.regra === 'plano_parcial'),
+      JSON.stringify(v.achados),
+    ).toBe(true);
+  });
+
+  it('dizer a exclusão da consulta junto passa', () => {
+    const v = inspecionaSaida(
+      'Infelizmente a consulta pelo IASPI a gente não atende, seria particular. Já a cirurgia conseguimos fazer pelo PLAMTA.',
+    );
+    expect(
+      v.achados.some((a) => a.regra === 'plano_parcial'),
+      JSON.stringify(v.achados),
+    ).toBe(false);
+  });
+
+  it('pega "são dois exames", que faz o paciente orçar errado', () => {
+    for (const t of [
+      'Os exames pré-operatórios são dois, e a gente faz aqui mesmo no consultório.',
+      'São apenas dois exames.',
+      'Precisa só esses dois.',
+    ]) {
+      const v = inspecionaSaida(t);
+      expect(
+        v.achados.some((a) => a.regra === 'completude_falsa'),
+        t,
+      ).toBe(true);
+    }
+  });
+
+  it('listar os dois do consultório sem afirmar completude passa', () => {
+    const v = inspecionaSaida(
+      'Aqui no consultório a gente faz dois, e o valor já inclui os dois olhos: mapeamento R$ 300,00 e topografia R$ 380,00. Dependendo do seu caso a Dra. Marina pode pedir outros.',
+    );
+    expect(v.achados.length, JSON.stringify(v.achados)).toBe(0);
+  });
+
+  it('"Sou a Lara" numa resposta factual não exige menu', () => {
+    const v = inspecionaSaida(
+      'Sou a Lara, assistente da Dra. Marina Costa.\n\nA clínica fica na Av. Elias João Tajra, 1170, Sala 07.',
+    );
+    expect(
+      v.achados.some((a) => a.regra === 'abertura_malformada'),
+      JSON.stringify(v.achados),
+    ).toBe(false);
+  });
+
   it('pega a abertura que anuncia ser bot no lugar do menu', () => {
     const v = inspecionaSaida(
       'Olá! Sou a Lara, atendimento automático da Dra. Marina Costa. Se preferir falar com alguém da equipe, é só me dizer.',

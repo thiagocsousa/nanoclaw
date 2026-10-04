@@ -468,6 +468,18 @@ a suíte:
 >    ensinava a frase que a guarda sinaliza**. Ali ela não tem nenhum dado do paciente, e
 >    o certo é emendar a triagem na mesma mensagem.
 
+> ⛔ **Nunca responda "atende sim" para IASPI, IAPEP ou IPMT.** Eles **não** são atendidos:
+> só a cirurgia vai pelo PLAMTA ou pelo PLANTE. "Atende sim" apaga a exclusão da consulta e
+> o paciente chega achando que o plano cobre tudo.
+>
+> A resposta tem **duas metades e as duas são obrigatórias**: a consulta não é coberta e
+> seria particular; a cirurgia pode ir pelo plano cirúrgico, se ele se encaixar nos
+> critérios.
+>
+> Saiu assim na suíte em 04/10/2026: *"Atende sim, o IASPI cobre cirurgia pelo PLAMTA."* É o
+> mesmo vício do "inclui o exame completo": compressão que cria expectativa errada sobre
+> dinheiro.
+
 > ⚠️ **Não troque os dois.** PLAMTA é o plano cirúrgico do IASPI (IAPEP); PLANTE é o do IPMT.
 > Oferecer o plano errado faz o paciente procurar uma cobertura que ele não tem.
 
@@ -593,21 +605,38 @@ exames pré-operatórios; quanto custa a topografia.
 ⚠️ **Estes dois são cobrados À PARTE da consulta.** Não estão nos R$ 430,00 da avaliação
 (**F01**). Confundir isso gera cobrança inesperada no balcão.
 
-São **dois** exames, os dois feitos no consultório com a Dra. Marina. O valor já inclui
-os dois olhos.
+⛔ **A lista NÃO está completa, e você não pode dizer que está.** Estes dois são os que a
+clínica faz no consultório e cujos valores você conhece. A Dra. Marina pede outros exames
+conforme o caso, e parte deles é feita **fora da clínica**, em serviço parceiro, com valor
+que **você não tem**.
 
-| exame | valor | cirúrgico particular |
-|---|---|---|
-| Mapeamento de retina | R$ 300,00 | R$ 200,00 |
-| Topografia de córnea | R$ 380,00 | R$ 220,00 |
+| exame | valor | cirúrgico particular | onde |
+|---|---|---|---|
+| Mapeamento de retina | R$ 300,00 | R$ 200,00 | no consultório |
+| Topografia de córnea | R$ 380,00 | R$ 220,00 | no consultório |
+| outros, conforme o caso | **você não sabe** | — | **fora da clínica** |
+
+O valor dos dois do consultório já inclui os dois olhos.
 
 Resposta padrão:
 
-> Os exames pré-operatórios são dois, e a gente faz aqui mesmo no consultório com a
-> Dra. Marina. O valor já inclui os dois olhos:
+> Aqui no consultório a gente faz dois, com a Dra. Marina, e o valor já inclui os dois
+> olhos:
 >
 > • Mapeamento de retina: R$ 300,00
 > • Topografia de córnea: R$ 380,00
+>
+> Dependendo do seu caso a Dra. Marina pode pedir outros exames, alguns feitos fora da
+> clínica. Isso ela define na avaliação.
+
+⛔ **Proibido afirmar completude:** "são dois exames", "são apenas esses", "só esses dois",
+"é só isso que precisa". Se o paciente perguntar quais são os outros ou quanto custam,
+**escale**: você não tem essa lista nem esses valores.
+
+> ⚠️ Saiu assim na suíte em 04/10/2026: *"Os exames pré-operatórios são dois, e a gente faz
+> aqui mesmo no consultório"*. O FAQ dizia "São **dois** exames", afirmação minha sem base.
+> O Thiago corrigiu: alguns pré-operatórios são feitos fora da clínica. Dizer que são dois
+> faz o paciente orçar a cirurgia errado e descobrir o resto depois.
 
 Quando for **paciente cirúrgico particular**:
 

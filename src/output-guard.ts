@@ -182,6 +182,37 @@ const RX_INCLUI_EXAME =
   /inclu\w+\s+(?:o\s+|os\s+|todos\s+os\s+)?exames?\b|exames?\s+(?:est[ãa]o\s+)?inclu[íi]d/i;
 const NOMEIA_INCLUSO = /fundoscopia|tonometria|dois olhos|ambos os olhos/i;
 
+// --- dizer que atende plano que não atende ----------------------------------
+
+/**
+ * IASPI e IPMT **não** são atendidos para consulta: só a cirurgia vai pelo
+ * PLAMTA e pelo PLANTE. Dizer "atende sim" apaga a exclusão da consulta e o
+ * paciente chega achando que o plano cobre tudo.
+ *
+ * Saiu na suíte em 04/10/2026: "Atende sim, o IASPI cobre cirurgia pelo PLAMTA."
+ * Mesmo vício do "inclui o exame completo": compressão que cria expectativa
+ * errada sobre dinheiro.
+ */
+const RX_PLANO_PARCIAL = /\b(?:IASPI|IAPEP|IPMT)\b/i;
+const RX_ATENDE_SIM =
+  /\batende(?:mos)?\s+sim\b|\bsim,?\s+atende(?:mos)?\b|\bcobre\s+(?:sim|tudo)\b/i;
+/** A exclusão da consulta tem que estar dita em algum lugar da mensagem. */
+const RX_EXCLUI_CONSULTA =
+  /consulta[^.!?\n]{0,60}(?:n[ãa]o|particular)|(?:n[ãa]o|particular)[^.!?\n]{0,60}consulta/i;
+
+// --- afirmar que a lista está completa --------------------------------------
+
+/**
+ * Dizer "os exames pré-operatórios são dois" faz o paciente orçar a cirurgia
+ * errado e descobrir o resto depois. A Dra. Marina pede outros conforme o caso,
+ * parte deles fora da clínica, e a agente não tem esses valores.
+ *
+ * Saiu na suíte em 04/10/2026, e a culpa era do FAQ, que afirmava "São dois
+ * exames" sem base.
+ */
+const RX_COMPLETUDE =
+  /\b(?:s[ãa]o|[ée])\s+(?:apenas\s+|s[óo]\s+)?dois\s+exames?\b|\bexames?[^.!?\n]{0,40}\b(?:s[ãa]o|[ée])\s+(?:apenas\s+|s[óo]\s+)?dois\b|\bs[óo]\s+esses\s+dois\b|\bs[ãa]o\s+apenas\s+esses\b|\b[ée]\s+s[óo]\s+isso\s+que\s+precisa\b/i;
+
 // --- fingir-se humana -------------------------------------------------------
 
 /**
@@ -206,7 +237,12 @@ const RX_FINGE_HUMANA =
  * "aqui é a Lara" é reidentificação no meio da conversa. Só a primeira exige
  * menu, então reidentificar não cai aqui.
  */
-const RX_ABERTURA = /\bsou a Lara\b/i;
+// Só a forma de SAUDAÇÃO exige menu. Desde que a triagem deixou de ser
+// pré-requisito de resposta (regra 0, 04/10/2026), "Sou a Lara, assistente..."
+// numa resposta factual é legítimo: foi o 3º falso positivo que eu criei hoje.
+// Sem \b depois da saudação: em JS o \w é só ASCII, então "á" não é letra e
+// `\bol[áa]\b` nunca casa em "Olá!". Levei um teste vermelho para lembrar.
+const RX_ABERTURA = /(?:ol[áa]|oi)[^\n]{0,34}?\bsou a Lara\b/i;
 const RX_MENU_COMPLETO =
   /Cirurgia Refrativa[\s\S]*Cirurgia de Catarata[\s\S]*Rotina/i;
 
@@ -330,7 +366,34 @@ export function inspecionaSaida(bruto: string): Veredito {
   }
   RX_TELEFONE.lastIndex = 0; // regex global: zera entre chamadas
 
-  // 6. block: afirmou ser pessoa
+  // 6. flag: disse que atende plano que só cobre cirurgia
+  if (
+    RX_PLANO_PARCIAL.test(texto) &&
+    RX_ATENDE_SIM.test(texto) &&
+    !RX_EXCLUI_CONSULTA.test(texto)
+  ) {
+    achados.push({
+      regra: 'plano_parcial',
+      nivel: 'flag',
+      motivo:
+        'diz que atende IASPI/IPMT sem dizer que a CONSULTA não é coberta; só a cirurgia vai pelo PLAMTA/PLANTE (F04)',
+      trecho: RX_ATENDE_SIM.exec(texto)?.[0] ?? 'atende sim',
+    });
+  }
+
+  // 7. flag: afirmou que a lista de exames está completa
+  const compl = texto.match(RX_COMPLETUDE);
+  if (compl) {
+    achados.push({
+      regra: 'completude_falsa',
+      nivel: 'flag',
+      motivo:
+        'afirma que os exames pré-operatórios são só esses; a Dra. Marina pede outros conforme o caso, parte fora da clínica (F08)',
+      trecho: compl[0],
+    });
+  }
+
+  // 8. block: afirmou ser pessoa
   const finge = texto.match(RX_FINGE_HUMANA);
   if (finge) {
     achados.push({
@@ -342,7 +405,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 7. flag: abertura sem o menu completo
+  // 9. flag: abertura sem o menu completo
   if (RX_ABERTURA.test(texto) && !RX_MENU_COMPLETO.test(texto)) {
     achados.push({
       regra: 'abertura_malformada',
@@ -353,7 +416,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 8. flag: mandou o paciente ligar
+  // 10. flag: mandou o paciente ligar
   if (RX_CONVITE_LIGAR.test(texto) && RX_DOR.test(texto)) {
     achados.push({
       regra: 'manda_ligar',
@@ -364,7 +427,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 9. flag: mandou o paciente de volta ao menu
+  // 11. flag: mandou o paciente de volta ao menu
   const menu = texto.match(RX_APONTA_MENU);
   if (menu) {
     achados.push({
@@ -375,7 +438,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 10. flag: negou o desconto, contando que ele existe
+  // 12. flag: negou o desconto, contando que ele existe
   const nega = texto.match(RX_NEGA_DESCONTO);
   if (nega) {
     achados.push({
@@ -386,7 +449,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 11. flag: prometeu exame incluso sem nomear o que está incluso
+  // 13. flag: prometeu exame incluso sem nomear o que está incluso
   const inclui = texto.match(RX_INCLUI_EXAME);
   if (inclui && !NOMEIA_INCLUSO.test(texto)) {
     achados.push({
@@ -398,7 +461,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 12. flag: linguagem interna sobrevivendo no texto
+  // 14. flag: linguagem interna sobrevivendo no texto
   const interno = texto.match(RX_INTERNO);
   if (interno) {
     achados.push({
@@ -409,7 +472,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 13. flag: frases proibidas de estilo
+  // 15. flag: frases proibidas de estilo
   for (const [rx, motivo] of PROIBIDAS) {
     const m = texto.match(rx);
     if (m) {
