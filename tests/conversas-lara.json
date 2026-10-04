@@ -45,7 +45,7 @@
       ],
       "proibido_abertura": [
         "Sou a Bruna",
-        "Avalia[çc][ãa]o para cirurgia\\b"
+        "Avalia[çc][ãa]o para [Cc]irurgia(?!\\s+(Refrativa|de Catarata))"
       ]
     },
     {

@@ -78,41 +78,44 @@ const PRECIFICAVEL =
   /avalia[çc][ãa]o|consulta|retorno|exame|mapeamento|topografi|ceratoscopi|pentacam/i;
 
 /**
- * Preço de cirurgia (regra dura 1b). Procura o sujeito do preço: para cada
- * valor em dinheiro, olha o texto ANTES dele e pergunta de que ele é o preço.
- * Se o assunto mais próximo for cirurgia, é proibido; se for avaliação, exame
- * ou consulta, é o trabalho dela.
+ * Preço de cirurgia (regra dura 1b).
+ *
+ * A 1ª versão olhava o "último assunto antes do valor" e reprovou em produção
+ * logo no primeiro teste, bloqueando uma resposta CORRETA:
+ *
+ *   "a consulta de avaliação para cirurgia refrativa é particular,
+ *    no valor de R$ 430,00"
+ *
+ * Ali "cirurgia refrativa" é **modificador** de "consulta de avaliação", não o
+ * sujeito do preço. O paciente ficou sem resposta nenhuma.
+ *
+ * A regra agora é por **janela**: para cada valor, o trecho entre o valor
+ * anterior (ou o começo do texto) e este valor. Bloqueia só quando a janela
+ * fala de cirurgia **e não nomeia nada precificável**. O texto legítimo da
+ * clínica sempre nomeia o que está sendo cobrado (avaliação, consulta, exame);
+ * a violação de verdade ("a cirurgia custa R$ 8.000") não nomeia nada.
+ *
+ * A janela também pega o caso misto, que o escopo por frase perderia:
+ * "a avaliação é R$ 430 e a cirurgia fica R$ 8.000" bloqueia no 2º valor,
+ * porque a janela dele é só " e a cirurgia fica ".
  */
 export function achaPrecoDeCirurgia(texto: string): Achado | undefined {
+  let inicioJanela = 0;
   for (const m of texto.matchAll(RX_DINHEIRO)) {
-    const antes = texto.slice(0, m.index ?? 0);
-    const ultimaCirurgia = ultimoIndice(antes, CIRURGIA);
-    const ultimoPrecificavel = ultimoIndice(antes, PRECIFICAVEL);
-    // Sem assunto algum antes do valor: não dá para afirmar que é cirurgia.
-    if (ultimaCirurgia === -1) continue;
-    if (ultimoPrecificavel > ultimaCirurgia) continue;
+    const fim = m.index ?? 0;
+    const janela = texto.slice(inicioJanela, fim);
+    inicioJanela = fim + m[0].length;
+    if (!CIRURGIA.test(janela)) continue;
+    if (PRECIFICAVEL.test(janela)) continue;
     return {
       regra: 'preco_cirurgia',
       nivel: 'block',
       motivo:
-        'valor atribuído a cirurgia; a clínica nunca passa preço de cirurgia antes da avaliação (regra dura 1b)',
-      trecho: texto.slice(
-        Math.max(0, ultimaCirurgia),
-        (m.index ?? 0) + m[0].length,
-      ),
+        'valor atribuído a cirurgia sem nomear consulta, avaliação ou exame; a clínica nunca passa preço de cirurgia antes da avaliação (regra dura 1b)',
+      trecho: (janela + m[0]).trim().slice(-120),
     };
   }
   return undefined;
-}
-
-function ultimoIndice(texto: string, rx: RegExp): number {
-  const g = new RegExp(
-    rx.source,
-    rx.flags.includes('g') ? rx.flags : rx.flags + 'g',
-  );
-  let fim = -1;
-  for (const m of texto.matchAll(g)) fim = m.index ?? fim;
-  return fim;
 }
 
 // --- agendamento confirmado -------------------------------------------------

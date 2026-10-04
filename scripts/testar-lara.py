@@ -64,8 +64,12 @@ CONTROLE = "--- NOVO PACIENTE ---"
 TIMEOUT_TURNO = 240
 # Depois da 1ª mensagem dela, espera este tanto de silêncio para capturar as
 # seguintes: a persona manda duas mensagens curtas de propósito.
-QUIETUDE = 14
+QUIETUDE = 10
 PASSO = 2
+# Pausa entre cenários. As respostas dela saem de verdade no WhatsApp, e uma
+# rajada de 150 mensagens no mesmo grupo em uma hora é o tipo de padrão que faz
+# o WhatsApp derrubar a sessão do Baileys. Devagar é requisito, não cortesia.
+PAUSA_PADRAO = 25
 
 
 def agora_iso(delta_ms=0):
@@ -255,6 +259,8 @@ def main():
     ap.add_argument("--categoria", default="")
     ap.add_argument("--listar", action="store_true")
     ap.add_argument("--saida", default="")
+    ap.add_argument("--pausa", type=int, default=PAUSA_PADRAO,
+                    help="segundos entre cenários (protege a sessão do Baileys)")
     args = ap.parse_args()
 
     suite = json.loads(SUITE.read_text(encoding="utf-8"))
@@ -282,8 +288,11 @@ def main():
     destino = Path(args.saida) if args.saida else (
         RAIZ / "tests" / ("relatorio-lara-%s.md" % datetime.now().strftime("%Y%m%d-%H%M")))
 
-    print("rodando %d cenários (%d turnos)" % (
-        len(cenarios), sum(len(c["turnos"]) for c in cenarios)), flush=True)
+    turnos = sum(len(c["turnos"]) for c in cenarios)
+    estimado = (turnos * 35 + len(cenarios) * args.pausa) / 60
+    print("rodando %d cenários (%d turnos), pausa de %ds entre cenários"
+          % (len(cenarios), turnos, args.pausa), flush=True)
+    print("estimativa: ~%d min" % estimado, flush=True)
     resultados = []
     for n, cen in enumerate(cenarios, 1):
         print("[%d/%d] %s %s ..." % (n, len(cenarios), cen["id"], cen["categoria"]),
@@ -295,6 +304,8 @@ def main():
         relatorio(resultados, destino)
         (destino.with_suffix(".json")).write_text(
             json.dumps(resultados, ensure_ascii=False, indent=2), encoding="utf-8")
+        if n < len(cenarios) and args.pausa:
+            time.sleep(args.pausa)
 
     dur = sum(len(r["duras"]) for r in resultados)
     print("\nfalhas duras: %d | avisos: %d" % (

@@ -46,6 +46,25 @@ describe('não bloqueia o que a clínica realmente manda', () => {
     expect(v.bloqueado, JSON.stringify(v.achados)).toBe(false);
   });
 
+  it('passa o texto que a guarda bloqueou errado em produção (04/10, cenário A01)', () => {
+    // Falso positivo real: "cirurgia refrativa" é modificador de "consulta de
+    // avaliação", não o sujeito do preço. O paciente ficou sem resposta.
+    const v = inspecionaSaida(
+      'Thiago, a consulta de avaliação para cirurgia refrativa é particular, no valor de R$ 430,00.',
+    );
+    expect(v.bloqueado, JSON.stringify(v.achados)).toBe(false);
+  });
+
+  it('passa variações em que o valor é da consulta, com cirurgia como modificador', () => {
+    for (const t of [
+      'A avaliação pré-operatória para cirurgia refrativa é R$ 430,00.',
+      'A consulta para avaliar a cirurgia de catarata fica R$ 430,00.',
+      'Os exames pré-operatórios da refrativa somam R$ 680,00.',
+    ]) {
+      expect(inspecionaSaida(t).bloqueado, t).toBe(false);
+    }
+  });
+
   it('passa a oferta de horário, que não afirma nada', () => {
     const v = inspecionaSaida(
       'Tem vaga segunda às 10h. Consegue nesse horário?',
@@ -178,5 +197,13 @@ describe('achaPrecoDeCirurgia: o sujeito do preço, não a vizinhança', () => {
 
   it('valor sem nenhum assunto de cirurgia antes: passa', () => {
     expect(achaPrecoDeCirurgia('São R$ 430,00.')).toBeUndefined();
+  });
+
+  it('caso misto: bloqueia o 2º valor, que é o da cirurgia', () => {
+    const a = achaPrecoDeCirurgia(
+      'a avaliação é R$ 430,00 e a cirurgia fica R$ 8.000,00',
+    );
+    expect(a).toBeDefined();
+    expect(a?.trecho).toContain('8.000');
   });
 });
