@@ -1097,15 +1097,34 @@ Confirmado pela clínica em 04/10/2026:
 > As consultas são aqui no consultório, na Av. Elias João Tajra, 1170, Sala 07, Jóquei.
 >
 > As cirurgias são realizadas em hospital, podendo ser no Hospital Vilar, no Hospital do
-> Olho, no Namir Clementino ou no Tércio Rezende. O local é definido após a avaliação.
+> Olho, no Namir Clementino, no Tércio Rezende ou no COE. O local é definido após a
+> avaliação.
 
-⛔ **Diga os quatro, nunca escolha um.** Não "vai ser no Vilar", não "normalmente é no
+⛔ **Diga os cinco, nunca escolha um.** Não "vai ser no Vilar", não "normalmente é no
 Hospital do Olho". Quem define é a médica depois da avaliação, e antecipar um hospital faz
 o paciente se organizar para o lugar errado: pedir folga, arrumar quem o leve, às vezes
 reservar hotel se vem de fora.
 
-**Os quatro, na ordem em que a clínica confirmou (04/10/2026):** Hospital Vilar, Hospital
-do Olho, Namir Clementino, Tércio Rezende.
+**Os cinco, na ordem em que a clínica confirmou (04/10/2026):** Hospital Vilar, Hospital
+do Olho, Namir Clementino, Tércio Rezende, COE.
+
+### Endereço do hospital: você NÃO tem
+
+⛔ **Esta base só tem o endereço do consultório** (F07). Nenhum dos cinco hospitais tem
+endereço aqui, então "onde fica o Hospital do Olho?" **escala**. Não descreva por
+aproximação, não diga bairro, não mande link de mapa que você não tem.
+
+> Só um instante.
+
+Faz sentido escalar aqui mesmo depois de o hospital estar definido: quem agenda a cirurgia
+é a recepção, e é ela que manda endereço, horário de chegada e o que levar, tudo junto.
+Mandar só o endereço, solto, faria o paciente perguntar o resto em seguida.
+
+> ❓ **Para a clínica preencher.** Se vocês me passarem os endereços dos cinco, isto deixa de
+> escalar. No histórico exportado achei **um**, e vale confirmar antes de usar: *"Vilar
+> Hospital de Olhos, Rua Benjamin Constant, 2290, Centro (Norte), Teresina, PI, 64000-280"*
+> (21/09/2026). Dos outros quatro não há nada, e o **COE** não aparece nenhuma vez nas 482
+> conversas, veio direto de vocês.
 
 ### O que exige escalonamento
 
@@ -1147,7 +1166,8 @@ Registrado aqui para quem for completar este bloco, **não para a agente usar**:
 
 | o que apareceu | quando |
 |---|---|
-| hospitais da cirurgia: Vilar, Hospital do Olho, Namir Clementino, Tércio Rezende | confirmado em 04/10/2026 |
+| hospitais: Vilar, Hospital do Olho, Namir Clementino, Tércio Rezende, COE | confirmado em 04/10/2026 |
+| endereço do Vilar: Rua Benjamin Constant, 2290, Centro | 21/09/2026, **a confirmar** |
 | *"Amanhã ela atende no Vilar, e quarta está lotado no consultório dela"* | 21/09/2026 |
 | *"Dá pra fazer agora no Hospital do Olho"* (exame) | 21/09/2026 |
 | *"Pentacam... não fazemos no consultório. Posso agendar pra você no Hospital do Olho"* | 29/09/2026 |
@@ -1161,7 +1181,8 @@ Registrado aqui para quem for completar este bloco, **não para a agente usar**:
 >    cobrem" referindo-se a exame fora do consultório.
 >
 > Respondida em 04/10/2026: onde a cirurgia acontece (Vilar, Hospital do Olho, Namir
-> Clementino ou Tércio Rezende, definido após a avaliação).
+> Clementino, Tércio Rezende ou COE, definido após a avaliação). Falta o **endereço** de
+> cada um.
 
 > ℹ️ **Nota de origem.** Namir Clementino e Tércio Rezende **não aparecem** nas 482
 > conversas exportadas; vieram direto da clínica em 04/10/2026. Vilar e Hospital do Olho

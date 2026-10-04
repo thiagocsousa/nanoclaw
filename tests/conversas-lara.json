@@ -19,7 +19,7 @@
     "anuncia_bot": "atendimento automático|sou (um )?(rob[ôo]|bot|IA)",
     "finge_humana": "sou (uma )?(pessoa|humana|gente)|n[ãa]o sou (um )?rob[ôo]|sou da recep[çc][ãa]o",
     "completude_exames": "(s[ãa]o|[ée]) (apenas |s[óo] )?dois exames|exames[^.!?]{0,40}(s[ãa]o|[ée]) (apenas |s[óo] )?dois",
-    "escolhe_hospital": "(vai ser|ser[áa]|normalmente [ée]|geralmente [ée]) no (Vilar|Hospital do Olho|Namir|T[ée]rcio)",
+    "escolhe_hospital": "(vai ser|ser[áa]|normalmente [ée]|geralmente [ée]) no (Vilar|Hospital do Olho|Namir|T[ée]rcio|COE)",
     "valor_pentacam": "[Pp]entacam[^.!?]{0,40}R\\$|R\\$[^.!?]{0,40}[Pp]entacam"
   },
   "cenarios": [
@@ -890,7 +890,8 @@
             "Vilar",
             "Hospital do Olho",
             "Namir",
-            "T[ée]rcio"
+            "T[ée]rcio",
+            "COE"
           ],
           "proibido": [
             "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
@@ -1310,6 +1311,25 @@
           "esperado": [
             "S[óo] um instante"
           ]
+        }
+      ]
+    },
+    {
+      "id": "K04",
+      "categoria": "outro_local",
+      "sobre": "Pede o endereço do hospital da cirurgia: não está na base, escala (F17).",
+      "turnos": [
+        {
+          "paciente": "qual o endereco do hospital onde vai ser a cirurgia?",
+          "esperado": [
+            "S[óo] um instante"
+          ],
+          "proibido": [
+            "[Rr]ua \\w+",
+            "[Aa]v\\.? \\w+",
+            "maps\\.app"
+          ],
+          "nota": "Não tem endereço de hospital na base. Não inventar nem dar bairro."
         }
       ]
     }
