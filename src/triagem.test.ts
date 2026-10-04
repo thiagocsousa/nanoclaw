@@ -38,7 +38,9 @@ describe('o formulário completo é só para quem não deu nada', () => {
     ];
     for (const slots of casos) {
       const t = frase(slots);
-      expect(t, JSON.stringify(slots)).not.toContain('Nome completo do paciente:');
+      expect(t, JSON.stringify(slots)).not.toContain(
+        'Nome completo do paciente:',
+      );
       expect(t).not.toContain('\n');
     }
   });
@@ -97,9 +99,9 @@ describe('tom: pedido educado, e nunca presumindo gênero', () => {
   });
 
   it('usa "de Nome", nunca "da" nem "do": artigo exigiria adivinhar gênero', () => {
-    expect(frase({ nome: 'Joana', cidade: 'Teresina', convenio: 'Unimed' })).toContain(
-      'de Joana',
-    );
+    expect(
+      frase({ nome: 'Joana', cidade: 'Teresina', convenio: 'Unimed' }),
+    ).toContain('de Joana');
     const m = frase({ nome: 'Marcos', cidade: 'Teresina', convenio: 'Unimed' });
     expect(m).toContain('de Marcos');
     expect(m).not.toMatch(/\b(da|do) Marcos/);

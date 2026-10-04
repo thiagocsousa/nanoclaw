@@ -135,8 +135,7 @@ export async function executa(
   // jeito mais rápido de parecer máquina.
   let texto = r.texto;
   if (r.acao === 'triagem' || r.acao === 'recusar_e_triagem') {
-    const formulario =
-      tabela.intencoes.triagem_dados?.textos?.[0] ?? r.texto;
+    const formulario = tabela.intencoes.triagem_dados?.textos?.[0] ?? r.texto;
     const pedido = fraseDeTriagem(slots, { textoCompleto: formulario });
     texto =
       r.acao === 'triagem'

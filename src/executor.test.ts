@@ -334,7 +334,9 @@ describe('oferta de horário: quem vai à agenda é o host', () => {
 
 describe('triagem: pede só o que falta', () => {
   it('sem nenhum dado, manda o formulário aprovado', async () => {
-    const r = await rodar('{"intencao":"triagem_dados","confianca":0.9,"slots":{}}');
+    const r = await rodar(
+      '{"intencao":"triagem_dados","confianca":0.9,"slots":{}}',
+    );
     expect(r?.texto).toContain('Nome completo do paciente:');
   });
 
@@ -343,7 +345,9 @@ describe('triagem: pede só o que falta', () => {
       '{"intencao":"triagem_dados","confianca":0.9,"slots":{"nome":"Joana","cidade":"Teresina","convenio":"IASPI"}}',
     );
     expect(r?.texto).not.toContain('Nome completo do paciente:');
-    expect(r?.texto).toContain('poderia me informar a data de nascimento de Joana');
+    expect(r?.texto).toContain(
+      'poderia me informar a data de nascimento de Joana',
+    );
   });
 
   it('a recusa vem primeiro e o pedido emenda, sem repetir o convênio', async () => {
@@ -353,7 +357,9 @@ describe('triagem: pede só o que falta', () => {
     );
     expect(r?.texto).toMatch(/^Infelizmente esse conv/);
     expect(r?.texto).toContain('R$ 430,00');
-    expect(r?.texto).toContain('poderia me informar a data de nascimento de Bruno');
+    expect(r?.texto).toContain(
+      'poderia me informar a data de nascimento de Bruno',
+    );
     // Ele acabou de dizer o convênio: perguntar de novo é o vício que o Thiago
     // apontou em 04/10/2026.
     expect(r?.texto).not.toMatch(/informar.*conv[êe]nio/i);
