@@ -186,7 +186,7 @@
     },
     "hospital_cirurgia": {
       "bloco": "F17",
-      "quando": "onde a cirurgia é feita, em qual hospital",
+      "quando": "onde a CIRURGIA é feita, em qual hospital ela opera. NÃO serve para 'ela atende consulta no hospital X?' nem 'ela dá plantão lá?': se a médica atende fora do consultório é escalonamento do F17, e responder com a lista de cirurgia responde outra pergunta.",
       "acao": "responder",
       "fecho": false,
       "textos": [
@@ -306,7 +306,7 @@
     },
     "sem_telefone": {
       "bloco": "F00d",
-      "quando": "pede telefone, número para ligar, quer falar por voz. A clínica não recebe ligação, só mensagem e áudio, e NÃO existe número a informar",
+      "quando": "pede telefone DA CLÍNICA, número para ligar, quer falar por voz. A clínica não recebe ligação, só mensagem e áudio, e NÃO existe número a informar. Se ele quer o contato pessoal da médica, ou falar com ela ou com alguém específico, é quer_humano.",
       "acao": "responder",
       "fecho": false,
       "textos": [

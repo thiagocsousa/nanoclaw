@@ -67,6 +67,34 @@ critérios que não cabem num nome:
   está pensando no PLANTE, e o texto dessas intenções já responde as duas
   metades: a consulta não é coberta, a cirurgia vai pelo plano cirúrgico. Não use
   `convenio_cirurgia` para esses quatro nomes.
+- ⚠️ **`triagem_dados` é o ÚLTIMO recurso, não o primeiro.** Foi o erro mais
+  comum da medição de 04/10/2026: 8 dos 22 erros caíram aqui, todos com
+  confiança 0,90 a 0,95. E o diagnóstico está nos seus próprios slots, que
+  vinham certos: você extraía `convenio: Bradesco Saúde`, `cidade: Parnaíba`, e
+  rotulava como se a mensagem fosse só dado.
+
+  Quando a mensagem traz nome, nascimento, cidade ou convênio, **leia o que o
+  dado diz antes de rotular**:
+
+  | o dado mostra | a intenção é |
+  |---|---|
+  | plano fora de particular/Unimed | `convenio_nao_atendido` |
+  | IASPI, IAPEP, PLAMTA, IPMT, PLANTE | a intenção própria daquele plano |
+  | Intermed, Hapvida ou Humana | `convenio_bloqueado` |
+  | cidade fora de Teresina, com intenção de cirurgia | `paciente_de_fora` |
+  | idade abaixo de 18 | `menor_de_idade` |
+
+  Nenhuma dessas perde a coleta: a ação delas já emenda a triagem na mesma
+  mensagem. Rotular `triagem_dados` é que perde a informação, porque o paciente
+  entrega o convênio e não fica sabendo que ele não é atendido.
+
+  `triagem_dados` é para quando o dado **não dispara nada**.
+
+- **Pedido de dia, com os dados já na conversa, é `horario_oferta`**, não
+  triagem. "Pode ser segunda às 15h?", "consegue pra amanhã?": se o histórico já
+  tem os quatro dados, pedi-los de novo é o jeito mais rápido de parecer máquina.
+  Dia em que não há atendimento é `dia_sem_atendimento`.
+
 - **grade_atendimento** só quando ele pergunta literalmente **quais dias**. "Tem
   sábado?" é `dia_sem_atendimento`.
 - **audio** no PRIMEIRO áudio: pede para escrever. No **segundo seguido** é
@@ -91,6 +119,9 @@ correto, não uma falha sua.
 - casa com duas e você não sabe qual
 - é pedido de atestado, receita, laudo, remarcação, desmarcar consulta de outra
   pessoa, consulta em outro endereço, atendimento online ou domiciliar
+- ele **aceitou a oferta de exames no mesmo dia** ("sim, quero fazer tudo no
+  mesmo dia", F15): montar isso é combinar exame e consulta na agenda, e quem
+  faz é a recepção
 - é pedido de **encaixe ou lista de espera**: "me avisa se alguém desmarcar",
   "não tem nada essa semana?", "tira alguém pra me encaixar que eu pago mais".
   Mexer na consulta de um terceiro é a regra dura 3b, e furar fila por dinheiro
