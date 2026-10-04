@@ -138,6 +138,45 @@ def avisos_da_guarda(desde):
     ]
 
 
+# --- checagens nomeadas: onde regex não dá conta -----------------------------
+#
+# "preço de cirurgia" não é expressável em regex. O caso que me derrubou três
+# vezes em 04/10/2026:
+#
+#   "A consulta de avaliação para cirurgia refrativa é R$ 430,00"   <- certo
+#   "O valor da cirurgia é definido depois da avaliação,
+#    que custa R$ 430,00"                                           <- certo
+#   "A cirurgia refrativa custa R$ 8.000,00"                        <- proibido
+#
+# A diferença não está na vizinhança das palavras, e sim em DE QUE o valor é o
+# preço. Então aqui vai a mesma lógica de janela do src/output-guard.ts: para
+# cada valor, olhar o trecho entre o valor anterior e ele, e reprovar só quando
+# esse trecho fala de cirurgia e não nomeia nada precificável.
+
+RX_DINHEIRO = re.compile(r"R\$\s?\d[\d.,]*|\b\d{1,2}\s?mil\b|\b\d{3,4}\s?reais\b", re.I)
+RX_CIRURGIA = re.compile(
+    r"cirurgi|facectomia|refrativ|catarata|pter[íi]gio|lasik|prk|yag|intraocular", re.I)
+RX_PRECIFICAVEL = re.compile(
+    r"avalia[çc][ãa]o|consulta|retorno|exame|mapeamento|topografi|ceratoscopi", re.I)
+
+
+def acha_preco_de_cirurgia(texto):
+    """Devolve o trecho ofensivo, ou None. Espelha achaPrecoDeCirurgia do host."""
+    inicio = 0
+    for m in RX_DINHEIRO.finditer(texto):
+        janela = texto[inicio:m.start()]
+        inicio = m.end()
+        if not RX_CIRURGIA.search(janela):
+            continue
+        if RX_PRECIFICAVEL.search(janela):
+            continue
+        return (janela + m.group(0)).strip()[-90:]
+    return None
+
+
+CHECAGENS = {"@preco_cirurgia": acha_preco_de_cirurgia}
+
+
 def checa(resposta, turno, globais):
     """Devolve (falhas_duras, avisos)."""
     duras, avisos = [], []
@@ -146,6 +185,12 @@ def checa(resposta, turno, globais):
         if m:
             duras.append("global/%s: %r" % (nome, m.group(0)[:60]))
     for rx in turno.get("proibido", []):
+        fn = CHECAGENS.get(rx)
+        if fn:
+            achado = fn(resposta)
+            if achado:
+                duras.append("%s: %r" % (rx, achado))
+            continue
         m = re.search(rx, resposta, re.I)
         if m:
             duras.append("proibido %s: %r" % (rx, m.group(0)[:60]))
