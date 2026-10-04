@@ -71,6 +71,8 @@ import {
 import { startSessionCleanup } from './session-cleanup.js';
 import { startSchedulerLoop } from './task-scheduler.js';
 import { Channel, NewMessage, RegisteredGroup } from './types.js';
+import { recordAgentMarking } from './agent-marking.js';
+import { humanDelayMs, sleep, wantsHumanCadence } from './human-cadence.js';
 import { logger } from './logger.js';
 
 // Re-export for backwards compatibility during refactor
@@ -263,6 +265,9 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
   };
 
   await channel.setTyping?.(chatJid, true);
+  // Marco do turno: a cadência humana é um ALVO de tempo total percebido, e o
+  // tempo que o container gasta pensando já foi silêncio para quem espera.
+  const inicioDoTurno = Date.now();
   let hadError = false;
   let outputSentToUser = false;
 
@@ -276,7 +281,26 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
       // Strip <internal>...</internal> blocks — agent uses these for internal reasoning
       const text = raw.replace(/<internal>[\s\S]*?<\/internal>/g, '').trim();
       logger.info({ group: group.name }, `Agent output: ${raw.length} chars`);
+      // Telemetria do teste de tom: o agente anota intenção e fonte dentro de
+      // <internal>, que já é removido acima. Antes isso era uma chamada de
+      // script no fim do turno, e em 04/10/2026 o agente rodou o script e
+      // terminou SEM responder (result: null): a chamada obrigatória virou o
+      // turno. Carona numa saída que ele já produz não tem esse caminho.
+      recordAgentMarking(group.folder, raw);
       if (text) {
+        if (wantsHumanCadence(group.folder)) {
+          const espera = humanDelayMs(text, Date.now() - inicioDoTurno);
+          if (espera > 0) {
+            logger.debug(
+              { group: group.name, espera },
+              'cadência humana: aguardando antes de enviar',
+            );
+            // Mantém o "digitando" de pé: a presença do WhatsApp expira, e
+            // silêncio sem indicador parece queda, não pessoa pensando.
+            await channel.setTyping?.(chatJid, true);
+            await sleep(espera);
+          }
+        }
         await channel.sendMessage(chatJid, text);
         outputSentToUser = true;
       }

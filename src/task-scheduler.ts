@@ -72,7 +72,11 @@ export interface SchedulerDependencies {
     containerName: string,
     groupFolder: string,
   ) => void;
-  sendMessage: (jid: string, text: string, groupFolder?: string) => Promise<void>;
+  sendMessage: (
+    jid: string,
+    text: string,
+    groupFolder?: string,
+  ) => Promise<void>;
 }
 
 async function runTask(
@@ -192,7 +196,7 @@ async function runTask(
           await deps.sendMessage(
             task.approval_jid || task.chat_jid,
             streamedOutput.result,
-            task.group_folder,   // roteia pela instância dona do grupo (ex: atendimento)
+            task.group_folder, // roteia pela instância dona do grupo (ex: atendimento)
           );
           scheduleClose();
         }
