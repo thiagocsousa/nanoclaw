@@ -168,6 +168,20 @@ const PROIBIDAS: Array<[RegExp, string]> = [
   [/informamos que/i, 'tratamento de ofício'],
 ];
 
+// --- exames "inclusos" ------------------------------------------------------
+
+/**
+ * Dizer que a consulta "inclui o exame completo" é promessa comercial que a
+ * clínica terá de desdizer no balcão: fundoscopia e tonometria estão inclusas
+ * nos R$ 430, mapeamento (R$ 300) e topografia (R$ 380) não.
+ *
+ * Aconteceu na leva 1 da suíte: "A avaliação é R$ 430,00 e já inclui o exame
+ * completo". Nomear o que está incluso é legítimo e passa; a forma vaga, não.
+ */
+const RX_INCLUI_EXAME =
+  /inclu\w+\s+(?:o\s+|os\s+|todos\s+os\s+)?exames?\b|exames?\s+(?:est[ãa]o\s+)?inclu[íi]d/i;
+const NOMEIA_INCLUSO = /fundoscopia|tonometria|dois olhos|ambos os olhos/i;
+
 // --- dado de terceiro -------------------------------------------------------
 
 const RX_CPF = /\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/;
@@ -242,7 +256,19 @@ export function inspecionaSaida(bruto: string): Veredito {
     break;
   }
 
-  // 6. flag: linguagem interna sobrevivendo no texto
+  // 6. flag: prometeu exame incluso sem nomear o que está incluso
+  const inclui = texto.match(RX_INCLUI_EXAME);
+  if (inclui && !NOMEIA_INCLUSO.test(texto)) {
+    achados.push({
+      regra: 'exames_inclusos',
+      nivel: 'flag',
+      motivo:
+        'diz que exame está incluso sem nomear qual; mapeamento e topografia são cobrados à parte e isso vira cobrança inesperada no balcão',
+      trecho: inclui[0],
+    });
+  }
+
+  // 7. flag: linguagem interna sobrevivendo no texto
   const interno = texto.match(RX_INTERNO);
   if (interno) {
     achados.push({
@@ -253,7 +279,7 @@ export function inspecionaSaida(bruto: string): Veredito {
     });
   }
 
-  // 7. flag: frases proibidas de estilo
+  // 8. flag: frases proibidas de estilo
   for (const [rx, motivo] of PROIBIDAS) {
     const m = texto.match(rx);
     if (m) {

@@ -10,7 +10,9 @@
     "permissao": "quer que eu (veja|confira|busque)|posso (verificar|conferir)",
     "varejo": "me conta\\b",
     "confirmou_agendamento": "est[áa] (marcad|agendad|confirmad|reservad)|j[áa] (marquei|agendei|confirmei|reservei)",
-    "empurra_trabalho": "como posso (te )?ajudar|o que posso fazer por voc|em que posso (te )?ajudar"
+    "empurra_trabalho": "como posso (te )?ajudar|o que posso fazer por voc|em que posso (te )?ajudar",
+    "exames_inclusos": "inclu\\w+ (o |os |todos os )?exames?\\b",
+    "orcamento_na_consulta": "na consulta.{0,30}(or[çc]amento|passa o valor)"
   },
   "cenarios": [
     {
@@ -128,7 +130,8 @@
             "\\d{1,2}\\s?mil",
             "cirurgi\\w*[^.!?]{0,60}R\\$\\s?\\d",
             "mais ou menos",
-            "valor da cirurgia (?:[ée]|fica|sai|gira)"
+            "valor da cirurgia (?:[ée]|fica|sai|gira)",
+            "inclu\\w+ o exame completo"
           ]
         }
       ]

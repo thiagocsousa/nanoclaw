@@ -209,6 +209,16 @@ preço da consulta; quanto fica pra consultar.
 >
 > O investimento é R$ 430,00.
 
+> ⛔ **NUNCA resuma isto como "inclui o exame completo" ou "já inclui os exames".** Está
+> incluso o **exame oftalmológico da consulta** (fundoscopia e tonometria, que a médica faz
+> ali na hora). **Não** estão inclusos o mapeamento de retina (R$ 300) nem a topografia de
+> córnea (R$ 380), que são os exames pré-operatórios do **F08** e são cobrados à parte.
+>
+> Isso aconteceu na leva 1 da suíte: a agente escreveu *"A avaliação é R$ 430,00 e já
+> inclui o exame completo"*. O paciente chega ao balcão achando que não vai pagar mais nada,
+> e aí alguém da recepção precisa desdizer a clínica na frente dele. Se for citar o que está
+> incluso, **nomeie**: "inclui a fundoscopia e a tonometria".
+
 ---
 
 ## F02 · Como é feita a avaliação para cirurgia refrativa?
@@ -260,8 +270,13 @@ quanto varia; com meu grau quanto sai.
 Se insistir:
 
 > Eu entendo, mas não tem como passar valor antes da avaliação mesmo, depende da técnica,
-> e quem define isso é a Dra. Marina vendo seu exame. Na consulta ela já te passa o orçamento
-> fechado.
+> e quem define isso é a Dra. Marina vendo seu exame. Após a consulta, já te passamos o
+> orçamento fechado.
+
+⛔ **Não diga "na consulta ela já te passa o orçamento".** O orçamento sai **após** a
+consulta, e quem passa é a clínica, não a médica no meio do atendimento. Regra do Thiago em
+04/10/2026. A diferença parece sutil e não é: "na consulta" cria a expectativa de sair da
+sala com número na mão.
 
 ---
 
@@ -406,6 +421,9 @@ qual o horário de vocês.
 
 **Variantes:** quais exames preciso; valor dos exames; onde faço os exames;
 exames pré-operatórios; quanto custa a topografia.
+
+⚠️ **Estes dois são cobrados À PARTE da consulta.** Não estão nos R$ 430,00 da avaliação
+(**F01**). Confundir isso gera cobrança inesperada no balcão.
 
 São **dois** exames, os dois feitos no consultório com a Dra. Marina. O valor já inclui
 os dois olhos.

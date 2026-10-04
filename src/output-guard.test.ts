@@ -190,6 +190,34 @@ describe('avisa sem bloquear: deslize de estilo', () => {
     }
   });
 
+  it('pega "inclui o exame completo", que vira cobrança inesperada no balcão', () => {
+    for (const t of [
+      'A avaliação é R$ 430,00 e já inclui o exame completo.',
+      'Nesse valor os exames estão incluídos.',
+      'A consulta inclui todos os exames.',
+    ]) {
+      const v = inspecionaSaida(t);
+      expect(
+        v.achados.some((a) => a.regra === 'exames_inclusos'),
+        t,
+      ).toBe(true);
+    }
+  });
+
+  it('nomear o que está incluso é legítimo e passa', () => {
+    for (const t of [
+      'A avaliação é R$ 430,00 e inclui a fundoscopia e a tonometria.',
+      'Exames essenciais inclusos: Fundoscopia e Tonometria.',
+      'O valor do mapeamento já inclui os dois olhos.',
+    ]) {
+      const v = inspecionaSaida(t);
+      expect(
+        v.achados.some((a) => a.regra === 'exames_inclusos'),
+        t,
+      ).toBe(false);
+    }
+  });
+
   it('nome de bloco do FAQ no texto ao paciente é flag', () => {
     const v = inspecionaSaida('Conforme o F12, tem vaga segunda.');
     expect(v.achados.some((a) => a.regra === 'linguagem_interna')).toBe(true);
