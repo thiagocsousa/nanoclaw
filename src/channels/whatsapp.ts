@@ -267,6 +267,16 @@ export class WhatsAppChannel implements Channel {
               normalized.videoMessage?.caption ||
               '';
 
+            // Áudio não é transcrito (não há STT no projeto), mas também não
+            // pode ser descartado: sem isto o content fica vazio, o `continue`
+            // abaixo engole a mensagem e o paciente que mandou um áudio nunca é
+            // respondido. Um marcador deixa o agente saber que a pessoa falou e
+            // pedir por escrito, em vez de silêncio.
+            if (!content && normalized.audioMessage) {
+              const seg = Math.round(normalized.audioMessage.seconds || 0);
+              content = `[áudio recebido${seg ? `, ${seg}s` : ''}, não transcrito]`;
+            }
+
             if (normalized.documentMessage?.mimetype === 'application/pdf') {
               try {
                 const buffer = await downloadMediaMessage(msg, 'buffer', {});

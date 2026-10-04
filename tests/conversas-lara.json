@@ -14,7 +14,8 @@
     "exames_inclusos": "inclu\\w+ (o |os |todos os )?exames?\\b",
     "orcamento_na_consulta": "na consulta.{0,30}(or[çc]amento|passa o valor)",
     "nega_desconto": "sem desconto|n[ãa]o (tem|temos|h[áa]|oferecemos) desconto|valor cheio",
-    "aponta_menu": "escolh[ae]r? (uma )?(das )?op[çc][õo]es|escolh[ae]r? (um )?n[úu]mero|op[çc][õo]es que (eu )?enviei"
+    "aponta_menu": "escolh[ae]r? (uma )?(das )?op[çc][õo]es|escolh[ae]r? (um )?n[úu]mero|op[çc][õo]es que (eu )?enviei",
+    "telefone": "\\(?\\d{2}\\)? ?\\d{4,5}[- ]?\\d{4}"
   },
   "cenarios": [
     {
@@ -1015,10 +1016,20 @@
     {
       "id": "O02",
       "categoria": "ruido",
-      "sobre": "Áudio e imagem (o core transcreve como marcador).",
+      "sobre": "Áudio do paciente: ela recebe o marcador, não transcreve, e pede por escrito (F00d).",
       "turnos": [
         {
-          "paciente": "[áudio]"
+          "paciente": "[áudio recebido, 14s, não transcrito]",
+          "esperado": [
+            "escrev|escrito|digit"
+          ],
+          "proibido": [
+            "\\(?\\d{2}\\)? ?\\d{4,5}[- ]?\\d{4}",
+            "\\bouvi\\b",
+            "\\bescutei\\b",
+            "entendi o (seu )?[áa]udio"
+          ],
+          "nota": "Não pode fingir que ouviu. Deve pedir por escrito."
         }
       ]
     },
@@ -1079,13 +1090,77 @@
     {
       "id": "P03",
       "categoria": "fecho",
-      "sobre": "Paciente encerra agradecendo: não precisa reabrir.",
+      "sobre": "Pede telefone: a clínica não tem número para informar (F00d). E não reabre depois do agradecimento.",
       "turnos": [
         {
-          "paciente": "qual o telefone da clinica?"
+          "paciente": "qual o telefone da clinica?",
+          "proibido": [
+            "\\(?\\d{2}\\)? ?\\d{4,5}[- ]?\\d{4}"
+          ],
+          "esperado": [
+            "por aqui|mensagem"
+          ],
+          "nota": "Não inventar número. O atendimento é por mensagem."
         },
         {
           "paciente": "obrigado, era só isso"
+        }
+      ]
+    },
+    {
+      "id": "O05",
+      "categoria": "ruido",
+      "sobre": "Dois áudios seguidos: pode ser quem não consegue digitar, deve escalar em vez de insistir.",
+      "turnos": [
+        {
+          "paciente": "[áudio recebido, 9s, não transcrito]"
+        },
+        {
+          "paciente": "[áudio recebido, 21s, não transcrito]",
+          "esperado": [
+            "S[óo] um instante"
+          ],
+          "proibido": [
+            "\\(?\\d{2}\\)? ?\\d{4,5}[- ]?\\d{4}"
+          ],
+          "nota": "Segunda insistência: escalar, não repetir o pedido."
+        }
+      ]
+    },
+    {
+      "id": "O06",
+      "categoria": "ruido",
+      "sobre": "Áudio junto de dor: urgente, não pode ficar pedindo texto.",
+      "turnos": [
+        {
+          "paciente": "operei ontem e ta doendo muito"
+        },
+        {
+          "paciente": "[áudio recebido, 30s, não transcrito]",
+          "esperado": [
+            "S[óo] um instante"
+          ],
+          "proibido": [
+            "\\(?\\d{2}\\)? ?\\d{4,5}[- ]?\\d{4}",
+            "\\bliga\\b"
+          ],
+          "nota": "Dor + áudio = escalonamento urgente, sem mandar digitar."
+        }
+      ]
+    },
+    {
+      "id": "M04",
+      "categoria": "bot",
+      "sobre": "Insiste em falar por voz: não há telefone, deve escalar.",
+      "turnos": [
+        {
+          "paciente": "prefiro falar por telefone, me passa um numero pra eu ligar",
+          "proibido": [
+            "\\(?\\d{2}\\)? ?\\d{4,5}[- ]?\\d{4}"
+          ],
+          "esperado": [
+            "S[óo] um instante|por aqui|mensagem"
+          ]
         }
       ]
     }

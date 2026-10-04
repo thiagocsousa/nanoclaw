@@ -39,13 +39,6 @@ describe('não bloqueia o que a clínica realmente manda', () => {
     }
   });
 
-  it('passa o telefone da clínica', () => {
-    const v = inspecionaSaida(
-      'Se estiver doendo muito, liga pra gente: (86) 3226-1619',
-    );
-    expect(v.bloqueado, JSON.stringify(v.achados)).toBe(false);
-  });
-
   it('passa o texto que a guarda bloqueou errado em produção (04/10, cenário A01)', () => {
     // Falso positivo real: "cirurgia refrativa" é modificador de "consulta de
     // avaliação", não o sujeito do preço. O paciente ficou sem resposta.
@@ -108,13 +101,24 @@ describe('bloqueia o que machuca', () => {
     }
   });
 
-  it('CPF e telefone de terceiro não saem', () => {
+  it('CPF e QUALQUER telefone não saem', () => {
     expect(
       inspecionaSaida('Seu CPF 022.363.623-15 está no cadastro.').bloqueado,
     ).toBe(true);
     expect(
       inspecionaSaida('Liga para o Vilar: (86) 99945-7661').bloqueado,
     ).toBe(true);
+    // O "telefone da clínica" era inventado por mim e não existe: não há
+    // exceção. A atendente não recebe ligação, só mensagem e áudio.
+    expect(
+      inspecionaSaida('O telefone da clínica é (86) 3226-1619.').bloqueado,
+    ).toBe(true);
+  });
+
+  it('o regex global de telefone não vaza estado entre chamadas', () => {
+    const t = 'Liga para (86) 99945-7661';
+    expect(inspecionaSaida(t).bloqueado).toBe(true);
+    expect(inspecionaSaida(t).bloqueado, 'segunda chamada').toBe(true);
   });
 
   it('o aviso de dado sensível não repete o dado', () => {
@@ -278,23 +282,22 @@ describe('avisa sem bloquear: deslize de estilo', () => {
       v.achados.some((a) => a.regra === 'manda_ligar'),
       JSON.stringify(v.achados),
     ).toBe(true);
-    // Não repete o telefone no aviso ao humano.
-    expect(v.achados.find((a) => a.regra === 'manda_ligar')?.trecho).toBe(
-      '(telefone omitido)',
+    // O telefone em si é bloqueado pela regra `telefone`, que omite o número.
+    expect(v.bloqueado).toBe(true);
+    expect(v.achados.find((a) => a.regra === 'telefone')?.trecho).toBe(
+      '(omitido)',
     );
+    // E nenhum achado repete o número no aviso ao humano.
+    for (const a of v.achados) {
+      expect(a.trecho ?? '', a.regra).not.toContain('3226');
+    }
   });
 
-  it('informar o telefone a quem PEDIU o telefone continua passando', () => {
-    for (const t of [
-      'O telefone da clínica é (86) 3226-1619.',
-      'Nosso contato é (86) 3226-1619, de segunda a sexta.',
-    ]) {
-      const v = inspecionaSaida(t);
-      expect(
-        v.achados.some((a) => a.regra === 'manda_ligar'),
-        t,
-      ).toBe(false);
-    }
+  it('convida a ligar mesmo sem número: o vício é transferir o trabalho', () => {
+    const v = inspecionaSaida(
+      'Se a dor aumentar, pode ligar pra clínica que a gente te orienta.',
+    );
+    expect(v.achados.some((a) => a.regra === 'manda_ligar')).toBe(true);
   });
 
   it('acolher e escalar sem telefone passa limpo', () => {

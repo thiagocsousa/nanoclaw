@@ -194,7 +194,6 @@ const NOMEIA_INCLUSO = /fundoscopia|tonometria|dois olhos|ambos os olhos/i;
  * a combinação, não o número solto: telefone mais convite a ligar, ou telefone
  * mais contexto de dor.
  */
-const RX_TELEFONE_CLINICA = /\(?86\)?\s*3226[-\s]?1619/;
 const RX_CONVITE_LIGAR = /\b(?:liga|ligue|ligar|nos liga|me liga)\b/i;
 const RX_DOR =
   /\b(?:dor|doendo|doer|ardendo|arder|incomodando|urg[êe]ncia|urgente|p[óo]s[-\s]?operat[óo]rio|inchad)/i;
@@ -225,9 +224,16 @@ const RX_NEGA_DESCONTO =
 // --- dado de terceiro -------------------------------------------------------
 
 const RX_CPF = /\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/;
-/** Telefone que não é o da clínica (86 3226-1619). */
+/**
+ * QUALQUER telefone na saída é bloqueado, sem exceção.
+ *
+ * Até 04/10/2026 havia uma exceção para "o telefone da clínica", (86) 3226-1619.
+ * O Thiago apontou que esse número **não existe**: eu o inventei e o escrevi no
+ * FAQ como fato. A verificação no corpus de 482 conversas confirmou zero
+ * ocorrências. A atendente também não recebe ligação, só mensagem e áudio, então
+ * não há telefone legítimo a informar e a exceção some.
+ */
 const RX_TELEFONE = /\(?\b(?:0?\d{2})\)?\s?9?\d{4}[-\s]?\d{4}\b/g;
-const TELEFONE_CLINICA = /3226\s?-?\s?1619/;
 
 // ---------------------------------------------------------------------------
 
@@ -285,28 +291,25 @@ export function inspecionaSaida(bruto: string): Veredito {
       trecho: '(omitido)',
     });
   }
-  for (const t of texto.match(RX_TELEFONE) ?? []) {
-    if (TELEFONE_CLINICA.test(t)) continue;
+  if (RX_TELEFONE.test(texto)) {
     achados.push({
-      regra: 'telefone_terceiro',
+      regra: 'telefone',
       nivel: 'block',
-      motivo: 'telefone que não é o da clínica; pode ser de outro paciente',
+      motivo:
+        'telefone na resposta; a clínica não tem telefone a informar (a atendente não recebe ligação) e um número qualquer pode ser de outro paciente',
       trecho: '(omitido)',
     });
-    break;
   }
+  RX_TELEFONE.lastIndex = 0; // regex global: zera entre chamadas
 
   // 6. flag: mandou o paciente ligar
-  if (
-    RX_TELEFONE_CLINICA.test(texto) &&
-    (RX_CONVITE_LIGAR.test(texto) || RX_DOR.test(texto))
-  ) {
+  if (RX_CONVITE_LIGAR.test(texto) && RX_DOR.test(texto)) {
     achados.push({
       regra: 'manda_ligar',
       nivel: 'flag',
       motivo:
-        'manda o paciente ligar; quem liga é a clínica. Acolha, escale com --urgente e diga "Só um instante" (F13)',
-      trecho: '(telefone omitido)',
+        'convida o paciente a ligar em contexto de dor; quem procura é a clínica. Acolha, escale com --urgente e diga "Só um instante" (F13)',
+      trecho: RX_CONVITE_LIGAR.exec(texto)?.[0] ?? 'ligar',
     });
   }
 
