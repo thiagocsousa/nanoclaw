@@ -89,7 +89,8 @@ critérios que não cabem num nome:
 
   | o dado mostra | a intenção é |
   |---|---|
-  | plano fora de particular/Unimed | `convenio_nao_atendido` |
+  | plano fora de particular/Unimed, perguntando de **consulta** ou só entregando o dado | `convenio_nao_atendido` |
+  | plano fora de particular/Unimed, perguntando da **cirurgia** | `convenio_cirurgia`: a maioria cobre, e a recusa da consulta não se aplica |
   | IASPI, IAPEP, PLAMTA, IPMT, PLANTE | a intenção própria daquele plano |
   | Intermed, Hapvida ou Humana | `convenio_bloqueado` |
   | cidade fora de Teresina, com intenção de cirurgia | `paciente_de_fora` |

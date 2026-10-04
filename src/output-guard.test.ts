@@ -586,8 +586,12 @@ describe('a guarda contra a tabela de templates aprovados', () => {
   ) as { intencoes: Record<string, { textos?: string[] }> };
 
   const VALOR: Record<string, string> = {
-    valor_consulta: '430,00', valor_desconto: '300,00', dia: 'segunda',
-    data: '06/10', hora: '09:20', dia_pedido: 'sábado',
+    valor_consulta: '430,00',
+    valor_desconto: '300,00',
+    dia: 'segunda',
+    data: '06/10',
+    hora: '09:20',
+    dia_pedido: 'sábado',
   };
 
   const casos: Array<[string, string]> = [];
