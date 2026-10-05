@@ -137,10 +137,14 @@ imagem do container tem `xmlsec`, `lxml`, `playwright` e `requests-pkcs12`.
 
 | O que | Estado |
 |---|---|
-| `NFSE_MODO=dps` | **ausente** no `.env` — o default é `abrasf`, o caminho morto |
-| `NFSE_MODO` em `FORWARDED_ENV_VARS` | **ausente** de `src/container-runner.ts` |
-| DPS rodando dentro do container | **nunca aconteceu** — ver abaixo |
-| `nfse_dps_state.json` | ausente — a sequência de `nDPS` começaria em 1 |
+| `NFSE_MODO=dps` | ✅ **ligado em produção** 05/10/2026 22:10 (backup em `.env.bak-20261005-221051`) |
+| `NFSE_MODO` em `FORWARDED_ENV_VARS` | ✅ feito (commit `7f5be1a7`), conferido no `dist` da VM |
+| Assinatura dentro do container | ✅ **provada** 05/10/2026 — ver abaixo |
+| `nfse_dps_state.json` | ausente — a sequência de `nDPS` começa em 1 (aceito) |
+
+⚠️ **A chave está ligada: a próxima aprovação no WhatsApp emite por DPS, de
+verdade.** Ligar a chave sozinha não emite nada — a emissão só acontece quando
+alguem aprova itens no grupo.
 
 ⚠️ **Setar `NFSE_MODO=dps` no `.env` não é suficiente.** A emissão roda *dentro*
 do container, e a lista encaminhada (`container-runner.ts:97-102`) tem
@@ -165,12 +169,20 @@ precisam entrar**:
 
 `NFSE_DPS_INICIAL` só é necessária para **não** começar do 1.
 
-⚠️ **O caminho DPS nunca rodou dentro do container.** Fases 1–4 foram provadas
-em homologação, mas nenhum transcript de sessão do agente nem log de container
-menciona `nfse_dps` (conferido em 05/10/2026). Ou seja: a assinatura via o
-`xmlsec` da imagem está **inexercitada**, e sem um teste intermediário a primeira
-execução em container seria também a primeira emissão em produção. "A imagem tem
-`xmlsec` instalado" não é o mesmo que "assinar funciona na imagem".
+✅ **Assinatura exercitada dentro do container (05/10/2026).** Até então o
+caminho DPS nunca havia rodado em container — nenhum transcript de sessão nem log
+mencionava `nfse_dps` —, ou seja a primeira execução em container seria também a
+primeira emissão em produção ("a imagem tem `xmlsec` instalado" não é o mesmo que
+"assinar funciona na imagem").
+
+Teste feito com `nfse_dps.py --assinar`, que monta uma DPS com tomador fictício,
+assina com o A1 e verifica — rodando com `--network none`, logo **sem
+possibilidade de emitir**. Resultado: `✅ assinatura: assinatura confere`, exit 0.
+O `xmlsec` da imagem funciona com o certificado real.
+
+Como repetir: materializar o `.pfx` do `NFSE_CERT_B64` num temporário dentro do
+container e chamar `--assinar --pfx <temp>`. Credenciais por `-e NOME` (herdando
+o valor), nunca `-e NOME=valor`, que deixaria a senha visível em `ps`.
 
 Sobre a sequência de `nDPS`: é **separada** da numeração de RPS do ABRASF, e o
 `nfse_emitir_pipeline.py:216` a avança **uma vez por lote, depois** do loop de
@@ -217,15 +229,11 @@ do WhatsApp.
 
 ### Ordem sugerida
 
-1. Encaminhar `NFSE_MODO` em `src/container-runner.ts` + deploy (as outras vars
-   do DPS têm default seguro; ver a tabela acima).
-2. **Exercitar a assinatura dentro do container antes de tocar produção:**
-   `nfse_dps.py --assinar` (ou uma emissão em homologação) rodando no container,
-   só para confirmar que passa do `assina()` com o `xmlsec` da imagem. É barato e
-   evita que a estreia em container seja a estreia em produção.
-3. Decidir o `nDPS` inicial (ou aceitar começar do 1).
-4. Ligar `NFSE_MODO=dps` e emitir **uma** nota PF de **consulta** — categoria com
-   NBS conferido contra nota real — de menor valor.
+1. ~~Encaminhar `NFSE_MODO` + deploy~~ — ✅ feito (`7f5be1a7`).
+2. ~~Exercitar a assinatura dentro do container~~ — ✅ feito, assinatura confere.
+3. ~~Decidir o `nDPS` inicial~~ — aceito começar do 1.
+4. ✅ `NFSE_MODO=dps` ligado. **Falta a primeira emissão:** uma nota PF de
+   **consulta** — categoria com NBS conferido contra nota real — de menor valor.
 
    ⚠️ **Não há candidato de consulta hoje.** O `pending_nfse.json` tem um único
    item emissível: Anna Claudya, R$ 5.900, **cirurgia** — justamente a categoria
