@@ -110,6 +110,13 @@ const FORWARDED_ENV_VARS = [
   // começo da sequência de nDPS sem precisar de outro deploy.
   'NFSE_MODO',
   'NFSE_DPS_INICIAL',
+  // Senha do portal DSF. A DPS não devolve código de verificação, então o PDF
+  // (DANFSE) é obtido pelo `nfse_danfse_portal.py`, que entra no portal com
+  // Playwright e intercepta o código. Sem esta var o coletor morre com
+  // "defina NFSE_PORTAL_SENHA no .env" e a fila de PDFs nunca anda — foi o que
+  // deixou a nota 3460 sem PDF em 05/10/2026. O USUÁRIO não precisa vir: é o
+  // CNPJ da clínica e já tem padrão em código (`_usuario_padrao`).
+  'NFSE_PORTAL_SENHA',
   // Atendimento ao paciente: alarme sonoro (ntfy) e rota do escalonamento.
   // Sem isto o escalar.py roda sem alarme e NINGUÉM é acordado — o tipo de
   // falha silenciosa que só aparece na emergência de verdade.

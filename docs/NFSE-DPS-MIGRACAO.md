@@ -212,9 +212,9 @@ do DANFSE exige o código (ver Fase 5). O contorno existe
 
 | O que | Estado |
 |---|---|
-| `NFSE_DANFSE_PORTAL=1` | ausente (o contorno vem desligado) |
-| `NFSE_PORTAL_USUARIO` | **ausente** no `.env` (a senha está) |
-| `NFSE_PORTAL_*` / `NFSE_DANFSE_PORTAL` encaminhadas | **nenhuma** está |
+| `NFSE_PORTAL_SENHA` encaminhada ao container | ✅ feito 05/10/2026 — era o único que faltava |
+| `NFSE_PORTAL_USUARIO` | não é necessária: o login é o CNPJ, com padrão em `_usuario_padrao` |
+| `NFSE_DANFSE_PORTAL` | ⚠️ **essa var não existe no código** — ver abaixo |
 
 Risco a medir antes de ligar: o Chromium sobe dentro da emissão e o pré-check do
 agent-runner corta em 180s — já foi problema com o coletor, que leva ~87s.
@@ -237,15 +237,17 @@ do WhatsApp.
    recomendava: era o único item emissível na lista, e o Thiago escolheu tentar.
    Deu certo, e de quebra confirmou o `cTribMun 003`.
 5. **Conferir a 3460 no portal** — ainda não feito.
-6. ⏳ **DANFSE — pendente e com paciente esperando.** A 3460 está em
-   `nfse_danfse_pendentes.json` e o cron `marina-danfse` (`0,30 19-21`, seg-sex)
-   vai falhar enquanto faltar:
-   - `NFSE_PORTAL_SENHA` em `FORWARDED_ENV_VARS` — **está no `.env`, não chega ao
-     container** (mesma pegadinha do `NFSE_MODO`);
-   - `NFSE_DANFSE_PORTAL=1` no `.env` — o contorno vem desligado.
+6. ✅ **DANFSE destravado.** A 3460 entrou em `nfse_danfse_pendentes.json` e o
+   cron `marina-danfse` (`0,30 19-21`, seg-sex) falhava porque a
+   `NFSE_PORTAL_SENHA` estava no `.env` e **não chegava ao container** — a mesma
+   pegadinha do `NFSE_MODO`. Encaminhada em 05/10/2026; era a única coisa que
+   faltava.
 
    `NFSE_PORTAL_USUARIO` **não** é necessária: o login é o CNPJ e já tem padrão
-   em código (`_usuario_padrao`).
+   em código (`_usuario_padrao`). As demais (`NFSE_PORTAL_HOMOLOG`,
+   `NFSE_PORTAL_PROD`, `NFSE_PORTAL_TIMEOUT_MS`, `NFSE_DANFSE_DIR`,
+   `NFSE_DANFSE_MAX_TENTATIVAS`, `NFSE_DANFSE_MAX_RODADA`) têm default seguro —
+   levantadas invertendo a busca nos dois scripts do DANFSE.
 7. Depois: PJ (com o contador).
 
 ## Fases
@@ -654,10 +656,13 @@ O navegador **não participa do envio ao paciente**: depois de coletado o
 código, o download volta a ser o HTTP puro que já roda em produção.
 
 - Uma sessão de navegador por **lote**, não por nota.
-- **Desligado por padrão.** Ligue com `NFSE_DANFSE_PORTAL=1` só depois de medir
-  o tempo do lote: subir o Chromium dentro da emissão pode estourar o timeout
-  de 180s do pré-check do agent-runner — já foi problema com o coletor NFS-e,
-  que leva ~87s.
+- ⚠️ **`NFSE_DANFSE_PORTAL` não existe no código.** Este doc dizia que o
+  contorno vinha desligado e que bastava ligar a var — conferido em 05/10/2026,
+  ela não é lida em lugar nenhum: o `nfse_danfse_pipeline.py` importa o
+  `nfse_danfse_portal` sem flag. O que de fato gateava era a senha ausente no
+  container. **A preocupação continua real** — subir o Chromium custa ~20s por
+  nota e o pré-check do agent-runner corta em 180s — mas quem protege disso é o
+  `MAX_POR_RODADA` do pipeline, não uma var de liga/desliga.
 - Falha do portal **nunca** invalida a emissão (as notas já saíram): os PDFs
   entram como pendentes no resumo do WhatsApp.
 - Nunca inventa código: nota sem código fica fora do JSON.
@@ -701,8 +706,12 @@ o lote estoura o timeout**, e um dia de movimento passa disso tranquilamente.
 dela. A emissão é rápida e não pode ser derrubada por um navegador lento; o
 download pode rodar logo depois, por conta própria, e reprocessar o que faltou.
 
-Enquanto isso não for feito, `NFSE_DANFSE_PORTAL=1` só é seguro para lotes
-pequenos.
+✅ **Feito:** é o cron `marina-danfse` (`0,30 19-21`, seg-sex), rodando
+`nfse_danfse_pipeline.py`. A emissão apenas ENFILEIRA em
+`nfse_danfse_pendentes.json`; quem baixa é essa task, limitada por
+`MAX_POR_RODADA` para não estourar os 180s. Fila vazia não faz nada, e falha
+geral (portal fora, credencial errada) **não desiste de nada** — a fila inteira
+fica para a rodada seguinte.
 
 **Nota cancelada não tem DANFSE** e falha na coleta — comportamento correto,
 já que não há PDF para enviar. A mensagem de log diz isso explicitamente em vez
