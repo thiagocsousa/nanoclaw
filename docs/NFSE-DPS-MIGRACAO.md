@@ -139,18 +139,46 @@ imagem do container tem `xmlsec`, `lxml`, `playwright` e `requests-pkcs12`.
 |---|---|
 | `NFSE_MODO=dps` | **ausente** no `.env` — o default é `abrasf`, o caminho morto |
 | `NFSE_MODO` em `FORWARDED_ENV_VARS` | **ausente** de `src/container-runner.ts` |
-| `NFSE_DPS_INICIAL` / `nfse_dps_state.json` | ambos ausentes — a sequência de `nDPS` começaria em 1 |
+| DPS rodando dentro do container | **nunca aconteceu** — ver abaixo |
+| `nfse_dps_state.json` | ausente — a sequência de `nDPS` começaria em 1 |
 
 ⚠️ **Setar `NFSE_MODO=dps` no `.env` não é suficiente.** A emissão roda *dentro*
-do container, e a lista de vars encaminhadas (`src/container-runner.ts`) tem
+do container, e a lista encaminhada (`container-runner.ts:97-102`) tem
 `NFSE_CERT_B64`, `NFSE_CERT_PASSWORD`, `NFSE_RPS_INICIAL`, `NFSE_INICIO`,
-`NFSE_PROXY` e `NFSE_AMBIENTE` — e **nenhuma** das vars novas do DPS. Sem
-mudança de código + deploy, o pipeline dentro do container continua lendo
-`abrasf` e falhando no L999. É a pegadinha mais fácil de não ver aqui.
+`NFSE_PROXY` e `NFSE_AMBIENTE`. Sem mudança de código + deploy, o pipeline dentro
+do container continua lendo `abrasf` e falhando no L999.
 
-A sequência de `nDPS` é **separada** da numeração de RPS do ABRASF. Decidir o
-inicial antes de ligar: começar do 1 em produção pode colidir com o que já foi
-gasto em homologação, se a prefeitura compartilhar a série.
+**O mínimo a encaminhar é `NFSE_MODO`** — e só ele. Levantadas invertendo a
+busca (todo `environ.get("NFSE...")` dos três scripts do DPS × a lista
+encaminhada), as outras não encaminhadas têm default seguro em código e **não
+precisam entrar**:
+
+| Var | Default | Por que não precisa |
+|---|---|---|
+| `NFSE_DPS_SERIE` | `10001` | já é a faixa do contribuinte exigida pelo L0022 |
+| `NFSE_XSD_DIR` | vazio | só o CLI valida contra XSD; a emissão pula |
+| `NFSE_CERT_PATH` | vazio | a pipeline usa `NFSE_CERT_B64`, não o caminho |
+| `NFSE_CNPJ` / `NFSE_IM` | valores reais da CARDIOMED | já corretos |
+| `NFSE_DPS_TIMEOUT` | `180` | suficiente (1ª emissão em homolog estourou 60s) |
+| `NFSE_DPS_SEP_DESC` | `" - "` | cosmético |
+| `NFSE_CST_PISCOFINS` | `01` | só caminho PJ, que está travado |
+
+`NFSE_DPS_INICIAL` só é necessária para **não** começar do 1.
+
+⚠️ **O caminho DPS nunca rodou dentro do container.** Fases 1–4 foram provadas
+em homologação, mas nenhum transcript de sessão do agente nem log de container
+menciona `nfse_dps` (conferido em 05/10/2026). Ou seja: a assinatura via o
+`xmlsec` da imagem está **inexercitada**, e sem um teste intermediário a primeira
+execução em container seria também a primeira emissão em produção. "A imagem tem
+`xmlsec` instalado" não é o mesmo que "assinar funciona na imagem".
+
+Sobre a sequência de `nDPS`: é **separada** da numeração de RPS do ABRASF, e o
+`nfse_emitir_pipeline.py:216` a avança **uma vez por lote, depois** do loop de
+emissão — logo um crash no meio do lote perde o avanço e o próximo run reusa o
+`nDPS`. Na prática o `emitir_com_protecao` consulta por `idDps` antes de enviar,
+o que cobre isso. Se começar do 1 colide com o que foi gasto em homologação
+**é hipótese não testada** — não sabemos se a prefeitura compartilha a série
+entre ambientes.
 
 ### 2. Limita o alcance — decisão, não bug
 
@@ -189,13 +217,25 @@ do WhatsApp.
 
 ### Ordem sugerida
 
-1. Encaminhar `NFSE_MODO`, `NFSE_DPS_INICIAL`, `NFSE_PORTAL_USUARIO`,
-   `NFSE_DANFSE_PORTAL` em `src/container-runner.ts` + deploy.
-2. Decidir o `nDPS` inicial.
-3. Ligar `NFSE_MODO=dps` e emitir **uma** nota PF de consulta (categoria com NBS
-   conferido contra nota real) — menor valor disponível.
-4. Conferir a nota no portal antes de liberar o lote.
-5. Depois: DANFSE (medir o tempo do Chromium) e PJ (com o contador).
+1. Encaminhar `NFSE_MODO` em `src/container-runner.ts` + deploy (as outras vars
+   do DPS têm default seguro; ver a tabela acima).
+2. **Exercitar a assinatura dentro do container antes de tocar produção:**
+   `nfse_dps.py --assinar` (ou uma emissão em homologação) rodando no container,
+   só para confirmar que passa do `assina()` com o `xmlsec` da imagem. É barato e
+   evita que a estreia em container seja a estreia em produção.
+3. Decidir o `nDPS` inicial (ou aceitar começar do 1).
+4. Ligar `NFSE_MODO=dps` e emitir **uma** nota PF de **consulta** — categoria com
+   NBS conferido contra nota real — de menor valor.
+
+   ⚠️ **Não há candidato de consulta hoje.** O `pending_nfse.json` tem um único
+   item emissível: Anna Claudya, R$ 5.900, **cirurgia** — justamente a categoria
+   com `cTribMun 003` nunca testado. Seguir esta ordem ao pé da letra com a lista
+   atual faria a categoria mais arriscada ser a primeira DPS de produção, no
+   maior valor. Esperar uma consulta entrar na lista, ou aceitar o risco
+   conscientemente.
+5. Conferir a nota no portal antes de liberar o lote.
+6. Depois: DANFSE (encaminhar `NFSE_PORTAL_USUARIO`/`NFSE_PORTAL_SENHA` e
+   `NFSE_DANFSE_PORTAL`, medir o tempo do Chromium) e PJ (com o contador).
 
 ## Fases
 
