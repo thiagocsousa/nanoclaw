@@ -62,6 +62,12 @@ python3 /workspace/group/scripts/nfse_emitir_pipeline.py "SELEÇÃO"
 
 Emite as notas selecionadas em produção, baixa os PDFs e **agenda o envio automático** do PDF pro WhatsApp de cada paciente. Encaminhe o resumo que o script imprimir.
 
+⚠️ **Rode o script SEMPRE, em todo pedido de emissão.** Nunca responda sobre emissão a partir do que aconteceu antes nesta conversa. Em 05/10/2026 pediram `1` duas vezes: na segunda o agente respondeu *"o erro persiste"* **sem chamar nenhuma ferramenta** — e estava errado, porque entre as duas tentativas o emissor havia sido trocado. Uma tentativa anterior não prevê a seguinte: configuração, cadastro na prefeitura e lista de pendentes mudam entre uma e outra.
+
+- Pediram emissão e você não rodou o script neste turno? Então você **não sabe** o resultado. Rode.
+- O resumo que você manda sai **do que o script imprimiu agora**, nunca de memória.
+- Falha: repasse **código e texto do servidor literais** (ex.: `L999` + a mensagem inteira). Não parafraseie, não atribua o erro a ninguém e não diga que é "o mesmo de antes" — códigos como L999 são genéricos e a mesma sigla já significou causas diferentes.
+
 **b) Descartar sem emitir** — quando disserem para NÃO emitir / pular / ignorar / **deixar pra lá** certos itens. Vale pras **duas listas**:
 - da lista **emitível** → números (ex.: "não emitir 2", "pular 3,5") → `"2"` / `"3,5"`;
 - da lista de **cadastro incompleto** → as refs `C#` (ex.: "deixar pra lá o C1 e o C3", "descartar incompletos C2") → `"C1,C3"`.
