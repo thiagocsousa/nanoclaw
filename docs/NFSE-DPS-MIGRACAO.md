@@ -110,6 +110,93 @@ esse a gente descarta.
 - **Credenciamento não é necessário**: basta a empresa estar apta a emitir NFS-e
   em Teresina, o que já é o caso.
 
+## 🚨 O que falta para emitir em produção (levantado 05/10/2026)
+
+**A migração deixou de ser opcional.** Em 05/10/2026 a emissão pelo caminho
+antigo foi recusada em produção (protocolo 020491055, paciente Anna Claudya):
+
+> `L999` — "O Emissor atual está disponível somente para contribuintes
+> enquadrados no Simples Nacional ou que possuam atividade vigente vinculada aos
+> itens de serviço 01.03, 01.05, 01.09 ou 16.01. Para realizar a emissão,
+> utilize o Novo emissor ajustado ao padrão nacional."
+
+A CARDIOMED não é optante do Simples (`opSimpNac: "1"`) e seus itens são
+04.01/04.03. O `nfse_emitir.py` (ABRASF 2.03) **morreu** para esta inscrição.
+(Esse L999 não tem relação com o L999 de CEP faltando: a DSF usa L999 como código
+genérico e só a mensagem é diagnóstica.)
+
+### Pronto e verificado
+
+Fases 1 a 4 feitas: conexão, montagem + XSD, emissão em homologação,
+cancelamento. Assinatura conferida contra os 8 requisitos do guia; trava
+anti-duplicata provada (reenvio devolveu `reaproveitada: true`). O certificado A1
+está na VM (`NFSE_CERT_B64` + `NFSE_CERT_PASSWORD`), `NFSE_AMBIENTE=producao`, e a
+imagem do container tem `xmlsec`, `lxml`, `playwright` e `requests-pkcs12`.
+
+### 1. Bloqueia a emissão — técnico, nosso
+
+| O que | Estado |
+|---|---|
+| `NFSE_MODO=dps` | **ausente** no `.env` — o default é `abrasf`, o caminho morto |
+| `NFSE_MODO` em `FORWARDED_ENV_VARS` | **ausente** de `src/container-runner.ts` |
+| `NFSE_DPS_INICIAL` / `nfse_dps_state.json` | ambos ausentes — a sequência de `nDPS` começaria em 1 |
+
+⚠️ **Setar `NFSE_MODO=dps` no `.env` não é suficiente.** A emissão roda *dentro*
+do container, e a lista de vars encaminhadas (`src/container-runner.ts`) tem
+`NFSE_CERT_B64`, `NFSE_CERT_PASSWORD`, `NFSE_RPS_INICIAL`, `NFSE_INICIO`,
+`NFSE_PROXY` e `NFSE_AMBIENTE` — e **nenhuma** das vars novas do DPS. Sem
+mudança de código + deploy, o pipeline dentro do container continua lendo
+`abrasf` e falhando no L999. É a pegadinha mais fácil de não ver aqui.
+
+A sequência de `nDPS` é **separada** da numeração de RPS do ABRASF. Decidir o
+inicial antes de ligar: começar do 1 em produção pode colidir com o que já foi
+gasto em homologação, se a prefeitura compartilhar a série.
+
+### 2. Limita o alcance — decisão, não bug
+
+- **Tomador PJ não sai por DPS** (`nfse_dps.py:197`, `raise ValueError`): o
+  `tpRetPisCofins`/`CST_PISCOFINS` são novos no padrão nacional e numa emissão de
+  teste a prefeitura calculou o líquido ignorando PIS/COFINS, divergindo de uma
+  nota real validada pelo contador. Nota para CNPJ fica **manual**. Depende do
+  contador, não de código.
+- **Cirurgia nunca foi testada de ponta a ponta**: `cTribMun` `003` é recusado em
+  homologação com L0001 (cadastro econômico daquele ambiente desatualizado). A
+  primeira cirurgia real em produção é o teste. Falha isolada: o item cai sozinho
+  e reaparece no dia seguinte.
+
+### 3. Quebra a entrega do PDF — não a emissão
+
+A DPS devolve `chaveAcesso` e `nNFSe`, nunca código de verificação, e o endpoint
+do DANFSE exige o código (ver Fase 5). O contorno existe
+(`nfse_danfse_portal.py`), mas falta:
+
+| O que | Estado |
+|---|---|
+| `NFSE_DANFSE_PORTAL=1` | ausente (o contorno vem desligado) |
+| `NFSE_PORTAL_USUARIO` | **ausente** no `.env` (a senha está) |
+| `NFSE_PORTAL_*` / `NFSE_DANFSE_PORTAL` encaminhadas | **nenhuma** está |
+
+Risco a medir antes de ligar: o Chromium sobe dentro da emissão e o pré-check do
+agent-runner corta em 180s — já foi problema com o coletor, que leva ~87s.
+
+✅ Isso **não** impede faturar: a nota sai, o PDF entra como pendente no resumo
+do WhatsApp.
+
+### 4. Confirmações menores do contador
+
+`regEspTrib: "0"` (`nfse_dps.py:42`) nunca foi confirmado. `CST_PISCOFINS` e
+`RETENCOES_PJ` também não, mas só afetam o caminho PJ, que já está travado.
+
+### Ordem sugerida
+
+1. Encaminhar `NFSE_MODO`, `NFSE_DPS_INICIAL`, `NFSE_PORTAL_USUARIO`,
+   `NFSE_DANFSE_PORTAL` em `src/container-runner.ts` + deploy.
+2. Decidir o `nDPS` inicial.
+3. Ligar `NFSE_MODO=dps` e emitir **uma** nota PF de consulta (categoria com NBS
+   conferido contra nota real) — menor valor disponível.
+4. Conferir a nota no portal antes de liberar o lote.
+5. Depois: DANFSE (medir o tempo do Chromium) e PJ (com o contador).
+
 ## Fases
 
 Cada fase é verificável sozinha. Nenhuma toca produção até a Fase 6.
