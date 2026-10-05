@@ -110,8 +110,18 @@ def _vagas():
     trata: consulta CANCELADA libera o horário, "SOLICITAÇÕES" não ocupa sala, e
     um compromisso de 20 min às 09:10 invade as 09:20.
     """
-    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    import iclinic_vagas as v
+    for d in (os.path.dirname(os.path.abspath(__file__)),
+              "/workspace/group/scripts"):
+        if d and d not in sys.path:
+            sys.path.insert(0, d)
+    try:
+        import iclinic_vagas as v
+    except ImportError as exc:
+        # Sem a aritmética de agenda não há verificação de vaga, e sem ela este
+        # script não tem o direito de escrever. Morrer aqui é o certo.
+        raise SystemExit(
+            "iclinic_vagas.py não encontrado ao lado deste script: sem ele não "
+            "há como conferir se a vaga está livre. Não marquei. (%s)" % exc)
     return v
 
 
