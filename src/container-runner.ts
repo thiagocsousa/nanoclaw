@@ -100,6 +100,16 @@ const FORWARDED_ENV_VARS = [
   'NFSE_INICIO',
   'NFSE_PROXY',
   'NFSE_AMBIENTE',
+  // Padrão Nacional (DPS). A emissão roda DENTRO do container, então o modo
+  // precisa chegar aqui: sem isto o pipeline lê o default 'abrasf' e falha com
+  // L999 ("utilize o Novo emissor ajustado ao padrão nacional"), que é
+  // exatamente o que a prefeitura passou a responder em 05/10/2026 para quem
+  // não é do Simples. As outras vars do DPS têm default seguro em código
+  // (NFSE_DPS_SERIE já é 10001, a faixa do L0022) — ver
+  // docs/NFSE-DPS-MIGRACAO.md. A INICIAL fica aqui só para dar como mudar o
+  // começo da sequência de nDPS sem precisar de outro deploy.
+  'NFSE_MODO',
+  'NFSE_DPS_INICIAL',
   // Atendimento ao paciente: alarme sonoro (ntfy) e rota do escalonamento.
   // Sem isto o escalar.py roda sem alarme e NINGUÉM é acordado — o tipo de
   // falha silenciosa que só aparece na emergência de verdade.
