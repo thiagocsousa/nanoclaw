@@ -342,6 +342,28 @@
       "textos": [
         "Só um instante."
       ]
+    },
+    "cancelar_consulta": {
+      "bloco": "F12",
+      "quando": "quer CANCELAR/desmarcar uma consulta já marcada, a dele ou de outra pessoa",
+      "acao": "escalar",
+      "urgente": false,
+      "fecho": false,
+      "motivo_escalada": "pedido de CANCELAMENTO (a Lara não cancela: apagar consulta é destrutivo e quem mexe é a recepção no iClinic)",
+      "textos": [
+        "Só um instante."
+      ]
+    },
+    "remarcar_consulta": {
+      "bloco": "F12",
+      "quando": "quer REMARCAR/mudar o dia ou a hora de uma consulta já marcada",
+      "acao": "escalar",
+      "urgente": false,
+      "fecho": false,
+      "motivo_escalada": "pedido de REMARCAÇÃO (a Lara não remarca: mover consulta é destrutivo e quem mexe é a recepção no iClinic)",
+      "textos": [
+        "Só um instante."
+      ]
     }
   }
 }

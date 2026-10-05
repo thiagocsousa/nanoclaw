@@ -40,7 +40,15 @@ const ARQUIVO = 'agendamentos_pendentes.json';
 /** Mesmo alfabeto do escalonamento: sem 0/O, 1/I/L, 5/S, 2/Z. */
 const ALFABETO = 'ABCDEFGHJKMNPQRTUVWXY34679';
 
-export type Operacao = 'marcar' | 'remarcar' | 'cancelar';
+/**
+ * Só `marcar`. Decisão do Thiago em 04/10/2026, e o critério é o que o erro
+ * faz: marcar é **aditivo** — errar cria um horário a mais, que se apaga.
+ * Remarcar e cancelar são destrutivos, e é neles que o erro apaga a consulta de
+ * alguém que vai aparecer na clínica no dia. Esses dois **escalam**, pelas
+ * intenções `remarcar_consulta` e `cancelar_consulta` da tabela, e quem mexe é
+ * a recepção na interface do iClinic.
+ */
+export type Operacao = 'marcar';
 
 export interface PedidoDeAgendamento {
   codigo: string;
@@ -59,8 +67,6 @@ export interface PedidoDeAgendamento {
   hora: string;
   /** Perfil da agenda, que define duração e tipo. */
   perfil: string;
-  /** Em remarcar/cancelar, o evento que será tocado. */
-  eventoAlvo?: string;
   /** Preenchido quando a escrita acontece. */
   efetivadoEm?: number;
 }
@@ -118,12 +124,12 @@ export function criaPedido(
     logger.warn({ folder, falta }, 'agendamento: pedido incompleto, não criei');
     return undefined;
   }
-  if (dados.operacao !== 'marcar' && !dados.eventoAlvo) {
-    // Remarcar ou cancelar sem saber QUAL consulta é um pedido que, aprovado,
-    // não se sabe executar.
-    logger.warn(
+  if (dados.operacao !== 'marcar') {
+    // Trava em código, não no prompt: remarcar e cancelar não têm caminho de
+    // escrita aqui, e um pedido desses na fila seria aprovável sem executável.
+    logger.error(
       { folder, operacao: dados.operacao },
-      'agendamento: remarcar/cancelar exige eventoAlvo',
+      'agendamento: só marcar tem escrita; remarcar/cancelar escalam',
     );
     return undefined;
   }
@@ -182,9 +188,11 @@ export function removePedido(folder: string, codigo: string): boolean {
 
 /** Texto do pedido para quem vai aprovar. Tudo que ele precisa conferir. */
 export function avisoDoPedido(p: PedidoDeAgendamento): string {
-  const verbo = { marcar: 'MARCAR', remarcar: 'REMARCAR', cancelar: 'CANCELAR' }[
-    p.operacao
-  ];
+  const verbo = {
+    marcar: 'MARCAR',
+    remarcar: 'REMARCAR',
+    cancelar: 'CANCELAR',
+  }[p.operacao];
   const [a, m, d] = p.data.split('-');
   const linhas = [
     `📅 *${verbo}* \`${p.codigo}\``,
@@ -194,7 +202,6 @@ export function avisoDoPedido(p: PedidoDeAgendamento): string {
     p.convenio ? `*Convênio:* ${p.convenio}` : '',
     `*Quando:* ${d}/${m}/${a} às ${p.hora}`,
     `*Tipo:* ${p.perfil}`,
-    p.eventoAlvo ? `*Consulta alvo:* ${p.eventoAlvo}` : '',
     '',
     `Responda *confirmar ${p.codigo}* para efetivar no iClinic, ou`,
     `*recusar ${p.codigo}* para descartar. Nada é escrito até você confirmar.`,

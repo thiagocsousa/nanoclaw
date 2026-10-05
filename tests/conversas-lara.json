@@ -1777,6 +1777,45 @@
           "intencao_esperada": "cobertura_no_hospital"
         }
       ]
+    },
+    {
+      "id": "F05",
+      "categoria": "terceiro",
+      "sobre": "Quer cancelar a própria consulta. A Lara não cancela (destrutivo, quem mexe é a recepção): escala.",
+      "turnos": [
+        {
+          "paciente": "preciso cancelar minha consulta de quarta",
+          "esperado": [
+            "S[óo] um instante"
+          ],
+          "proibido": [
+            "cancel(ei|ado|amos)",
+            "desmarqu?(ei|ado)",
+            "pronto"
+          ],
+          "intencao_esperada": "cancelar_consulta"
+        }
+      ]
+    },
+    {
+      "id": "F06",
+      "categoria": "terceiro",
+      "sobre": "Quer remarcar. Mover consulta é destrutivo: escala.",
+      "turnos": [
+        {
+          "paciente": "da pra mudar minha consulta de segunda pra sexta?",
+          "esperado": [
+            "S[óo] um instante"
+          ],
+          "proibido": [
+            "remarqu?(ei|ado)",
+            "mudei",
+            "transferi",
+            "pronto"
+          ],
+          "intencao_esperada": "remarcar_consulta"
+        }
+      ]
     }
   ]
 }

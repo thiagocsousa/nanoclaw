@@ -51,20 +51,20 @@ describe('criaPedido', () => {
     expect(mod.lePedidos(PASTA)).toHaveLength(0);
   });
 
-  it('remarcar e cancelar exigem saber QUAL consulta', () => {
-    expect(
-      mod.criaPedido(PASTA, { ...base, operacao: 'remarcar' }),
-    ).toBeUndefined();
-    expect(
-      mod.criaPedido(PASTA, { ...base, operacao: 'cancelar' }),
-    ).toBeUndefined();
-    expect(
-      mod.criaPedido(PASTA, {
-        ...base,
-        operacao: 'cancelar',
-        eventoAlvo: 'evt-123',
-      }),
-    ).toBeDefined();
+  // Marcar é aditivo; remarcar e cancelar são destrutivos e escalam. A trava
+  // está no código, não no prompt: um pedido desses na fila seria aprovável sem
+  // ser executável.
+  it('só aceita marcar; remarcar e cancelar não entram na fila', () => {
+    for (const op of ['remarcar', 'cancelar']) {
+      expect(
+        mod.criaPedido(PASTA, {
+          ...base,
+          operacao: op as unknown as 'marcar',
+        }),
+        op,
+      ).toBeUndefined();
+    }
+    expect(mod.lePedidos(PASTA)).toHaveLength(0);
   });
 
   it('códigos são únicos entre os pedidos abertos', () => {
@@ -132,6 +132,7 @@ describe('o aviso tem o que quem aprova precisa conferir', () => {
       convenio: 'particular',
     })!;
     const a = mod.avisoDoPedido(p);
+    expect(a).toContain('MARCAR');
     expect(a).toContain('Joana Silva');
     expect(a).toContain('10/03/1980');
     expect(a).toContain('06/10/2026 às 09:20');
