@@ -61,3 +61,30 @@ describe('slotsDaVaga', () => {
     expect(s.data).not.toContain('undefined');
   });
 });
+
+// O bug que só apareceu no primeiro uso real: o processo do app NÃO recebe o
+// .env pelo ambiente (o ecosystem só define NODE_ENV), então `-e NOME`, que
+// herda o valor do cliente docker, não passava nada e o container subia sem
+// credencial. Meus testes manuais não pegaram porque eu rodava `set -a; . ./.env`
+// antes — validei num ambiente que produção não tem.
+describe('garanteCredenciais', () => {
+  it('não sobrescreve o que já está no ambiente', async () => {
+    const antes = process.env.ICLINIC_EMAIL;
+    process.env.ICLINIC_EMAIL = 'do-ambiente@exemplo';
+    const { garanteCredenciais } = await import('./vagas.js');
+    garanteCredenciais();
+    expect(process.env.ICLINIC_EMAIL).toBe('do-ambiente@exemplo');
+    if (antes === undefined) delete process.env.ICLINIC_EMAIL;
+    else process.env.ICLINIC_EMAIL = antes;
+  });
+
+  it('a lista cobre as quatro variáveis que o script usa', async () => {
+    const { CREDENCIAIS } = await import('./vagas.js');
+    expect(CREDENCIAIS).toEqual([
+      'ICLINIC_EMAIL',
+      'ICLINIC_PASSWORD',
+      'ICLINIC_CLINIC_ID',
+      'ICLINIC_PHYSICIAN_ID',
+    ]);
+  });
+});

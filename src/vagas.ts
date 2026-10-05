@@ -32,6 +32,7 @@ import fs from 'fs';
 import path from 'path';
 
 import { CONTAINER_IMAGE, GROUPS_DIR } from './config.js';
+import { readEnvFile } from './env.js';
 import { CONTAINER_RUNTIME_BIN } from './container-runtime.js';
 import { logger } from './logger.js';
 
@@ -39,12 +40,35 @@ import { logger } from './logger.js';
 const TIMEOUT_MS = Number(process.env.VAGAS_TIMEOUT_MS) || 180_000;
 
 /** Variáveis que o script precisa. Valor vem do ambiente do host, nunca daqui. */
-const CREDENCIAIS = [
+export const CREDENCIAIS = [
   'ICLINIC_EMAIL',
   'ICLINIC_PASSWORD',
   'ICLINIC_CLINIC_ID',
   'ICLINIC_PHYSICIAN_ID',
 ];
+
+/**
+ * Garante que as credenciais estejam em `process.env`, lendo o `.env`.
+ *
+ * O processo do app **não** recebe o `.env` pelo ambiente: o
+ * `ecosystem.config.cjs` só define `NODE_ENV`, e todo o resto é lido do arquivo
+ * por `readEnvFile`. Então `process.env.ICLINIC_EMAIL` é undefined em produção,
+ * e `-e NOME` (que herda o valor do cliente docker) não passaria nada — o
+ * container subia sem credencial e o login falhava.
+ *
+ * Isso não apareceu em nenhum teste meu porque eu rodava `set -a; . ./.env`
+ * antes, ou seja, validei num ambiente que produção não tem. Medido em
+ * 05/10/2026, com o `vagas: script falhou` no primeiro uso real.
+ *
+ * Preencher `process.env` preserva a propriedade que importa: continua sendo
+ * `-e NOME` sem valor, então a senha não aparece em `ps`.
+ */
+export function garanteCredenciais(): void {
+  const doArquivo = readEnvFile(CREDENCIAIS);
+  for (const k of CREDENCIAIS) {
+    if (!process.env[k] && doArquivo[k]) process.env[k] = doArquivo[k];
+  }
+}
 
 export interface Vaga {
   /** ISO, como o script devolve: "2026-10-06". */
@@ -163,6 +187,7 @@ export async function buscaVagas(
     return [];
   }
 
+  garanteCredenciais();
   const args = ['run', '--rm', '--network', 'bridge'];
   // `-e NOME` herda o valor do ambiente do host: a senha não aparece em `ps`.
   for (const k of CREDENCIAIS) {

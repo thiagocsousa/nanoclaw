@@ -39,7 +39,12 @@ import path from 'path';
 import { CONTAINER_IMAGE, GROUPS_DIR } from './config.js';
 import { CONTAINER_RUNTIME_BIN } from './container-runtime.js';
 import { logger } from './logger.js';
-import { buscaVagas, type Vaga } from './vagas.js';
+import {
+  buscaVagas,
+  CREDENCIAIS,
+  garanteCredenciais,
+  type Vaga,
+} from './vagas.js';
 
 // ---------------------------------------------------------------------------
 // A oferta pendente
@@ -149,13 +154,7 @@ const LIVRO = 'agendamentos_feitos.jsonl';
 /** Mesmo teto do `vagas.ts`: Playwright no iClinic leva dezenas de segundos. */
 const TIMEOUT_MS = Number(process.env.VAGAS_TIMEOUT_MS) || 180_000;
 
-/** Valor vem do ambiente do host, nunca daqui. */
-const CREDENCIAIS = [
-  'ICLINIC_EMAIL',
-  'ICLINIC_PASSWORD',
-  'ICLINIC_CLINIC_ID',
-  'ICLINIC_PHYSICIAN_ID',
-];
+
 
 /**
  * Só `marcar`. Ver o cabeçalho: o critério é o que o erro faz, não quanto ele
@@ -270,6 +269,7 @@ export async function escreveNoIclinic(
   if (!fs.existsSync(script)) {
     throw new Error(`iclinic_marcar.py não existe em ${folder}`);
   }
+  garanteCredenciais();
   const args = ['run', '--rm', '--network', 'bridge'];
   for (const k of CREDENCIAIS) {
     if (process.env[k]) args.push('-e', k);
