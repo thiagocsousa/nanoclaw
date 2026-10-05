@@ -150,10 +150,13 @@ Bloqueiam o resto; começar por aqui.
    emissor municipal):
    - `CST` = **200** (Alíquota reduzida);
    - `cClassTrib` = **200029** (Fornecimento dos serviços de saúde humana, Anexo III);
-   - `cNBS` por categoria: consulta e exames = **1.2301.21.00** → `123012100`;
-     cirurgia = **1.2301.11.00** → `123011100` (o XSD exige 9 dígitos sem pontos).
+   - `cNBS` **varia por categoria** — não há um código único para a clínica. Os
+     valores em vigor estão na seção "Os códigos que valem para a CARDIOMED";
+     não repetidos aqui de propósito, porque foi a cópia que deixou este doc
+     divergir do código (o XSD exige 9 dígitos sem pontos).
 
-   Já aplicados no `nfse_dps.py`; as 5 variações de serviço da clínica validam.
+   Aplicados no `nfse_dps.py` (`CODIGOS_POR_CATEGORIA`); as 5 variações de
+   serviço da clínica validam.
 
    **Nada mais precisa ser enviado pela redução de alíquota:** a regra confirma
    que `pRedutor` só vale para compra governamental (E1522/E1523, exige
@@ -161,9 +164,10 @@ Bloqueiam o resto; começar por aqui.
    calculados pelo autorizador a partir do `cClassTrib`. A DPS fecha com
    CST + cClassTrib.
 
-   **Ainda pendentes** (menores): `cIndOp` — hoje com `100301`, copiado do XML
-   modelo, é o único campo de IBS/CBS não confirmado — além de `cTribNac` e
-   `cTribMun`.
+   **Resolvidos depois** (estavam listados aqui como pendentes): `cIndOp` é
+   `030101`, não o `100301` copiado do XML modelo — o `100301` é recusado para
+   saúde com L0008. `cTribNac` e `cTribMun` também fecharam, e variam por
+   categoria: ver a tabela adiante.
 2. **SEMF** (notafiscaleletronica.semf@pmt.pi.gov.br): (a) até quando o ABRASF
    2.03 continua aceito? A página fala em coexistência na transição, mas não dá
    data de desligamento. (b) reportar o defeito do `TSSerieDPS` no XSD v1.01
@@ -352,21 +356,42 @@ E o reenvio da mesma DPS devolveu `reaproveitada: true` com a mesma chave —
 
 #### Os códigos que valem para a CARDIOMED
 
+Os três primeiros **variam por categoria e andam juntos**: a prefeitura valida o
+par NBS ↔ `cTribNac` (L0010) e exige o `cTribMun` vinculado ao cadastro
+econômico (L0001). Trocar um sozinho quebra. Fonte: `CODIGOS_POR_CATEGORIA` em
+`nfse_dps.py` — divergindo daqui, o código é que vale.
+
+| Categoria | `cTribNac` | `cTribMun` | `cNBS` | Conferido contra |
+|---|---|---|---|---|
+| consulta | `040101` | `001` | `123012200` (1.2301.22.00) | DANFSe **real** de 02/10/2026 |
+| exame | `040301` | `004` | `123012100` (1.2301.21.00) | NFS-e **real** nº 3.452, 29/09/2026, validada pelo contador |
+| cirurgia | `040301` | `003` | `123011100` (1.2301.11.00) | **só a palavra do contador** — ver o aviso abaixo |
+
+Os que não variam:
+
 | Campo | Valor | Origem |
 |---|---|---|
-| `cTribNac` | `040301` | 04.03.01 "Hospitais e congêneres" (tela do emissor) |
-| `cTribMun` | `004` | 04.03.01.004 "atividade médica ambulatorial…" (tela) |
-| `cNBS` | `123011900` | 1.2301.19.00 (tela) — **ver conflito abaixo** |
 | `cIndOp` | `030101` | Anexo C: serviço prestado fisicamente sobre a pessoa |
 | `CST` | `200` | alíquota reduzida |
 | `cClassTrib` | `200029` | saúde humana, Anexo III |
 | `serie` | `10001` | faixa do contribuinte (ver L0022) |
 
-⚠️ **Conflito de NBS a resolver com o contador:** ele indicou 1.2301.21.00
-(consulta/exame) e 1.2301.11.00 (cirurgia); a tela do emissor mostra
-1.2301.19.00 pareado com 04.03.01. Como o par NBS ↔ `cTribNac` é validado pela
-prefeitura (L0010), adotamos o do portal — mas isso precisa de confirmação,
-porque pode variar por categoria de serviço.
+**O conflito de NBS foi resolvido — e não como este doc dizia antes.** A versão
+anterior adotava 1.2301.19.00 para tudo, vindo de uma tela do portal, com o
+argumento de que passava na validação. Passar na validação não quer dizer estar
+certo: o 1.2301.19.00 **é** aceito pelo L0010 e **não é** o que a clínica usa.
+Quem desempatou foram as notas reais de produção, não o validador.
+
+⚠️ **Cirurgia é a única categoria nunca conferida contra uma nota real.** O par
+`040301` + 1.2301.11.00 passa no L0010 (provado em homologação, emitindo com
+`cTribMun=004`), mas isso só mostra que o par é aceitável — exatamente o grau de
+evidência que já enganou uma vez, no parágrafo acima.
+
+O ponto formalmente em aberto de cirurgia, porém, é o `cTribMun` `003`: em
+homologação ele é recusado com L0001 porque o cadastro econômico daquele
+ambiente está desatualizado; em produção está correto. Logo **a primeira cirurgia
+real é o teste**. Se vier L0001 em produção, o cadastro não foi atualizado — o
+item falha sozinho, reaparece no dia seguinte e não afeta as outras categorias.
 
 #### Regras municipais descobertas só emitindo
 
