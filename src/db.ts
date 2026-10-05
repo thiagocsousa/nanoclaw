@@ -385,6 +385,20 @@ export function getMessagesSince(
   sinceTimestamp: string,
   botPrefix: string,
   limit: number = 200,
+  /**
+   * Incluir as mensagens que o próprio bot enviou.
+   *
+   * Falso por padrão, que é o certo para o agente que REDIGE: ele carrega a
+   * conversa na própria sessão e reler as próprias falas o faria responder a
+   * si mesmo.
+   *
+   * Verdadeiro para a pasta que responde por TABELA, e aí é indispensável: o
+   * modelo só emitiu `{"intencao":"abertura"}`, e quem produziu o texto do menu
+   * foi o host. Sem essas linhas, um "2" chega sem menu à vista e DESCONHECIDO
+   * passa a ser a classificação CORRETA para o que ele viu. Foi exatamente este
+   * o bug que fabricou 10 dos 12 erros da primeira medição do classificador.
+   */
+  incluirBot = false,
 ): NewMessage[] {
   // Filter bot messages using the is_bot_message flag AND the content marks as
   // a backstop: o prefixo visível antigo (`Nome:`) para o que já estava no
@@ -397,7 +411,7 @@ export function getMessagesSince(
              reply_to_message_id, reply_to_message_content, reply_to_sender_name
       FROM messages
       WHERE chat_jid = ? AND timestamp > ?
-        AND is_bot_message = 0 AND content NOT LIKE ? AND content NOT LIKE ?
+        AND (? = 1 OR (is_bot_message = 0 AND content NOT LIKE ? AND content NOT LIKE ?))
         AND content != '' AND content IS NOT NULL
       ORDER BY timestamp DESC
       LIMIT ?
@@ -408,6 +422,7 @@ export function getMessagesSince(
     .all(
       chatJid,
       sinceTimestamp,
+      incluirBot ? 1 : 0,
       `${botPrefix}:%`,
       `${BOT_MARK}%`,
       limit,

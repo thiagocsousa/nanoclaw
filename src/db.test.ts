@@ -9,6 +9,8 @@ import {
   getLastBotMessageTimestamp,
   getMessagesSince,
   getNewMessages,
+  storeChatMetadata,
+  storeMessageDirect,
   getTaskById,
   setRegisteredGroup,
   storeChatMetadata,
@@ -648,5 +650,50 @@ describe('registered group isMain', () => {
     const group = groups['group@g.us'];
     expect(group).toBeDefined();
     expect(group.isMain).toBeUndefined();
+  });
+});
+
+// O bug que escalou o "2" no primeiro teste real: o agente nunca via as falas
+// da própria Lara, então uma escolha de menu chegava sem o menu à vista — e
+// DESCONHECIDO passava a ser a classificação CORRETA para o que ele viu.
+describe('getMessagesSince: incluirBot', () => {
+  it('por padrão esconde as mensagens do bot', () => {
+    const jid = 'teste-bot@g.us';
+    storeChatMetadata(jid, '2026-10-05T09:00:00Z', jid);
+    storeMessageDirect({
+      id: 'm1', chat_jid: jid, sender: '55@s', sender_name: 'Paciente',
+      content: 'Oi', timestamp: '2026-10-05T10:00:00Z', is_from_me: false,
+    });
+    storeMessageDirect({
+      id: 'm2', chat_jid: jid, sender: 'bot', sender_name: 'Lara',
+      content: 'Escolha uma opção: 1, 2 ou 3', timestamp: '2026-10-05T10:00:05Z',
+      is_from_me: true, is_bot_message: true,
+    });
+    const r = getMessagesSince(jid, '2026-10-05T09:00:00Z', 'Claw');
+    expect(r.map((m) => m.content)).toEqual(['Oi']);
+  });
+
+  it('com incluirBot, a escolha de menu chega COM o menu à vista', () => {
+    const jid = 'teste-bot2@g.us';
+    storeChatMetadata(jid, '2026-10-05T10:30:00Z', jid);
+    storeMessageDirect({
+      id: 'n1', chat_jid: jid, sender: '55@s', sender_name: 'Paciente',
+      content: 'Oi', timestamp: '2026-10-05T11:00:00Z', is_from_me: false,
+    });
+    storeMessageDirect({
+      id: 'n2', chat_jid: jid, sender: 'bot', sender_name: 'Lara',
+      content: 'Escolha: 1 refrativa, 2 catarata', timestamp: '2026-10-05T11:00:05Z',
+      is_from_me: true, is_bot_message: true,
+    });
+    storeMessageDirect({
+      id: 'n3', chat_jid: jid, sender: '55@s', sender_name: 'Paciente',
+      content: '2', timestamp: '2026-10-05T11:00:30Z', is_from_me: false,
+    });
+    const r = getMessagesSince(jid, '2026-10-05T10:30:00Z', 'Claw', 200, true);
+    expect(r.map((m) => m.content)).toEqual([
+      'Oi',
+      'Escolha: 1 refrativa, 2 catarata',
+      '2',
+    ]);
   });
 });

@@ -248,11 +248,18 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
 
   const isMainGroup = group.isMain === true;
 
+  // Na pasta que responde por TABELA, o classificador precisa ver o que a Lara
+  // disse: ele só emitiu `{"intencao":"abertura"}` e quem produziu o texto do
+  // menu foi o host. Sem isso um "2" chega sem menu à vista, e DESCONHECIDO
+  // passa a ser a classificação CORRETA para o que ele viu — foi o que escalou
+  // no primeiro teste real, e é o mesmo bug que fabricou 10 dos 12 erros da
+  // primeira medição do classificador.
   const missedMessages = getMessagesSince(
     chatJid,
     getOrRecoverCursor(chatJid),
     ASSISTANT_NAME,
     MAX_MESSAGES_PER_PROMPT,
+    wantsTemplates(group.folder),
   );
 
   if (missedMessages.length === 0) return true;
