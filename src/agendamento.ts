@@ -1,63 +1,58 @@
 /**
- * Agendamento no iClinic, com confirmação humana.
+ * Marcação automática no iClinic.
  *
- * ## A decisão que desenha este módulo
+ * ## Decisões do Thiago em 04/10/2026, e o critério por trás
  *
- * Thiago em 04/10/2026, perguntado quem efetiva quando o paciente escolhe um
- * horário: **humano confirma**. A Lara prepara o pedido, alguém da clínica
- * aprova, e só então o host escreve.
+ * **Só `marcar` escreve.** Marcar é aditivo: errar cria um horário a mais, que
+ * se apaga. Remarcar e cancelar são destrutivos — erram apagando ou movendo a
+ * consulta de alguém que vai aparecer na clínica no dia, e o iClinic não tem
+ * desfazer. Esses dois escalam (`remarcar_consulta`, `cancelar_consulta`), e a
+ * recusa está em `marca()`, no código, não no prompt.
  *
- * Isso não é timidez: é o que tira a verificação de identidade do caminho
- * crítico. Quem aprova já sabe quem é o paciente, então o erro que mais
- * assusta — mexer na consulta de outra pessoa (regra dura 3b) — não tem como
- * chegar à agenda sem passar por um olho humano.
+ * **Sem confirmação humana.** Eu havia construído um passo de aprovação e,
+ * reduzido o escopo a marcar, ele protegia menos do que parecia: identidade
+ * quase não importa quando se CRIA um horário para quem está falando, e contra
+ * a colisão de dois pacientes no mesmo horário uma pessoa clicando "confirmar"
+ * três minutos depois não protege nada.
  *
- * ## Por que não reusei `escalonamentos_pendentes.json`
+ * ## As duas travas que substituem o humano, e por que funcionam
  *
- * Um escalonamento é "alguém precisa olhar isso"; um pedido de agendamento é
- * "escreva isto no iClinic se eu aprovar". O segundo carrega dados que o
- * primeiro não tem (horário exato, tipo, paciente) e tem um desfecho que o
- * primeiro não tem (efetivado). Misturar os dois faria a baixa de um poder
- * disparar a escrita do outro, e é exatamente o tipo de confusão que num
- * sistema de agenda custa o horário de um paciente.
+ * 1. **Releitura no instante da escrita.** Imediatamente antes de escrever,
+ *    relê-se aquele horário exato na agenda. Vaga tomada, não escreve. Isso
+ *    fecha a janela entre oferecer e marcar, que é onde a colisão vive.
+ * 2. **Idempotência.** Mesma pessoa, mesmo dia, mesma hora já marcada devolve o
+ *    registro existente em vez de marcar de novo. Sem isso, um retry de rede
+ *    ou uma mensagem duplicada viram duas consultas, e a segunda ocupa o
+ *    horário de outro paciente.
  *
  * ## Falha fecha
  *
- * Pedido sem horário, sem paciente ou com código repetido não é criado.
- * Aprovação de código inexistente não escreve nada. E a escrita em si ainda
- * não existe: `efetiva()` lança até o endpoint do iClinic ser descoberto com o
- * Thiago presente, num horário descartável. Melhor lançar que adivinhar o
- * formato de uma requisição que mexe em agenda médica.
+ * Dado faltando, operação que não é marcar, vaga tomada, agenda ilegível ou
+ * script falhando: **não escreve e devolve o motivo**. Quem chama escala. O
+ * próprio `iclinic_vagas.py` já avisa "NÃO ofereça horário, escale" quando não
+ * consegue ler a agenda.
  */
 import fs from 'fs';
 import path from 'path';
 
 import { GROUPS_DIR } from './config.js';
 import { logger } from './logger.js';
+import { buscaVagas } from './vagas.js';
 
-const ARQUIVO = 'agendamentos_pendentes.json';
-
-/** Mesmo alfabeto do escalonamento: sem 0/O, 1/I/L, 5/S, 2/Z. */
-const ALFABETO = 'ABCDEFGHJKMNPQRTUVWXY34679';
+/** Livro de marcações feitas: auditoria e base da idempotência. */
+const LIVRO = 'agendamentos_feitos.jsonl';
 
 /**
- * Só `marcar`. Decisão do Thiago em 04/10/2026, e o critério é o que o erro
- * faz: marcar é **aditivo** — errar cria um horário a mais, que se apaga.
- * Remarcar e cancelar são destrutivos, e é neles que o erro apaga a consulta de
- * alguém que vai aparecer na clínica no dia. Esses dois **escalam**, pelas
- * intenções `remarcar_consulta` e `cancelar_consulta` da tabela, e quem mexe é
- * a recepção na interface do iClinic.
+ * Só `marcar`. Ver o cabeçalho: o critério é o que o erro faz, não quanto ele
+ * é provável.
  */
 export type Operacao = 'marcar';
 
-export interface PedidoDeAgendamento {
-  codigo: string;
+export interface DadosDaMarcacao {
   operacao: Operacao;
-  /** epoch ms de quando o paciente pediu. */
-  quando: number;
-  /** Nome como o paciente informou. Quem aprova confere. */
+  /** Nome como o paciente informou. */
   paciente: string;
-  /** JID de quem pediu, para a clínica saber com quem falar. */
+  /** JID de quem pediu. Entra na chave de idempotência. */
   pedidoPor: string;
   nascimento?: string;
   convenio?: string;
@@ -65,164 +60,181 @@ export interface PedidoDeAgendamento {
   data: string;
   /** "09:20". */
   hora: string;
-  /** Perfil da agenda, que define duração e tipo. */
+  /** Perfil da agenda: define duração e tipo. */
   perfil: string;
-  /** Preenchido quando a escrita acontece. */
-  efetivadoEm?: number;
 }
 
-function arquivo(folder: string): string {
-  return path.join(GROUPS_DIR, folder, ARQUIVO);
+export interface Marcacao extends DadosDaMarcacao {
+  /** epoch ms da escrita. */
+  feitoEm: number;
+  /** Identificador do evento no iClinic, quando ele devolver. */
+  eventoId?: string;
 }
 
-export function lePedidos(folder: string): PedidoDeAgendamento[] {
+export type MotivoDeRecusa =
+  | 'dado_faltando'
+  | 'operacao_nao_permitida'
+  | 'vaga_tomada'
+  | 'agenda_ilegivel'
+  | 'escrita_indisponivel';
+
+export type ResultadoDaMarcacao =
+  | { ok: true; marcacao: Marcacao; jaExistia: boolean }
+  | { ok: false; motivo: MotivoDeRecusa; detalhe: string };
+
+function livro(folder: string): string {
+  return path.join(GROUPS_DIR, folder, LIVRO);
+}
+
+export function leMarcacoes(folder: string): Marcacao[] {
   try {
-    const d = JSON.parse(fs.readFileSync(arquivo(folder), 'utf-8'));
-    return Array.isArray(d) ? (d as PedidoDeAgendamento[]) : [];
+    return fs
+      .readFileSync(livro(folder), 'utf-8')
+      .split('\n')
+      .filter((l) => l.trim())
+      .map((l) => JSON.parse(l) as Marcacao);
   } catch {
     return [];
   }
 }
 
-function grava(folder: string, itens: PedidoDeAgendamento[]): void {
-  const alvo = arquivo(folder);
+/**
+ * Chave de idempotência: quem pediu, para quando. Não inclui o nome, porque o
+ * paciente pode reescrevê-lo diferente ("Joana" e depois "Joana Silva") e isso
+ * não é um segundo agendamento.
+ */
+function chave(d: Pick<DadosDaMarcacao, 'pedidoPor' | 'data' | 'hora'>): string {
+  return `${d.pedidoPor}|${d.data}|${d.hora}`;
+}
+
+export function achaMarcacao(
+  folder: string,
+  d: Pick<DadosDaMarcacao, 'pedidoPor' | 'data' | 'hora'>,
+): Marcacao | undefined {
+  const k = chave(d);
+  return leMarcacoes(folder).find((m) => chave(m) === k);
+}
+
+function registra(folder: string, m: Marcacao): void {
+  const alvo = livro(folder);
   fs.mkdirSync(path.dirname(alvo), { recursive: true });
-  const tmp = `${alvo}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(itens, null, 2));
-  fs.renameSync(tmp, alvo);
+  fs.appendFileSync(alvo, `${JSON.stringify(m)}\n`);
 }
-
-function geraCodigo(usados: Set<string>): string {
-  for (let i = 0; i < 50; i++) {
-    let c = '';
-    for (let j = 0; j < 4; j++) {
-      c += ALFABETO[Math.floor(Math.random() * ALFABETO.length)];
-    }
-    if (!usados.has(c)) return c;
-  }
-  return `Z${Date.now().toString(36).slice(-3).toUpperCase()}`;
-}
-
-export type DadosDoPedido = Omit<
-  PedidoDeAgendamento,
-  'codigo' | 'quando' | 'efetivadoEm'
->;
 
 /**
- * Cria o pedido e devolve o código. undefined quando falta dado essencial:
- * sem paciente ou sem horário não há o que aprovar, e um pedido pela metade na
- * fila é pior que nenhum, porque alguém vai aprová-lo.
+ * Escreve o evento no iClinic. **Ainda não implementado, de propósito.**
+ *
+ * A leitura usa `GET /agenda/{medico}/{data}/?clinic={id}`; o endpoint de
+ * criação precisa ser capturado observando a rede durante um agendamento real.
+ * Não existe iClinic de homologação, então isso se faz com o Thiago presente,
+ * num horário que ele designe como descartável, apagando em seguida.
+ *
+ * Adivinhar o formato de uma requisição que mexe em agenda médica pode criar um
+ * evento que ninguém sabe desfazer. Lançar é mais honesto que tentar.
  */
-export function criaPedido(
+export async function escreveNoIclinic(
+  _folder: string,
+  _d: DadosDaMarcacao,
+): Promise<{ eventoId?: string }> {
+  throw new Error('endpoint de escrita do iClinic ainda não foi descoberto');
+}
+
+export interface DepsDaMarcacao {
+  /** Injetável para teste: relê a vaga exata. */
+  relê?: typeof buscaVagas;
+  /** Injetável para teste: escreve de verdade. */
+  escreve?: typeof escreveNoIclinic;
+}
+
+/**
+ * Marca, com as duas travas. Nunca lança: devolve `ok: false` com o motivo,
+ * para quem chama poder escalar com uma razão que a recepção entende.
+ */
+export async function marca(
   folder: string,
-  dados: DadosDoPedido,
-): PedidoDeAgendamento | undefined {
-  const falta = (['paciente', 'data', 'hora', 'perfil'] as const).filter(
-    (k) => !String(dados[k] ?? '').trim(),
-  );
+  d: DadosDaMarcacao,
+  deps: DepsDaMarcacao = {},
+): Promise<ResultadoDaMarcacao> {
+  const relê = deps.relê ?? buscaVagas;
+  const escreve = deps.escreve ?? escreveNoIclinic;
+
+  if (d.operacao !== 'marcar') {
+    logger.error({ folder, operacao: d.operacao }, 'marca: operação recusada');
+    return {
+      ok: false,
+      motivo: 'operacao_nao_permitida',
+      detalhe: 'só marcar escreve; remarcar e cancelar escalam',
+    };
+  }
+
+  const falta = (['paciente', 'data', 'hora', 'perfil', 'pedidoPor'] as const)
+    .filter((k) => !String(d[k] ?? '').trim());
   if (falta.length > 0) {
-    logger.warn({ folder, falta }, 'agendamento: pedido incompleto, não criei');
-    return undefined;
+    return {
+      ok: false,
+      motivo: 'dado_faltando',
+      detalhe: `faltou: ${falta.join(', ')}`,
+    };
   }
-  if (dados.operacao !== 'marcar') {
-    // Trava em código, não no prompt: remarcar e cancelar não têm caminho de
-    // escrita aqui, e um pedido desses na fila seria aprovável sem executável.
-    logger.error(
-      { folder, operacao: dados.operacao },
-      'agendamento: só marcar tem escrita; remarcar/cancelar escalam',
+
+  // Trava 2 primeiro: é a mais barata, e se já marcou não há por que ir à rede.
+  const existente = achaMarcacao(folder, d);
+  if (existente) {
+    logger.info(
+      { folder, chave: chave(d) },
+      'marca: já existia, não vou marcar de novo',
     );
-    return undefined;
+    return { ok: true, marcacao: existente, jaExistia: true };
   }
 
-  const itens = lePedidos(folder);
-  const pedido: PedidoDeAgendamento = {
-    ...dados,
-    codigo: geraCodigo(new Set(itens.map((p) => p.codigo))),
-    quando: Date.now(),
-  };
-  itens.push(pedido);
-  grava(folder, itens);
+  // Trava 1: a vaga ainda está livre AGORA? É aqui que a colisão morre.
+  const vagas = await relê(folder, d.perfil, { dia: d.data, hora: d.hora });
+  if (vagas.length === 0) {
+    logger.warn(
+      { folder, data: d.data, hora: d.hora, perfil: d.perfil },
+      'marca: vaga não está mais livre (ou agenda ilegível), não escrevi',
+    );
+    return {
+      ok: false,
+      motivo: 'vaga_tomada',
+      detalhe: `${d.hora} de ${d.data} não está disponível`,
+    };
+  }
+
+  let eventoId: string | undefined;
+  try {
+    ({ eventoId } = await escreve(folder, d));
+  } catch (err) {
+    logger.error({ err, folder }, 'marca: escrita no iClinic falhou');
+    return {
+      ok: false,
+      motivo: 'escrita_indisponivel',
+      detalhe: err instanceof Error ? err.message : String(err),
+    };
+  }
+
+  const m: Marcacao = { ...d, feitoEm: Date.now(), eventoId };
+  registra(folder, m);
   logger.info(
-    { folder, codigo: pedido.codigo, operacao: pedido.operacao },
-    'agendamento: pedido criado, aguardando confirmação humana',
+    { folder, paciente: d.paciente, data: d.data, hora: d.hora, eventoId },
+    'marca: consulta marcada no iClinic',
   );
-  return pedido;
+  return { ok: true, marcacao: m, jaExistia: false };
 }
 
-/**
- * Lê um comando de confirmação. Verbo PRÓPRIO, separado do "ok" da baixa de
- * escalonamento de propósito: "ok" significa "já cuidei disso" e não pode, por
- * acidente, escrever na agenda.
- */
-export function comandoDeConfirmacao(texto: string): string | undefined {
-  const m = texto
-    .trim()
-    .match(/^(?:confirmar|confirma|efetivar|marcar)\s+([A-Za-z0-9]{4})\b/i);
-  return m ? m[1].toUpperCase() : undefined;
-}
-
-/** Lê um comando de recusa: o pedido sai da fila sem nada ser escrito. */
-export function comandoDeRecusa(texto: string): string | undefined {
-  const m = texto
-    .trim()
-    .match(/^(?:recusar|recusa|descartar|nao|não)\s+([A-Za-z0-9]{4})\b/i);
-  return m ? m[1].toUpperCase() : undefined;
-}
-
-export function achaPedido(
-  folder: string,
-  codigo: string,
-): PedidoDeAgendamento | undefined {
-  return lePedidos(folder).find((p) => p.codigo === codigo && !p.efetivadoEm);
-}
-
-/** Remove o pedido da fila. Usado na recusa e depois de efetivar. */
-export function removePedido(folder: string, codigo: string): boolean {
-  const itens = lePedidos(folder);
-  const i = itens.findIndex((p) => p.codigo === codigo);
-  if (i === -1) return false;
-  itens.splice(i, 1);
-  grava(folder, itens);
-  return true;
-}
-
-/** Texto do pedido para quem vai aprovar. Tudo que ele precisa conferir. */
-export function avisoDoPedido(p: PedidoDeAgendamento): string {
-  const verbo = {
-    marcar: 'MARCAR',
-    remarcar: 'REMARCAR',
-    cancelar: 'CANCELAR',
-  }[p.operacao];
-  const [a, m, d] = p.data.split('-');
-  const linhas = [
-    `📅 *${verbo}* \`${p.codigo}\``,
+/** Aviso à clínica DEPOIS do fato: automático não é invisível. */
+export function avisoDaMarcacao(m: Marcacao): string {
+  const [a, mes, dia] = m.data.split('-');
+  return [
+    '📅 *Consulta marcada pela Lara*',
     '',
-    `*Paciente:* ${p.paciente}`,
-    p.nascimento ? `*Nascimento:* ${p.nascimento}` : '',
-    p.convenio ? `*Convênio:* ${p.convenio}` : '',
-    `*Quando:* ${d}/${m}/${a} às ${p.hora}`,
-    `*Tipo:* ${p.perfil}`,
-    '',
-    `Responda *confirmar ${p.codigo}* para efetivar no iClinic, ou`,
-    `*recusar ${p.codigo}* para descartar. Nada é escrito até você confirmar.`,
-  ];
-  return linhas.filter((l) => l !== '').join('\n');
-}
-
-/**
- * Escreve no iClinic. **Ainda não implementado, de propósito.**
- *
- * O endpoint de escrita não foi descoberto: a leitura usa
- * `GET /agenda/{medico}/{data}/?clinic={id}`, e o de criação precisa ser
- * capturado observando a rede durante um agendamento real. Não há iClinic de
- * homologação, então isso se faz com o Thiago presente, num horário que ele
- * designe como descartável, e apagando em seguida.
- *
- * Lançar aqui é a escolha certa: adivinhar o formato de uma requisição que
- * mexe em agenda médica pode criar um evento errado que ninguém sabe desfazer.
- */
-export async function efetiva(p: PedidoDeAgendamento): Promise<never> {
-  throw new Error(
-    `endpoint de escrita do iClinic não descoberto; pedido ${p.codigo} não foi efetivado`,
-  );
+    `*Paciente:* ${m.paciente}`,
+    m.nascimento ? `*Nascimento:* ${m.nascimento}` : '',
+    m.convenio ? `*Convênio:* ${m.convenio}` : '',
+    `*Quando:* ${dia}/${mes}/${a} às ${m.hora}`,
+    `*Tipo:* ${m.perfil}`,
+    m.eventoId ? `*Evento:* ${m.eventoId}` : '',
+  ]
+    .filter((l) => l !== '')
+    .join('\n');
 }

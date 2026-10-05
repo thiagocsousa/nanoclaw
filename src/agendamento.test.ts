@@ -14,17 +14,12 @@ vi.mock('./config.js', async (orig) => ({
 
 let mod: typeof import('./agendamento.js');
 
-beforeEach(async () => {
-  fs.mkdirSync(path.join(RAIZ, PASTA), { recursive: true });
-  vi.resetModules();
-  mod = await import('./agendamento.js');
-});
-
-afterEach(() => {
-  fs.rmSync(path.join(RAIZ, PASTA, 'agendamentos_pendentes.json'), {
-    force: true,
-  });
-});
+const VAGA = {
+  data: '2026-10-06',
+  dia_semana: 'segunda',
+  inicio: '09:20',
+  fim: '09:50',
+};
 
 const base = {
   operacao: 'marcar' as const,
@@ -35,125 +30,170 @@ const base = {
   perfil: 'particular-cirurgia',
 };
 
-describe('criaPedido', () => {
-  it('cria com código de 4 caracteres sem ambiguidade', () => {
-    const p = mod.criaPedido(PASTA, base);
-    expect(p?.codigo).toMatch(/^[A-Z0-9]{4}$/);
-    expect(p?.codigo).not.toMatch(/[O01ILS25Z]/);
-    expect(mod.lePedidos(PASTA)).toHaveLength(1);
+/** Releitura e escrita injetadas: aqui se testa a DECISÃO, não o iClinic. */
+function deps(opts: { livre?: boolean; falhaEscrita?: boolean } = {}) {
+  const chamadas: Array<{ perfil: string; dia?: string; hora?: string }> = [];
+  return {
+    chamadas,
+    relê: async (
+      _f: string,
+      perfil: string,
+      o: { dia?: string; hora?: string } = {},
+    ) => {
+      chamadas.push({ perfil, dia: o.dia, hora: o.hora });
+      return opts.livre === false ? [] : [VAGA];
+    },
+    escreve: async () => {
+      if (opts.falhaEscrita) throw new Error('endpoint não descoberto');
+      return { eventoId: 'evt-77' };
+    },
+  };
+}
+
+beforeEach(async () => {
+  fs.mkdirSync(path.join(RAIZ, PASTA), { recursive: true });
+  vi.resetModules();
+  mod = await import('./agendamento.js');
+});
+
+afterEach(() => {
+  fs.rmSync(path.join(RAIZ, PASTA, 'agendamentos_feitos.jsonl'), {
+    force: true,
+  });
+});
+
+describe('o caminho que funciona', () => {
+  it('marca, registra no livro e devolve o evento', async () => {
+    const d = deps();
+    const r = await mod.marca(PASTA, base, d);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.jaExistia).toBe(false);
+    expect(r.marcacao.eventoId).toBe('evt-77');
+    expect(mod.leMarcacoes(PASTA)).toHaveLength(1);
   });
 
-  // Pedido pela metade na fila é pior que nenhum: alguém vai aprová-lo.
-  it('NÃO cria sem paciente, data, hora ou perfil', () => {
-    for (const k of ['paciente', 'data', 'hora', 'perfil'] as const) {
-      expect(mod.criaPedido(PASTA, { ...base, [k]: '' }), k).toBeUndefined();
+  it('relê a vaga EXATA antes de escrever: dia e hora, não o próximo livre', async () => {
+    const d = deps();
+    await mod.marca(PASTA, base, d);
+    expect(d.chamadas).toEqual([
+      { perfil: 'particular-cirurgia', dia: '2026-10-06', hora: '09:20' },
+    ]);
+  });
+});
+
+// A janela entre oferecer e marcar é onde a colisão vive. Uma pessoa clicando
+// "confirmar" três minutos depois não a fecha; reler no instante da escrita fecha.
+describe('trava 1: releitura no instante da escrita', () => {
+  it('vaga tomada NÃO escreve, e diz por quê', async () => {
+    const r = await mod.marca(PASTA, base, deps({ livre: false }));
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.motivo).toBe('vaga_tomada');
+    expect(r.detalhe).toContain('09:20');
+    expect(mod.leMarcacoes(PASTA)).toHaveLength(0);
+  });
+});
+
+// Sem isso, um retry de rede ou mensagem duplicada viram duas consultas, e a
+// segunda ocupa o horário de outro paciente.
+describe('trava 2: idempotência', () => {
+  it('a segunda chamada devolve a primeira, sem escrever de novo', async () => {
+    const d = deps();
+    const a = await mod.marca(PASTA, base, d);
+    const b = await mod.marca(PASTA, base, d);
+    expect(a.ok && b.ok).toBe(true);
+    if (!a.ok || !b.ok) return;
+    expect(b.jaExistia).toBe(true);
+    expect(b.marcacao.feitoEm).toBe(a.marcacao.feitoEm);
+    expect(mod.leMarcacoes(PASTA)).toHaveLength(1);
+    // E não foi à rede na segunda: a trava barata vem primeiro.
+    expect(d.chamadas).toHaveLength(1);
+  });
+
+  it('o nome reescrito não cria um segundo agendamento', async () => {
+    const d = deps();
+    await mod.marca(PASTA, base, d);
+    const r = await mod.marca(PASTA, { ...base, paciente: 'Joana Silva Santos' }, d);
+    expect(r.ok && r.jaExistia).toBe(true);
+    expect(mod.leMarcacoes(PASTA)).toHaveLength(1);
+  });
+
+  it('outro horário do mesmo paciente É um agendamento novo', async () => {
+    const d = deps();
+    await mod.marca(PASTA, base, d);
+    const r = await mod.marca(PASTA, { ...base, hora: '10:00' }, d);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.jaExistia).toBe(false);
+    expect(mod.leMarcacoes(PASTA)).toHaveLength(2);
+  });
+});
+
+describe('falha fecha, sempre com motivo', () => {
+  it('nunca lança: devolve ok:false com motivo', async () => {
+    const r = await mod.marca(PASTA, base, deps({ falhaEscrita: true }));
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.motivo).toBe('escrita_indisponivel');
+    expect(mod.leMarcacoes(PASTA)).toHaveLength(0);
+  });
+
+  it('dado faltando não vai à rede', async () => {
+    for (const k of ['paciente', 'data', 'hora', 'perfil', 'pedidoPor'] as const) {
+      const d = deps();
+      const r = await mod.marca(PASTA, { ...base, [k]: '' }, d);
+      expect(r.ok, k).toBe(false);
+      if (!r.ok) expect(r.motivo).toBe('dado_faltando');
+      expect(d.chamadas, k).toHaveLength(0);
     }
-    expect(mod.lePedidos(PASTA)).toHaveLength(0);
   });
 
-  // Marcar é aditivo; remarcar e cancelar são destrutivos e escalam. A trava
-  // está no código, não no prompt: um pedido desses na fila seria aprovável sem
-  // ser executável.
-  it('só aceita marcar; remarcar e cancelar não entram na fila', () => {
+  it('remarcar e cancelar são recusados no código, não no prompt', async () => {
     for (const op of ['remarcar', 'cancelar']) {
-      expect(
-        mod.criaPedido(PASTA, {
-          ...base,
-          operacao: op as unknown as 'marcar',
-        }),
-        op,
-      ).toBeUndefined();
-    }
-    expect(mod.lePedidos(PASTA)).toHaveLength(0);
-  });
-
-  it('códigos são únicos entre os pedidos abertos', () => {
-    const cods = new Set<string>();
-    for (let i = 0; i < 15; i++) {
-      const p = mod.criaPedido(PASTA, base);
-      cods.add(p!.codigo);
-    }
-    expect(cods.size).toBe(15);
-  });
-});
-
-// "ok" é baixa de escalonamento ("já cuidei"). Não pode, por acidente,
-// escrever na agenda da médica.
-describe('os comandos não se confundem', () => {
-  it('confirmar/efetivar/marcar são confirmação', () => {
-    for (const t of ['confirmar AB12', 'efetivar ab12', 'marcar AB12']) {
-      expect(mod.comandoDeConfirmacao(t), t).toBe('AB12');
-    }
-  });
-
-  it('"ok CODE" NÃO é confirmação de agendamento', () => {
-    for (const t of ['ok AB12', 'okay AB12', 'baixa AB12', 'feito AB12']) {
-      expect(mod.comandoDeConfirmacao(t), t).toBeUndefined();
-    }
-  });
-
-  it('recusar/descartar tiram da fila', () => {
-    for (const t of ['recusar AB12', 'descartar ab12', 'não AB12']) {
-      expect(mod.comandoDeRecusa(t), t).toBe('AB12');
-    }
-  });
-
-  it('texto solto não vira comando', () => {
-    for (const t of [
-      'confirmar',
-      'vou confirmar AB12',
-      'AB12',
-      'confirmar o horário de amanhã',
-    ]) {
-      expect(mod.comandoDeConfirmacao(t), t).toBeUndefined();
+      const d = deps();
+      const r = await mod.marca(
+        PASTA,
+        { ...base, operacao: op as unknown as 'marcar' },
+        d,
+      );
+      expect(r.ok, op).toBe(false);
+      if (!r.ok) expect(r.motivo).toBe('operacao_nao_permitida');
+      expect(d.chamadas, op).toHaveLength(0);
     }
   });
 });
 
-describe('achaPedido e removePedido', () => {
-  it('acha pelo código e remove', () => {
-    const p = mod.criaPedido(PASTA, base)!;
-    expect(mod.achaPedido(PASTA, p.codigo)?.paciente).toBe('Joana Silva');
-    expect(mod.removePedido(PASTA, p.codigo)).toBe(true);
-    expect(mod.achaPedido(PASTA, p.codigo)).toBeUndefined();
-  });
-
-  it('código inexistente não acha nem remove', () => {
-    expect(mod.achaPedido(PASTA, 'XXXX')).toBeUndefined();
-    expect(mod.removePedido(PASTA, 'XXXX')).toBe(false);
-  });
-});
-
-describe('o aviso tem o que quem aprova precisa conferir', () => {
-  it('traz paciente, data legível, hora e os dois comandos', () => {
-    const p = mod.criaPedido(PASTA, {
-      ...base,
-      nascimento: '10/03/1980',
-      convenio: 'particular',
-    })!;
-    const a = mod.avisoDoPedido(p);
-    expect(a).toContain('MARCAR');
+// Automático não é invisível: a clínica tem que ficar sabendo.
+describe('o aviso à clínica', () => {
+  it('traz o que a recepção precisa conferir depois do fato', async () => {
+    const r = await mod.marca(
+      PASTA,
+      { ...base, nascimento: '10/03/1980', convenio: 'particular' },
+      deps(),
+    );
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const a = mod.avisoDaMarcacao(r.marcacao);
     expect(a).toContain('Joana Silva');
-    expect(a).toContain('10/03/1980');
     expect(a).toContain('06/10/2026 às 09:20');
-    expect(a).toContain(`confirmar ${p.codigo}`);
-    expect(a).toContain(`recusar ${p.codigo}`);
-    expect(a).toContain('Nada é escrito até você confirmar');
+    expect(a).toContain('10/03/1980');
+    expect(a).toContain('evt-77');
   });
 
-  it('omite linha de campo ausente, em vez de mostrar vazio', () => {
-    const p = mod.criaPedido(PASTA, base)!;
-    const a = mod.avisoDoPedido(p);
+  it('omite campo ausente em vez de mostrar vazio', async () => {
+    const r = await mod.marca(PASTA, base, deps());
+    if (!r.ok) return;
+    const a = mod.avisoDaMarcacao(r.marcacao);
     expect(a).not.toContain('Nascimento:');
     expect(a).not.toMatch(/\n\n\n/);
   });
 });
 
-// Adivinhar o formato de uma requisição que mexe em agenda médica pode criar um
-// evento errado que ninguém sabe desfazer.
-describe('efetiva', () => {
-  it('lança enquanto o endpoint do iClinic não for descoberto', async () => {
-    const p = mod.criaPedido(PASTA, base)!;
-    await expect(mod.efetiva(p)).rejects.toThrow(/não descoberto/);
+describe('escreveNoIclinic', () => {
+  it('lança enquanto o endpoint não for descoberto', async () => {
+    await expect(mod.escreveNoIclinic(PASTA, base)).rejects.toThrow(
+      /não foi descoberto/,
+    );
   });
 });

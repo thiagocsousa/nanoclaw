@@ -138,6 +138,12 @@ function leJson(saida: string): { vagas?: unknown } | undefined {
 export interface OpcoesDeBusca {
   /** Dia específico, ISO. Sem ele o script procura o próximo disponível. */
   dia?: string;
+  /**
+   * Hora específica, "HH:MM". O script **exige `--dia` junto** e, com os dois,
+   * responde se aquele horário exato cabe. É assim que se relê uma vaga no
+   * instante da escrita: lista vazia significa que ela já foi tomada.
+   */
+  hora?: string;
 }
 
 /** Busca vagas rodando o script na imagem do agente. Lista vazia = escalar. */
@@ -173,6 +179,15 @@ export async function buscaVagas(
     perfil,
   );
   if (opts.dia) args.push('--dia', opts.dia);
+  if (opts.hora) {
+    if (!opts.dia) {
+      // O script sai com erro nesse caso, e aqui o erro é meu: pedir hora sem
+      // dia é um bug de quem chamou, não uma indisponibilidade de agenda.
+      logger.error('vagas: --hora exige --dia; não vou buscar');
+      return [];
+    }
+    args.push('--hora', opts.hora);
+  }
 
   const t0 = Date.now();
   const saida = await executa(args);
