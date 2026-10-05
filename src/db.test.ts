@@ -13,7 +13,6 @@ import {
   storeMessageDirect,
   getTaskById,
   setRegisteredGroup,
-  storeChatMetadata,
   storeMessage,
   updateTask,
 } from './db.js';
@@ -661,13 +660,23 @@ describe('getMessagesSince: incluirBot', () => {
     const jid = 'teste-bot@g.us';
     storeChatMetadata(jid, '2026-10-05T09:00:00Z', jid);
     storeMessageDirect({
-      id: 'm1', chat_jid: jid, sender: '55@s', sender_name: 'Paciente',
-      content: 'Oi', timestamp: '2026-10-05T10:00:00Z', is_from_me: false,
+      id: 'm1',
+      chat_jid: jid,
+      sender: '55@s',
+      sender_name: 'Paciente',
+      content: 'Oi',
+      timestamp: '2026-10-05T10:00:00Z',
+      is_from_me: false,
     });
     storeMessageDirect({
-      id: 'm2', chat_jid: jid, sender: 'bot', sender_name: 'Lara',
-      content: 'Escolha uma opção: 1, 2 ou 3', timestamp: '2026-10-05T10:00:05Z',
-      is_from_me: true, is_bot_message: true,
+      id: 'm2',
+      chat_jid: jid,
+      sender: 'bot',
+      sender_name: 'Lara',
+      content: 'Escolha uma opção: 1, 2 ou 3',
+      timestamp: '2026-10-05T10:00:05Z',
+      is_from_me: true,
+      is_bot_message: true,
     });
     const r = getMessagesSince(jid, '2026-10-05T09:00:00Z', 'Claw');
     expect(r.map((m) => m.content)).toEqual(['Oi']);
@@ -677,17 +686,32 @@ describe('getMessagesSince: incluirBot', () => {
     const jid = 'teste-bot2@g.us';
     storeChatMetadata(jid, '2026-10-05T10:30:00Z', jid);
     storeMessageDirect({
-      id: 'n1', chat_jid: jid, sender: '55@s', sender_name: 'Paciente',
-      content: 'Oi', timestamp: '2026-10-05T11:00:00Z', is_from_me: false,
+      id: 'n1',
+      chat_jid: jid,
+      sender: '55@s',
+      sender_name: 'Paciente',
+      content: 'Oi',
+      timestamp: '2026-10-05T11:00:00Z',
+      is_from_me: false,
     });
     storeMessageDirect({
-      id: 'n2', chat_jid: jid, sender: 'bot', sender_name: 'Lara',
-      content: 'Escolha: 1 refrativa, 2 catarata', timestamp: '2026-10-05T11:00:05Z',
-      is_from_me: true, is_bot_message: true,
+      id: 'n2',
+      chat_jid: jid,
+      sender: 'bot',
+      sender_name: 'Lara',
+      content: 'Escolha: 1 refrativa, 2 catarata',
+      timestamp: '2026-10-05T11:00:05Z',
+      is_from_me: true,
+      is_bot_message: true,
     });
     storeMessageDirect({
-      id: 'n3', chat_jid: jid, sender: '55@s', sender_name: 'Paciente',
-      content: '2', timestamp: '2026-10-05T11:00:30Z', is_from_me: false,
+      id: 'n3',
+      chat_jid: jid,
+      sender: '55@s',
+      sender_name: 'Paciente',
+      content: '2',
+      timestamp: '2026-10-05T11:00:30Z',
+      is_from_me: false,
     });
     const r = getMessagesSince(jid, '2026-10-05T10:30:00Z', 'Claw', 200, true);
     expect(r.map((m) => m.content)).toEqual([
