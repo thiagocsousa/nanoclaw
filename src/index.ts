@@ -642,11 +642,23 @@ async function startMessageLoop(): Promise<void> {
 
           // Pull all messages since lastAgentTimestamp so non-trigger
           // context that accumulated between triggers is included.
+          //
+          // ⚠️ Este é o SEGUNDO caminho de prompt: quando já há container vivo,
+          // as mensagens novas são canalizadas para ele em vez de passarem por
+          // `processGroupMessages`. Em 05/10/2026 isso fez o "Oi" funcionar (abre
+          // o container, caminho completo) e o "2" seguinte escalar — ele chegava
+          // ao classificador como 137 caracteres, só a própria mensagem, sem o
+          // menu que a Lara tinha acabado de mandar.
+          //
+          // A lista de intenções não precisa ser repetida aqui: a sessão do
+          // agente já a tem do primeiro turno. As falas da Lara, sim, porque o
+          // texto do menu quem produziu foi o host.
           const allPending = getMessagesSince(
             chatJid,
             getOrRecoverCursor(chatJid),
             ASSISTANT_NAME,
             MAX_MESSAGES_PER_PROMPT,
+            wantsTemplates(group.folder),
           );
           const messagesToSend =
             allPending.length > 0 ? allPending : groupMessages;
