@@ -656,6 +656,30 @@ O navegador **não participa do envio ao paciente**: depois de coletado o
 código, o download volta a ser o HTTP puro que já roda em produção.
 
 - Uma sessão de navegador por **lote**, não por nota.
+#### Portal fora x credencial errada — o erro do script confunde os dois
+
+Quando o portal está fora, o `_login` estoura com `TimeoutError` e o script
+termina com *"confira NFSE_PORTAL_SENHA e se o usuário é mesmo o CNPJ"* —
+apontando para credencial quando o problema é indisponibilidade. Aconteceu em
+05/10/2026 com a nota 3460.
+
+Como separar os dois em um comando (do host, sem Playwright):
+
+```
+curl -s -o /dev/null -w "%{http_code} %{time_total}s\n" --max-time 40 \
+  https://the.dsfweb.com.br/notafiscal/paginas/login/login.jsf
+curl -s -o /dev/null -w "raiz %{http_code} %{time_total}s\n" --max-time 20 \
+  https://the.dsfweb.com.br
+```
+
+`HTTP 000` com 0 bytes no login e `200` na raiz = **portal fora**, nada a
+consertar aqui. Status 200 no login com `TimeoutError` no Playwright = aí sim
+suspeitar de seletor ou senha.
+
+Isso **não perde nota**: `nfse_danfse_pipeline.py` trata falha geral deixando a
+fila inteira para a rodada seguinte (`0,30 19-21`, seg-sex, até
+`NFSE_DANFSE_MAX_TENTATIVAS`=5), e só acorda o agente quando uma nota desiste.
+
 - ⚠️ **`NFSE_DANFSE_PORTAL` não existe no código.** Este doc dizia que o
   contorno vinha desligado e que bastava ligar a var — conferido em 05/10/2026,
   ela não é lida em lugar nenhum: o `nfse_danfse_pipeline.py` importa o
