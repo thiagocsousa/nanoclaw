@@ -356,6 +356,7 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
           ultima?.content ?? '',
           { sendMessage: enviaParaDestino },
           chatJid,
+          ultima?.sender ?? '',
         );
         if (!r) {
           // Sem tabela não há texto aprovado, e improvisar é o que esta

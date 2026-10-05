@@ -315,7 +315,19 @@ export async function escreveNoIclinic(
       CONTAINER_RUNTIME_BIN,
       args,
       { timeout: TIMEOUT_MS, maxBuffer: 2 * 1024 * 1024 },
-      (err, stdout) => (err ? reject(err) : resolve(stdout)),
+      (err, stdout, stderr) => {
+        if (!err) return resolve(stdout);
+        // `err.message` é só "Command failed: docker run ...", que repete o que
+        // já se sabe e esconde o que importa. O script diz POR QUE recusou na
+        // própria saída — e sem isto a escalada chega à recepção com a linha de
+        // comando em vez do motivo.
+        const detalhe = [stdout, stderr]
+          .map((x) => String(x || '').trim())
+          .filter(Boolean)
+          .join(' | ')
+          .slice(-600);
+        reject(new Error(detalhe || err.message));
+      },
     );
   });
 

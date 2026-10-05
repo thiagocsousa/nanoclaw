@@ -143,6 +143,12 @@ export async function executa(
   perguntaDoPaciente: string,
   deps: EscalationSlaDeps,
   chatJid: string,
+  /**
+   * JID de quem ESCREVEU a última mensagem. Em DM é o mesmo que `chatJid`; em
+   * grupo, não — e é dele que sai o telefone do paciente. Passar o `chatJid` de
+   * um grupo mandava o id do grupo como telefone.
+   */
+  remetenteJid = '',
 ): Promise<SaidaDoExecutor | undefined> {
   const tabela = carregaTabela(groupFolder);
   if (!tabela) {
@@ -212,7 +218,7 @@ export async function executa(
     slots = {
       ...slots,
       ...slotsDaVaga(oferta.vaga),
-      paciente: ((oferta.nome ?? c.slots.nome) ?? '').split(/\s+/)[0] ?? '',
+      paciente: (oferta.nome ?? c.slots.nome ?? '').split(/\s+/)[0] ?? '',
     };
   }
 
@@ -257,7 +263,7 @@ export async function executa(
       // A oferta vem primeiro: ela carrega o que foi coletado na triagem. O
       // turno do aceite normalmente não repete nome nem nascimento.
       paciente: oferta.nome || c.slots.nome || '',
-      pedidoPor: chatJid,
+      pedidoPor: remetenteJid || chatJid,
       nascimento: oferta.nascimento ?? c.slots.nascimento,
       convenio: oferta.convenio ?? c.slots.convenio,
       data: oferta.vaga.data,
