@@ -14,11 +14,14 @@ alguém que vai aparecer na clínica no dia. Esses dois escalam para a recepçã
 
 Observando o formulário real em 05/10/2026, com o Thiago presente. O modal de
 "Novo Agendamento" é um form Django **sem atributo `action`**, e form sem action
-envia para a URL do documento: `POST /agenda/`. Os nomes dos campos, os ids de
-convênio e os de procedimento vieram do DOM, não de adivinhação.
+envia para a URL do documento. Mas a aplicação **intercepta o submit** e faz um
+XHR para `POST /agenda/criar-evento/{PHYSICIAN_ID}/`: eu inferi `/agenda/` pela
+regra do HTML e tomei 405 duas vezes. Os nomes dos campos e os ids vieram do DOM.
 
-O paciente é criado junto: `patient` vazio mais `update_patient=true` faz o
-servidor cadastrar pelo `patient_name`. Não há etapa separada de cadastro.
+⚠️ **Verificado só para paciente JÁ CADASTRADO.** O POST que funcionou levava
+`patient` com id, escolhido no autocomplete. Que `patient` vazio mais
+`update_patient=true` cadastre pelo `patient_name` é plausível pelos nomes dos
+campos e **não foi medido**.
 
 ## A trava que substitui a confirmação humana
 
@@ -99,6 +102,9 @@ def ocupa(ev, ds, hhmm):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--nome", required=True)
+    ap.add_argument("--paciente-id", required=True,
+                    help="id do paciente no iClinic. Cadastrar paciente novo por "
+                         "este script ainda NÃO foi verificado.")
     ap.add_argument("--data", required=True, help="ISO: 2026-10-05")
     ap.add_argument("--inicio", required=True, help="HH:MM")
     ap.add_argument("--fim", required=True, help="HH:MM")
@@ -124,7 +130,7 @@ def main():
         "procedures[0][id]": PROCEDIMENTOS[a.perfil],
         "procedures[0][quantity]": "1",
         "patient_name": a.nome,
-        "patient": "",                     # vazio = cria paciente novo
+        "patient": a.paciente_id,          # id existente; ver aviso no cabeçalho
         "patient_mobile_phone": a.telefone,
         "patient_home_phone": "",
         "patient_email": a.email,
@@ -146,7 +152,8 @@ def main():
         mostrar = dict(campos)
         mostrar["patient_name"] = "<nome>"
         mostrar["patient_mobile_phone"] = "<telefone>" if a.telefone else ""
-        responder(["Dry-run: nada foi escrito.", "", "Enviaria para POST /agenda/:"] +
+        responder(["Dry-run: nada foi escrito.", "",
+                   f"Enviaria para POST /agenda/criar-evento/{PHYSICIAN_ID}/:"] +
                   [f"   {k} = {v}" for k, v in mostrar.items()],
                   ok=None, dry_run=True)
         return 0
@@ -193,10 +200,14 @@ def main():
 
             campos["csrfmiddlewaretoken"] = csrf
             r = pg.request.post(
-                f"{BASE}/agenda/",
+                f"{BASE}/agenda/criar-evento/{PHYSICIAN_ID}/",
                 form=campos,
-                headers={"X-Requested-With": "XMLHttpRequest", "X-CSRFToken": csrf,
-                         "Referer": f"{BASE}/agenda/"},
+                # A rota de criação é XHR: foi assim que o navegador a chamou
+                # (medido em 05/10/2026). Sem este cabeçalho, outra rota.
+                headers={"X-Requested-With": "XMLHttpRequest",
+                         "X-CSRFToken": csrf,
+                         "Referer": f"{BASE}/agenda/",
+                         "Origin": BASE},
                 timeout=30000)
             corpo = ""
             try:
