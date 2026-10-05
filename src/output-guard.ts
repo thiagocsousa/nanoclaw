@@ -361,7 +361,23 @@ const RX_TELEFONE = /\(?\b(?:0?\d{2})\)?\s?9?\d{4}[-\s]?\d{4}\b/g;
  * Inspeciona o texto. Devolve o que enviar (já saneado) e os achados.
  * Nunca lança: guarda que quebra o envio é pior que o problema que ela evita.
  */
-export function inspecionaSaida(bruto: string): Veredito {
+export interface OpcoesDaInspecao {
+  /**
+   * A marcação no iClinic REALMENTE aconteceu neste turno, confirmada pela
+   * releitura da agenda. Só então "está agendado" deixa de ser mentira.
+   *
+   * A guarda vê texto; quem sabe o que foi escrito na agenda é o executor. Sem
+   * este fato, a regra `agendamento_confirmado` bloqueia — e deve bloquear,
+   * porque dizer que marcou sem ter marcado é o pior desfecho possível: o
+   * paciente vai à clínica e não tem horário.
+   */
+  agendouDeVerdade?: boolean;
+}
+
+export function inspecionaSaida(
+  bruto: string,
+  opts: OpcoesDaInspecao = {},
+): Veredito {
   const achados: Achado[] = [];
   let texto = bruto;
 
@@ -391,7 +407,7 @@ export function inspecionaSaida(bruto: string): Veredito {
 
   // 4. block: afirmou que está marcado
   const conf = texto.match(RX_CONFIRMADO);
-  if (conf) {
+  if (!opts.agendouDeVerdade && conf) {
     achados.push({
       regra: 'agendamento_confirmado',
       nivel: 'block',

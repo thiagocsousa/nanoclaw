@@ -583,7 +583,7 @@ describe('veredito_criterio', () => {
 describe('a guarda contra a tabela de templates aprovados', () => {
   const tabela = JSON.parse(
     readFileSync('groups/whatsapp_atendimento-teste/templates.json', 'utf-8'),
-  ) as { intencoes: Record<string, { textos?: string[] }> };
+  ) as { intencoes: Record<string, { textos?: string[]; acao?: string }> };
 
   const VALOR: Record<string, string> = {
     valor_consulta: '430,00',
@@ -594,12 +594,21 @@ describe('a guarda contra a tabela de templates aprovados', () => {
     dia_pedido: 'sábado',
   };
 
-  const casos: Array<[string, string]> = [];
+  // Textos de `acao: marcar` só saem DEPOIS de uma marcação confirmada pela
+  // releitura da agenda — então é nessa condição que eles devem ser avaliados.
+  // Avaliá-los fora dela testaria uma situação que não existe.
+  const casos: Array<[string, string, boolean]> = [];
   for (const [nome, d] of Object.entries(tabela.intencoes)) {
     for (const bruto of d.textos ?? []) {
       let t = bruto;
       for (const [k, v] of Object.entries(VALOR)) t = t.split(`{${k}}`).join(v);
-      casos.push([nome, t]);
+      // As chaves que o executor preenche na hora da marcação.
+      t = t
+        .split('{paciente}').join('Joana')
+        .split('{dia}').join('segunda')
+        .split('{data}').join('06/10')
+        .split('{hora}').join('09:20');
+      casos.push([nome, t, d.acao === 'marcar']);
     }
   }
 
@@ -608,8 +617,8 @@ describe('a guarda contra a tabela de templates aprovados', () => {
   });
 
   it('NENHUM texto aprovado é bloqueado', () => {
-    for (const [nome, t] of casos) {
-      const v = inspecionaSaida(t);
+    for (const [nome, t, agendou] of casos) {
+      const v = inspecionaSaida(t, { agendouDeVerdade: agendou });
       const motivos = v.achados
         .filter((a) => a.nivel === 'block')
         .map((a) => `${a.regra}: "${a.trecho}"`);
@@ -620,6 +629,19 @@ describe('a guarda contra a tabela de templates aprovados', () => {
   it('e nenhum carrega travessão nem markdown, que são flag de estilo', () => {
     for (const [nome, t] of casos) {
       expect(t, nome).not.toMatch(/[—–]|\*\*/);
+    }
+  });
+
+  // A contraprova: sem a marcação confirmada, o mesmo texto DEVE ser bloqueado.
+  it('o texto de marcação é bloqueado quando NÃO houve marcação', () => {
+    const marcacao = casos.filter(([, , agendou]) => agendou);
+    expect(marcacao.length).toBeGreaterThan(0);
+    for (const [nome, t] of marcacao) {
+      const v = inspecionaSaida(t, { agendouDeVerdade: false });
+      expect(
+        v.achados.some((a) => a.regra === 'agendamento_confirmado'),
+        nome,
+      ).toBe(true);
     }
   });
 });

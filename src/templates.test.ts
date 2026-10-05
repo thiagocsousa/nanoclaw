@@ -141,9 +141,20 @@ describe('a tabela real do grupo de teste', () => {
       'escalar',
       'triagem',
       'recusar_e_triagem',
+      // Marca no iClinic a oferta que o host registrou. Não existe `remarcar`
+      // nem `cancelar`: marcar é aditivo, os outros dois são destrutivos.
+      'marcar',
     ]);
     for (const [nome, def] of Object.entries(t!.intencoes)) {
       expect(acoes.has(def.acao), `${nome}: ação ${def.acao}`).toBe(true);
+    }
+    // E a trava que importa: NENHUMA intenção pode escrever remarcação ou
+    // cancelamento. Se alguém acrescentar isso à tabela, o teste cai.
+    for (const [nome, def] of Object.entries(t!.intencoes)) {
+      expect(
+        ['remarcar', 'cancelar'].includes(def.acao),
+        `${nome}: remarcar e cancelar escalam, não escrevem`,
+      ).toBe(false);
     }
   });
 

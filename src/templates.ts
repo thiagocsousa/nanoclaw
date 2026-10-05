@@ -26,7 +26,17 @@ import path from 'path';
 import { GROUPS_DIR } from './config.js';
 import { logger } from './logger.js';
 
-export type Acao = 'responder' | 'escalar' | 'triagem' | 'recusar_e_triagem';
+export type Acao =
+  | 'responder'
+  | 'escalar'
+  | 'triagem'
+  | 'recusar_e_triagem'
+  /**
+   * Marca no iClinic a oferta que o host registrou, e só então manda o texto.
+   * Não existe `remarcar` nem `cancelar`: marcar é aditivo, os outros dois são
+   * destrutivos e escalam.
+   */
+  | 'marcar';
 
 export interface Intencao {
   bloco?: string;

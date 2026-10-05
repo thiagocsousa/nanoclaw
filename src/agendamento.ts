@@ -41,6 +41,93 @@ import { CONTAINER_RUNTIME_BIN } from './container-runtime.js';
 import { logger } from './logger.js';
 import { buscaVagas } from './vagas.js';
 
+// ---------------------------------------------------------------------------
+// A oferta pendente
+//
+// Para marcar é preciso saber QUAL horário o paciente aceitou, e o classificador
+// é proibido de preencher dia e hora — é essa proibição que impede um horário
+// inventado de chegar ao paciente. Então quem lembra é o host: ao oferecer, ele
+// registra; ao receber o aceite, ele lê de volta.
+//
+// Assim o modelo nunca toca no horário, nem para oferecer nem para confirmar.
+
+const OFERTAS = 'ofertas_pendentes.json';
+
+/**
+ * Validade da oferta. Passado isso, a vaga provavelmente já é de outro, e
+ * marcar em cima seria o erro que a releitura existe para evitar — melhor
+ * reofertar que marcar o que não está mais lá.
+ */
+export const OFERTA_VALIDA_MS = 30 * 60_000;
+
+export interface OfertaPendente {
+  /** ISO. */
+  data: string;
+  hora: string;
+  perfil: string;
+  quando: number;
+}
+
+function arquivoOfertas(folder: string): string {
+  return path.join(GROUPS_DIR, folder, OFERTAS);
+}
+
+function leOfertas(folder: string): Record<string, OfertaPendente> {
+  try {
+    const d = JSON.parse(fs.readFileSync(arquivoOfertas(folder), 'utf-8'));
+    return d && typeof d === 'object' ? d : {};
+  } catch {
+    return {};
+  }
+}
+
+/** Registra o que foi oferecido a esta conversa. Uma por conversa: a última. */
+export function registraOferta(
+  folder: string,
+  chatJid: string,
+  o: Omit<OfertaPendente, 'quando'>,
+): void {
+  const todas = leOfertas(folder);
+  todas[chatJid] = { ...o, quando: Date.now() };
+  const alvo = arquivoOfertas(folder);
+  try {
+    fs.mkdirSync(path.dirname(alvo), { recursive: true });
+    const tmp = `${alvo}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(todas, null, 2));
+    fs.renameSync(tmp, alvo);
+  } catch (err) {
+    // Sem registro não há aceite possível, e o caso vai escalar. Ruim, não grave.
+    logger.warn({ err, folder }, 'oferta: não gravei');
+  }
+}
+
+/** A oferta ainda válida desta conversa, se houver. */
+export function ultimaOferta(
+  folder: string,
+  chatJid: string,
+  agora = Date.now(),
+): OfertaPendente | undefined {
+  const o = leOfertas(folder)[chatJid];
+  if (!o) return undefined;
+  if (agora - o.quando > OFERTA_VALIDA_MS) return undefined;
+  return o;
+}
+
+/** Some com a oferta depois de usada, para um "sim" repetido não remarcar. */
+export function esqueceOferta(folder: string, chatJid: string): void {
+  const todas = leOfertas(folder);
+  if (!(chatJid in todas)) return;
+  delete todas[chatJid];
+  try {
+    const alvo = arquivoOfertas(folder);
+    const tmp = `${alvo}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(todas, null, 2));
+    fs.renameSync(tmp, alvo);
+  } catch (err) {
+    logger.warn({ err, folder }, 'oferta: não apaguei');
+  }
+}
+
 /** Livro de marcações feitas: auditoria e base da idempotência. */
 const LIVRO = 'agendamentos_feitos.jsonl';
 
@@ -195,7 +282,11 @@ export async function escreveNoIclinic(
     const t = linha.trim();
     if (!t.startsWith('{')) continue;
     try {
-      const j = JSON.parse(t) as { ok?: boolean; evento_id?: string; erro?: string };
+      const j = JSON.parse(t) as {
+        ok?: boolean;
+        evento_id?: string;
+        erro?: string;
+      };
       if (j.ok === true) return { eventoId: j.evento_id };
       throw new Error(j.erro || 'o script não confirmou a marcação');
     } catch (e) {

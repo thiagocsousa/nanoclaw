@@ -335,6 +335,7 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
       // vira silêncio: vira aviso para humano, com o texto e o motivo, senão o
       // paciente espera por uma resposta que ninguém sabe que foi barrada.
       let paraEnviar = text;
+      let agendouNesteTurno = false;
 
       // Executor da tabela: quando a pasta responde por template, o texto vem
       // da tabela e o modelo só entregou um rótulo. A guarda abaixo continua
@@ -342,9 +343,13 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
       // teste estrutural dela garante que nenhum texto aprovado é bloqueado.
       if (wantsTemplates(group.folder)) {
         const ultima = missedMessages[missedMessages.length - 1];
-        const r = await executa(group.folder, raw, ultima?.content ?? '', {
-          sendMessage: enviaParaDestino,
-        });
+        const r = await executa(
+          group.folder,
+          raw,
+          ultima?.content ?? '',
+          { sendMessage: enviaParaDestino },
+          chatJid,
+        );
         if (!r) {
           // Sem tabela não há texto aprovado, e improvisar é o que esta
           // arquitetura existe para impedir. Avisa humano e cala.
@@ -359,6 +364,7 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
           return;
         }
         paraEnviar = r.texto;
+        agendouNesteTurno = r.agendou === true;
       }
 
       // A guarda roda nos DOIS caminhos. No de template ela inspeciona texto
@@ -367,7 +373,12 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
       // um travessão ou um valor trocado. Defesa em profundidade só vale se a
       // segunda camada não for pulada pela primeira.
       if (paraEnviar && wantsOutputGuard(group.folder)) {
-        const veredito = inspecionaSaida(paraEnviar);
+        // `agendouDeVerdade` só é verdadeiro quando a marcação foi confirmada
+        // pela releitura da agenda. Sem o fato, a guarda bloqueia "está
+        // agendado" — e deve bloquear.
+        const veredito = inspecionaSaida(paraEnviar, {
+          agendouDeVerdade: agendouNesteTurno,
+        });
         const precisaAvisar = veredito.achados.some(
           (a) => a.nivel !== 'sanitize',
         );

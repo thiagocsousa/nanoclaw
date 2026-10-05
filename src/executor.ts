@@ -28,7 +28,18 @@ import { readEnvFile } from './env.js';
 import { escala, type EscalationSlaDeps } from './escalation-sla.js';
 import { logger } from './logger.js';
 import { interpreta } from './classify.js';
-import { carregaTabela, renderiza, type Resultado } from './templates.js';
+import {
+  carregaTabela,
+  renderiza,
+  type Resultado,
+  type Tabela,
+} from './templates.js';
+import {
+  esqueceOferta,
+  marca,
+  registraOferta,
+  ultimaOferta,
+} from './agendamento.js';
 import { fraseDeTriagem } from './triagem.js';
 import { buscaVagas, perfilDe, slotsDaVaga } from './vagas.js';
 
@@ -94,6 +105,27 @@ export function listaDeIntencoes(groupFolder: string): string | undefined {
   ].join('\n');
 }
 
+/** Escala com um motivo próprio, devolvendo o texto de DESCONHECIDO. */
+async function escalaComo(
+  groupFolder: string,
+  tabela: Tabela,
+  motivo: string,
+  pergunta: string,
+  deps: EscalationSlaDeps,
+): Promise<SaidaDoExecutor> {
+  const r = renderiza(tabela, 'DESCONHECIDO', { confianca: 1, slots: {} });
+  const codigo = await escala(
+    { folder: groupFolder, motivo, pergunta, urgente: false },
+    deps,
+  );
+  return { texto: r.texto, intencao: 'DESCONHECIDO', acao: 'escalar', codigo };
+}
+
+/** Preenche as chaves do texto da marcação. Chave que sobrar vira escalada. */
+function preencheTexto(t: string, vals: Record<string, string>): string {
+  return t.replace(/\{(\w+)\}/g, (todo, k) => vals[k] ?? todo);
+}
+
 export interface SaidaDoExecutor {
   /** O que enviar ao paciente. Vazio só se a tabela não tiver texto algum. */
   texto: string;
@@ -101,6 +133,11 @@ export interface SaidaDoExecutor {
   acao: Resultado['acao'];
   /** Código do caso, quando escalou. */
   codigo?: string;
+  /**
+   * A marcação no iClinic aconteceu de verdade neste turno. A guarda de saída
+   * precisa disto: sem o fato, ela bloqueia "está agendado", e deve bloquear.
+   */
+  agendou?: boolean;
 }
 
 /**
@@ -114,6 +151,7 @@ export async function executa(
   bruto: string,
   perguntaDoPaciente: string,
   deps: EscalationSlaDeps,
+  chatJid = '',
 ): Promise<SaidaDoExecutor | undefined> {
   const tabela = carregaTabela(groupFolder);
   if (!tabela) {
@@ -152,7 +190,18 @@ export async function executa(
       const vagas = await buscaVagas(groupFolder, perfil, {
         dia: diaIso(c.slots.dia_pedido),
       });
-      if (vagas.length > 0) slots = { ...slots, ...slotsDaVaga(vagas[0]) };
+      if (vagas.length > 0) {
+        slots = { ...slots, ...slotsDaVaga(vagas[0]) };
+        // O host lembra o que ofereceu. É isso que permite marcar depois sem
+        // o modelo jamais tocar em dia e hora.
+        if (chatJid) {
+          registraOferta(groupFolder, chatJid, {
+            data: vagas[0].data,
+            hora: vagas[0].inicio,
+            perfil,
+          });
+        }
+      }
     }
   }
 
@@ -178,10 +227,73 @@ export async function executa(
           [r.texto, pedido].filter(Boolean).join('\n\n');
   }
 
+  // Marcação: o paciente aceitou o horário que o HOST ofereceu e registrou.
+  // O modelo não participa disto — ele só disse "ele aceitou".
+  let agendou = false;
+  if (r.acao === 'marcar') {
+    const oferta = chatJid ? ultimaOferta(groupFolder, chatJid) : undefined;
+    if (!oferta) {
+      // Sem oferta registrada (ou vencida) não há o que marcar, e marcar "o
+      // próximo livre" seria marcar algo que o paciente não viu.
+      logger.warn(
+        { groupFolder, chatJid: chatJid ? 'presente' : 'ausente' },
+        'executor: aceite sem oferta válida, vai escalar',
+      );
+      return await escalaComo(
+        groupFolder,
+        tabela,
+        'aceitou um horário, mas não há oferta registrada ou ela venceu; confirme com o paciente',
+        perguntaDoPaciente,
+        deps,
+      );
+    }
+    const res = await marca(groupFolder, {
+      operacao: 'marcar',
+      paciente: c.slots.nome || '',
+      pedidoPor: chatJid,
+      nascimento: c.slots.nascimento,
+      convenio: c.slots.convenio,
+      data: oferta.data,
+      hora: oferta.hora,
+      perfil: oferta.perfil,
+    });
+    if (!res.ok) {
+      logger.warn(
+        { groupFolder, motivo: res.motivo, detalhe: res.detalhe },
+        'executor: marcação recusada, vai escalar',
+      );
+      return await escalaComo(
+        groupFolder,
+        tabela,
+        `${r.motivoEscalada ?? 'marcação não saiu'} | ${res.motivo}: ${res.detalhe}`,
+        perguntaDoPaciente,
+        deps,
+      );
+    }
+    agendou = true;
+    // Some com a oferta: um "sim" repetido não deve marcar de novo. A
+    // idempotência de `marca()` já cobriria, mas duas travas custam nada.
+    if (chatJid) esqueceOferta(groupFolder, chatJid);
+    const [ano, mes, dia] = oferta.data.split('-');
+    texto = preencheTexto(texto, {
+      paciente: (c.slots.nome || '').split(/\s+/)[0] || '',
+      dia: slotsDaVaga({
+        data: oferta.data,
+        dia_semana: '',
+        inicio: oferta.hora,
+        fim: '',
+      }).dia,
+      data: `${dia}/${mes}`,
+      hora: oferta.hora,
+      ano,
+    });
+  }
+
   const saida: SaidaDoExecutor = {
     texto,
     intencao: r.intencao,
     acao: r.acao,
+    agendou,
   };
 
   if (r.acao === 'escalar') {

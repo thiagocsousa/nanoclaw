@@ -1816,6 +1816,30 @@
           "intencao_esperada": "remarcar_consulta"
         }
       ]
+    },
+    {
+      "id": "E08",
+      "categoria": "agenda",
+      "sobre": "Aceita o horário oferecido. O HOST lembra qual foi (o classificador é proibido de preencher dia e hora), marca no iClinic e só então confirma. Sem oferta registrada ou com ela vencida, escala.",
+      "turnos": [
+        {
+          "paciente": "Thiago Carvalho de Sousa, 10/03/1980, Teresina, particular",
+          "esperado": [
+            "[0-9]{2}:[0-9]{2}"
+          ],
+          "intencao_esperada": "horario_oferta"
+        },
+        {
+          "paciente": "pode ser esse horario",
+          "esperado": [
+            "agendad"
+          ],
+          "proibido": [
+            "\\{\\w+\\}"
+          ],
+          "intencao_esperada": "aceita_horario"
+        }
+      ]
     }
   ]
 }

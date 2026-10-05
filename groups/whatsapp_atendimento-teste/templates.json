@@ -364,6 +364,16 @@
       "textos": [
         "Só um instante."
       ]
+    },
+    "aceita_horario": {
+      "bloco": "F12",
+      "quando": "aceita o horário que acabou de ser oferecido: 'pode ser', 'isso mesmo', 'confirma', 'tá bom', 'perfeito'. SÓ quando houve uma oferta de horário na conversa — sem oferta, um 'pode ser' solto não é aceite de nada",
+      "acao": "marcar",
+      "fecho": false,
+      "motivo_escalada": "aceitou o horário mas a marcação não saiu (ver motivo); confira a agenda e responda ao paciente",
+      "textos": [
+        "Pronto, {paciente}, está agendado para {dia}, dia {data}, às {hora}.\nQualquer coisa é só me chamar por aqui."
+      ]
     }
   }
 }
