@@ -397,7 +397,7 @@ export class WhatsAppChannel implements Channel {
 
             if (!content) continue;
 
-            const sender = msg.key.participant || msg.key.remoteJid || '';
+            const sender = await this.senderJid(msg);
             const senderName = msg.pushName || sender.split('@')[0];
 
             const fromMe = msg.key.fromMe || false;
@@ -815,6 +815,47 @@ export class WhatsAppChannel implements Channel {
     } catch (err) {
       logger.error({ err }, 'Failed to sync group metadata');
     }
+  }
+
+  /**
+   * JID de quem mandou, preferindo o telefone ao LID.
+   *
+   * O WhatsApp passou a endereçar tudo por LID (`195421196562669@lid`), um
+   * identificador de privacidade que NÃO é telefone — inclusive em conversa
+   * individual. Em 05/10/2026 isso fez a marcação no iClinic recusar o próprio
+   * paciente: `agendamento.ts` tirava o "telefone" do JID, o LID virava 15
+   * dígitos quaisquer, e a conferência de identidade (nome + nascimento +
+   * telefone) batia só no nascimento. O banco mostrava o sintoma de lado:
+   * `chat_jid` = `558681512111@s.whatsapp.net` e `sender` = o LID, a mesma
+   * pessoa.
+   *
+   * O telefone vem no próprio stanza: em grupo no `participantAlt`, em conversa
+   * individual no `remoteJidAlt` (`decode-wa-message.js`). Esta é a mesma
+   * precedência do `getKeyAuthor` do baileys. O `translateJid` fica como
+   * segunda tentativa, para quando o servidor não anexa o PN.
+   *
+   * Pode sobrar um `@lid` mesmo assim — o servidor não garante o `senderAlt`.
+   * Isso não é detalhe: quem conferir identidade com esse valor vai recusar
+   * gente de verdade, então avisamos no log e `telefoneDoJid` (em
+   * `agendamento.ts`) prefere não mandar telefone a mandar número inventado.
+   */
+  private async senderJid(
+    msg: import('@whiskeysockets/baileys').WAMessage,
+  ): Promise<string> {
+    const alt = msg.key.participantAlt || msg.key.remoteJidAlt;
+    if (alt) return alt;
+
+    const bruto = msg.key.participant || msg.key.remoteJid || '';
+    if (!bruto) return '';
+
+    const traduzido = await this.translateJid(bruto);
+    if (traduzido.endsWith('@lid')) {
+      logger.warn(
+        { sender: traduzido },
+        'Sender ficou em LID: sem telefone, conferência de identidade não fecha',
+      );
+    }
+    return traduzido;
   }
 
   private async translateJid(jid: string): Promise<string> {

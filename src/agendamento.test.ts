@@ -231,3 +231,30 @@ describe('o fim enviado ao script vem da agenda', () => {
     expect(d.fins).toEqual([VAGA.fim]);
   });
 });
+
+describe('telefone a partir do JID', () => {
+  // Esta função já foi a causa de três rodadas de teste perdidas em 05/10/2026:
+  // mandava o LID como telefone e a marcação recusava o próprio paciente.
+  it('aceita o JID de telefone, com e sem DDI', () => {
+    expect(mod.telefoneDoJid('558681512111@s.whatsapp.net')).toBe(
+      '558681512111',
+    );
+    expect(mod.telefoneDoJid('8681512111@s.whatsapp.net')).toBe('8681512111');
+    expect(mod.telefoneDoJid('86981512111@s.whatsapp.net')).toBe('86981512111');
+  });
+
+  it('recusa o LID, que não é telefone', () => {
+    expect(mod.telefoneDoJid('195421196562669@lid')).toBeUndefined();
+    // 15 dígitos não passariam pelo regex de qualquer jeito, mas um LID curto
+    // passaria — o sufixo `@lid` é que decide.
+    expect(mod.telefoneDoJid('558681512111@lid')).toBeUndefined();
+  });
+
+  it('recusa o que não é número de gente', () => {
+    expect(
+      mod.telefoneDoJid('120363275085162068@g.us'),
+    ).toBeUndefined();
+    expect(mod.telefoneDoJid('')).toBeUndefined();
+    expect(mod.telefoneDoJid('@s.whatsapp.net')).toBeUndefined();
+  });
+});

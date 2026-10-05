@@ -249,6 +249,29 @@ function registra(folder: string, m: Marcacao): void {
 }
 
 /**
+ * Telefone brasileiro a partir de um JID, ou `undefined` se não houver.
+ *
+ * `@lid` é identificador de privacidade do WhatsApp, não telefone: quinze
+ * dígitos que passam por número se a gente só olhar os dígitos. Era o que esta
+ * função fazia até 05/10/2026 — `195421196562669@lid` virava "telefone", a
+ * conferência de identidade no iClinic batia só no nascimento, e a marcação do
+ * próprio paciente escalava como se fosse homônimo.
+ *
+ * Preferimos devolver nada a devolver um número inventado: sem telefone o script
+ * escala dizendo que FALTA o telefone, que é a verdade e se distingue no log de
+ * "só o nascimento confere". O canal resolve o LID antes (`senderJid`), então
+ * aqui é rede de segurança para quando o servidor não manda o PN.
+ */
+export function telefoneDoJid(jid: string): string | undefined {
+  if (jid.includes('@lid')) return undefined;
+  const digitos = jid.split('@')[0].replace(/\D/g, '');
+  // 55 + DDD + assinante, ou DDD + assinante sem o DDI.
+  if (/^55\d{10,11}$/.test(digitos)) return digitos;
+  if (/^\d{10,11}$/.test(digitos)) return digitos;
+  return undefined;
+}
+
+/**
  * Escreve o evento no iClinic, rodando `iclinic_marcar.py` num container.
  *
  * O script resolve a identidade antes de escrever, por
@@ -303,9 +326,11 @@ export async function escreveNoIclinic(
     '--perfil',
     d.perfil,
   );
-  // O telefone sai do JID de quem pediu. Sem ele o cadastro criado fica SEM
-  // contato, e o pipeline de lembrete não alcança o paciente.
-  const telefone = d.pedidoPor.split('@')[0].replace(/\D/g, '');
+  // O telefone sai do JID de quem pediu — mas só se for telefone de verdade.
+  // Sem ele o cadastro criado fica SEM contato, e o pipeline de lembrete não
+  // alcança o paciente; com um número inventado é pior, porque a conferência de
+  // identidade recusa o próprio paciente (05/10/2026, ver `telefoneDoJid`).
+  const telefone = telefoneDoJid(d.pedidoPor);
   if (telefone) args.push('--telefone', telefone);
   // Sem o nascimento o script NÃO casa o paciente existente e escala — é o
   // segundo fator da identidade, junto com o telefone.
