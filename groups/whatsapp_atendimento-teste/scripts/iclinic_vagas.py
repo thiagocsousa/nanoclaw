@@ -55,6 +55,14 @@ PERFIS = {
     "exame":               ("exame", False),
 }
 
+# Antecedência mínima para um horário HOJE. Sem isto, o script oferecia uma vaga
+# que já tinha passado: em 05/10/2026, às 14:00, ofereceu "segunda, dia 05/10,
+# às 10:10". O filtro de dia existia (`d >= hoje`); o de hora, não.
+#
+# 90 min é um palpite conservador meu, não regra da clínica: é o tempo de o
+# paciente ver a mensagem, decidir e chegar. ⚠️ CONFIRMAR com a clínica.
+ANTECEDENCIA_MINIMA_MIN = 90
+
 COTA_UNIMED_DIA = 5
 ANTECEDENCIA_UNIMED = 7          # dias
 
@@ -231,9 +239,20 @@ def vaga(d, inicio, dur, ocup, n_unimed, pedido=False):
             "pedido_pelo_paciente": pedido}
 
 
-def vagas_do_dia(eventos, d, pista, dur, hora):
-    """(vagas, recusa) para um dia. Pura — não toca a rede, dá para testar sozinha."""
+def vagas_do_dia(eventos, d, pista, dur, hora, minimo_hm=None):
+    """(vagas, recusa) para um dia. Pura — não toca a rede, dá para testar sozinha.
+
+    `minimo_hm` é o começo mais cedo aceitável, em minutos desde a meia-noite.
+    Serve para HOJE: sem ele o script oferece horário que já passou, porque o
+    filtro de dia (`d >= hoje`) não diz nada sobre a hora.
+    """
     jan = tuple(hm(x) for x in JANELAS[d.weekday()])
+    if minimo_hm is not None:
+        # Recortar a janela cobre os dois caminhos de uma vez: o pedido de hora
+        # específica e a listagem de candidatos.
+        jan = (max(jan[0], minimo_hm), jan[1])
+        if jan[0] + dur > jan[1]:
+            return [], "já passou da hora de encaixar hoje"
     cons, exam, n_unimed, travado = ocupacao(eventos)
     if travado:
         return [], "dia bloqueado na agenda (feriado ou bloqueio)"
@@ -337,6 +356,9 @@ def main():
                 if conta_cota and d < minimo:
                     recusas.append((ds, f"antecedência mínima de {antec} dias"))
                     continue
+                agora = datetime.now(TZ)
+                minimo_hm = (agora.hour * 60 + agora.minute + ANTECEDENCIA_MINIMA_MIN
+                             if d == agora.date() else None)
                 try:
                     ev = agenda.eventos(d)
                 except AgendaIndisponivel as exc:
@@ -348,7 +370,7 @@ def main():
                     if n_unimed >= COTA_UNIMED_DIA:
                         recusas.append((ds, f"cota Unimed cheia ({n_unimed}/{COTA_UNIMED_DIA})"))
                         continue
-                vs, motivo = vagas_do_dia(ev, d, pista, dur, a.hora)
+                vs, motivo = vagas_do_dia(ev, d, pista, dur, a.hora, minimo_hm)
                 if motivo:
                     recusas.append((f"{ds} {a.hora}", motivo))
                 achadas.extend(vs)
