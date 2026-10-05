@@ -133,12 +133,96 @@ def ids_de(eventos):
     return {str(e.get("id")) for e in eventos if e.get("id") is not None}
 
 
+
+def so_digitos(x):
+    return "".join(c for c in (x or "") if c.isdigit())
+
+
+def iso_nascimento(x):
+    """Normaliza a data para AAAA-MM-DD.
+
+    A triagem coleta como o paciente escreve ("10/03/1980") e a API devolve
+    "1980-03-10". Comparar sem normalizar não casaria NUNCA, e o efeito seria
+    invisível: todo paciente existente pareceria novo, e o script duplicaria
+    cadastro achando que estava sendo cuidadoso.
+    """
+    d = so_digitos(x)
+    if len(d) != 8:
+        return ""
+    if (x or "").strip()[:4].isdigit():      # já veio AAAA-MM-DD
+        return f"{d[0:4]}-{d[4:6]}-{d[6:8]}"
+    return f"{d[4:8]}-{d[2:4]}-{d[0:2]}"     # DD/MM/AAAA
+
+
+def busca_paciente(pg, headers, nome, nascimento, telefone):
+    """Acha o paciente existente. Devolve (id, motivo).
+
+    `id` None com motivo "novo" significa que não existe e pode ser cadastrado.
+    Qualquer outro motivo com `id` None significa PARE: escalar.
+
+    Por que existe: sem busca, todo agendamento ia com `patient: null` e criava
+    um cadastro NOVO — um paciente de dez anos de casa ganharia um segundo
+    registro, e o prontuário dele ficaria partido em dois. Isso é poluição
+    durável de prontuário, não um deslize de mensagem.
+
+    ## A regra: nome MAIS nascimento E telefone (Thiago, 05/10/2026)
+
+    Os dois fatores juntos, não um OU outro. Com "ou", um homônimo cujo telefone
+    a clínica não tem, mas cuja data de nascimento coincida, seria tratado como
+    a mesma pessoa — e aí o agendamento entra no prontuário de outra gente.
+
+    Faltando qualquer um dos dois fatores, ou batendo só um, o script NÃO decide:
+    escala. Um humano resolve isso em segundos olhando a ficha; o script errando
+    cria um estrago que ninguém desfaz.
+    """
+    r = pg.request.get(
+        f"{BASE}/pacientes/busca.json?clinic={CLINIC_ID}&q={nome}&get_picture=0&limit=50",
+        headers=headers, timeout=25000)
+    if r.status != 200:
+        return None, f"busca de paciente falhou (HTTP {r.status})"
+    achados = (r.json() or {}).get("objects") or []
+    if not achados:
+        return None, "novo"          # ninguém com esse nome: cadastrar é seguro
+
+    nasc = iso_nascimento(nascimento)
+    tel = so_digitos(telefone)[-8:]  # sufixo: 9º dígito e DDI variam, o final não
+    if not nasc or not tel:
+        return None, ("ha cadastro com esse nome e falta "
+                      + ("nascimento" if not nasc else "telefone")
+                      + " para confirmar que e a mesma pessoa")
+
+    exatos = [p for p in achados
+              if iso_nascimento(p.get("birth_date")) == nasc
+              and so_digitos(p.get("mobile_phone")).endswith(tel)]
+
+    if len(exatos) == 1:
+        if exatos[0].get("died"):
+            return None, "cadastro marcado como falecido no iClinic"
+        return exatos[0].get("id"), "existente"
+    if len(exatos) > 1:
+        return None, "mais de um cadastro com o mesmo nome, nascimento e telefone"
+
+    # Nome bate com alguém, mas os dois fatores não confirmam. Pode ser homônimo
+    # (cadastrar novo seria o certo) ou a mesma pessoa com cadastro desatualizado
+    # (cadastrar duplicaria). Daqui não dá para distinguir, e errar é caro.
+    parcial = [p for p in achados
+               if iso_nascimento(p.get("birth_date")) == nasc
+               or so_digitos(p.get("mobile_phone")).endswith(tel)]
+    if parcial:
+        return None, ("ha cadastro com esse nome em que so o "
+                      + ("nascimento" if iso_nascimento(parcial[0].get("birth_date")) == nasc
+                         else "telefone")
+                      + " confere")
+    return None, "ha cadastro com esse nome e nenhum dado confere"
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--nome", required=True)
     ap.add_argument("--paciente-id", default=None,
-                    help="id do paciente existente. Omitido, cria paciente novo "
-                         "pelo --nome (medido em 05/10/2026).")
+                    help="id do paciente. Omitido, o script BUSCA antes de criar.")
+    ap.add_argument("--nascimento", default="",
+                    help="AAAA-MM-DD. Segundo fator para casar o paciente existente.")
     ap.add_argument("--data", required=True, help="ISO: 2026-10-05")
     ap.add_argument("--inicio", required=True, help="HH:MM")
     ap.add_argument("--fim", required=True, help="HH:MM")
@@ -234,6 +318,22 @@ def main():
                           ok=False, erro="vaga_tomada")
                 return 1
             ids_antes = ids_de(antes)
+
+            # Identidade ANTES de escrever: cadastrar um paciente que já existe
+            # parte o prontuário dele em dois, e isso não se desfaz.
+            if not a.paciente_id:
+                pid, motivo = busca_paciente(pg, leitura, a.nome, a.nascimento, a.telefone)
+                if pid:
+                    campos["patient"] = int(pid)
+                    campos["update_patient"] = "false"   # não mexer no cadastro
+                elif motivo != "novo":
+                    # Só "novo" segue. Qualquer dúvida de identidade para aqui:
+                    # um humano resolve em segundos, e o script errando cria
+                    # estrago que ninguém desfaz.
+                    responder([f"Não marquei: {motivo}.",
+                               "Confira a ficha do paciente e marque à mão."],
+                              ok=False, erro="identidade_incerta", detalhe=motivo)
+                    return 1
 
             r = pg.request.post(
                 f"{BASE}/agenda/criar-evento/{PHYSICIAN_ID}/",

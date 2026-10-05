@@ -241,15 +241,15 @@ function registra(folder: string, m: Marcacao): void {
 /**
  * Escreve o evento no iClinic, rodando `iclinic_marcar.py` num container.
  *
- * ⚠️ **Cria um cadastro NOVO a cada marcação.** O POST vai com `patient: null`,
- * porque é assim que o iClinic cadastra pelo nome — e não há, ainda, busca de
- * paciente existente. Então um paciente que já é da clínica há anos ganha um
- * segundo registro, e o histórico dele fica partido em dois.
+ * O script resolve a identidade antes de escrever, por
+ * `GET /pacientes/busca.json`: nome MAIS nascimento E telefone, os dois juntos
+ * (regra do Thiago em 05/10/2026). Batendo os dois, usa o cadastro existente;
+ * qualquer dúvida — só um fator confere, falta um deles, há mais de um
+ * candidato, cadastro de falecido — ele recusa e o caso escala.
  *
- * Isso é poluição durável de prontuário, não um deslize de mensagem, e é o
- * motivo pelo qual a marcação automática NÃO deve ser ligada no grupo real
- * antes de existir resolução de identidade (buscar por telefone e nascimento,
- * e escalar quando houver ambiguidade).
+ * O "ou" seria pior que inútil: um homônimo cujo telefone a clínica não tem,
+ * mas com data de nascimento coincidente, entraria no prontuário de outra
+ * pessoa.
  *
  * Mesmo arranjo do `vagas.ts`, e pelo mesmo motivo: Playwright não existe no
  * host e existe na imagem do agente; as credenciais vão por `-e NOME`, herdando
@@ -296,6 +296,9 @@ export async function escreveNoIclinic(
   // contato, e o pipeline de lembrete não alcança o paciente.
   const telefone = d.pedidoPor.split('@')[0].replace(/\D/g, '');
   if (telefone) args.push('--telefone', telefone);
+  // Sem o nascimento o script NÃO casa o paciente existente e escala — é o
+  // segundo fator da identidade, junto com o telefone.
+  if (d.nascimento) args.push('--nascimento', d.nascimento);
   const saida = await new Promise<string>((resolve, reject) => {
     execFile(
       CONTAINER_RUNTIME_BIN,
