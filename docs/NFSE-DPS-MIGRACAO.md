@@ -232,18 +232,21 @@ do WhatsApp.
 1. ~~Encaminhar `NFSE_MODO` + deploy~~ — ✅ feito (`7f5be1a7`).
 2. ~~Exercitar a assinatura dentro do container~~ — ✅ feito, assinatura confere.
 3. ~~Decidir o `nDPS` inicial~~ — aceito começar do 1.
-4. ✅ `NFSE_MODO=dps` ligado. **Falta a primeira emissão:** uma nota PF de
-   **consulta** — categoria com NBS conferido contra nota real — de menor valor.
+4. ✅ **Primeira emissão feita** — NFS-e nº 3460, 05/10/2026 22:23 UTC.
+   Foi a cirurgia (R$ 5.900), e não uma consulta de menor valor como esta ordem
+   recomendava: era o único item emissível na lista, e o Thiago escolheu tentar.
+   Deu certo, e de quebra confirmou o `cTribMun 003`.
+5. **Conferir a 3460 no portal** — ainda não feito.
+6. ⏳ **DANFSE — pendente e com paciente esperando.** A 3460 está em
+   `nfse_danfse_pendentes.json` e o cron `marina-danfse` (`0,30 19-21`, seg-sex)
+   vai falhar enquanto faltar:
+   - `NFSE_PORTAL_SENHA` em `FORWARDED_ENV_VARS` — **está no `.env`, não chega ao
+     container** (mesma pegadinha do `NFSE_MODO`);
+   - `NFSE_DANFSE_PORTAL=1` no `.env` — o contorno vem desligado.
 
-   ⚠️ **Não há candidato de consulta hoje.** O `pending_nfse.json` tem um único
-   item emissível: Anna Claudya, R$ 5.900, **cirurgia** — justamente a categoria
-   com `cTribMun 003` nunca testado. Seguir esta ordem ao pé da letra com a lista
-   atual faria a categoria mais arriscada ser a primeira DPS de produção, no
-   maior valor. Esperar uma consulta entrar na lista, ou aceitar o risco
-   conscientemente.
-5. Conferir a nota no portal antes de liberar o lote.
-6. Depois: DANFSE (encaminhar `NFSE_PORTAL_USUARIO`/`NFSE_PORTAL_SENHA` e
-   `NFSE_DANFSE_PORTAL`, medir o tempo do Chromium) e PJ (com o contador).
+   `NFSE_PORTAL_USUARIO` **não** é necessária: o login é o CNPJ e já tem padrão
+   em código (`_usuario_padrao`).
+7. Depois: PJ (com o contador).
 
 ## Fases
 
@@ -500,7 +503,7 @@ econômico (L0001). Trocar um sozinho quebra. Fonte: `CODIGOS_POR_CATEGORIA` em
 |---|---|---|---|---|
 | consulta | `040101` | `001` | `123012200` (1.2301.22.00) | DANFSe **real** de 02/10/2026 |
 | exame | `040301` | `004` | `123012100` (1.2301.21.00) | NFS-e **real** nº 3.452, 29/09/2026, validada pelo contador |
-| cirurgia | `040301` | `003` | `123011100` (1.2301.11.00) | **só a palavra do contador** — ver o aviso abaixo |
+| cirurgia | `040301` | `003` | `123011100` (1.2301.11.00) | NFS-e **real** nº 3460, 05/10/2026 — 1º DPS da clínica |
 
 Os que não variam:
 
@@ -517,16 +520,12 @@ argumento de que passava na validação. Passar na validação não quer dizer e
 certo: o 1.2301.19.00 **é** aceito pelo L0010 e **não é** o que a clínica usa.
 Quem desempatou foram as notas reais de produção, não o validador.
 
-⚠️ **Cirurgia é a única categoria nunca conferida contra uma nota real.** O par
-`040301` + 1.2301.11.00 passa no L0010 (provado em homologação, emitindo com
-`cTribMun=004`), mas isso só mostra que o par é aceitável — exatamente o grau de
-evidência que já enganou uma vez, no parágrafo acima.
-
-O ponto formalmente em aberto de cirurgia, porém, é o `cTribMun` `003`: em
-homologação ele é recusado com L0001 porque o cadastro econômico daquele
-ambiente está desatualizado; em produção está correto. Logo **a primeira cirurgia
-real é o teste**. Se vier L0001 em produção, o cadastro não foi atualizado — o
-item falha sozinho, reaparece no dia seguinte e não afeta as outras categorias.
+✅ **Cirurgia resolvida em produção (05/10/2026).** Era a única categoria sem
+nota real: o par `040301` + 1.2301.11.00 passava no L0010 em homologação, mas só
+com `cTribMun=004`, e o `003` da cirurgia era recusado lá com L0001 (cadastro
+econômico daquele ambiente desatualizado). A primeira cirurgia real **era** o
+teste — e passou: NFS-e nº 3460, Anna Claudya, refrativa, R$ 5.900. O trio
+`040301` + `003` + 1.2301.11.00 está confirmado contra o cadastro de produção.
 
 #### Regras municipais descobertas só emitindo
 
