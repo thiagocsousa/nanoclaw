@@ -114,7 +114,11 @@ describe('trava 2: idempotência', () => {
   it('o nome reescrito não cria um segundo agendamento', async () => {
     const d = deps();
     await mod.marca(PASTA, base, d);
-    const r = await mod.marca(PASTA, { ...base, paciente: 'Joana Silva Santos' }, d);
+    const r = await mod.marca(
+      PASTA,
+      { ...base, paciente: 'Joana Silva Santos' },
+      d,
+    );
     expect(r.ok && r.jaExistia).toBe(true);
     expect(mod.leMarcacoes(PASTA)).toHaveLength(1);
   });
@@ -140,7 +144,13 @@ describe('falha fecha, sempre com motivo', () => {
   });
 
   it('dado faltando não vai à rede', async () => {
-    for (const k of ['paciente', 'data', 'hora', 'perfil', 'pedidoPor'] as const) {
+    for (const k of [
+      'paciente',
+      'data',
+      'hora',
+      'perfil',
+      'pedidoPor',
+    ] as const) {
       const d = deps();
       const r = await mod.marca(PASTA, { ...base, [k]: '' }, d);
       expect(r.ok, k).toBe(false);
@@ -195,5 +205,24 @@ describe('escreveNoIclinic', () => {
     await expect(mod.escreveNoIclinic(PASTA, base)).rejects.toThrow(
       /não foi descoberto/,
     );
+  });
+});
+
+// A duração vem do perfil, igual ao iclinic_vagas.py. Aqui ela só monta o
+// argumento --fim; quem decide se a vaga cabe continua sendo o script.
+describe('fimDe', () => {
+  it('soma a duração do perfil', async () => {
+    expect(mod.fimDe('09:20', 'particular')).toBe('09:50');
+    expect(mod.fimDe('09:20', 'particular-cirurgia')).toBe('09:50');
+    expect(mod.fimDe('09:20', 'unimed')).toBe('09:40');
+    expect(mod.fimDe('11:50', 'particular')).toBe('12:20');
+  });
+
+  it('perfil desconhecido cai em 30 min, não em NaN', () => {
+    expect(mod.fimDe('10:00', 'inexistente')).toBe('10:30');
+  });
+
+  it('vira a hora corretamente', () => {
+    expect(mod.fimDe('23:50', 'particular')).toBe('00:20');
   });
 });

@@ -32,15 +32,28 @@
  * próprio `iclinic_vagas.py` já avisa "NÃO ofereça horário, escale" quando não
  * consegue ler a agenda.
  */
+import { execFile } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
-import { GROUPS_DIR } from './config.js';
+import { CONTAINER_IMAGE, GROUPS_DIR } from './config.js';
+import { CONTAINER_RUNTIME_BIN } from './container-runtime.js';
 import { logger } from './logger.js';
 import { buscaVagas } from './vagas.js';
 
 /** Livro de marcações feitas: auditoria e base da idempotência. */
 const LIVRO = 'agendamentos_feitos.jsonl';
+
+/** Mesmo teto do `vagas.ts`: Playwright no iClinic leva dezenas de segundos. */
+const TIMEOUT_MS = Number(process.env.VAGAS_TIMEOUT_MS) || 180_000;
+
+/** Valor vem do ambiente do host, nunca daqui. */
+const CREDENCIAIS = [
+  'ICLINIC_EMAIL',
+  'ICLINIC_PASSWORD',
+  'ICLINIC_CLINIC_ID',
+  'ICLINIC_PHYSICIAN_ID',
+];
 
 /**
  * Só `marcar`. Ver o cabeçalho: o critério é o que o erro faz, não quanto ele
@@ -103,7 +116,9 @@ export function leMarcacoes(folder: string): Marcacao[] {
  * paciente pode reescrevê-lo diferente ("Joana" e depois "Joana Silva") e isso
  * não é um segundo agendamento.
  */
-function chave(d: Pick<DadosDaMarcacao, 'pedidoPor' | 'data' | 'hora'>): string {
+function chave(
+  d: Pick<DadosDaMarcacao, 'pedidoPor' | 'data' | 'hora'>,
+): string {
   return `${d.pedidoPor}|${d.data}|${d.hora}`;
 }
 
@@ -122,21 +137,92 @@ function registra(folder: string, m: Marcacao): void {
 }
 
 /**
- * Escreve o evento no iClinic. **Ainda não implementado, de propósito.**
+ * Escreve o evento no iClinic, rodando `iclinic_marcar.py` num container.
  *
- * A leitura usa `GET /agenda/{medico}/{data}/?clinic={id}`; o endpoint de
- * criação precisa ser capturado observando a rede durante um agendamento real.
- * Não existe iClinic de homologação, então isso se faz com o Thiago presente,
- * num horário que ele designe como descartável, apagando em seguida.
+ * Mesmo arranjo do `vagas.ts`, e pelo mesmo motivo: Playwright não existe no
+ * host e existe na imagem do agente; as credenciais vão por `-e NOME`, herdando
+ * o valor, nunca `-e NOME=valor`, que deixaria a senha visível em `ps`.
  *
- * Adivinhar o formato de uma requisição que mexe em agenda médica pode criar um
- * evento que ninguém sabe desfazer. Lançar é mais honesto que tentar.
+ * O endpoint foi medido em 05/10/2026 interceptando o XHR real:
+ * `POST /agenda/criar-evento/{PHYSICIAN_ID}/`, corpo JSON. O script também relê
+ * a agenda antes e depois, então há duas verificações: a dele e a de `marca()`.
+ * Redundante de propósito — é agenda médica.
  */
 export async function escreveNoIclinic(
-  _folder: string,
-  _d: DadosDaMarcacao,
+  folder: string,
+  d: DadosDaMarcacao,
 ): Promise<{ eventoId?: string }> {
-  throw new Error('endpoint de escrita do iClinic ainda não foi descoberto');
+  const dir = path.join(GROUPS_DIR, folder);
+  const script = path.join(dir, 'scripts', 'iclinic_marcar.py');
+  if (!fs.existsSync(script)) {
+    throw new Error(`iclinic_marcar.py não existe em ${folder}`);
+  }
+  const args = ['run', '--rm', '--network', 'bridge'];
+  for (const k of CREDENCIAIS) {
+    if (process.env[k]) args.push('-e', k);
+  }
+  args.push(
+    '-v',
+    `${dir}:/workspace/group:ro`,
+    '--entrypoint',
+    'python3',
+    CONTAINER_IMAGE,
+    '/workspace/group/scripts/iclinic_marcar.py',
+    '--nome',
+    d.paciente,
+    '--data',
+    d.data,
+    '--inicio',
+    d.hora,
+    '--fim',
+    fimDe(d.hora, d.perfil),
+    '--perfil',
+    d.perfil,
+  );
+  if (d.convenio) args.push('--telefone', '');
+
+  const saida = await new Promise<string>((resolve, reject) => {
+    execFile(
+      CONTAINER_RUNTIME_BIN,
+      args,
+      { timeout: TIMEOUT_MS, maxBuffer: 2 * 1024 * 1024 },
+      (err, stdout) => (err ? reject(err) : resolve(stdout)),
+    );
+  });
+
+  // Última linha JSON, como todos os scripts desta base.
+  for (const linha of saida.trim().split('\n').reverse()) {
+    const t = linha.trim();
+    if (!t.startsWith('{')) continue;
+    try {
+      const j = JSON.parse(t) as { ok?: boolean; evento_id?: string; erro?: string };
+      if (j.ok === true) return { eventoId: j.evento_id };
+      throw new Error(j.erro || 'o script não confirmou a marcação');
+    } catch (e) {
+      if (e instanceof SyntaxError) continue;
+      throw e;
+    }
+  }
+  throw new Error('o script não devolveu JSON');
+}
+
+/**
+ * Fim a partir do começo e do perfil. As durações são as mesmas do
+ * `iclinic_vagas.py`, que é a fonte única da aritmética de agenda — repetidas
+ * aqui só para montar o argumento, nunca para decidir se cabe.
+ */
+const DURACAO: Record<string, number> = {
+  particular: 30,
+  'particular-cirurgia': 30,
+  'particular-desconto': 30,
+  unimed: 20,
+  'unimed-cirurgia': 20,
+};
+
+export function fimDe(inicio: string, perfil: string): string {
+  const [h, m] = inicio.split(':').map(Number);
+  const total = h * 60 + m + (DURACAO[perfil] ?? 30);
+  return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }
 
 export interface DepsDaMarcacao {
@@ -167,8 +253,9 @@ export async function marca(
     };
   }
 
-  const falta = (['paciente', 'data', 'hora', 'perfil', 'pedidoPor'] as const)
-    .filter((k) => !String(d[k] ?? '').trim());
+  const falta = (
+    ['paciente', 'data', 'hora', 'perfil', 'pedidoPor'] as const
+  ).filter((k) => !String(d[k] ?? '').trim());
   if (falta.length > 0) {
     return {
       ok: false,
