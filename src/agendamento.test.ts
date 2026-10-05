@@ -201,10 +201,20 @@ describe('o aviso à clínica', () => {
 });
 
 describe('escreveNoIclinic', () => {
-  it('lança enquanto o endpoint não for descoberto', async () => {
+  // Sem o script na pasta não há como escrever, e isso tem que falhar ALTO:
+  // silêncio aqui viraria "marquei" sem ter marcado.
+  it('sem o iclinic_marcar.py na pasta, lança dizendo qual pasta', async () => {
     await expect(mod.escreveNoIclinic(PASTA, base)).rejects.toThrow(
-      /não foi descoberto/,
+      /iclinic_marcar\.py não existe/,
     );
+  });
+
+  it('e marca() transforma isso em recusa com motivo, sem lançar', async () => {
+    const r = await mod.marca(PASTA, base, { relê: async () => [VAGA] });
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.motivo).toBe('escrita_indisponivel');
+    expect(mod.leMarcacoes(PASTA)).toHaveLength(0);
   });
 });
 
