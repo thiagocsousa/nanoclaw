@@ -96,10 +96,41 @@ def eventos_do_dia(pg, headers, ds):
     return [e for e in r.json().get("events", []) if (e.get("date") or "")[:10] == ds]
 
 
-def ocupa(ev, ds, hhmm):
-    """O evento cobre exatamente este começo? Comparação por string do horário."""
-    d = (ev.get("date") or "")
-    return d[:10] == ds and d[11:16] == hhmm
+def _vagas():
+    """Importa a aritmética de agenda do iclinic_vagas.py, que é a fonte única.
+
+    Os dois scripts moram na mesma pasta montada em /workspace/group/scripts/,
+    então o import é local e não precisa de pacote.
+
+    Reimplementar isto aqui já custou caro: a primeira versão comparava
+    `ev["date"][11:16]` com a hora, mas `date` é só AAAA-MM-DD e a hora vive em
+    `start_time` — a função nunca devolvia True, e com ela nem a checagem de
+    vaga livre nem a de "foi criado?" detectavam coisa alguma. Pior, uma
+    comparação ingênua de igualdade ainda erraria três casos que a lógica real
+    trata: consulta CANCELADA libera o horário, "SOLICITAÇÕES" não ocupa sala, e
+    um compromisso de 20 min às 09:10 invade as 09:20.
+    """
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import iclinic_vagas as v
+    return v
+
+
+def livre_para(eventos, inicio, perfil):
+    """A vaga está livre AGORA para este perfil? Usa a ocupação real."""
+    v = _vagas()
+    tipo, _ = v.PERFIS[perfil]
+    dur = v.DURACOES[tipo]
+    cons, exam, _n, travado = v.ocupacao(eventos)
+    if travado:
+        return False
+    ini = v.hm(inicio)
+    alvo = exam if tipo == "exame" else cons
+    return not v.choca(alvo, ini, dur)
+
+
+def ids_de(eventos):
+    """Conjunto dos ids dos eventos. É assim que se prova o que ESTE POST criou."""
+    return {str(e.get("id")) for e in eventos if e.get("id") is not None}
 
 
 def main():
@@ -198,10 +229,11 @@ def main():
                 responder([f"Não consegui ler a agenda antes de marcar: {exc}",
                            "NÃO escrevi nada."], ok=False, erro="agenda_ilegivel")
                 return 1
-            if any(ocupa(e, a.data, a.inicio) for e in antes):
-                responder([f"{a.inicio} de {a.data} JÁ está ocupado. Não marquei."],
+            if not livre_para(antes, a.inicio, a.perfil):
+                responder([f"{a.inicio} de {a.data} não está livre. Não marquei."],
                           ok=False, erro="vaga_tomada")
                 return 1
+            ids_antes = ids_de(antes)
 
             r = pg.request.post(
                 f"{BASE}/agenda/criar-evento/{PHYSICIAN_ID}/",
@@ -231,12 +263,23 @@ def main():
                           ok=None, erro="verificacao_falhou", http=r.status)
                 return 1
 
-            criado = [e for e in depois if ocupa(e, a.data, a.inicio)]
-            if criado:
+            # Evento NOVO, por diferença de ids. Perguntar "há algo neste horário?"
+            # confirmaria o agendamento de outro paciente que tenha caído na
+            # mesma vaga entre as duas leituras — e aí diríamos a este paciente
+            # que ele está marcado quando quem está é outro.
+            novos = [e for e in depois if str(e.get("id")) not in ids_antes]
+            meus = [e for e in novos
+                    if (e.get("start_time") or "")[:5] == a.inicio]
+            if len(meus) == 1:
                 responder([f"Marcado: {a.data} {a.inicio}–{a.fim}, perfil {a.perfil}."],
-                          ok=True, http=r.status, evento_id=criado[0].get("id"),
-                          eventos_no_horario=len(criado))
+                          ok=True, http=r.status, evento_id=meus[0].get("id"))
                 return 0
+            if len(meus) > 1:
+                responder([f"POST devolveu HTTP {r.status} e apareceram {len(meus)} "
+                           f"eventos novos às {a.inicio}.",
+                           "ESTADO AMBÍGUO: confira à mão, pode haver duplicata."],
+                          ok=None, erro="ambiguo", http=r.status)
+                return 1
             responder([f"POST devolveu HTTP {r.status} e a vaga continua livre: NÃO marcou.",
                        f"Trecho da resposta: {corpo[:200]}"],
                       ok=False, erro="nao_criou", http=r.status)

@@ -102,7 +102,9 @@ const TABELA = {
     },
     aceita_horario: {
       acao: 'marcar',
-      textos: ['Pronto, {paciente}, está agendado para {dia}, dia {data}, às {hora}.'],
+      textos: [
+        'Pronto, {paciente}, está agendado para {dia}, dia {data}, às {hora}.',
+      ],
     },
     DESCONHECIDO: { acao: 'escalar', textos: ['Só um instante.'] },
   },
@@ -451,7 +453,12 @@ describe('listaDeIntencoes: a lista vai no prompt, não num arquivo a abrir', ()
 // Nenhum teste cobria, e por isso o recurso inteiro passou morto.
 describe('aceite do horário chega à marcação', () => {
   const OFERTA = {
-    vaga: { data: '2026-10-06', dia_semana: 'segunda', inicio: '09:20', fim: '09:50' },
+    vaga: {
+      data: '2026-10-06',
+      dia_semana: 'segunda',
+      inicio: '09:20',
+      fim: '09:50',
+    },
     perfil: 'particular',
     quando: Date.now(),
   };
@@ -463,7 +470,9 @@ describe('aceite do horário chega à marcação', () => {
       'pode ser esse horario',
     );
     expect(r?.acao).toBe('marcar');
-    expect(r?.texto).toBe('Pronto, Joana, está agendado para segunda, dia 06/10, às 09:20.');
+    expect(r?.texto).toBe(
+      'Pronto, Joana, está agendado para segunda, dia 06/10, às 09:20.',
+    );
     expect(r?.texto).not.toMatch(/\{\w+\}/);
     expect(marcou).toHaveLength(1);
     expect(marcou[0]).toMatchObject({ data: '2026-10-06', hora: '09:20' });
@@ -493,7 +502,12 @@ describe('aceite do horário chega à marcação', () => {
     // Confiança baixa: o render rebaixa, e nada pode ter sido registrado —
     // senão um "pode ser" marcaria um horário que o paciente nunca viu.
     vagasFalsas = [
-      { data: '2026-10-06', dia_semana: 'segunda', inicio: '09:20', fim: '09:50' },
+      {
+        data: '2026-10-06',
+        dia_semana: 'segunda',
+        inicio: '09:20',
+        fim: '09:50',
+      },
     ];
     const r = await rodar(
       '{"intencao":"horario_oferta","confianca":0.4,"slots":{"necessidade":"rotina","convenio":"Unimed"}}',

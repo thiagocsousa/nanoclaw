@@ -241,6 +241,16 @@ function registra(folder: string, m: Marcacao): void {
 /**
  * Escreve o evento no iClinic, rodando `iclinic_marcar.py` num container.
  *
+ * ⚠️ **Cria um cadastro NOVO a cada marcação.** O POST vai com `patient: null`,
+ * porque é assim que o iClinic cadastra pelo nome — e não há, ainda, busca de
+ * paciente existente. Então um paciente que já é da clínica há anos ganha um
+ * segundo registro, e o histórico dele fica partido em dois.
+ *
+ * Isso é poluição durável de prontuário, não um deslize de mensagem, e é o
+ * motivo pelo qual a marcação automática NÃO deve ser ligada no grupo real
+ * antes de existir resolução de identidade (buscar por telefone e nascimento,
+ * e escalar quando houver ambiguidade).
+ *
  * Mesmo arranjo do `vagas.ts`, e pelo mesmo motivo: Playwright não existe no
  * host e existe na imagem do agente; as credenciais vão por `-e NOME`, herdando
  * o valor, nunca `-e NOME=valor`, que deixaria a senha visível em `ps`.
@@ -282,6 +292,10 @@ export async function escreveNoIclinic(
     '--perfil',
     d.perfil,
   );
+  // O telefone sai do JID de quem pediu. Sem ele o cadastro criado fica SEM
+  // contato, e o pipeline de lembrete não alcança o paciente.
+  const telefone = d.pedidoPor.split('@')[0].replace(/\D/g, '');
+  if (telefone) args.push('--telefone', telefone);
   const saida = await new Promise<string>((resolve, reject) => {
     execFile(
       CONTAINER_RUNTIME_BIN,
