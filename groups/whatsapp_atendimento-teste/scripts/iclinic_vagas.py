@@ -55,13 +55,22 @@ PERFIS = {
     "exame":               ("exame", False),
 }
 
-# Antecedência mínima para um horário HOJE. Sem isto, o script oferecia uma vaga
-# que já tinha passado: em 05/10/2026, às 14:00, ofereceu "segunda, dia 05/10,
-# às 10:10". O filtro de dia existia (`d >= hoje`); o de hora, não.
+# Encaixe no MESMO DIA: só para particular, e com 2 h de antecedência (regra do
+# Thiago em 05/10/2026).
 #
-# 90 min é um palpite conservador meu, não regra da clínica: é o tempo de o
-# paciente ver a mensagem, decidir e chegar. ⚠️ CONFIRMAR com a clínica.
-ANTECEDENCIA_MINIMA_MIN = 90
+# São duas travas distintas e as duas são necessárias:
+#
+# 1. `TIPOS_COM_ENCAIXE_HOJE` — convênio exige autorização e conferência, que
+#    não se resolve em horas. Para quem não é particular, hoje simplesmente não
+#    existe, e o primeiro dia possível é amanhã.
+# 2. `ANTECEDENCIA_MINIMA_MIN` — mesmo para particular, é o tempo de o paciente
+#    ver a mensagem, decidir e chegar à clínica.
+#
+# Antes disso o script oferecia qualquer vaga livre do dia: às 14:00 de
+# 05/10/2026 ofereceu "segunda, dia 05/10, às 10:10". O filtro de DIA existia
+# (`d >= hoje`); o de HORA, não.
+TIPOS_COM_ENCAIXE_HOJE = {"particular"}
+ANTECEDENCIA_MINIMA_MIN = 120
 
 COTA_UNIMED_DIA = 5
 ANTECEDENCIA_UNIMED = 7          # dias
@@ -313,9 +322,19 @@ def main():
     hoje = datetime.now(TZ).date()
     minimo = hoje + timedelta(days=antec)
 
+    # Hoje só entra para quem pode encaixar no mesmo dia. Para os demais o
+    # primeiro dia possível é amanhã, e dizer isso aqui evita calcular vagas que
+    # seriam descartadas depois.
+    primeiro = hoje if tipo in TIPOS_COM_ENCAIXE_HOJE else hoje + timedelta(days=1)
+
     alvos = ([dia_pedido] if dia_pedido
              else [hoje + timedelta(days=i) for i in range(a.dias + 1)])
-    alvos = [d for d in alvos if d.weekday() in JANELAS and d >= hoje]
+    alvos = [d for d in alvos if d.weekday() in JANELAS and d >= primeiro]
+
+    if dia_pedido == hoje and tipo not in TIPOS_COM_ENCAIXE_HOJE:
+        responder([f"{hoje.isoformat()}: encaixe no mesmo dia só para particular."],
+                  vagas=[], recusas=[(hoje.isoformat(), "mesmo dia só para particular")])
+        return 0
 
     cab = [f"perfil: {a.perfil} ({dur} min, pista {pista})"]
     if conta_cota:
