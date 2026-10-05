@@ -71,6 +71,36 @@ export const FECHO = 'Ajudo em algo mais?';
 
 const cache = new Map<string, Tabela>();
 
+const ACOES_VALIDAS: ReadonlySet<string> = new Set<Acao>([
+  'responder',
+  'escalar',
+  'triagem',
+  'recusar_e_triagem',
+  'marcar',
+]);
+
+/**
+ * Ação desconhecida na tabela vira `escalar`.
+ *
+ * O carregamento é a fronteira de confiança: `JSON.parse(...) as Tabela` aceita
+ * qualquer coisa, e uma intenção com `"acao": "cancelar"` carregaria, renderizaria
+ * e devolveria uma ação que nenhum ramo do executor trata — o texto sairia ao
+ * paciente sem nada ter sido feito. Checar aqui vale mais que o tipo, porque o
+ * tipo protege o chamador compilado e não o arquivo editado por um humano.
+ */
+function sanitizaAcoes(t: Tabela, groupFolder: string): Tabela {
+  for (const [nome, def] of Object.entries(t.intencoes)) {
+    if (!ACOES_VALIDAS.has(def.acao)) {
+      logger.error(
+        { groupFolder, intencao: nome, acao: def.acao },
+        'templates: ação desconhecida, rebaixada para escalar',
+      );
+      def.acao = 'escalar';
+    }
+  }
+  return t;
+}
+
 export function carregaTabela(groupFolder: string): Tabela | undefined {
   if (cache.has(groupFolder)) return cache.get(groupFolder);
   try {
@@ -78,7 +108,7 @@ export function carregaTabela(groupFolder: string): Tabela | undefined {
       path.join(GROUPS_DIR, groupFolder, 'templates.json'),
       'utf-8',
     );
-    const t = JSON.parse(bruto) as Tabela;
+    const t = sanitizaAcoes(JSON.parse(bruto) as Tabela, groupFolder);
     cache.set(groupFolder, t);
     return t;
   } catch (err) {

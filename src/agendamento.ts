@@ -39,7 +39,7 @@ import path from 'path';
 import { CONTAINER_IMAGE, GROUPS_DIR } from './config.js';
 import { CONTAINER_RUNTIME_BIN } from './container-runtime.js';
 import { logger } from './logger.js';
-import { buscaVagas } from './vagas.js';
+import { buscaVagas, type Vaga } from './vagas.js';
 
 // ---------------------------------------------------------------------------
 // A oferta pendente
@@ -61,9 +61,12 @@ const OFERTAS = 'ofertas_pendentes.json';
 export const OFERTA_VALIDA_MS = 30 * 60_000;
 
 export interface OfertaPendente {
-  /** ISO. */
-  data: string;
-  hora: string;
+  /**
+   * A vaga inteira, como o `iclinic_vagas.py` devolveu. Guardar a vaga em vez
+   * de data e hora soltas evita reimplementar aqui a aritmética de duração que
+   * o script declara ser fonte única: `fim` já vem calculado por ele.
+   */
+  vaga: Vaga;
   perfil: string;
   quando: number;
 }
@@ -81,14 +84,16 @@ function leOfertas(folder: string): Record<string, OfertaPendente> {
   }
 }
 
-/** Registra o que foi oferecido a esta conversa. Uma por conversa: a última. */
-export function registraOferta(
+/**
+ * Grava as ofertas. Uma função só para registrar e para esquecer: as duas
+ * cópias anteriores já tinham divergido — só uma criava o diretório, e sem ele
+ * o esquecimento falhava calado e a oferta continuava valendo.
+ */
+function gravaOfertas(
   folder: string,
-  chatJid: string,
-  o: Omit<OfertaPendente, 'quando'>,
+  todas: Record<string, OfertaPendente>,
+  oque: string,
 ): void {
-  const todas = leOfertas(folder);
-  todas[chatJid] = { ...o, quando: Date.now() };
   const alvo = arquivoOfertas(folder);
   try {
     fs.mkdirSync(path.dirname(alvo), { recursive: true });
@@ -96,9 +101,26 @@ export function registraOferta(
     fs.writeFileSync(tmp, JSON.stringify(todas, null, 2));
     fs.renameSync(tmp, alvo);
   } catch (err) {
-    // Sem registro não há aceite possível, e o caso vai escalar. Ruim, não grave.
-    logger.warn({ err, folder }, 'oferta: não gravei');
+    logger.warn({ err, folder, oque }, 'oferta: não gravei');
   }
+}
+
+/** Registra o que foi oferecido a esta conversa. Uma por conversa: a última. */
+export function registraOferta(
+  folder: string,
+  chatJid: string,
+  o: Omit<OfertaPendente, 'quando'>,
+): void {
+  const agora = Date.now();
+  // Poda as vencidas de passagem: só o caminho de sucesso apagava, então o
+  // arquivo crescia sem teto, uma entrada por conversa que não fechou.
+  const todas = Object.fromEntries(
+    Object.entries(leOfertas(folder)).filter(
+      ([, v]) => agora - v.quando <= OFERTA_VALIDA_MS,
+    ),
+  );
+  todas[chatJid] = { ...o, quando: agora };
+  gravaOfertas(folder, todas, 'registrar');
 }
 
 /** A oferta ainda válida desta conversa, se houver. */
@@ -118,14 +140,7 @@ export function esqueceOferta(folder: string, chatJid: string): void {
   const todas = leOfertas(folder);
   if (!(chatJid in todas)) return;
   delete todas[chatJid];
-  try {
-    const alvo = arquivoOfertas(folder);
-    const tmp = `${alvo}.tmp`;
-    fs.writeFileSync(tmp, JSON.stringify(todas, null, 2));
-    fs.renameSync(tmp, alvo);
-  } catch (err) {
-    logger.warn({ err, folder }, 'oferta: não apaguei');
-  }
+  gravaOfertas(folder, todas, 'esquecer');
 }
 
 /** Livro de marcações feitas: auditoria e base da idempotência. */
@@ -238,6 +253,7 @@ function registra(folder: string, m: Marcacao): void {
 export async function escreveNoIclinic(
   folder: string,
   d: DadosDaMarcacao,
+  fim: string,
 ): Promise<{ eventoId?: string }> {
   const dir = path.join(GROUPS_DIR, folder);
   const script = path.join(dir, 'scripts', 'iclinic_marcar.py');
@@ -262,12 +278,10 @@ export async function escreveNoIclinic(
     '--inicio',
     d.hora,
     '--fim',
-    fimDe(d.hora, d.perfil),
+    fim,
     '--perfil',
     d.perfil,
   );
-  if (d.convenio) args.push('--telefone', '');
-
   const saida = await new Promise<string>((resolve, reject) => {
     execFile(
       CONTAINER_RUNTIME_BIN,
@@ -295,25 +309,6 @@ export async function escreveNoIclinic(
     }
   }
   throw new Error('o script não devolveu JSON');
-}
-
-/**
- * Fim a partir do começo e do perfil. As durações são as mesmas do
- * `iclinic_vagas.py`, que é a fonte única da aritmética de agenda — repetidas
- * aqui só para montar o argumento, nunca para decidir se cabe.
- */
-const DURACAO: Record<string, number> = {
-  particular: 30,
-  'particular-cirurgia': 30,
-  'particular-desconto': 30,
-  unimed: 20,
-  'unimed-cirurgia': 20,
-};
-
-export function fimDe(inicio: string, perfil: string): string {
-  const [h, m] = inicio.split(':').map(Number);
-  const total = h * 60 + m + (DURACAO[perfil] ?? 30);
-  return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }
 
 export interface DepsDaMarcacao {
@@ -381,7 +376,10 @@ export async function marca(
 
   let eventoId: string | undefined;
   try {
-    ({ eventoId } = await escreve(folder, d));
+    // O fim vem da vaga RELIDA, não de uma tabela de durações no host: a
+    // aritmética de agenda tem uma fonte só, o `iclinic_vagas.py`. Duplicá-la
+    // aqui faria a vaga ser achada com uma largura e escrita com outra.
+    ({ eventoId } = await escreve(folder, d, vagas[0].fim));
   } catch (err) {
     logger.error({ err, folder }, 'marca: escrita no iClinic falhou');
     return {

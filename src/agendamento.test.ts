@@ -33,8 +33,10 @@ const base = {
 /** Releitura e escrita injetadas: aqui se testa a DECISÃO, não o iClinic. */
 function deps(opts: { livre?: boolean; falhaEscrita?: boolean } = {}) {
   const chamadas: Array<{ perfil: string; dia?: string; hora?: string }> = [];
+  const fins: string[] = [];
   return {
     chamadas,
+    fins,
     relê: async (
       _f: string,
       perfil: string,
@@ -43,7 +45,8 @@ function deps(opts: { livre?: boolean; falhaEscrita?: boolean } = {}) {
       chamadas.push({ perfil, dia: o.dia, hora: o.hora });
       return opts.livre === false ? [] : [VAGA];
     },
-    escreve: async () => {
+    escreve: async (_f: string, _d: unknown, fim: string) => {
+      fins.push(fim);
       if (opts.falhaEscrita) throw new Error('endpoint não descoberto');
       return { eventoId: 'evt-77' };
     },
@@ -204,7 +207,7 @@ describe('escreveNoIclinic', () => {
   // Sem o script na pasta não há como escrever, e isso tem que falhar ALTO:
   // silêncio aqui viraria "marquei" sem ter marcado.
   it('sem o iclinic_marcar.py na pasta, lança dizendo qual pasta', async () => {
-    await expect(mod.escreveNoIclinic(PASTA, base)).rejects.toThrow(
+    await expect(mod.escreveNoIclinic(PASTA, base, '09:50')).rejects.toThrow(
       /iclinic_marcar\.py não existe/,
     );
   });
@@ -218,21 +221,13 @@ describe('escreveNoIclinic', () => {
   });
 });
 
-// A duração vem do perfil, igual ao iclinic_vagas.py. Aqui ela só monta o
-// argumento --fim; quem decide se a vaga cabe continua sendo o script.
-describe('fimDe', () => {
-  it('soma a duração do perfil', async () => {
-    expect(mod.fimDe('09:20', 'particular')).toBe('09:50');
-    expect(mod.fimDe('09:20', 'particular-cirurgia')).toBe('09:50');
-    expect(mod.fimDe('09:20', 'unimed')).toBe('09:40');
-    expect(mod.fimDe('11:50', 'particular')).toBe('12:20');
-  });
-
-  it('perfil desconhecido cai em 30 min, não em NaN', () => {
-    expect(mod.fimDe('10:00', 'inexistente')).toBe('10:30');
-  });
-
-  it('vira a hora corretamente', () => {
-    expect(mod.fimDe('23:50', 'particular')).toBe('00:20');
+// O fim vem da vaga RELIDA, não de uma tabela de durações no host: a aritmética
+// de agenda tem uma fonte só. Duplicá-la faria a vaga ser achada com uma
+// largura e escrita com outra — evento curto ou sobreposto, sem erro visível.
+describe('o fim enviado ao script vem da agenda', () => {
+  it('usa o fim da vaga relida, não um cálculo local', async () => {
+    const d = deps();
+    await mod.marca(PASTA, base, d);
+    expect(d.fins).toEqual([VAGA.fim]);
   });
 });

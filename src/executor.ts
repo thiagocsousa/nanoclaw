@@ -41,7 +41,7 @@ import {
   ultimaOferta,
 } from './agendamento.js';
 import { fraseDeTriagem } from './triagem.js';
-import { buscaVagas, perfilDe, slotsDaVaga } from './vagas.js';
+import { buscaVagas, perfilDe, slotsDaVaga, type Vaga } from './vagas.js';
 
 const envConfig = readEnvFile(['TEMPLATE_FOLDERS']);
 
@@ -121,11 +121,6 @@ async function escalaComo(
   return { texto: r.texto, intencao: 'DESCONHECIDO', acao: 'escalar', codigo };
 }
 
-/** Preenche as chaves do texto da marcação. Chave que sobrar vira escalada. */
-function preencheTexto(t: string, vals: Record<string, string>): string {
-  return t.replace(/\{(\w+)\}/g, (todo, k) => vals[k] ?? todo);
-}
-
 export interface SaidaDoExecutor {
   /** O que enviar ao paciente. Vazio só se a tabela não tiver texto algum. */
   texto: string;
@@ -133,11 +128,6 @@ export interface SaidaDoExecutor {
   acao: Resultado['acao'];
   /** Código do caso, quando escalou. */
   codigo?: string;
-  /**
-   * A marcação no iClinic aconteceu de verdade neste turno. A guarda de saída
-   * precisa disto: sem o fato, ela bloqueia "está agendado", e deve bloquear.
-   */
-  agendou?: boolean;
 }
 
 /**
@@ -151,7 +141,7 @@ export async function executa(
   bruto: string,
   perguntaDoPaciente: string,
   deps: EscalationSlaDeps,
-  chatJid = '',
+  chatJid: string,
 ): Promise<SaidaDoExecutor | undefined> {
   const tabela = carregaTabela(groupFolder);
   if (!tabela) {
@@ -177,6 +167,7 @@ export async function executa(
   // renderizador rebaixa por slot ausente e NENHUMA oferta de horário seria
   // possível, que era o estado da primeira versão deste arquivo.
   let slots = c.slots;
+  let ofertaAOferecer: { vaga: Vaga; perfil: string } | undefined;
   const exige = tabela.intencoes[c.intencao]?.slots_obrigatorios ?? [];
   if (exige.includes('dia') || exige.includes('hora')) {
     const perfil = perfilDe(c.slots.necessidade, c.slots.convenio);
@@ -192,17 +183,28 @@ export async function executa(
       });
       if (vagas.length > 0) {
         slots = { ...slots, ...slotsDaVaga(vagas[0]) };
-        // O host lembra o que ofereceu. É isso que permite marcar depois sem
-        // o modelo jamais tocar em dia e hora.
-        if (chatJid) {
-          registraOferta(groupFolder, chatJid, {
-            data: vagas[0].data,
-            hora: vagas[0].inicio,
-            perfil,
-          });
-        }
+        // Guardada para registrar DEPOIS, se o texto realmente for produzido.
+        // Registrar aqui gravaria uma oferta que o paciente pode nunca ver —
+        // o render ainda pode rebaixar — e aí um "pode ser" marcaria um
+        // horário que ele não viu, que é a falha que este módulo impede.
+        ofertaAOferecer = { vaga: vagas[0], perfil };
       }
     }
+  }
+
+  // Aceite de horário: os valores vêm da oferta que o HOST registrou, e entram
+  // em `slots` ANTES de renderizar. A primeira versão preenchia depois, com um
+  // segundo substituidor — e o `preenche` original, que é a trava contra texto
+  // com chave aberta, disparava antes e rebaixava o turno. O caminho inteiro
+  // era inalcançável, e nenhum teste cobria.
+  const vaiMarcar = tabela.intencoes[c.intencao]?.acao === 'marcar';
+  const oferta = vaiMarcar ? ultimaOferta(groupFolder, chatJid) : undefined;
+  if (vaiMarcar && oferta) {
+    slots = {
+      ...slots,
+      ...slotsDaVaga(oferta.vaga),
+      paciente: (c.slots.nome ?? '').split(/\s+/)[0] ?? '',
+    };
   }
 
   const r = renderiza(tabela, c.intencao, {
@@ -229,16 +231,10 @@ export async function executa(
 
   // Marcação: o paciente aceitou o horário que o HOST ofereceu e registrou.
   // O modelo não participa disto — ele só disse "ele aceitou".
-  let agendou = false;
   if (r.acao === 'marcar') {
-    const oferta = chatJid ? ultimaOferta(groupFolder, chatJid) : undefined;
     if (!oferta) {
       // Sem oferta registrada (ou vencida) não há o que marcar, e marcar "o
       // próximo livre" seria marcar algo que o paciente não viu.
-      logger.warn(
-        { groupFolder, chatJid: chatJid ? 'presente' : 'ausente' },
-        'executor: aceite sem oferta válida, vai escalar',
-      );
       return await escalaComo(
         groupFolder,
         tabela,
@@ -253,8 +249,8 @@ export async function executa(
       pedidoPor: chatJid,
       nascimento: c.slots.nascimento,
       convenio: c.slots.convenio,
-      data: oferta.data,
-      hora: oferta.hora,
+      data: oferta.vaga.data,
+      hora: oferta.vaga.inicio,
       perfil: oferta.perfil,
     });
     if (!res.ok) {
@@ -270,30 +266,21 @@ export async function executa(
         deps,
       );
     }
-    agendou = true;
     // Some com a oferta: um "sim" repetido não deve marcar de novo. A
     // idempotência de `marca()` já cobriria, mas duas travas custam nada.
-    if (chatJid) esqueceOferta(groupFolder, chatJid);
-    const [ano, mes, dia] = oferta.data.split('-');
-    texto = preencheTexto(texto, {
-      paciente: (c.slots.nome || '').split(/\s+/)[0] || '',
-      dia: slotsDaVaga({
-        data: oferta.data,
-        dia_semana: '',
-        inicio: oferta.hora,
-        fim: '',
-      }).dia,
-      data: `${dia}/${mes}`,
-      hora: oferta.hora,
-      ano,
-    });
+    esqueceOferta(groupFolder, chatJid);
+  }
+
+  // Só agora, com o texto da oferta de fato produzido, o host registra o que
+  // ofereceu.
+  if (ofertaAOferecer && r.acao === 'responder') {
+    registraOferta(groupFolder, chatJid, ofertaAOferecer);
   }
 
   const saida: SaidaDoExecutor = {
     texto,
     intencao: r.intencao,
     acao: r.acao,
-    agendou,
   };
 
   if (r.acao === 'escalar') {

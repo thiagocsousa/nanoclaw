@@ -15,6 +15,30 @@ const PASTA = 'whatsapp_exec-teste';
 const buscou: Array<{ perfil: string; dia?: string }> = [];
 let vagasFalsas: Array<Record<string, string>> = [];
 
+const marcou: Array<Record<string, string>> = [];
+let ofertaFalsa: unknown;
+let marcaFalha: string | undefined;
+
+vi.mock('./agendamento.js', async (orig) => {
+  const real = await orig<typeof import('./agendamento.js')>();
+  return {
+    ...real,
+    ultimaOferta: () => ofertaFalsa,
+    registraOferta: (_f: string, _j: string, o: Record<string, unknown>) => {
+      ofertaFalsa = o;
+    },
+    esqueceOferta: () => {
+      ofertaFalsa = undefined;
+    },
+    marca: async (_f: string, d: Record<string, string>) => {
+      marcou.push(d);
+      return marcaFalha
+        ? { ok: false, motivo: 'vaga_tomada', detalhe: marcaFalha }
+        : { ok: true, marcacao: d, jaExistia: false };
+    },
+  };
+});
+
 vi.mock('./vagas.js', async (orig) => {
   const real = await orig<typeof import('./vagas.js')>();
   return {
@@ -76,6 +100,10 @@ const TABELA = {
         'Infelizmente esse convênio a gente não atende para consulta, seria particular, no valor de R$ {valor_consulta}.',
       ],
     },
+    aceita_horario: {
+      acao: 'marcar',
+      textos: ['Pronto, {paciente}, está agendado para {dia}, dia {data}, às {hora}.'],
+    },
     DESCONHECIDO: { acao: 'escalar', textos: ['Só um instante.'] },
   },
 };
@@ -103,6 +131,9 @@ beforeEach(async () => {
   enviadas = [];
   buscou.length = 0;
   vagasFalsas = [];
+  marcou.length = 0;
+  ofertaFalsa = undefined;
+  marcaFalha = undefined;
 });
 
 afterEach(() => {
@@ -117,8 +148,10 @@ const deps = () => ({
   },
 });
 
+const JID = '5586999@s.whatsapp.net';
+
 const rodar = (bruto: string, pergunta = 'oi') =>
-  executa(PASTA, bruto, pergunta, deps());
+  executa(PASTA, bruto, pergunta, deps(), JID);
 
 const pendencias = () =>
   JSON.parse(
@@ -248,6 +281,7 @@ describe('escalada é AÇÃO do host', () => {
           throw new Error('canal caiu');
         },
       },
+      JID,
     );
     expect(r?.acao).toBe('escalar');
     expect(pendencias()).toHaveLength(1);
@@ -408,5 +442,63 @@ describe('listaDeIntencoes: a lista vai no prompt, não num arquivo a abrir', ()
     esqueceTabela();
     const { listaDeIntencoes } = await import('./executor.js');
     expect(listaDeIntencoes(PASTA)).toBeUndefined();
+  });
+});
+
+// O caminho que a revisão de 05/10/2026 descobriu INALCANÇÁVEL: `renderiza`
+// rebaixava `aceita_horario` para DESCONHECIDO antes de a ação `marcar` poder
+// existir, porque o texto tem {paciente} {dia} {data} {hora} e nada preenchia.
+// Nenhum teste cobria, e por isso o recurso inteiro passou morto.
+describe('aceite do horário chega à marcação', () => {
+  const OFERTA = {
+    vaga: { data: '2026-10-06', dia_semana: 'segunda', inicio: '09:20', fim: '09:50' },
+    perfil: 'particular',
+    quando: Date.now(),
+  };
+
+  it('com oferta registrada, marca e devolve o texto preenchido', async () => {
+    ofertaFalsa = OFERTA;
+    const r = await rodar(
+      '{"intencao":"aceita_horario","confianca":0.95,"slots":{"nome":"Joana Silva"}}',
+      'pode ser esse horario',
+    );
+    expect(r?.acao).toBe('marcar');
+    expect(r?.texto).toBe('Pronto, Joana, está agendado para segunda, dia 06/10, às 09:20.');
+    expect(r?.texto).not.toMatch(/\{\w+\}/);
+    expect(marcou).toHaveLength(1);
+    expect(marcou[0]).toMatchObject({ data: '2026-10-06', hora: '09:20' });
+  });
+
+  it('sem oferta registrada, escala em vez de marcar o próximo livre', async () => {
+    ofertaFalsa = undefined;
+    const r = await rodar(
+      '{"intencao":"aceita_horario","confianca":0.95,"slots":{"nome":"Joana"}}',
+    );
+    expect(r?.acao).toBe('escalar');
+    expect(marcou).toHaveLength(0);
+  });
+
+  it('marcação recusada escala com o motivo, e não diz que agendou', async () => {
+    ofertaFalsa = OFERTA;
+    marcaFalha = '09:20 não está mais disponível';
+    const r = await rodar(
+      '{"intencao":"aceita_horario","confianca":0.95,"slots":{"nome":"Joana"}}',
+    );
+    expect(r?.acao).toBe('escalar');
+    expect(r?.texto).toBe('Só um instante.');
+    expect(r?.texto).not.toMatch(/agendad/i);
+  });
+
+  it('a oferta só é registrada quando o texto do horário sai', async () => {
+    // Confiança baixa: o render rebaixa, e nada pode ter sido registrado —
+    // senão um "pode ser" marcaria um horário que o paciente nunca viu.
+    vagasFalsas = [
+      { data: '2026-10-06', dia_semana: 'segunda', inicio: '09:20', fim: '09:50' },
+    ];
+    const r = await rodar(
+      '{"intencao":"horario_oferta","confianca":0.4,"slots":{"necessidade":"rotina","convenio":"Unimed"}}',
+    );
+    expect(r?.acao).toBe('escalar');
+    expect(ofertaFalsa).toBeUndefined();
   });
 });

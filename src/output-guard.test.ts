@@ -604,10 +604,14 @@ describe('a guarda contra a tabela de templates aprovados', () => {
       for (const [k, v] of Object.entries(VALOR)) t = t.split(`{${k}}`).join(v);
       // As chaves que o executor preenche na hora da marcação.
       t = t
-        .split('{paciente}').join('Joana')
-        .split('{dia}').join('segunda')
-        .split('{data}').join('06/10')
-        .split('{hora}').join('09:20');
+        .split('{paciente}')
+        .join('Joana')
+        .split('{dia}')
+        .join('segunda')
+        .split('{data}')
+        .join('06/10')
+        .split('{hora}')
+        .join('09:20');
       casos.push([nome, t, d.acao === 'marcar']);
     }
   }

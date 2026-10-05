@@ -364,7 +364,9 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
           return;
         }
         paraEnviar = r.texto;
-        agendouNesteTurno = r.agendou === true;
+        // Todo caminho de falha da marcação retorna antes com 'escalar',
+        // então a ação já carrega o fato: não precisa de campo próprio.
+        agendouNesteTurno = r.acao === 'marcar';
       }
 
       // A guarda roda nos DOIS caminhos. No de template ela inspeciona texto
