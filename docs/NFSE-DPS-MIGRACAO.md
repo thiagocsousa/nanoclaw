@@ -672,16 +672,16 @@ curl -s -o /dev/null -w "raiz %{http_code} %{time_total}s\n" --max-time 20 \
   https://the.dsfweb.com.br
 ```
 
-⚠️ **"000 no login + 200 na raiz = portal fora" era conclusão apressada
-minha** — corrigido no mesmo dia. O Thiago abriu a página **no navegador dele e
-funcionou**, no mesmo período em que a VM tomava `503` e `000`. Então não é
-indisponibilidade geral: o servidor responde a uns e não a outros.
+**Conclusão: o portal estava fora mesmo** (05/10/2026, confirmado pelo Thiago).
+Houve um momento em que a página abriu no navegador dele, o que me fez suspeitar
+de discriminação por origem — mas era intermitência do próprio portal, não
+tratamento diferente por cliente.
 
-O que as medições de 05/10/2026 permitem afirmar:
+As medições, que valem como referência de como o portal se comporta quando cai:
 
 | teste | resultado |
 |---|---|
-| navegador do Thiago (máquina dele) | **funciona** |
+| navegador do Thiago | funcionou num momento, depois caiu também |
 | `curl` da VM, sem UA de navegador | `000` (pendura 30s) |
 | `curl` da VM, **com** UA de navegador + Accept | `000` — UA não resolve |
 | `curl` da VM, minutos antes | `503` em 0,77s |
@@ -689,20 +689,24 @@ O que as medições de 05/10/2026 permitem afirmar:
 | Chromium real (Playwright) da VM | timeout no `goto` |
 | raiz `the.dsfweb.com.br` da VM | `200` em 0,54s |
 
-Chromium **real** da VM também falha, então não é User-Agent nem fingerprint de
-TLS. E a raiz responde, então não é DNS nem rota. Sobra servidor instável sob
-carga ou **discriminação por IP/origem** — não dá para escolher entre as duas com
-os dados que temos.
+O que a tabela descarta, e que vale guardar para a próxima vez: Chromium **real**
+da VM também falha, então não é User-Agent nem fingerprint de TLS; a raiz
+responde, então não é DNS nem rota; e o `503` apareceu dos **dois** pontos de
+rede. O padrão de queda é instável — `503` rápido num instante, `000`
+pendurando 30s no outro — o que explica a página ter aberto no meio.
 
 **Não é captcha**, apesar da suspeita razoável (ver "o portal tem DOIS
 endereços"): captcha vem dentro de uma resposta 200 e bloqueia depois de
 carregar — aqui não chega corpo nenhum.
 
-**O teste que decide:** `curl` da máquina de quem vê o navegador funcionando, no
-mesmo instante. Se o `curl` dela der 200 e o da VM não, é IP/origem. Se o `curl`
-dela também falhar enquanto o navegador dela funciona, é header/sessão do
-navegador real. **Conferir também qual URL o navegador abriu** — se foi o
-`notafiscal.teresina.pi.gov.br`, não diz nada sobre o `the.dsfweb.com.br`.
+**Se um dia o navegador funcionar e a automação não, ao mesmo tempo:** aí sim
+`curl` da mesma máquina do navegador, no mesmo instante. `curl` dela 200 e VM
+não = IP/origem; `curl` dela falhando com navegador OK = header/sessão de
+navegador real. E conferir **qual** dos dois hosts o navegador abriu — o
+`notafiscal.teresina.pi.gov.br` não diz nada sobre o `the.dsfweb.com.br`.
+
+Em qualquer dos casos, portal fora **não perde nota**: a fila volta na próxima
+rodada.
 
 Isso **não perde nota**: `nfse_danfse_pipeline.py` trata falha geral deixando a
 fila inteira para a rodada seguinte (`0,30 19-21`, seg-sex, até
