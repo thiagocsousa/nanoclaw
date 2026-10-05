@@ -74,6 +74,19 @@ export interface OfertaPendente {
   vaga: Vaga;
   perfil: string;
   quando: number;
+  /**
+   * Quem é o paciente, capturado NO MOMENTO DA OFERTA.
+   *
+   * Na mensagem de aceite ("pode ser") o classificador extrai os slots daquela
+   * mensagem, que não tem nome nenhum — o nome foi dado dois turnos antes. Sem
+   * guardar aqui, a marcação recusa por `dado_faltando: paciente`, que foi o
+   * que aconteceu no primeiro aceite real, em 05/10/2026.
+   *
+   * O host já lembrava QUAL horário ofereceu; faltava lembrar A QUEM.
+   */
+  nome?: string;
+  nascimento?: string;
+  convenio?: string;
 }
 
 function arquivoOfertas(folder: string): string {
@@ -153,8 +166,6 @@ const LIVRO = 'agendamentos_feitos.jsonl';
 
 /** Mesmo teto do `vagas.ts`: Playwright no iClinic leva dezenas de segundos. */
 const TIMEOUT_MS = Number(process.env.VAGAS_TIMEOUT_MS) || 180_000;
-
-
 
 /**
  * Só `marcar`. Ver o cabeçalho: o critério é o que o erro faz, não quanto ele

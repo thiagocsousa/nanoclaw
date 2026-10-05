@@ -37,6 +37,7 @@ import {
 import {
   esqueceOferta,
   marca,
+  type OfertaPendente,
   registraOferta,
   ultimaOferta,
 } from './agendamento.js';
@@ -167,7 +168,7 @@ export async function executa(
   // renderizador rebaixa por slot ausente e NENHUMA oferta de horário seria
   // possível, que era o estado da primeira versão deste arquivo.
   let slots = c.slots;
-  let ofertaAOferecer: { vaga: Vaga; perfil: string } | undefined;
+  let ofertaAOferecer: Omit<OfertaPendente, 'quando'> | undefined;
   const exige = tabela.intencoes[c.intencao]?.slots_obrigatorios ?? [];
   if (exige.includes('dia') || exige.includes('hora')) {
     const perfil = perfilDe(c.slots.necessidade, c.slots.convenio);
@@ -187,7 +188,15 @@ export async function executa(
         // Registrar aqui gravaria uma oferta que o paciente pode nunca ver —
         // o render ainda pode rebaixar — e aí um "pode ser" marcaria um
         // horário que ele não viu, que é a falha que este módulo impede.
-        ofertaAOferecer = { vaga: vagas[0], perfil };
+        // Guarda também QUEM é o paciente: no turno do aceite ("pode ser") os
+        // slots vêm vazios, e sem isto a marcação recusa por dado faltando.
+        ofertaAOferecer = {
+          vaga: vagas[0],
+          perfil,
+          nome: c.slots.nome,
+          nascimento: c.slots.nascimento,
+          convenio: c.slots.convenio,
+        };
       }
     }
   }
@@ -203,7 +212,7 @@ export async function executa(
     slots = {
       ...slots,
       ...slotsDaVaga(oferta.vaga),
-      paciente: (c.slots.nome ?? '').split(/\s+/)[0] ?? '',
+      paciente: ((oferta.nome ?? c.slots.nome) ?? '').split(/\s+/)[0] ?? '',
     };
   }
 
@@ -245,10 +254,12 @@ export async function executa(
     }
     const res = await marca(groupFolder, {
       operacao: 'marcar',
-      paciente: c.slots.nome || '',
+      // A oferta vem primeiro: ela carrega o que foi coletado na triagem. O
+      // turno do aceite normalmente não repete nome nem nascimento.
+      paciente: oferta.nome || c.slots.nome || '',
       pedidoPor: chatJid,
-      nascimento: c.slots.nascimento,
-      convenio: c.slots.convenio,
+      nascimento: oferta.nascimento ?? c.slots.nascimento,
+      convenio: oferta.convenio ?? c.slots.convenio,
       data: oferta.vaga.data,
       hora: oferta.vaga.inicio,
       perfil: oferta.perfil,

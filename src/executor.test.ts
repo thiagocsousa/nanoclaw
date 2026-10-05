@@ -461,12 +461,18 @@ describe('aceite do horário chega à marcação', () => {
     },
     perfil: 'particular',
     quando: Date.now(),
+    nome: 'Joana Silva',
+    nascimento: '10/03/1980',
+    convenio: 'particular',
   };
 
-  it('com oferta registrada, marca e devolve o texto preenchido', async () => {
+  // No turno do aceite o paciente escreve "pode ser": os slots vêm VAZIOS, e o
+  // nome foi dado dois turnos antes. Foi assim que a primeira marcação real
+  // falhou, com `dado_faltando: paciente`.
+  it('marca com os dados da OFERTA, mesmo sem slots no turno do aceite', async () => {
     ofertaFalsa = OFERTA;
     const r = await rodar(
-      '{"intencao":"aceita_horario","confianca":0.95,"slots":{"nome":"Joana Silva"}}',
+      '{"intencao":"aceita_horario","confianca":0.95,"slots":{}}',
       'pode ser esse horario',
     );
     expect(r?.acao).toBe('marcar');
@@ -475,7 +481,12 @@ describe('aceite do horário chega à marcação', () => {
     );
     expect(r?.texto).not.toMatch(/\{\w+\}/);
     expect(marcou).toHaveLength(1);
-    expect(marcou[0]).toMatchObject({ data: '2026-10-06', hora: '09:20' });
+    expect(marcou[0]).toMatchObject({
+      data: '2026-10-06',
+      hora: '09:20',
+      paciente: 'Joana Silva',
+      nascimento: '10/03/1980',
+    });
   });
 
   it('sem oferta registrada, escala em vez de marcar o próximo livre', async () => {
