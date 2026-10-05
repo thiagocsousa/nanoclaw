@@ -18,10 +18,13 @@ envia para a URL do documento. Mas a aplicação **intercepta o submit** e faz u
 XHR para `POST /agenda/criar-evento/{PHYSICIAN_ID}/`: eu inferi `/agenda/` pela
 regra do HTML e tomei 405 duas vezes. Os nomes dos campos e os ids vieram do DOM.
 
-⚠️ **Verificado só para paciente JÁ CADASTRADO.** O POST que funcionou levava
-`patient` com id, escolhido no autocomplete. Que `patient` vazio mais
-`update_patient=true` cadastre pelo `patient_name` é plausível pelos nomes dos
-campos e **não foi medido**.
+O corpo é **JSON**, não form-encoded, e a estrutura NÃO é a do formulário HTML:
+`procedures` é array de `{procedure_id, quantity}` com números, não
+`procedures[0][id]`. Medido em 05/10/2026 interceptando o XHR real.
+
+**Paciente novo é criado no mesmo POST:** `patient: null` com `patient_name`
+preenchido. Verificado com "Laura Teste", que não existia. Não há chamada
+separada de cadastro, e o autocomplete aceita nome livre.
 
 ## A trava que substitui a confirmação humana
 
@@ -102,9 +105,9 @@ def ocupa(ev, ds, hhmm):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--nome", required=True)
-    ap.add_argument("--paciente-id", required=True,
-                    help="id do paciente no iClinic. Cadastrar paciente novo por "
-                         "este script ainda NÃO foi verificado.")
+    ap.add_argument("--paciente-id", default=None,
+                    help="id do paciente existente. Omitido, cria paciente novo "
+                         "pelo --nome (medido em 05/10/2026).")
     ap.add_argument("--data", required=True, help="ISO: 2026-10-05")
     ap.add_argument("--inicio", required=True, help="HH:MM")
     ap.add_argument("--fim", required=True, help="HH:MM")
@@ -125,33 +128,35 @@ def main():
         return 2
 
     convenio = CONVENIOS[CONVENIO_DO_PERFIL[a.perfil]]
+    # Formato medido do XHR real. Os tipos importam: procedure_id e insurance
+    # são NÚMEROS, physician e clinic são STRINGS, e os vazios são null e não "".
     campos = {
-        "locked_procedure": "false",
-        "procedures[0][id]": PROCEDIMENTOS[a.perfil],
-        "procedures[0][quantity]": "1",
+        "locked_procedure": "off",
+        "procedures": [{"procedure_id": int(PROCEDIMENTOS[a.perfil]), "quantity": 1}],
         "patient_name": a.nome,
-        "patient": a.paciente_id,          # id existente; ver aviso no cabeçalho
-        "patient_mobile_phone": a.telefone,
-        "patient_home_phone": "",
-        "patient_email": a.email,
-        "insurance": convenio,
-        "date": d.strftime("%d/%m/%Y"),    # o formulário usa DD/MM/AAAA
+        "patient": int(a.paciente_id) if a.paciente_id else None,  # None = cria novo
+        "patient_mobile_phone": a.telefone or None,
+        "patient_home_phone": None,
+        "patient_email": a.email or None,
+        "insurance": int(convenio),
+        "date": d.strftime("%d/%m/%Y"),
         "start_time": a.inicio,
         "end_time": a.fim,
-        "recurrence": "",
-        "end_recurrence": "",
-        "description": a.observacao,
+        "recurrence": None,
+        "end_recurrence": None,
+        "description": a.observacao or None,
         "status": "sc",
         "physician": PHYSICIAN_ID,
         "clinic": CLINIC_ID,
         "is_telemedicine": "false",
         "update_patient": "true",
+        "recurrence_days": [],
     }
 
     if a.dry_run:
         mostrar = dict(campos)
         mostrar["patient_name"] = "<nome>"
-        mostrar["patient_mobile_phone"] = "<telefone>" if a.telefone else ""
+        mostrar["patient_mobile_phone"] = "<telefone>" if a.telefone else None
         responder(["Dry-run: nada foi escrito.", "",
                    f"Enviaria para POST /agenda/criar-evento/{PHYSICIAN_ID}/:"] +
                   [f"   {k} = {v}" for k, v in mostrar.items()],
@@ -198,14 +203,14 @@ def main():
                           ok=False, erro="vaga_tomada")
                 return 1
 
-            campos["csrfmiddlewaretoken"] = csrf
             r = pg.request.post(
                 f"{BASE}/agenda/criar-evento/{PHYSICIAN_ID}/",
-                form=campos,
+                data=campos,
                 # A rota de criação é XHR: foi assim que o navegador a chamou
                 # (medido em 05/10/2026). Sem este cabeçalho, outra rota.
                 headers={"X-Requested-With": "XMLHttpRequest",
                          "X-CSRFToken": csrf,
+                         "Content-Type": "application/json",
                          "Referer": f"{BASE}/agenda/",
                          "Origin": BASE},
                 timeout=30000)
