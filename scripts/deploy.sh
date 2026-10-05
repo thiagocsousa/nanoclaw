@@ -10,7 +10,7 @@ echo "$(date)"
 echo "User: $(whoami) | Git: $(git --version)"
 echo ""
 
-echo "[2/4] npm ci..."
+echo "[2/8] npm ci..."
 npm ci --prefer-offline
 
 # O build é `tsc`, que vem de devDependencies. Em 04/10/2026 a VM estava sem
@@ -24,16 +24,13 @@ if [ ! -x node_modules/.bin/tsc ]; then
   exit 1
 fi
 
-echo "[3/4] build..."
+echo "[3/8] build..."
 npm run build
 
-echo "[3.5/4] seed crons..."
+echo "[4/8] seed crons..."
 node scripts/seed-crons.mjs
 
-echo "[3.6/4] container build..."
-bash container/build.sh
-
-echo "[4/4] pm2 restart..."
+echo "[5/8] pm2 restart..."
 # Depois de um crash, um node zumbi pode segurar a 3001 e impedir o start. Mas o
 # nanoclaw gerenciado pelo pm2 TAMBÉM escuta nessa porta: em 04/10/2026 este bloco
 # matou o próprio app, o pm2 perdeu a referência ("Process 0 not found") e o deploy
@@ -63,7 +60,7 @@ pm2 startOrRestart ecosystem.config.cjs --update-env
 
 # O deploy não pode dizer "sucesso" sem o app no ar — foi exatamente o que
 # aconteceu em 04/10/2026. pm2 leva alguns segundos para estabilizar.
-echo "[4.2/4] verificando que subiu..."
+echo "[6/8] verificando que subiu..."
 VIVO=""
 for _ in 1 2 3 4 5 6 7 8 9 10; do
   sleep 2
@@ -86,7 +83,7 @@ if [ -z "$VIVO" ]; then
 fi
 echo "  nanoclaw online."
 
-echo "[4.5/4] limpeza docker (evita encher o disco da VM)..."
+echo "[7/8] limpeza docker (libera espaco ANTES do build da imagem)..."
 # roda DEPOIS do build/restart: remove só o lixo, preservando o cache recente
 # (build rápido no próximo deploy). Imagens antigas (nanoclaw-agent já retaggeado
 # vira dangling) + cache de build com mais de 7 dias. Nunca falha o deploy.
@@ -98,3 +95,17 @@ echo "disco: $(df -h / | awk 'NR==2{print $5" usado, "$4" livre"}')"
 echo ""
 echo "Deploy concluído."
 pm2 show nanoclaw | grep -E "status|uptime|restart"
+
+# A imagem do agente é construída DEPOIS de o app subir, de propósito.
+#
+# Em 05/10/2026 o build do container falhou, o `set -e` abortou o deploy antes
+# do restart, e o app ficou rodando o código velho com o `dist` novo no disco —
+# cinco minutos de diferença entre o processo e o arquivo. A correção do
+# classificador estava compilada e não estava no ar.
+#
+# São duas coisas independentes: o app serve WhatsApp, a imagem serve o agente.
+# Falha numa não deve deixar a outra para trás. Agora o app sobe primeiro, e um
+# erro aqui ainda derruba o deploy (fica visível), mas com o app correto.
+echo "[8/8] container build..."
+bash container/build.sh
+
