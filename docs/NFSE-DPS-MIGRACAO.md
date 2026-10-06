@@ -641,6 +641,34 @@ verificação** — conferido no XML da NFS-e gerada. Sondei cinco variantes de 
 por chave de acesso em homologação (`.../chaveAcesso/{chave}`,
 `.../nfse/{chave}/danfse`, `.../danfse/{chave}`, etc.): **todas 404**.
 
+#### ⚠️ A `chaveAcesso` da API vem com `NFS` na frente, e a consulta recusa (06/10/2026)
+
+A chave de acesso é **50 dígitos**. O que a API devolve no campo `chaveAcesso` — e o que
+está no `infNFSe@Id` do XML — tem **53 caracteres**: o prefixo `NFS` mais os 50 dígitos.
+O prefixo é convenção do atributo `Id` (igual ao `DPS` do `infDPS@Id`) e **não faz parte
+da chave**.
+
+```
+infNFSe@Id   NFS22110011263521918000104000000000346026100721284749   (53, recusado)
+chave real      22110011263521918000104000000000346026100721284749   (50, aceito)
+```
+
+Com o prefixo, o nacional responde `400 E2406` — *"A chave de acesso consultada deve
+conter 50 números"* — e a **Consulta Pública diz "Nota Fiscal de Serviço inexistente"**,
+que soa como nota que não existe e é só formato. Custou uma rodada de teste com o Thiago
+em 06/10/2026.
+
+Sem o prefixo, `GET sefin.nfse.gov.br/sefinnacional/nfse/{chave}` devolve **200** com a
+nota: **a NFS-e de Teresina ESTÁ no ambiente nacional**, ao contrário do que o 501 do
+DANFSE sugeria.
+
+⚠️ Qualquer coisa que mande a chave para fora (paciente, link, QR) tem de cortar os 3
+primeiros caracteres do que a API devolve.
+
+**O DANFSE nacional segue 501 mesmo com a chave correta**, então o PDF oficial realmente
+não vem por ali — é a pergunta boa para a SEMF: a nota está publicada no nacional, a
+consulta funciona, e só o DANFSE não está implementado.
+
 #### Confirmado em PRODUÇÃO: a API não dá código de verificação (06/10/2026)
 
 A sondagem de 02/10 foi em **homologação**. Refeita em produção com a chave real da
