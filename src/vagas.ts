@@ -104,6 +104,29 @@ function ehUnimed(convenio?: string): boolean {
  * "não rode no chute" é regra do F12, porque o perfil decide duração,
  * antecedência e cota, e errá-lo produz uma vaga que não existe.
  */
+/**
+ * Perfis que a Lara NUNCA agenda: retorno e exame vão sempre para uma pessoa.
+ *
+ * Regra do Thiago em 06/10/2026, perguntada como "retorno e exame podem no
+ * mesmo dia?" e respondida mais forte: não é restrição de encaixe, é de escopo
+ * — ela não oferece nem marca esses dois em dia nenhum.
+ *
+ * O porquê é o mesmo de `cancelar_consulta` e `remarcar_consulta`: retorno
+ * depende do que a médica pediu na consulta anterior, e exame depende de qual
+ * exame foi solicitado. Nada disso está na agenda, então oferecer horário aqui
+ * é prometer vaga sem saber o que vai ocupar.
+ *
+ * Fica sobre o PERFIL, não sobre a necessidade crua, porque `perfilDe` já
+ * normaliza as variações ("retorno", "retorno-cirurgia", "exame"). E o executor
+ * só consulta isto no caminho da AGENDA: `exames_preco` é resposta de preço
+ * aprovada e continua saindo normalmente.
+ */
+const PERFIS_SO_HUMANO = new Set(['retorno', 'retorno-cirurgia', 'exame']);
+
+export function soHumano(perfil: string): boolean {
+  return PERFIS_SO_HUMANO.has(perfil);
+}
+
 export function perfilDe(
   necessidade?: string,
   convenio?: string,

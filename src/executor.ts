@@ -42,7 +42,13 @@ import {
   ultimaOferta,
 } from './agendamento.js';
 import { fraseDeTriagem } from './triagem.js';
-import { buscaVagas, perfilDe, slotsDaVaga, type Vaga } from './vagas.js';
+import {
+  buscaVagas,
+  perfilDe,
+  slotsDaVaga,
+  soHumano,
+  type Vaga,
+} from './vagas.js';
 
 const envConfig = readEnvFile(['TEMPLATE_FOLDERS']);
 
@@ -178,6 +184,22 @@ export async function executa(
   const exige = tabela.intencoes[c.intencao]?.slots_obrigatorios ?? [];
   if (exige.includes('dia') || exige.includes('hora')) {
     const perfil = perfilDe(c.slots.necessidade, c.slots.convenio);
+    if (perfil && soHumano(perfil)) {
+      // Retorno e exame a Lara não agenda (regra do Thiago, 06/10/2026). Escala
+      // ANTES de ir à agenda: consultar vaga aqui gastaria 18s para descobrir um
+      // horário que ela não pode oferecer.
+      logger.info(
+        { groupFolder, intencao: c.intencao, perfil },
+        'executor: perfil só humano, escala sem consultar a agenda',
+      );
+      return await escalaComo(
+        groupFolder,
+        tabela,
+        `pedido de ${perfil.startsWith('retorno') ? 'RETORNO' : 'EXAME'}: a Lara não agenda esses dois; veja o que foi solicitado na consulta anterior e responda ao paciente`,
+        perguntaDoPaciente,
+        deps,
+      );
+    }
     if (!perfil) {
       // "Não rode no chute" (F12): perfil errado é vaga inválida já prometida.
       logger.info(
@@ -214,6 +236,21 @@ export async function executa(
   // era inalcançável, e nenhum teste cobria.
   const vaiMarcar = tabela.intencoes[c.intencao]?.acao === 'marcar';
   const oferta = vaiMarcar ? ultimaOferta(groupFolder, chatJid) : undefined;
+  // O caminho acima impede a oferta de nascer para retorno/exame, então isto é
+  // rede: oferta gravada antes da regra, ou perfil que passe a existir depois.
+  if (oferta && soHumano(oferta.perfil)) {
+    logger.warn(
+      { groupFolder, perfil: oferta.perfil },
+      'executor: aceite de oferta só humana, não marca',
+    );
+    return await escalaComo(
+      groupFolder,
+      tabela,
+      `aceitou um horário de ${oferta.perfil}, que a Lara não marca; confirme com o paciente`,
+      perguntaDoPaciente,
+      deps,
+    );
+  }
   if (vaiMarcar && oferta) {
     slots = {
       ...slots,

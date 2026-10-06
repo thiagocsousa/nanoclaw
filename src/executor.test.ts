@@ -71,6 +71,13 @@ const TABELA = {
       acao: 'responder',
       textos: ['A avaliação é R$ {valor_consulta}.'],
     },
+    // Responde e NÃO pede dia/hora: é a trava de que a regra de retorno/exame
+    // não atinge resposta de preço.
+    exames_preco: {
+      acao: 'responder',
+      fecho: true,
+      textos: ['A topografia é R$ 150,00.'],
+    },
     horario_oferta: {
       acao: 'responder',
       slots_obrigatorios: ['dia', 'hora'],
@@ -365,6 +372,50 @@ describe('oferta de horário: quem vai à agenda é o host', () => {
       '{"intencao":"endereco","confianca":0.95,"slots":{"necessidade":"rotina","convenio":"Unimed"}}',
     );
     expect(buscou).toEqual([]);
+  });
+});
+
+describe('retorno e exame a Lara não agenda (regra de 06/10/2026)', () => {
+  it('retorno escala SEM consultar a agenda', async () => {
+    vagasFalsas = [
+      {
+        data: '2026-10-06',
+        dia_semana: 'segunda',
+        inicio: '09:20',
+        fim: '09:50',
+      },
+    ];
+    const r = await rodar(
+      '{"intencao":"horario_oferta","confianca":0.95,"slots":{"necessidade":"retorno","convenio":"particular"}}',
+      'queria marcar meu retorno',
+    );
+    // Não basta escalar: consultar gastaria 18s para achar vaga inofertável.
+    expect(buscou).toEqual([]);
+    expect(r?.acao).toBe('escalar');
+  });
+
+  it('exame escala SEM consultar a agenda', async () => {
+    const r = await rodar(
+      '{"intencao":"horario_oferta","confianca":0.95,"slots":{"necessidade":"exame de topografia","convenio":"particular"}}',
+    );
+    expect(buscou).toEqual([]);
+    expect(r?.acao).toBe('escalar');
+  });
+
+  it('retorno de cirurgia também, que é o perfil retorno-cirurgia', async () => {
+    const r = await rodar(
+      '{"intencao":"horario_oferta","confianca":0.95,"slots":{"necessidade":"retorno da cirurgia refrativa","convenio":"particular"}}',
+    );
+    expect(buscou).toEqual([]);
+    expect(r?.acao).toBe('escalar');
+  });
+
+  it('a regra NÃO atinge o preço de exames, que é resposta aprovada', async () => {
+    const r = await rodar(
+      '{"intencao":"exames_preco","confianca":0.95,"slots":{"necessidade":"exame"}}',
+    );
+    expect(buscou).toEqual([]);
+    expect(r?.acao).toBe('responder');
   });
 });
 
