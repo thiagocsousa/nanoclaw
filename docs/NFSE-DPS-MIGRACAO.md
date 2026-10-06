@@ -641,6 +641,43 @@ verificação** — conferido no XML da NFS-e gerada. Sondei cinco variantes de 
 por chave de acesso em homologação (`.../chaveAcesso/{chave}`,
 `.../nfse/{chave}/danfse`, `.../danfse/{chave}`, etc.): **todas 404**.
 
+#### Confirmado em PRODUÇÃO: a API não dá código de verificação (06/10/2026)
+
+A sondagem de 02/10 foi em **homologação**. Refeita em produção com a chave real da
+nota 3460, a conclusão é a mesma — e agora não depende de ambiente.
+
+`consulta_por_dps` reconstruindo o `idDps` (determinístico:
+`DPS` + município(7) + tpInsc(1) + CNPJ(14) + série(5) + nDPS(15)) devolve a chave sem
+precisar tê-la guardado — útil, porque a fila do DANFSE **não** persiste a chave:
+
+```
+idDps  DPS221100126352191800010410001000000000000001
+chave  NFS22110011263521918000104000000000346026100721284749   (tipoAmbiente 1)
+```
+
+`consulta_nfse` devolve o XML completo da NFS-e (3.235 bytes). **Todos** os campos com
+valor foram despejados: prestador, tomador, valores, IBS/CBS, `cTribNac`, `cTribMun`,
+`cNBS`, `CST`, `cClassTrib`, `nNFSe`. **Nenhum campo de código de verificação, link ou
+URL.** Os únicos identificadores são `infNFSe@Id` (a chave) e `infDPS@Id`.
+
+Endpoints de DANFSE sondados com o certificado, em produção:
+
+| endpoint | resposta |
+|---|---|
+| `nfseapi.teresina.pi.gov.br/notafiscal-ws/nfse/{chave}/danfse` | 404 |
+| `nfseapi.teresina.pi.gov.br/notafiscal-ws/danfse/{chave}` | 404 |
+| `sefin.nfse.gov.br/sefinnacional/danfse/{chave}` | **501** (caminho existe, não implementado) |
+| `adn.nfse.gov.br/contribuintes/danfse/{chave}` | 404 |
+
+Então o portal continua sendo o único caminho para o PDF oficial. **Mas o XML está
+disponível pela API**, o que abre duas alternativas que não dependem do portal:
+
+1. **Gerar o PDF do XML.** Tudo que o DANFSE mostra está no XML. Não seria o DANFSE
+   oficial, e se isso serve para entregar à paciente é **decisão do contador**, não
+   técnica.
+2. **Entregar a chave de acesso** e deixar a paciente consultar. Também depende de
+   confirmar com a clínica se serve no lugar do PDF.
+
 #### 🔧 Contorno implementado: `nfse_danfse_portal.py` (2026-10-02)
 
 Como a SEMF confirmou que a API não devolve o código, o contorno quebra a
