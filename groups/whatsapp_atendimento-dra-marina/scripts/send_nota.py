@@ -125,10 +125,14 @@ def main():
                 file=sys.stderr,
             )
             sys.exit(1)
+        # `type: "message"` com o campo `text` — é o que o `ipc.ts` aceita
+        # (linha 121: `data.type === 'message' && data.chatJid && data.text`).
+        # Escrito ao contrário, o core descarta em silêncio e o paciente não
+        # recebe nada, com o pipeline reportando sucesso.
         write_ipc_message({
             **comum,
-            "type": "text",
-            "message": MSG_LINK.format(nome=nome, chave=chave),
+            "type": "message",
+            "text": MSG_LINK.format(nome=nome, chave=chave),
         })
     else:
         print(
