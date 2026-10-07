@@ -89,13 +89,22 @@ def write_ipc_task(data):
 
 def agenda_entrega(item, pdf_path, quando):
     """Grava a entrega e agenda o send_nota.py — mesmo mecanismo que já roda em
-    produção no caminho ABRASF, para não existirem dois jeitos de enviar."""
+    produção no caminho ABRASF, para não existirem dois jeitos de enviar.
+
+    `pdf_path` None entrega por LINK da consulta nacional, com a chave de
+    acesso que veio na fila. Regra do Thiago em 07/10/2026: PDF oficial quando
+    o portal da prefeitura responde, link nacional quando ele está fora. O
+    `send_nota.py` prefere o anexo e cai no link sozinho, então aqui basta
+    mandar um ou outro.
+    """
     ENTREGAS_DIR.mkdir(parents=True, exist_ok=True)
     eid = "%s-%s" % (item["numero"], rand_id())
     (ENTREGAS_DIR / ("%s.json" % eid)).write_text(json.dumps({
         "telefone": item["telefone"],
         "paciente": item["paciente"],
-        "pdf": "/workspace/group/attachments/%s" % Path(pdf_path).name,
+        "pdf": ("/workspace/group/attachments/%s" % Path(pdf_path).name)
+               if pdf_path else None,
+        "chave": None if pdf_path else (item.get("chave") or None),
         "chat_jid_paciente": "%s@s.whatsapp.net" % item["telefone"],
         "group_folder": item.get("group_folder", "whatsapp_atendimento-dra-marina"),
     }, ensure_ascii=False), encoding="utf-8")
@@ -132,12 +141,33 @@ def main():
         import nfse_danfse_portal as portal
         baixados = portal.baixa(numeros, ATTACH_DIR)
     except Exception as exc:
-        # Falha geral (portal fora, credencial errada): NÃO desiste de nada,
-        # a fila inteira fica para a próxima rodada.
+        # Portal fora. Até 07/10/2026 a fila inteira ficava para a próxima
+        # rodada, e o paciente esperava o portal voltar — a nota 3460 passou um
+        # dia assim. Agora quem tem chave recebe o LINK da consulta nacional,
+        # que não depende do portal da prefeitura.
         print("coletor falhou: %s" % exc, file=sys.stderr)
-        print(json.dumps({"wakeAgent": False, "erro": str(exc)[:200],
-                          "pendentes": len(fila)}, ensure_ascii=False))
-        return 1
+        agora_f = datetime.now(TZ)
+        acc_f = timedelta(0)
+        por_link, sem_chave = [], []
+        for item in fila:
+            if item.get("chave") and item.get("telefone"):
+                acc_f += timedelta(seconds=random.randint(60, 180)) if por_link else timedelta(0)
+                agenda_entrega(item, None, agora_f + acc_f)
+                por_link.append((str(item["numero"]), item["paciente"]))
+            else:
+                sem_chave.append(item)
+        grava_fila(sem_chave)
+        linhas_f = ["⚠️ *Portal da prefeitura fora* — %s" % str(exc)[:80]]
+        if por_link:
+            linhas_f.append("\n🔗 *Enviado o link da consulta nacional* (%d):" % len(por_link))
+            linhas_f += ["• NFSe *%s* — %s" % (n, p) for n, p in por_link]
+        if sem_chave:
+            linhas_f.append("\n⚠️ *Sem chave, ficaram na fila* (%d)" % len(sem_chave))
+        print("\n".join(linhas_f))
+        print(json.dumps({"wakeAgent": bool(sem_chave), "erro": str(exc)[:200],
+                          "por_link": len(por_link),
+                          "pendentes": len(sem_chave)}, ensure_ascii=False))
+        return 0
 
     agora = datetime.now(TZ)
     accum = timedelta(0)
@@ -158,9 +188,24 @@ def main():
             restantes.append(item)          # nem entrou nesta rodada
             continue
         item["tentativas"] = int(item.get("tentativas", 0)) + 1
-        if item["tentativas"] >= MAX_TENTATIVAS:
-            desistidos.append((num, item["paciente"],
-                               "%d tentativas sem sucesso" % item["tentativas"]))
+        # Com chave, NÃO insiste: cai no link já na primeira falha.
+        #
+        # Em 07/10/2026 o portal voltou do ar e o coletor continuou sem pegar o
+        # PDF — falhou até para a nota 3451, que ele mesmo baixou em 25/09. A
+        # tela do portal mudou. Esperar 5 rodadas antes do fallback faria o
+        # paciente aguardar por um PDF que não vem. O link entrega agora, e o
+        # PDF volta a ser tentado sozinho quando o coletor for consertado.
+        #
+        # Sem chave, aí sim vale insistir: é a única via.
+        tem_link = bool(item.get("chave") and item.get("telefone"))
+        if tem_link or item["tentativas"] >= MAX_TENTATIVAS:
+            if tem_link:
+                accum += timedelta(seconds=random.randint(60, 180)) if entregues else timedelta(0)
+                agenda_entrega(item, None, agora + accum)
+                entregues.append((num, "%s (por link)" % item["paciente"]))
+            else:
+                desistidos.append((num, item["paciente"],
+                                   "%d tentativas sem sucesso" % item["tentativas"]))
         else:
             restantes.append(item)
 

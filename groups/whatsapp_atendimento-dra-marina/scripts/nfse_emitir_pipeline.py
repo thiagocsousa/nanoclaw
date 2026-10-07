@@ -254,6 +254,7 @@ def main():
 
     ok, agendados, falhas, pdf_pendentes = [], 0, [], []
     manuais_ids = {m[0] for m in parsed.get("manuais", [])}
+    fila_danfse = []
     now = datetime.now(TZ)
     accum = timedelta(0)
     # mapeia cada item enviado → nota emitida PELO NÚMERO DO RPS (robusto a falha
@@ -275,24 +276,25 @@ def main():
         pdf_path = ATTACH_DIR / pdf_name
         chave = ""
         if not n.get("codigo_verificacao"):
-            # Modo DPS: a emissão não devolve código de verificação, e o DANFSE
-            # do portal municipal exige esse código. Até 06/10/2026 a saída era
-            # o Playwright no portal da prefeitura — que saiu do ar por mais de
-            # um dia em 05/10 e a SEMF não soube dizer por quê.
+            # Modo DPS: a emissão não devolve código de verificação, e baixar o
+            # PDF aqui custaria ~20 s por nota (Chromium) — a partir de ~8 notas
+            # derrubaria esta task no timeout de 180 s. Então ENFILEIRA, e quem
+            # baixa é o nfse_danfse_pipeline.py, separado.
             #
-            # Agora entregamos o LINK da consulta pública NACIONAL com a chave
-            # de acesso. Some o navegador, o login do portal e o captcha, e quem
-            # acessa é o paciente. Conferido que a NFS-e de Teresina está
-            # publicada no nacional (`GET sefinnacional/nfse/{chave}` = 200).
-            #
-            # Decisão do Thiago em 06/10/2026: "melhor do que depender de site
-            # de prefeitura e recaptcha".
+            # A CHAVE vai junto, e é ela que torna o fallback possível: com o
+            # portal da prefeitura fora, aquela task entrega o link da consulta
+            # nacional em vez de deixar o paciente esperando (regra do Thiago,
+            # 07/10/2026). Sem a chave na fila, só restaria esperar.
             chave = n.get("chave_acesso") or ""
             pdf_path = None
-            if not chave:
-                # Sem chave não há como o paciente achar a nota. Não inventa
-                # link: entra como pendência para a recepção resolver à mão.
-                pdf_pendentes.append((x["paciente"], n["numero"]))
+            fila_danfse.append({
+                "numero": n["numero"],
+                "paciente": x["paciente"],
+                "telefone": normalize_phone(x["tomador"].get("telefone")),
+                "chave": chave,
+                "group_folder": group_folder,
+            })
+            pdf_pendentes.append((x["paciente"], n["numero"]))
         else:
             try:
                 e.baixar_danfse(n["numero"], n["codigo_verificacao"], AMBIENTE, destino=str(pdf_path))
@@ -300,7 +302,7 @@ def main():
                 print(f"  aviso: PDF da nota {n['numero']} falhou: {ex}", file=sys.stderr)
                 pdf_path = None
         tel = normalize_phone(x["tomador"].get("telefone"))
-        if tel and (pdf_path or chave):
+        if tel and pdf_path:
             # grava a entrega e agenda o envio escalonado (60-180s entre cada)
             eid = f"{n['numero']}-{rand_id()}"
             (ENTREGAS_DIR / f"{eid}.json").write_text(json.dumps({
@@ -331,12 +333,16 @@ def main():
 
     EMITIDAS_FILE.write_text(json.dumps(sorted(emitidas), ensure_ascii=False))
 
-    # A fila do DANFSE pelo portal municipal saiu daqui em 06/10/2026, quando a
-    # entrega passou a ser o link da consulta nacional. O
-    # `nfse_danfse_pipeline.py` e o `nfse_danfse_portal.py` continuam no repo:
-    # são o único caminho conhecido para o PDF OFICIAL, se um dia a prefeitura
-    # voltar a servir o login ou a SEMF implementar o DANFSE nacional (hoje 501).
-    # Nada mais os alimenta, então o cron `marina-danfse` roda em fila vazia.
+    # O portal da prefeitura voltou em 07/10/2026, então o PDF oficial volta a
+    # ser o caminho principal. O link nacional não sumiu: virou o FALLBACK, que
+    # o `nfse_danfse_pipeline.py` usa quando o portal está fora.
+    if fila_danfse:
+        try:
+            import nfse_danfse_pipeline as danfse
+            danfse.enfileira(fila_danfse)
+        except Exception as exc:
+            # Enfileirar é secundário: as notas já saíram. Avisa e segue.
+            print("aviso: não consegui enfileirar o DANFSE: %s" % exc, file=sys.stderr)
 
     lines = [f"✅ *{len(ok)}* nota(s) emitida(s) — protocolo {parsed.get('protocolo')}:"]
     for pac, serv, num, temtel in ok:
@@ -348,10 +354,10 @@ def main():
             lines.append(f"• {pac} ({serv}) — R$ {val}")
         lines.append("_Continuam na lista até serem emitidas._")
     if pdf_pendentes:
-        lines.append(f"\n⚠️ *Sem chave de acesso* ({len(pdf_pendentes)}) — o paciente NÃO recebeu:")
+        lines.append(f"\n📎 *PDF na fila* ({len(pdf_pendentes)}) — baixa e envia em seguida:")
         for pac, num in pdf_pendentes:
             lines.append(f"• NFSe *{num}* — {pac}")
-        lines.append("_A nota saiu, mas não consegui o link. Enviar à mão._")
+        lines.append("_Portal fora? Vai o link da consulta nacional com a chave._")
     if falhas:
         lines.append(f"\n❌ Falharam: {', '.join(falhas)}")
     if parsed.get("mensagens"):
