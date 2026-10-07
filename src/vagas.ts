@@ -127,6 +127,12 @@ export function temDescontoDeConsulta(
   // Sem plano nenhum não há desconto: particular paga a consulta cheia.
   if (!c || /particular|sem\s+(plano|conv[êe]nio)|nenhum/.test(c)) return false;
   // Unimed a clínica atende; qualquer outro plano é "não aceito".
+  //
+  // Isso INCLUI os bloqueados (Intermed, Hapvida, Humana), que o
+  // `convenio_bloqueado` recusa para consulta E cirurgia. Parece contradição e
+  // não é: decisão do Thiago em 07/10/2026 — eles recebem o desconto, e na
+  // consulta descobrem que o plano não cobre a cirurgia, o que é a tentativa de
+  // conversão para particular. Quem mexer aqui achando que é bug, não é.
   return !ehUnimed(convenio);
 }
 

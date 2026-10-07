@@ -416,6 +416,21 @@ describe('desconto da consulta é decisão do HOST (regra de 06/10/2026)', () =>
     expect(r?.texto).not.toContain('300');
   });
 
+  // Decisão do Thiago em 07/10/2026, e é contraintuitiva: Intermed, Hapvida e
+  // Humana são recusados para consulta E cirurgia pelo `convenio_bloqueado`,
+  // mas RECEBEM o desconto. Na consulta descobrem que o plano não cobre a
+  // cirurgia, e é aí que se tenta a conversão para particular.
+  it('plano bloqueado TAMBÉM recebe o desconto (é a conversão)', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    for (const plano of ['Intermed', 'Hapvida', 'Humana']) {
+      esqueceSlots(PASTA, JID);
+      const r = await rodar(
+        `{"intencao":"preco_consulta","confianca":0.95,"slots":{"necessidade":"catarata","convenio":"${plano}"}}`,
+      );
+      expect(r?.texto, plano).toContain('300');
+    }
+  });
+
   it('Unimed é atendido, então não é caso de desconto', async () => {
     const r = await rodar(
       '{"intencao":"preco_consulta","confianca":0.95,"slots":{"necessidade":"catarata","convenio":"Unimed"}}',
