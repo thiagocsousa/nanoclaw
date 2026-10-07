@@ -1823,8 +1823,19 @@
     {
       "id": "E08",
       "categoria": "agenda",
-      "sobre": "Aceita o horário oferecido. O HOST lembra qual foi (o classificador é proibido de preencher dia e hora), marca no iClinic e só então confirma. Sem oferta registrada ou com ela vencida, escala.",
+      "sobre": "Aceita o horário oferecido. O HOST lembra qual foi (o classificador é proibido de preencher dia e hora), marca no iClinic e só então confirma. Sem oferta registrada ou com ela vencida, escala. ⚠️ ESTE CENÁRIO MARCA DE VERDADE NO ICLINIC: rodar só quando alguém puder apagar a consulta criada.",
       "turnos": [
+        {
+          "paciente": "oi",
+          "proibido": [],
+          "intencao_esperada": "abertura"
+        },
+        {
+          "paciente": "2",
+          "proibido": [],
+          "intencao_esperada": "triagem_dados",
+          "nota": "Sem a necessidade o perfil não existe e o host NÃO consulta a agenda (F12). Antes este cenário pulava o menu e nenhuma oferta saía, então o aceite do turno seguinte escalava e o caminho de marcação nunca rodava."
+        },
         {
           "paciente": "Thiago Carvalho de Sousa, 10/03/1980, Teresina, particular",
           "esperado": [
