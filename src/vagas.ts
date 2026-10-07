@@ -92,6 +92,44 @@ const PERFIS = new Set([
   'exame',
 ]);
 
+/** Necessidade com intenção de cirurgia. Usada pelo perfil E pelo desconto. */
+function ehCirurgico(n: string): boolean {
+  return (
+    n.includes('cirurgia') || n.includes('refrativa') || n.includes('catarata')
+  );
+}
+
+/**
+ * O desconto da consulta: intenção de CIRURGIA **e** plano não atendido.
+ *
+ * As duas condições juntas. É o erro mais fácil de cometer na tabela de preços
+ * da clínica, porque os dois descontos têm critérios quase opostos:
+ *
+ *   cirúrgico PARTICULAR (sem plano)  → consulta R$ 430 cheia, exames com desconto
+ *   cirúrgico com PLANO NÃO ACEITO    → consulta R$ 300,       exames cheios
+ *   rotina                            → consulta R$ 430,       exames cheios
+ *
+ * Mora no HOST por decisão do Thiago em 06/10/2026, e não no prompt: é regra
+ * determinística sobre dois slots que o host já tem na mão. Na passada 5 o
+ * classificador rotulou `convenio_nao_atendido` e depois `preco_consulta` para
+ * um paciente com intenção cirúrgica e Bradesco — os dois textos citam R$ 430,
+ * e ele ouviu o preço errado duas vezes. Esperar que o modelo lembre de uma
+ * regra de duas condições é exatamente a aposta que esta arquitetura existe
+ * para não fazer.
+ */
+export function temDescontoDeConsulta(
+  necessidade?: string,
+  convenio?: string,
+): boolean {
+  if (!necessidade || !convenio) return false;
+  if (!ehCirurgico(necessidade.toLowerCase())) return false;
+  const c = convenio.toLowerCase().trim();
+  // Sem plano nenhum não há desconto: particular paga a consulta cheia.
+  if (!c || /particular|sem\s+(plano|conv[êe]nio)|nenhum/.test(c)) return false;
+  // Unimed a clínica atende; qualquer outro plano é "não aceito".
+  return !ehUnimed(convenio);
+}
+
 /** Convênio que a clínica atende para CONSULTA. O resto é particular. */
 function ehUnimed(convenio?: string): boolean {
   return !!convenio && /unimed/i.test(convenio);
@@ -134,8 +172,7 @@ export function perfilDe(
   if (!necessidade) return undefined;
   const n = necessidade.toLowerCase();
   if (n.includes('exame')) return 'exame';
-  const cirurgico =
-    n.includes('cirurgia') || n.includes('refrativa') || n.includes('catarata');
+  const cirurgico = ehCirurgico(n);
   if (n.includes('retorno')) return cirurgico ? 'retorno-cirurgia' : 'retorno';
   // Sem convênio declarado não se escolhe entre unimed e particular.
   if (!convenio) return undefined;

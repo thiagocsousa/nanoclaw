@@ -45,7 +45,7 @@
       "acao": "responder",
       "fecho": true,
       "textos": [
-        "A avaliação com a Dra. Marina é R$ {valor_consulta}. Inclui o exame oftalmológico completo, com fundoscopia e tonometria, e a possibilidade de retorno em até 30 dias."
+        "A avaliação com a Dra. Marina é R$ {valor_consulta}, com a possibilidade de retorno em até 30 dias."
       ]
     },
     "preco_cirurgia": {

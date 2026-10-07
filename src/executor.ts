@@ -47,6 +47,7 @@ import {
   perfilDe,
   slotsDaVaga,
   soHumano,
+  temDescontoDeConsulta,
   type Vaga,
 } from './vagas.js';
 
@@ -110,6 +111,28 @@ export function listaDeIntencoes(groupFolder: string): string | undefined {
     ...linhas,
     '- **DESCONHECIDO**: nada acima serve, ou confiança abaixo do limiar',
   ].join('\n');
+}
+
+/**
+ * Troca a intenção quando o desconto da consulta se aplica.
+ *
+ * `preco_consulta` e `convenio_nao_atendido` citam R$ 430. Para quem tem
+ * intenção de cirurgia E plano não aceito, o valor é R$ 300, e quem sabe disso
+ * é o host (ver `temDescontoDeConsulta`). O modelo continua rotulando o que o
+ * paciente perguntou; só o texto escolhido muda.
+ */
+function comDesconto(
+  intencao: string,
+  slots: Record<string, string | undefined>,
+  tabela: Tabela,
+): string {
+  if (intencao !== 'preco_consulta' && intencao !== 'convenio_nao_atendido') {
+    return intencao;
+  }
+  if (!tabela.intencoes.desconto) return intencao;
+  return temDescontoDeConsulta(slots.necessidade, slots.convenio)
+    ? 'desconto'
+    : intencao;
 }
 
 /** Escala com um motivo próprio, devolvendo o texto de DESCONHECIDO. */
@@ -259,21 +282,30 @@ export async function executa(
     };
   }
 
-  const r = renderiza(tabela, c.intencao, {
+  const intencaoFinal = comDesconto(c.intencao, slots, tabela);
+  const r = renderiza(tabela, intencaoFinal, {
     confianca: c.confianca,
     slots,
   });
+
+  // O texto do desconto já recusa o convênio, mas a ação dele é `responder` e
+  // isso perderia o pedido dos dados que faltam. Quando o desconto substitui a
+  // recusa, mantemos a emenda: o F04 manda não gastar um turno só recusando.
+  const acao =
+    intencaoFinal !== c.intencao && c.intencao === 'convenio_nao_atendido'
+      ? ('recusar_e_triagem' as Resultado['acao'])
+      : r.acao;
 
   // Triagem: pedir só o que falta. O texto da tabela é o formulário de quatro
   // tópicos, que só serve a quem não deu nada ainda; com qualquer dado na mão a
   // frase vira corrida. Pedir de novo o que a pessoa acabou de responder é o
   // jeito mais rápido de parecer máquina.
   let texto = r.texto;
-  if (r.acao === 'triagem' || r.acao === 'recusar_e_triagem') {
+  if (acao === 'triagem' || acao === 'recusar_e_triagem') {
     const formulario = tabela.intencoes.triagem_dados?.textos?.[0] ?? r.texto;
     const pedido = fraseDeTriagem(slots, { textoCompleto: formulario });
     texto =
-      r.acao === 'triagem'
+      acao === 'triagem'
         ? pedido || r.texto
         : // A recusa vem primeiro e o pedido emenda, na mesma mensagem: o F04
           // manda não gastar um turno só perguntando. Sem nada faltando, só a
@@ -283,7 +315,7 @@ export async function executa(
 
   // Marcação: o paciente aceitou o horário que o HOST ofereceu e registrou.
   // O modelo não participa disto — ele só disse "ele aceitou".
-  if (r.acao === 'marcar') {
+  if (acao === 'marcar') {
     if (!oferta) {
       // Sem oferta registrada (ou vencida) não há o que marcar, e marcar "o
       // próximo livre" seria marcar algo que o paciente não viu.
@@ -327,17 +359,17 @@ export async function executa(
 
   // Só agora, com o texto da oferta de fato produzido, o host registra o que
   // ofereceu.
-  if (ofertaAOferecer && r.acao === 'responder') {
+  if (ofertaAOferecer && acao === 'responder') {
     registraOferta(groupFolder, chatJid, ofertaAOferecer);
   }
 
   const saida: SaidaDoExecutor = {
     texto,
     intencao: r.intencao,
-    acao: r.acao,
+    acao,
   };
 
-  if (r.acao === 'escalar') {
+  if (acao === 'escalar') {
     saida.codigo = await escala(
       {
         folder: groupFolder,
@@ -358,7 +390,10 @@ export async function executa(
     {
       groupFolder,
       intencao: r.intencao,
-      acao: r.acao,
+      // Quando o host trocou a intenção (desconto), o log tem de mostrar as
+      // duas: a que o modelo deu e a que o paciente recebeu.
+      intencaoDoModelo: c.intencao !== r.intencao ? c.intencao : undefined,
+      acao,
       confianca: c.confianca,
       codigo: saida.codigo,
     },

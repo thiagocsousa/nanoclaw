@@ -71,6 +71,12 @@ const TABELA = {
       acao: 'responder',
       textos: ['A avaliação é R$ {valor_consulta}.'],
     },
+    desconto: {
+      acao: 'responder',
+      textos: [
+        'Infelizmente a gente não atende o seu convênio.\n\nComo você já paga um plano, a avaliação sai por R$ {valor_desconto} em vez de R$ {valor_consulta}.',
+      ],
+    },
     // Responde e NÃO pede dia/hora: é a trava de que a regra de retorno/exame
     // não atinge resposta de preço.
     exames_preco: {
@@ -372,6 +378,56 @@ describe('oferta de horário: quem vai à agenda é o host', () => {
       '{"intencao":"endereco","confianca":0.95,"slots":{"necessidade":"rotina","convenio":"Unimed"}}',
     );
     expect(buscou).toEqual([]);
+  });
+});
+
+describe('desconto da consulta é decisão do HOST (regra de 06/10/2026)', () => {
+  // Cirurgia + plano NÃO aceito = R$ 300. As duas condições juntas.
+  it('cirúrgico com plano não aceito recebe o DESCONTO, não o preço cheio', async () => {
+    const r = await rodar(
+      '{"intencao":"preco_consulta","confianca":0.95,"slots":{"necessidade":"cirurgia refrativa","convenio":"Bradesco Saude"}}',
+      'e quanto fica a consulta?',
+    );
+    expect(r?.texto).toContain('300');
+    expect(r?.texto).not.toMatch(/\b430\b.*\b430\b/s);
+  });
+
+  it('a recusa do convênio também vira desconto, e MANTÉM o pedido dos dados', async () => {
+    const r = await rodar(
+      '{"intencao":"convenio_nao_atendido","confianca":0.95,"slots":{"necessidade":"catarata","convenio":"Bradesco","nome":"Victor","cidade":"Teresina"}}',
+      'tenho Bradesco',
+    );
+    expect(r?.texto).toContain('300');
+    // a emenda da triagem não pode sumir: falta o nascimento
+    expect(r?.texto.toLowerCase()).toContain('nascimento');
+  });
+
+  it('cirúrgico PARTICULAR paga cheia: sem plano não há desconto', async () => {
+    const r = await rodar(
+      '{"intencao":"preco_consulta","confianca":0.95,"slots":{"necessidade":"cirurgia refrativa","convenio":"particular"}}',
+    );
+    expect(r?.texto).not.toContain('300');
+  });
+
+  it('ROTINA com plano não aceito paga cheia: falta a intenção cirúrgica', async () => {
+    const r = await rodar(
+      '{"intencao":"preco_consulta","confianca":0.95,"slots":{"necessidade":"rotina","convenio":"Bradesco"}}',
+    );
+    expect(r?.texto).not.toContain('300');
+  });
+
+  it('Unimed é atendido, então não é caso de desconto', async () => {
+    const r = await rodar(
+      '{"intencao":"preco_consulta","confianca":0.95,"slots":{"necessidade":"catarata","convenio":"Unimed"}}',
+    );
+    expect(r?.texto).not.toContain('300');
+  });
+
+  it('intenção que não cita preço não é trocada', async () => {
+    const r = await rodar(
+      '{"intencao":"endereco","confianca":0.95,"slots":{"necessidade":"cirurgia refrativa","convenio":"Bradesco"}}',
+    );
+    expect(r?.intencao).toBe('endereco');
   });
 });
 
