@@ -1716,7 +1716,10 @@
             "Quarta",
             "Sexta"
           ],
-          "intencao_esperada": "grade_atendimento"
+          "intencao_esperada": "grade_atendimento",
+          "permitido": [
+            "recita_grade"
+          ]
         }
       ]
     },

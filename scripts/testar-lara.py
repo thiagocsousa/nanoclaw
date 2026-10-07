@@ -199,9 +199,24 @@ CHECAGENS = {
 
 
 def checa(resposta, turno, globais):
-    """Devolve (falhas_duras, avisos)."""
+    """Devolve (falhas_duras, avisos).
+
+    Um turno pode declarar `permitido: [nome_da_regra_global]` quando a regra
+    não vale ali. Existe por causa do E07: o paciente pergunta literalmente
+    quais dias a médica atende, e aí recitar a grade é o comportamento CERTO
+    (F06) — mas a regra global `recita_grade` proíbe em qualquer contexto,
+    porque ela nasceu para impedir que a grade saia NO LUGAR de uma oferta de
+    horário. Sem a exceção, o dado se contradiz e a passada acusa falha dura
+    num acerto.
+
+    A exceção é por turno e nomeada de propósito: some do radar se alguém
+    apagar, e quem lê o cenário vê qual regra foi dispensada e por quê.
+    """
     duras, avisos = [], []
+    permitido = set(turno.get("permitido") or [])
     for nome, rx in globais.items():
+        if nome in permitido:
+            continue
         m = re.search(rx, resposta, re.I)
         if m:
             duras.append("global/%s: %r" % (nome, m.group(0)[:60]))

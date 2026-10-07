@@ -62,6 +62,12 @@ vi.mock('./config.js', async (orig) => ({
 const TABELA = {
   _niveis_de_confianca: { limiar: 0.75 },
   intencoes: {
+    abertura: {
+      acao: 'responder',
+      textos: [
+        'Olá! Escolha a opção:\n1 - Refrativa\n2 - Catarata\n3 - Rotina\n4 - Outros',
+      ],
+    },
     endereco: {
       acao: 'responder',
       fecho: true,
@@ -561,6 +567,33 @@ describe('triagem: pede só o que falta', () => {
     );
     expect(r?.texto).not.toContain('poderia me informar');
     expect(r?.texto.trimEnd()).toMatch(/430,00\.$/);
+  });
+});
+
+describe('triagem não repete o que já foi dado (E08 da passada 6)', () => {
+  it('quatro dados completos e sem necessidade: manda o MENU, não o formulário', async () => {
+    const r = await rodar(
+      '{"intencao":"triagem_dados","confianca":0.95,"slots":{"nome":"Thiago Carvalho de Sousa","nascimento":"10/03/1980","cidade":"Teresina","convenio":"particular"}}',
+      'Thiago Carvalho de Sousa, 10/03/1980, Teresina, particular',
+    );
+    expect(r?.texto).toContain('Escolha a opção');
+    // o pecado capital: devolver os quatro rótulos que a pessoa acabou de dar
+    expect(r?.texto).not.toContain('Nome completo do paciente');
+  });
+
+  it('nada a perguntar e ainda assim triagem: escala em vez de repetir', async () => {
+    const r = await rodar(
+      '{"intencao":"triagem_dados","confianca":0.95,"slots":{"nome":"Thiago","nascimento":"10/03/1980","cidade":"Teresina","convenio":"particular","necessidade":"catarata"}}',
+    );
+    expect(r?.acao).toBe('escalar');
+  });
+
+  it('faltando alguns, segue pedindo só o que falta', async () => {
+    const r = await rodar(
+      '{"intencao":"triagem_dados","confianca":0.95,"slots":{"nome":"Joana","cidade":"Teresina"}}',
+    );
+    expect(r?.texto).toContain('poderia me informar');
+    expect(r?.texto).not.toContain('Escolha a opção');
   });
 });
 

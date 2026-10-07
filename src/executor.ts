@@ -312,14 +312,44 @@ export async function executa(
   let texto = r.texto;
   if (acao === 'triagem' || acao === 'recusar_e_triagem') {
     const formulario = tabela.intencoes.triagem_dados?.textos?.[0] ?? r.texto;
-    const pedido = fraseDeTriagem(slots, { textoCompleto: formulario });
-    texto =
-      acao === 'triagem'
-        ? pedido || r.texto
-        : // A recusa vem primeiro e o pedido emenda, na mesma mensagem: o F04
-          // manda não gastar um turno só perguntando. Sem nada faltando, só a
-          // recusa, sem pergunta pendurada no fim.
-          [r.texto, pedido].filter(Boolean).join('\n\n');
+    let pedido = fraseDeTriagem(slots, { textoCompleto: formulario });
+
+    // Os quatro dados completos e ainda assim triagem: o que falta é a
+    // NECESSIDADE, que não é um dos quatro campos, e quem pergunta isso é o
+    // menu da abertura.
+    //
+    // Antes, `pedido` vinha vazio e o fallback era `r.texto` — o formulário
+    // INTEIRO. Na passada 6 (E08) o paciente mandou nome, nascimento, cidade e
+    // convênio numa tacada e levou os quatro de volta; nenhuma oferta saiu, e o
+    // "pode ser esse horário" seguinte escalou por falta de oferta. O comentário
+    // da própria `fraseDeTriagem` já avisava que string vazia significa "não há
+    // pergunta a fazer", e era justamente aí que se repetia tudo.
+    // Só no caminho de TRIAGEM. Na recusa não: já existe decisão de que, com
+    // tudo preenchido, a recusa não pendura pergunta no fim, e emendar o menu
+    // ali seria desfazê-la de passagem.
+    if (acao === 'triagem' && !pedido && !slots.necessidade?.trim()) {
+      pedido = tabela.intencoes.abertura?.textos?.[0] ?? '';
+    }
+
+    if (acao === 'triagem') {
+      if (!pedido) {
+        // Nada a perguntar e ainda assim triagem: é rótulo errado. Escalar é
+        // melhor que repetir formulário ou adivinhar o que ele quer.
+        return await escalaComo(
+          groupFolder,
+          tabela,
+          'triagem sem nada a perguntar: os quatro dados e a necessidade já vieram; veja o que o paciente quer',
+          perguntaDoPaciente,
+          deps,
+        );
+      }
+      texto = pedido;
+    } else {
+      // A recusa vem primeiro e o pedido emenda, na mesma mensagem: o F04
+      // manda não gastar um turno só perguntando. Sem nada faltando, só a
+      // recusa, sem pergunta pendurada no fim.
+      texto = [r.texto, pedido].filter(Boolean).join('\n\n');
+    }
   }
 
   // Marcação: o paciente aceitou o horário que o HOST ofereceu e registrou.
