@@ -376,6 +376,18 @@ export async function executa(
       });
       if (rc.texto) {
         marcaPerguntouPaciente(groupFolder, chatJid);
+        // Loga aqui porque este `return` pula o log do fim da função. Sem
+        // isto a pergunta some do log: em 07/10/2026 eu via o turno antes e o
+        // depois, e um buraco no meio onde ela tinha falado.
+        logger.info(
+          {
+            groupFolder,
+            intencao: 'confirma_paciente',
+            acao: 'responder',
+            candidatos: candidatos.length,
+          },
+          'executor: respondeu por template',
+        );
         return {
           texto: rc.texto,
           intencao: 'confirma_paciente',
