@@ -669,6 +669,35 @@ primeiros caracteres do que a API devolve.
 não vem por ali — é a pergunta boa para a SEMF: a nota está publicada no nacional, a
 consulta funciona, e só o DANFSE não está implementado.
 
+#### 🚨 O portal que chamamos de produção virou HOMOLOGAÇÃO (07/10/2026)
+
+Ao tentar reativar o download do PDF depois de o portal voltar do ar, a sondagem
+derrubou a premissa inteira:
+
+| host | o que é hoje |
+|---|---|
+| `the.dsfweb.com.br` | **homologação** — a tela de login traz "Atenção - Ambiente de Homologação" |
+| `nfse2-the.dsfweb.com.br` | homologação (como o código já dizia) |
+| `notafiscal.teresina.pi.gov.br` | **produção**, e é o host **com reCAPTCHA** |
+
+O `NFSE_PORTAL_PROD` apontava para o primeiro. Os dois são homologação, e a
+produção migrou para o host que não dá para automatizar.
+
+✅ **Os PDFs entregues antes são válidos.** Conferido no PDF da nota 3451
+(25/09): nenhum marcador de homologação nem "sem valor fiscal". O host servia
+produção naquela época e foi repurposado depois — provavelmente na mesma
+migração que desligou o emissor ABRASF.
+
+⚠️ **A raiz `the.dsfweb.com.br` é um "Index of /" do Apache**, não o portal. Por
+isso ela respondia `200` mesmo com o emissor fora, e por isso "raiz 200 + login
+000" nunca significou "só a página de login caiu".
+
+**Decisão do Thiago, 07/10/2026: manter só o link da consulta nacional com a
+chave.** Não há caminho automático para o PDF oficial — o DANFSE nacional
+responde 501 e o portal de produção exige captcha, que não se contorna. O
+`nfse_danfse_pipeline.py` e o `nfse_danfse_portal.py` ficam no repo sem nada os
+alimentando, para o dia em que a SEMF implementar o DANFSE nacional.
+
 #### Confirmado em PRODUÇÃO: a API não dá código de verificação (06/10/2026)
 
 A sondagem de 02/10 foi em **homologação**. Refeita em produção com a chave real da
