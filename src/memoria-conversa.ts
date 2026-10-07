@@ -38,6 +38,14 @@ export interface SlotsLembrados {
    * turno seria pior que não perguntar.
    */
   perguntouPaciente?: boolean;
+  /**
+   * O cadastro que a PESSOA confirmou ser dela. Vai como `--paciente-id` na
+   * marcação, e aí a conferência de três fatores do `iclinic_marcar.py` é
+   * pulada de propósito: ela existe para quando NÃO se sabe o cadastro, e
+   * aplicá-la a dados que vieram do próprio cadastro seria conferi-lo contra
+   * si mesmo.
+   */
+  pacienteId?: number;
   quando: number;
 }
 
@@ -148,7 +156,10 @@ export function lembraCandidatos(
 export function candidatosLembrados(
   folder: string,
   chatJid: string,
-): { buscou: boolean; candidatos: Array<{ id: number; nome: string; nascimento: string }> } {
+): {
+  buscou: boolean;
+  candidatos: Array<{ id: number; nome: string; nascimento: string }>;
+} {
   const m = le(folder)[chatJid];
   if (!m || Date.now() - m.quando > VALIDO_MS) {
     return { buscou: false, candidatos: [] };
@@ -156,11 +167,36 @@ export function candidatosLembrados(
   return { buscou: !!m.buscouPaciente, candidatos: m.candidatos ?? [] };
 }
 
+/** Guarda o cadastro que a pessoa confirmou ser dela. */
+export function lembraPacienteConfirmado(
+  folder: string,
+  chatJid: string,
+  pacienteId: number,
+): void {
+  const todas = le(folder);
+  todas[chatJid] = { ...todas[chatJid], pacienteId, quando: Date.now() };
+  grava(folder, todas);
+}
+
+/** O cadastro confirmado nesta conversa, se houve. */
+export function pacienteConfirmado(
+  folder: string,
+  chatJid: string,
+): number | undefined {
+  const m = le(folder)[chatJid];
+  if (!m || Date.now() - m.quando > VALIDO_MS) return undefined;
+  return m.pacienteId;
+}
+
 /** Marca que a pergunta de confirmação já foi feita nesta conversa. */
 export function marcaPerguntouPaciente(folder: string, chatJid: string): void {
   const agora = Date.now();
   const todas = le(folder);
-  todas[chatJid] = { ...todas[chatJid], perguntouPaciente: true, quando: agora };
+  todas[chatJid] = {
+    ...todas[chatJid],
+    perguntouPaciente: true,
+    quando: agora,
+  };
   grava(folder, todas);
 }
 

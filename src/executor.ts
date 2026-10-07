@@ -32,8 +32,10 @@ import {
   comLembrados,
   jaPerguntouPaciente,
   lembraCandidatos,
+  lembraPacienteConfirmado,
   lembraSlots,
   marcaPerguntouPaciente,
+  pacienteConfirmado,
 } from './memoria-conversa.js';
 import { pacientesComTelefone, primeiroNome } from './paciente.js';
 import { interpreta } from './classify.js';
@@ -143,6 +145,12 @@ function comDesconto(
   return temDescontoDeConsulta(slots.necessidade, slots.convenio)
     ? 'desconto'
     : intencao;
+}
+
+/** `1980-06-01` -> `01/06/1980`. O iClinic devolve ISO; o resto do fluxo usa BR. */
+function isoParaBr(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || '');
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : '';
 }
 
 /** Escala com um motivo próprio, devolvendo o texto de DESCONHECIDO. */
@@ -319,6 +327,29 @@ export async function executa(
   // frase vira corrida. Pedir de novo o que a pessoa acabou de responder é o
   // jeito mais rápido de parecer máquina.
   let texto = r.texto;
+  // A pessoa respondeu de quem é a consulta.
+  //
+  // `paciente_confirmado`: os dados vêm do CADASTRO, não do que ela digitou, e
+  // guardamos o id para a marcação ir com `--paciente-id`. Sem isso a
+  // conferência de três fatores do script compararia o cadastro consigo mesmo.
+  //
+  // `paciente_outro`: esquece os candidatos. O cadastro do titular não serve
+  // para a filha, e deixá-lo na memória faria a próxima pergunta errar de novo.
+  if (c.intencao === 'paciente_confirmado' || c.intencao === 'paciente_outro') {
+    const { candidatos } = candidatosLembrados(groupFolder, chatJid);
+    if (c.intencao === 'paciente_confirmado' && candidatos[0]) {
+      const cad = candidatos[0];
+      lembraPacienteConfirmado(groupFolder, chatJid, cad.id);
+      slots = {
+        ...slots,
+        nome: slots.nome?.trim() || cad.nome,
+        nascimento: slots.nascimento?.trim() || isoParaBr(cad.nascimento),
+      };
+    } else {
+      lembraCandidatos(groupFolder, chatJid, []);
+    }
+  }
+
   // Antes de pedir os quatro dados: a clínica já conhece este telefone?
   //
   // Trocar o formulário por UMA pergunta é o conserto do "parecer máquina"
@@ -421,6 +452,7 @@ export async function executa(
       data: oferta.vaga.data,
       hora: oferta.vaga.inicio,
       perfil: oferta.perfil,
+      pacienteId: pacienteConfirmado(groupFolder, chatJid),
     });
     if (!res.ok) {
       logger.warn(

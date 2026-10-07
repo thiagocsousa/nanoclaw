@@ -126,6 +126,18 @@ const TABELA = {
       slots_obrigatorios: ['paciente'],
       textos: ['É para você, {paciente}, ou para outra pessoa?'],
     },
+    paciente_confirmado: {
+      acao: 'triagem',
+      textos: [
+        'Muito obrigada pelo seu contato. Para darmos início ao seu atendimento, poderia me informar:\n\nNome completo do paciente:\nData de nascimento:\nCidade:\nConvênio (ou particular):',
+      ],
+    },
+    paciente_outro: {
+      acao: 'triagem',
+      textos: [
+        'Muito obrigada pelo seu contato. Para darmos início ao seu atendimento, poderia me informar:\n\nNome completo do paciente:\nData de nascimento:\nCidade:\nConvênio (ou particular):',
+      ],
+    },
     triagem_dados: {
       acao: 'triagem',
       textos: [
@@ -608,8 +620,16 @@ describe('triagem pergunta UMA coisa a quem a clínica já conhece', () => {
     await limpa();
     // Ordem vem do script, que já ordena por mais velho primeiro.
     candidatosFalsos = [
-      { id: 47555744, nome: 'THIAGO CARVALHO DE SOUSA', nascimento: '1980-06-01' },
-      { id: 47904529, nome: 'MANUELA COSTA CARVALHO', nascimento: '2015-06-29' },
+      {
+        id: 47555744,
+        nome: 'THIAGO CARVALHO DE SOUSA',
+        nascimento: '1980-06-01',
+      },
+      {
+        id: 47904529,
+        nome: 'MANUELA COSTA CARVALHO',
+        nascimento: '2015-06-29',
+      },
     ];
     const r = await rodarDe(
       '{"intencao":"triagem_dados","confianca":0.95,"slots":{"necessidade":"catarata"}}',
@@ -655,6 +675,49 @@ describe('triagem pergunta UMA coisa a quem a clínica já conhece', () => {
     );
     expect(r?.texto).not.toContain('É para você');
     expect(buscasPorTelefone.length).toBe(0);
+  });
+});
+
+describe('resposta de quem é a consulta (peça 2)', () => {
+  const prepara = async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    candidatosFalsos = [
+      { id: 47555744, nome: 'THIAGO CARVALHO DE SOUSA', nascimento: '1980-06-01' },
+    ];
+    buscasPorTelefone = [];
+    await rodarDe(
+      '{"intencao":"triagem_dados","confianca":0.95,"slots":{"necessidade":"catarata"}}',
+    );
+  };
+
+  it('"sou eu": usa o cadastro e pede só o que ainda falta', async () => {
+    await prepara();
+    const r = await rodarDe(
+      '{"intencao":"paciente_confirmado","confianca":0.95,"slots":{}}',
+      'sou eu',
+    );
+    // nome e nascimento vieram do cadastro, então não são perguntados
+    expect(r?.texto).not.toContain('Nome completo');
+    expect(r?.texto).not.toContain('nascimento');
+    expect(r?.texto).toContain('cidade');
+    expect(r?.texto).toContain('convênio');
+  });
+
+  it('"é para outra pessoa": esquece o cadastro e pede tudo', async () => {
+    await prepara();
+    const r = await rodarDe(
+      '{"intencao":"paciente_outro","confianca":0.95,"slots":{}}',
+      'é pra minha filha',
+    );
+    expect(r?.texto).toContain('Nome completo');
+  });
+
+  it('confirmado vai com --paciente-id na marcação', async () => {
+    await prepara();
+    await rodarDe('{"intencao":"paciente_confirmado","confianca":0.95,"slots":{}}');
+    const { pacienteConfirmado } = await import('./memoria-conversa.js');
+    expect(pacienteConfirmado(PASTA, JID)).toBe(47555744);
   });
 });
 

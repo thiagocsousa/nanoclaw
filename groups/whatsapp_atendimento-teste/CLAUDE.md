@@ -119,6 +119,23 @@ Abaixo, só o que não cabe num campo `quando`:
   está pensando no PLANTE, e o texto dessas intenções já responde as duas
   metades: a consulta não é coberta, a cirurgia vai pelo plano cirúrgico. Não use
   `convenio_cirurgia` para esses quatro nomes.
+- **`paciente_confirmado` e `paciente_outro` só existem logo depois de uma
+  pergunta específica.** Quando a última coisa que a Lara disse foi *"É para
+  você, Fulano, ou para outra pessoa?"*, a resposta do paciente é uma das duas:
+
+  | ele responde | a intenção é |
+  |---|---|
+  | "sou eu", "é pra mim", "sim", "isso mesmo", "comigo" | `paciente_confirmado` |
+  | "é pra minha filha", "pra outra pessoa", "não", "é pro meu pai" | `paciente_outro` |
+
+  ⚠️ **Fora desse contexto, nunca.** "Sim" depois de qualquer outra pergunta não
+  é `paciente_confirmado`. Olhe o que a Lara perguntou no turno anterior: se não
+  foi essa pergunta, essas duas intenções não se aplicam.
+
+  Quem preenche nome e nascimento a partir do cadastro é o HOST, depois de ler
+  o seu rótulo. Você não precisa saber quem é a pessoa, nem extrair o nome dela
+  daí. **Rotular não é preencher.**
+
 - ⚠️ **`triagem_dados` é o ÚLTIMO recurso, não o primeiro.** Foi o erro mais
   comum da medição de 04/10/2026: 8 dos 22 erros caíram aqui, todos com
   confiança 0,90 a 0,95. E o diagnóstico está nos seus próprios slots, que

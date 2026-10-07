@@ -187,6 +187,16 @@ export interface DadosDaMarcacao {
   hora: string;
   /** Perfil da agenda: define duração e tipo. */
   perfil: string;
+  /**
+   * Cadastro que a PESSOA confirmou ser dela, quando houve confirmação.
+   *
+   * Indo preenchido, o script usa esse cadastro e PULA a conferência de nome +
+   * nascimento + telefone. Não é afrouxamento: a conferência existe para
+   * quando não se sabe o cadastro, e aqui a identidade foi estabelecida por
+   * telefone mais confirmação humana, que é mais forte. Conferir dados que
+   * vieram do próprio cadastro seria compará-lo consigo mesmo.
+   */
+  pacienteId?: number;
 }
 
 export interface Marcacao extends DadosDaMarcacao {
@@ -332,6 +342,8 @@ export async function escreveNoIclinic(
   // identidade recusa o próprio paciente (05/10/2026, ver `telefoneDoJid`).
   const telefone = telefoneDoJid(d.pedidoPor);
   if (telefone) args.push('--telefone', telefone);
+  // Cadastro confirmado pela pessoa: vai direto, sem a conferência.
+  if (d.pacienteId) args.push('--paciente-id', String(d.pacienteId));
   // Sem o nascimento o script NÃO casa o paciente existente e escala — é o
   // segundo fator da identidade, junto com o telefone.
   if (d.nascimento) args.push('--nascimento', d.nascimento);

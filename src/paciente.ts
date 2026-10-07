@@ -36,11 +36,7 @@ export async function pacientesComTelefone(
   telefone: string,
 ): Promise<Candidato[]> {
   const dir = path.join(GROUPS_DIR, groupFolder);
-  const script = path.join(
-    dir,
-    'scripts',
-    'iclinic_paciente_por_telefone.py',
-  );
+  const script = path.join(dir, 'scripts', 'iclinic_paciente_por_telefone.py');
   if (!fs.existsSync(script)) return [];
 
   garanteCredenciais();

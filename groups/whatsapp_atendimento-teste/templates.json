@@ -51,6 +51,24 @@
         "É para você, {paciente}, ou para outra pessoa?"
       ]
     },
+    "paciente_confirmado": {
+      "bloco": "F00",
+      "quando": "RESPOSTA a 'É para você, X, ou para outra pessoa?' dizendo que é para ELE MESMO: 'sou eu', 'é pra mim', 'sim', 'isso', 'comigo mesmo'. Só depois dessa pergunta.",
+      "acao": "triagem",
+      "fecho": false,
+      "textos": [
+        "Muito obrigada pelo seu contato. Para darmos início ao seu atendimento, poderia me informar:\n\nNome completo do paciente:\nData de nascimento:\nCidade:\nConvênio (ou particular):"
+      ]
+    },
+    "paciente_outro": {
+      "bloco": "F00",
+      "quando": "RESPOSTA a 'É para você, X, ou para outra pessoa?' dizendo que é para OUTRA pessoa: 'é pra minha filha', 'pra outra pessoa', 'não, é pro meu pai', 'não'. Só depois dessa pergunta.",
+      "acao": "triagem",
+      "fecho": false,
+      "textos": [
+        "Muito obrigada pelo seu contato. Para darmos início ao seu atendimento, poderia me informar:\n\nNome completo do paciente:\nData de nascimento:\nCidade:\nConvênio (ou particular):"
+      ]
+    },
     "preco_consulta": {
       "bloco": "F01",
       "quando": "quanto custa a consulta, valor da avaliação",

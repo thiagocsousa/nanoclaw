@@ -251,9 +251,7 @@ describe('telefone a partir do JID', () => {
   });
 
   it('recusa o que não é número de gente', () => {
-    expect(
-      mod.telefoneDoJid('120363275085162068@g.us'),
-    ).toBeUndefined();
+    expect(mod.telefoneDoJid('120363275085162068@g.us')).toBeUndefined();
     expect(mod.telefoneDoJid('')).toBeUndefined();
     expect(mod.telefoneDoJid('@s.whatsapp.net')).toBeUndefined();
   });
