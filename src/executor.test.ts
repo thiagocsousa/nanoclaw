@@ -39,6 +39,20 @@ vi.mock('./agendamento.js', async (orig) => {
   };
 });
 
+let candidatosFalsos: Array<{ id: number; nome: string; nascimento: string }> =
+  [];
+let buscasPorTelefone: string[] = [];
+vi.mock('./paciente.js', async (orig) => {
+  const real = (await orig()) as Record<string, unknown>;
+  return {
+    ...real,
+    pacientesComTelefone: async (_f: string, tel: string) => {
+      buscasPorTelefone.push(tel);
+      return candidatosFalsos;
+    },
+  };
+});
+
 vi.mock('./vagas.js', async (orig) => {
   const real = await orig<typeof import('./vagas.js')>();
   return {
@@ -107,6 +121,11 @@ const TABELA = {
       motivo_escalada: 'cobertura naquele hospital (CASO DE CONVERSÃO)',
       textos: ['Só um instante.'],
     },
+    confirma_paciente: {
+      acao: 'responder',
+      slots_obrigatorios: ['paciente'],
+      textos: ['É para você, {paciente}, ou para outra pessoa?'],
+    },
     triagem_dados: {
       acao: 'triagem',
       textos: [
@@ -173,6 +192,13 @@ const JID = '5586999@s.whatsapp.net';
 
 const rodar = (bruto: string, pergunta = 'oi') =>
   executa(PASTA, bruto, pergunta, deps(), JID);
+
+// Em grupo, quem escreve não é o chat: o telefone do paciente sai do REMETENTE.
+// O JID acima nem é telefone válido, de propósito — quem precisa de telefone
+// passa um aqui.
+const REMETENTE = '558681512111@s.whatsapp.net';
+const rodarDe = (bruto: string, pergunta = 'oi', remetente = REMETENTE) =>
+  executa(PASTA, bruto, pergunta, deps(), JID, remetente);
 
 const pendencias = () =>
   JSON.parse(
@@ -567,6 +593,68 @@ describe('triagem: pede só o que falta', () => {
     );
     expect(r?.texto).not.toContain('poderia me informar');
     expect(r?.texto.trimEnd()).toMatch(/430,00\.$/);
+  });
+});
+
+describe('triagem pergunta UMA coisa a quem a clínica já conhece', () => {
+  const limpa = async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    candidatosFalsos = [];
+    buscasPorTelefone = [];
+  };
+
+  it('achou cadastro: nomeia o mais velho e oferece "outra pessoa"', async () => {
+    await limpa();
+    // Ordem vem do script, que já ordena por mais velho primeiro.
+    candidatosFalsos = [
+      { id: 47555744, nome: 'THIAGO CARVALHO DE SOUSA', nascimento: '1980-06-01' },
+      { id: 47904529, nome: 'MANUELA COSTA CARVALHO', nascimento: '2015-06-29' },
+    ];
+    const r = await rodarDe(
+      '{"intencao":"triagem_dados","confianca":0.95,"slots":{"necessidade":"catarata"}}',
+      '2',
+    );
+    expect(r?.texto).toBe('É para você, Thiago, ou para outra pessoa?');
+    // o nome da outra pessoa da casa NÃO é revelado sem ela ser mencionada
+    expect(r?.texto).not.toContain('Manuela');
+  });
+
+  it('pergunta uma vez só: no turno seguinte volta a triagem normal', async () => {
+    await limpa();
+    candidatosFalsos = [
+      { id: 1, nome: 'THIAGO CARVALHO', nascimento: '1980-06-01' },
+    ];
+    await rodarDe(
+      '{"intencao":"triagem_dados","confianca":0.95,"slots":{"necessidade":"catarata"}}',
+    );
+    const r2 = await rodarDe(
+      '{"intencao":"triagem_dados","confianca":0.95,"slots":{"necessidade":"catarata"}}',
+    );
+    expect(r2?.texto).not.toContain('É para você');
+    // e não buscou de novo: login custa ~10 s
+    expect(buscasPorTelefone.length).toBe(1);
+  });
+
+  it('sem cadastro com esse telefone, triagem normal', async () => {
+    await limpa();
+    const r = await rodarDe(
+      '{"intencao":"triagem_dados","confianca":0.95,"slots":{"necessidade":"catarata"}}',
+    );
+    expect(r?.texto).not.toContain('É para você');
+    expect(r?.texto).toContain('poderia me informar');
+  });
+
+  it('nome já conhecido: não pergunta de quem é', async () => {
+    await limpa();
+    candidatosFalsos = [
+      { id: 1, nome: 'THIAGO CARVALHO', nascimento: '1980-06-01' },
+    ];
+    const r = await rodarDe(
+      '{"intencao":"triagem_dados","confianca":0.95,"slots":{"nome":"Joana Silva","necessidade":"catarata"}}',
+    );
+    expect(r?.texto).not.toContain('É para você');
+    expect(buscasPorTelefone.length).toBe(0);
   });
 });
 

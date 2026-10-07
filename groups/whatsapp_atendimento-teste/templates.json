@@ -39,6 +39,18 @@
       ],
       "parcial": "IMPLEMENTADO em src/triagem.ts (04/10/2026). O host conta quais dos quatro campos o classificador extraiu: faltando os quatro, manda este texto; faltando de um a três, monta 'Para eu já ver um horário, poderia me informar <o que falta>?'. Em recusar_e_triagem a recusa vem primeiro e o pedido emenda na mesma mensagem, sem repetir o convênio que o paciente acabou de informar."
     },
+    "confirma_paciente": {
+      "bloco": "F00",
+      "quando": "o host achou cadastro no iClinic com o telefone de quem escreve e quer confirmar de quem é a consulta. NUNCA rotular isto: quem decide é o host.",
+      "acao": "responder",
+      "fecho": false,
+      "slots_obrigatorios": [
+        "paciente"
+      ],
+      "textos": [
+        "É para você, {paciente}, ou para outra pessoa?"
+      ]
+    },
     "preco_consulta": {
       "bloco": "F01",
       "quando": "quanto custa a consulta, valor da avaliação",

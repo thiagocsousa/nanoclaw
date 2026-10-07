@@ -27,7 +27,15 @@
 import { readEnvFile } from './env.js';
 import { escala, type EscalationSlaDeps } from './escalation-sla.js';
 import { logger } from './logger.js';
-import { comLembrados, lembraSlots } from './memoria-conversa.js';
+import {
+  candidatosLembrados,
+  comLembrados,
+  jaPerguntouPaciente,
+  lembraCandidatos,
+  lembraSlots,
+  marcaPerguntouPaciente,
+} from './memoria-conversa.js';
+import { pacientesComTelefone, primeiroNome } from './paciente.js';
 import { interpreta } from './classify.js';
 import {
   carregaTabela,
@@ -40,6 +48,7 @@ import {
   marca,
   type OfertaPendente,
   registraOferta,
+  telefoneDoJid,
   ultimaOferta,
 } from './agendamento.js';
 import { fraseDeTriagem } from './triagem.js';
@@ -310,6 +319,41 @@ export async function executa(
   // frase vira corrida. Pedir de novo o que a pessoa acabou de responder é o
   // jeito mais rápido de parecer máquina.
   let texto = r.texto;
+  // Antes de pedir os quatro dados: a clínica já conhece este telefone?
+  //
+  // Trocar o formulário por UMA pergunta é o conserto do "parecer máquina"
+  // (Thiago, 04/10/2026). O host NUNCA decide quem é — telefone identifica uma
+  // casa, não uma pessoa (medido: um número devolve pai e filha). Ele nomeia o
+  // candidato mais velho, que tende a ser o titular, e a pessoa confirma.
+  if (
+    acao === 'triagem' &&
+    !slots.nome?.trim() &&
+    tabela.intencoes.confirma_paciente &&
+    !jaPerguntouPaciente(groupFolder, chatJid)
+  ) {
+    const tel = telefoneDoJid(remetenteJid || chatJid);
+    const mem = candidatosLembrados(groupFolder, chatJid);
+    let candidatos = mem.candidatos;
+    if (tel && !mem.buscou) {
+      candidatos = await pacientesComTelefone(groupFolder, tel);
+      lembraCandidatos(groupFolder, chatJid, candidatos);
+    }
+    if (candidatos.length > 0) {
+      const rc = renderiza(tabela, 'confirma_paciente', {
+        confianca: 1,
+        slots: { ...slots, paciente: primeiroNome(candidatos[0].nome) },
+      });
+      if (rc.texto) {
+        marcaPerguntouPaciente(groupFolder, chatJid);
+        return {
+          texto: rc.texto,
+          intencao: 'confirma_paciente',
+          acao: 'responder',
+        };
+      }
+    }
+  }
+
   if (acao === 'triagem' || acao === 'recusar_e_triagem') {
     const formulario = tabela.intencoes.triagem_dados?.textos?.[0] ?? r.texto;
     let pedido = fraseDeTriagem(slots, { textoCompleto: formulario });

@@ -23,6 +23,21 @@ import { logger } from './logger.js';
 export interface SlotsLembrados {
   necessidade?: string;
   convenio?: string;
+  /**
+   * Cadastros do iClinic com o telefone desta conversa. Buscar custa ~10 s de
+   * Playwright com login, então é uma vez por conversa, não por turno.
+   */
+  candidatos?: Array<{ id: number; nome: string; nascimento: string }>;
+  /**
+   * Já procuramos? Distinto de `candidatos` vazio: "procurei e não achei" não
+   * pode virar "procuro de novo a cada mensagem".
+   */
+  buscouPaciente?: boolean;
+  /**
+   * Já perguntamos "é para você?" nesta conversa. Perguntar de novo a cada
+   * turno seria pior que não perguntar.
+   */
+  perguntouPaciente?: boolean;
   quando: number;
 }
 
@@ -80,7 +95,13 @@ export function lembraSlots(
   );
   const antes = todas[chatJid];
   todas[chatJid] = {
-    necessidade: vazio(slots.necessidade) ? antes?.necessidade : slots.necessidade,
+    // Preserva o resto do registro. Sem o spread, gravar um slot apagava os
+    // candidatos e as travas de "já busquei" e "já perguntei" — um teste pegou
+    // a Lara perguntando "é para você?" duas vezes seguidas.
+    ...antes,
+    necessidade: vazio(slots.necessidade)
+      ? antes?.necessidade
+      : slots.necessidade,
     convenio: vazio(slots.convenio) ? antes?.convenio : slots.convenio,
     quando: agora,
   };
@@ -91,11 +112,9 @@ export function lembraSlots(
  * Os slots do turno completados pelo que a conversa já disse.
  * O turno atual SEMPRE vence: quem acabou de falar está mais certo.
  */
-export function comLembrados<T extends { necessidade?: string; convenio?: string }>(
-  folder: string,
-  chatJid: string,
-  slots: T,
-): T {
+export function comLembrados<
+  T extends { necessidade?: string; convenio?: string },
+>(folder: string, chatJid: string, slots: T): T {
   const m = le(folder)[chatJid];
   if (!m || Date.now() - m.quando > VALIDO_MS) return slots;
   return {
@@ -103,6 +122,52 @@ export function comLembrados<T extends { necessidade?: string; convenio?: string
     necessidade: vazio(slots.necessidade) ? m.necessidade : slots.necessidade,
     convenio: vazio(slots.convenio) ? m.convenio : slots.convenio,
   };
+}
+
+/** Guarda o resultado da busca por telefone, inclusive quando não achou. */
+export function lembraCandidatos(
+  folder: string,
+  chatJid: string,
+  candidatos: Array<{ id: number; nome: string; nascimento: string }>,
+): void {
+  const agora = Date.now();
+  const todas = Object.fromEntries(
+    Object.entries(le(folder)).filter(([, v]) => agora - v.quando <= VALIDO_MS),
+  );
+  const antes = todas[chatJid];
+  todas[chatJid] = {
+    ...antes,
+    candidatos,
+    buscouPaciente: true,
+    quando: agora,
+  };
+  grava(folder, todas);
+}
+
+/** O que a busca por telefone achou, e se ela já aconteceu. */
+export function candidatosLembrados(
+  folder: string,
+  chatJid: string,
+): { buscou: boolean; candidatos: Array<{ id: number; nome: string; nascimento: string }> } {
+  const m = le(folder)[chatJid];
+  if (!m || Date.now() - m.quando > VALIDO_MS) {
+    return { buscou: false, candidatos: [] };
+  }
+  return { buscou: !!m.buscouPaciente, candidatos: m.candidatos ?? [] };
+}
+
+/** Marca que a pergunta de confirmação já foi feita nesta conversa. */
+export function marcaPerguntouPaciente(folder: string, chatJid: string): void {
+  const agora = Date.now();
+  const todas = le(folder);
+  todas[chatJid] = { ...todas[chatJid], perguntouPaciente: true, quando: agora };
+  grava(folder, todas);
+}
+
+/** Já perguntamos de quem é a consulta nesta conversa? */
+export function jaPerguntouPaciente(folder: string, chatJid: string): boolean {
+  const m = le(folder)[chatJid];
+  return !!m && Date.now() - m.quando <= VALIDO_MS && !!m.perguntouPaciente;
 }
 
 /** Esquece esta conversa. Usado em teste e quando o caso fecha. */
