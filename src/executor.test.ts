@@ -423,6 +423,38 @@ describe('desconto da consulta é decisão do HOST (regra de 06/10/2026)', () =>
     expect(r?.texto).not.toContain('300');
   });
 
+  // O turno do preço não repete necessidade nem convênio: o paciente os disse
+  // antes. Sem memória no host a regra avalia falso e ele ouve R$ 430 — foi
+  // exatamente o que a passada 5 mostrou em produção (07/10/2026).
+  it('lembra do que a CONVERSA disse: preço pedido dois turnos depois', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+
+    await rodar(
+      '{"intencao":"convenio_nao_atendido","confianca":0.95,"slots":{"necessidade":"cirurgia refrativa","convenio":"Bradesco Saude","nome":"Victor"}}',
+      'Victor, Teresina, tenho Bradesco Saude',
+    );
+    // turno seguinte SEM slots, como o modelo de fato devolve
+    const r = await rodar(
+      '{"intencao":"preco_consulta","confianca":0.97,"slots":{}}',
+      'e quanto fica a consulta?',
+    );
+    expect(r?.texto).toContain('300');
+  });
+
+  it('o turno atual VENCE o lembrado: mudou para rotina, paga cheia', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+
+    await rodar(
+      '{"intencao":"convenio_nao_atendido","confianca":0.95,"slots":{"necessidade":"cirurgia refrativa","convenio":"Bradesco"}}',
+    );
+    const r = await rodar(
+      '{"intencao":"preco_consulta","confianca":0.95,"slots":{"necessidade":"rotina"}}',
+    );
+    expect(r?.texto).not.toContain('300');
+  });
+
   it('intenção que não cita preço não é trocada', async () => {
     const r = await rodar(
       '{"intencao":"endereco","confianca":0.95,"slots":{"necessidade":"cirurgia refrativa","convenio":"Bradesco"}}',

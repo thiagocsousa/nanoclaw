@@ -27,6 +27,7 @@
 import { readEnvFile } from './env.js';
 import { escala, type EscalationSlaDeps } from './escalation-sla.js';
 import { logger } from './logger.js';
+import { comLembrados, lembraSlots } from './memoria-conversa.js';
 import { interpreta } from './classify.js';
 import {
   carregaTabela,
@@ -282,7 +283,15 @@ export async function executa(
     };
   }
 
-  const intencaoFinal = comDesconto(c.intencao, slots, tabela);
+  // O desconto decide sobre o que a CONVERSA disse, não só sobre este turno:
+  // "e quanto fica a consulta?" não repete necessidade nem convênio, e sem
+  // isto a regra avalia falso e o paciente ouve o preço cheio (07/10/2026).
+  lembraSlots(groupFolder, chatJid, c.slots);
+  const intencaoFinal = comDesconto(
+    c.intencao,
+    comLembrados(groupFolder, chatJid, slots),
+    tabela,
+  );
   const r = renderiza(tabela, intencaoFinal, {
     confianca: c.confianca,
     slots,
