@@ -47,6 +47,21 @@ export interface Intencao {
   textos?: string[];
   slots_obrigatorios?: string[];
   /**
+   * Texto para quando os `slots_obrigatorios` NÃO puderam ser preenchidos.
+   *
+   * Existe porque havia resposta aprovada sendo jogada fora. "Tem como marcar
+   * no sábado?" é `dia_sem_atendimento`, que pede `dia` e `hora` para emendar
+   * o próximo horário livre. Só que a agenda só é consultada quando já se sabe
+   * necessidade e convênio — e no começo da conversa não se sabe. Resultado: o
+   * render rebaixava e ela escalava, quando tinha um "infelizmente não
+   * atendemos sábado" pronto para dar. Quatro cenários da passada 6 caíram
+   * aqui, e a clínica recebia caso que não precisava.
+   *
+   * Opcional de propósito: para `horario_oferta` não existe versão curta
+   * aceitável — sem dia e hora não há o que oferecer, e aí escalar é o certo.
+   */
+  textos_sem_slot?: string[];
+  /**
    * Como o caso deve chegar à recepção, quando esta intenção escala. Escrito
    * por humano e aprovado, e por isso vale mais que a observação do modelo: é o
    * enquadramento que faz quem atende ver oportunidade em vez de problema. O
@@ -199,13 +214,14 @@ export function renderiza(
   const faltamSlots = (def.slots_obrigatorios ?? []).filter(
     (s) => !slots[s] && !VALORES[s],
   );
-  if (faltamSlots.length > 0) {
-    // Caso concreto: oferecer horário sem ter dia e hora. Melhor escalar que
-    // mandar "Tenho {dia} às {hora}".
+  // Sem os slots: usa a versão curta, se a tabela tiver uma. Senão escala —
+  // oferecer horário sem dia e hora mandaria "Tenho {dia} às {hora}".
+  const semSlot = faltamSlots.length > 0;
+  if (semSlot && !(def.textos_sem_slot ?? []).length) {
     return escala(`slot obrigatório ausente: ${faltamSlots.join(', ')}`);
   }
 
-  const opcoes = def.textos ?? [];
+  const opcoes = (semSlot ? def.textos_sem_slot : def.textos) ?? [];
   if (opcoes.length === 0) {
     return {
       texto: '',

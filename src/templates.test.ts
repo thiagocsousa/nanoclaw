@@ -35,6 +35,15 @@ const tabela: Tabela = {
       slots_obrigatorios: ['dia', 'hora'],
       textos: ['Tenho {dia} às {hora}.', 'O próximo é {dia} às {hora}.'],
     },
+    // Tem versão curta: sem dia e hora ainda sabe dizer o "não".
+    dia_sem_atendimento: {
+      acao: 'responder',
+      slots_obrigatorios: ['dia', 'hora'],
+      textos: [
+        'Infelizmente {dia_pedido} não temos atendimento. O próximo horário é {dia} às {hora}.',
+      ],
+      textos_sem_slot: ['Infelizmente {dia_pedido} não temos atendimento.'],
+    },
     clinico: {
       acao: 'escalar',
       urgente: true,
@@ -113,6 +122,40 @@ describe('rebaixamentos: é aqui que a resposta errada deixa de sair', () => {
       const r = renderiza(tabela, intencao, { aleatorio: sempre });
       expect(r.texto, intencao).not.toMatch(/\{\w+\}/);
     }
+  });
+});
+
+describe('texto curto quando a agenda não deu os slots', () => {
+  // Quatro cenários da passada 6 escalavam aqui: "tem como marcar no sábado?"
+  // virava "Só um instante" porque o texto cheio emenda o próximo horário, e
+  // a agenda só é consultada depois de necessidade e convênio.
+  it('sem dia e hora, responde o "não" em vez de escalar', () => {
+    const r = renderiza(tabela, 'dia_sem_atendimento', {
+      slots: { dia_pedido: 'no sábado' },
+      aleatorio: sempre,
+    });
+    expect(r.acao).toBe('responder');
+    expect(r.intencao).toBe('dia_sem_atendimento');
+    expect(r.texto).toBe('Infelizmente no sábado não temos atendimento.');
+  });
+
+  it('com dia e hora, segue emendando o próximo horário', () => {
+    const r = renderiza(tabela, 'dia_sem_atendimento', {
+      slots: { dia_pedido: 'no sábado', dia: 'segunda', hora: '10:10' },
+      aleatorio: sempre,
+    });
+    expect(r.texto).toContain('10:10');
+  });
+
+  it('sem versão curta, continua escalando: horario_oferta não tem o que dizer', () => {
+    const r = renderiza(tabela, 'horario_oferta', { aleatorio: sempre });
+    expect(r.intencao).toBe('DESCONHECIDO');
+    expect(r.motivo).toContain('slot obrigatório ausente');
+  });
+
+  it('a versão curta também é checada: slot aberto nela escala', () => {
+    const r = renderiza(tabela, 'dia_sem_atendimento', { aleatorio: sempre });
+    expect(r.intencao).toBe('DESCONHECIDO');
   });
 });
 

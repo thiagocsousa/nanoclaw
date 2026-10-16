@@ -176,6 +176,9 @@
       ],
       "textos": [
         "Infelizmente {dia_pedido} não temos atendimento. O próximo horário é {dia}, dia {data}, às {hora}."
+      ],
+      "textos_sem_slot": [
+        "Infelizmente {dia_pedido} não temos atendimento."
       ]
     },
     "grade_atendimento": {
