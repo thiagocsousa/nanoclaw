@@ -24,6 +24,14 @@ export interface SlotsLembrados {
   necessidade?: string;
   convenio?: string;
   /**
+   * Nome e nascimento, normalmente vindos do CADASTRO depois do
+   * `paciente_confirmado`. Sem guardá-los, a oferta de horário é registrada
+   * sem nome e a marcação morre com "faltou: paciente" — aconteceu no E08 em
+   * 16/10/2026, dois turnos depois de a Lara já saber quem era a pessoa.
+   */
+  nome?: string;
+  nascimento?: string;
+  /**
    * Cadastros do iClinic com o telefone desta conversa. Buscar custa ~10 s de
    * Playwright com login, então é uma vez por conversa, não por turno.
    */
@@ -94,9 +102,20 @@ function vazio(v?: string): boolean {
 export function lembraSlots(
   folder: string,
   chatJid: string,
-  slots: { necessidade?: string; convenio?: string },
+  slots: {
+    necessidade?: string;
+    convenio?: string;
+    nome?: string;
+    nascimento?: string;
+  },
 ): void {
-  if (vazio(slots.necessidade) && vazio(slots.convenio)) return;
+  const algumPreenchido = [
+    slots.necessidade,
+    slots.convenio,
+    slots.nome,
+    slots.nascimento,
+  ].some((v) => !vazio(v));
+  if (!algumPreenchido) return;
   const agora = Date.now();
   const todas = Object.fromEntries(
     Object.entries(le(folder)).filter(([, v]) => agora - v.quando <= VALIDO_MS),
@@ -111,6 +130,10 @@ export function lembraSlots(
       ? antes?.necessidade
       : slots.necessidade,
     convenio: vazio(slots.convenio) ? antes?.convenio : slots.convenio,
+    nome: vazio(slots.nome) ? antes?.nome : slots.nome,
+    nascimento: vazio(slots.nascimento)
+      ? antes?.nascimento
+      : slots.nascimento,
     quando: agora,
   };
   grava(folder, todas);
@@ -121,7 +144,12 @@ export function lembraSlots(
  * O turno atual SEMPRE vence: quem acabou de falar está mais certo.
  */
 export function comLembrados<
-  T extends { necessidade?: string; convenio?: string },
+  T extends {
+    necessidade?: string;
+    convenio?: string;
+    nome?: string;
+    nascimento?: string;
+  },
 >(folder: string, chatJid: string, slots: T): T {
   const m = le(folder)[chatJid];
   if (!m || Date.now() - m.quando > VALIDO_MS) return slots;
@@ -129,6 +157,8 @@ export function comLembrados<
     ...slots,
     necessidade: vazio(slots.necessidade) ? m.necessidade : slots.necessidade,
     convenio: vazio(slots.convenio) ? m.convenio : slots.convenio,
+    nome: vazio(slots.nome) ? m.nome : slots.nome,
+    nascimento: vazio(slots.nascimento) ? m.nascimento : slots.nascimento,
   };
 }
 

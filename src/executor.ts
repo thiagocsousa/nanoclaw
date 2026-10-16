@@ -224,6 +224,41 @@ export async function executa(
   // memória: agenda e desconto consultam logo abaixo.
   lembraSlots(groupFolder, chatJid, c.slots);
 
+  // A pessoa respondeu de quem é a consulta.
+  //
+  // `paciente_confirmado`: os dados vêm do CADASTRO, não do que ela digitou, e
+  // guardamos o id para a marcação ir com `--paciente-id`. Sem isso a
+  // conferência de três fatores do script compararia o cadastro consigo mesmo.
+  //
+  // `paciente_outro`: esquece os candidatos. O cadastro do titular não serve
+  // para a filha, e deixá-lo na memória faria a próxima pergunta errar de novo.
+  if (c.intencao === 'paciente_confirmado' || c.intencao === 'paciente_outro') {
+    const { candidatos } = candidatosLembrados(groupFolder, chatJid);
+    if (c.intencao === 'paciente_confirmado' && candidatos[0]) {
+      const cad = candidatos[0];
+      lembraPacienteConfirmado(groupFolder, chatJid, cad.id);
+      c.slots = {
+        ...c.slots,
+        nome: c.slots.nome?.trim() || cad.nome,
+        nascimento: c.slots.nascimento?.trim() || isoParaBr(cad.nascimento),
+      };
+      // Guardar, não só usar neste turno: a oferta de horário costuma vir dois
+      // turnos depois, quando o modelo já não repete nome nem nascimento. Sem
+      // isto a oferta é registrada sem nome e a marcação morre com
+      // "faltou: paciente" (E08, 16/10/2026).
+      lembraSlots(groupFolder, chatJid, {
+        nome: c.slots.nome,
+        nascimento: c.slots.nascimento,
+      });
+    } else {
+      lembraCandidatos(groupFolder, chatJid, []);
+    }
+  }
+
+  // ⚠️ Este bloco vem ANTES da agenda e do render de propósito. Ele estava
+  // depois dos dois, então os dados do cadastro chegavam tarde: a oferta era
+  // registrada sem nome e a marcação morria com "faltou: paciente".
+
   let slots = c.slots;
   let ofertaAOferecer: Omit<OfertaPendente, 'quando'> | undefined;
   const exige = tabela.intencoes[c.intencao]?.slots_obrigatorios ?? [];
@@ -278,9 +313,12 @@ export async function executa(
         ofertaAOferecer = {
           vaga: vagas[0],
           perfil,
-          nome: c.slots.nome,
-          nascimento: c.slots.nascimento,
-          convenio: c.slots.convenio,
+          // Da CONVERSA, não só deste turno: no turno que pede horário o
+          // modelo raramente repete nome e nascimento, e eles costumam ter
+          // vindo do cadastro dois turnos antes.
+          nome: paraPerfil.nome,
+          nascimento: paraPerfil.nascimento,
+          convenio: paraPerfil.convenio,
         };
       }
     }
@@ -316,7 +354,6 @@ export async function executa(
     };
   }
 
-
   const intencaoFinal = comDesconto(
     c.intencao,
     comLembrados(groupFolder, chatJid, slots),
@@ -340,28 +377,6 @@ export async function executa(
   // frase vira corrida. Pedir de novo o que a pessoa acabou de responder é o
   // jeito mais rápido de parecer máquina.
   let texto = r.texto;
-  // A pessoa respondeu de quem é a consulta.
-  //
-  // `paciente_confirmado`: os dados vêm do CADASTRO, não do que ela digitou, e
-  // guardamos o id para a marcação ir com `--paciente-id`. Sem isso a
-  // conferência de três fatores do script compararia o cadastro consigo mesmo.
-  //
-  // `paciente_outro`: esquece os candidatos. O cadastro do titular não serve
-  // para a filha, e deixá-lo na memória faria a próxima pergunta errar de novo.
-  if (c.intencao === 'paciente_confirmado' || c.intencao === 'paciente_outro') {
-    const { candidatos } = candidatosLembrados(groupFolder, chatJid);
-    if (c.intencao === 'paciente_confirmado' && candidatos[0]) {
-      const cad = candidatos[0];
-      lembraPacienteConfirmado(groupFolder, chatJid, cad.id);
-      slots = {
-        ...slots,
-        nome: slots.nome?.trim() || cad.nome,
-        nascimento: slots.nascimento?.trim() || isoParaBr(cad.nascimento),
-      };
-    } else {
-      lembraCandidatos(groupFolder, chatJid, []);
-    }
-  }
 
   // Antes de pedir os quatro dados: a clínica já conhece este telefone?
   //

@@ -528,6 +528,46 @@ describe('desconto da consulta é decisão do HOST (regra de 06/10/2026)', () =>
   });
 });
 
+describe('o nome do cadastro sobrevive até a marcação (E08, 16/10/2026)', () => {
+  it('confirmou dois turnos antes: a oferta leva o nome do cadastro', async () => {
+    candidatosFalsos = [
+      { id: 47555744, nome: 'THIAGO CARVALHO DE SOUSA', nascimento: '1980-06-01' },
+    ];
+    vagasFalsas = [
+      {
+        data: '2026-10-19',
+        dia_semana: 'segunda',
+        inicio: '08:00',
+        fim: '08:30',
+      },
+    ];
+    // menu -> pergunta de quem é
+    await rodarDe(
+      '{"intencao":"triagem_dados","confianca":0.95,"slots":{"necessidade":"catarata"}}',
+      '2',
+    );
+    // "sou eu" -> nome e nascimento vêm do cadastro
+    await rodarDe(
+      '{"intencao":"paciente_confirmado","confianca":0.95,"slots":{}}',
+      'sou eu',
+    );
+    // pede horário SEM repetir nome nem nascimento, como o modelo faz
+    await rodarDe(
+      '{"intencao":"horario_oferta","confianca":0.95,"slots":{"cidade":"Teresina","convenio":"particular"}}',
+      'Teresina, particular. tem horario?',
+    );
+    // aceite: a marcação precisa do nome, e ele veio da memória
+    await rodarDe(
+      '{"intencao":"aceita_horario","confianca":0.95,"slots":{}}',
+      'pode ser esse horario',
+    );
+    expect(marcou.length).toBe(1);
+    // eslint-disable-next-line no-console
+    console.log('DEBUG memoria:', fs.readFileSync(path.join(RAIZ, PASTA, 'slots_conversa.json'), 'utf-8'));
+    expect(marcou[0].paciente).toContain('THIAGO');
+  });
+});
+
 describe('a agenda também lembra o que a conversa disse (E08, 16/10/2026)', () => {
   it('necessidade dita antes, horário pedido depois: consulta a agenda', async () => {
     vagasFalsas = [
@@ -550,9 +590,7 @@ describe('a agenda também lembra o que a conversa disse (E08, 16/10/2026)', () 
     );
     // catarata é cirúrgico, então o perfil cruzado é particular-cirurgia — e o
     // fato de ele sair daqui prova que a necessidade veio do turno ANTERIOR.
-    expect(buscou).toEqual([
-      { perfil: 'particular-cirurgia', dia: undefined },
-    ]);
+    expect(buscou).toEqual([{ perfil: 'particular-cirurgia', dia: undefined }]);
     expect(r?.acao).toBe('responder');
     expect(r?.texto).toContain('09:20');
   });
