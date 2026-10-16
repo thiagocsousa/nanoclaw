@@ -27,8 +27,14 @@ conferência de identidade da marcação com um nascimento que não é o dela.
 
 Então o host manda dígitos e quem formata é aqui, num lugar só.
 
+Além de nome e nascimento, traz o que o cadastro já sabe e a triagem não
+precisa perguntar: convênio, cidade e data da última consulta. **Campo vazio é
+informação**: a cidade do Thiago está em branco no iClinic, então ali a pergunta
+continua necessária. Usar o que existe e perguntar só o que falta.
+
 Uso:  iclinic_paciente_por_telefone.py --telefone 558681512111
-Saída: JSON com {ok, candidatos: [{id, nome, nascimento, telefone}]}.
+Saída: JSON com {ok, candidatos: [{id, nome, nascimento, telefone, convenio,
+cidade, ultima_consulta}]}.
 """
 import argparse
 import json
@@ -88,6 +94,17 @@ def mascaras(telefone):
     return saida
 
 
+def campo_do_html(html, nome):
+    """Valor de um <input> da ficha. O iClinic às vezes emite DOIS `value=` no
+    mesmo input, o segundo vazio, então pega a tag inteira e o PRIMEIRO. Mesma
+    técnica do `nfse_coletar.py`, que lê daqui o endereço do tomador."""
+    tag = re.search(r'<(?:input|textarea)[^>]*\bname="%s"[^>]*>' % nome, html)
+    if not tag:
+        return ""
+    v = re.search(r'value="([^"]*)"', tag.group(0))
+    return v.group(1).strip() if v else ""
+
+
 def responde(ok, **extra):
     print(json.dumps({"wakeAgent": False, "ok": ok, **extra}, ensure_ascii=False))
 
@@ -137,6 +154,27 @@ def main():
                     responde(False, erro="busca_falhou", http=r.status, q=q)
                     return 1
                 achados += (r.json() or {}).get("objects") or []
+
+            # A CIDADE não vem na busca, só na ficha. Uma requisição a mais por
+            # candidato, na sessão que já está aberta — barato perto dos ~10 s
+            # do login. Tem de ser aqui dentro: depois do `br.close()` não há
+            # mais sessão.
+            alvo_tel = so_digitos(a.telefone)[-8:]
+            for o in achados:
+                if not so_digitos(o.get("mobile_phone")).endswith(alvo_tel):
+                    continue
+                try:
+                    fr = pg.request.get(
+                        "%s/pacientes/%s/" % (BASE, o.get("id")),
+                        headers=h,
+                        timeout=25000,
+                    )
+                    if fr.status == 200:
+                        o["_cidade"] = campo_do_html(fr.text(), "city")
+                except Exception:
+                    # Ficha indisponível não invalida o candidato: segue sem a
+                    # cidade, e a triagem pergunta, que é o de antes.
+                    pass
         finally:
             br.close()
 
@@ -150,6 +188,12 @@ def main():
             "nome": o.get("name") or "",
             "nascimento": o.get("birth_date") or "",
             "telefone": o.get("mobile_phone") or "",
+            # String simples, tipo "UNIMED TERESINA". Vem de graça na busca.
+            "convenio": (o.get("health_insurances") or "").strip()
+            if isinstance(o.get("health_insurances"), str)
+            else "",
+            "ultima_consulta": (o.get("last_appointment_date") or "")[:10],
+            "cidade": (o.get("_cidade") or "").strip(),
             "falecido": bool(o.get("died")),
         }
         for o in achados

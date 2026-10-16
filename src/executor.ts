@@ -350,7 +350,11 @@ export async function executa(
     slots = {
       ...slots,
       ...slotsDaVaga(oferta.vaga),
-      paciente: (oferta.nome ?? c.slots.nome ?? '').split(/\s+/)[0] ?? '',
+      // `primeiroNome` normaliza a caixa: o cadastro do iClinic guarda em
+      // CAIXA ALTA, e sem isto a confirmação saía "Pronto, THIAGO, está
+      // agendado" (16/10/2026). Caixa alta soa a grito e não é como a clínica
+      // escreve.
+      paciente: primeiroNome(oferta.nome ?? c.slots.nome ?? ''),
     };
   }
 

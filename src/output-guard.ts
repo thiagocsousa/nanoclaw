@@ -252,6 +252,32 @@ const RX_EXCLUI_CONSULTA =
 const RX_COMPLETUDE =
   /\b(?:s[ãa]o|[ée])\s+(?:apenas\s+|s[óo]\s+)?dois\s+exames?\b|\bexames?[^.!?\n]{0,40}\b(?:s[ãa]o|[ée])\s+(?:apenas\s+|s[óo]\s+)?dois\b|\bs[óo]\s+esses\s+dois\b|\bs[ãa]o\s+apenas\s+esses\b|\b[ée]\s+s[óo]\s+isso\s+que\s+precisa\b/i;
 
+// --- caixa alta -------------------------------------------------------------
+
+/** Três letras ou mais, tudo maiúsculo. Acentos entram: NÃO, JOÃO. */
+const RX_CAIXA_ALTA = /\b[A-ZÁÉÍÓÚÂÊÔÃÕÇ]{3,}\b/g;
+
+/**
+ * As únicas caixas altas que podem sair. Levantadas dos textos aprovados em
+ * 16/10/2026, não escolhidas a dedo: se uma sigla nova entrar num texto, ela
+ * precisa entrar aqui junto, e é bom que o teste cobre isso.
+ */
+const SIGLAS_OK = new Set([
+  'ANS',
+  'CEP',
+  'COE',
+  'CPF',
+  'IASPI',
+  'IAPEP',
+  'IPMT',
+  'PLAMTA',
+  'PLANTE',
+  'NFS',
+  'RQE',
+  'CRM',
+  'SUS',
+]);
+
 // --- fingir-se humana -------------------------------------------------------
 
 /**
@@ -458,6 +484,34 @@ export function inspecionaSaida(
       motivo:
         'cita valor do Pentacam; muda por hospital (R$ 500 no Hospital do Olho, R$ 600 no Vilar), quem informa é a recepção (F08)',
       trecho: pent[0].slice(0, 60),
+    });
+  }
+
+  // 7b. sanitize: palavra em CAIXA ALTA que não é sigla conhecida
+  //
+  // O cadastro do iClinic guarda o nome em caixa alta, e em 16/10/2026 a
+  // confirmação saiu "Pronto, THIAGO, está agendado". Caixa alta soa a grito e
+  // não é como a clínica escreve (regra do Thiago: nenhuma palavra em caixa
+  // alta). Conserto de verdade é normalizar na origem, e isto é a rede: pega
+  // qualquer caixa alta que escape de um campo novo amanhã.
+  //
+  // A lista de exceções saiu dos PRÓPRIOS textos aprovados, não da minha
+  // cabeça — por isso não quebra nenhum deles.
+  const capsAchadas = texto.match(RX_CAIXA_ALTA) ?? [];
+  const capsIndevidas = capsAchadas.filter((w) => !SIGLAS_OK.has(w));
+  if (capsIndevidas.length > 0) {
+    for (const w of capsIndevidas) {
+      texto = texto.replace(
+        new RegExp(`\\b${w}\\b`, 'g'),
+        w.charAt(0) + w.slice(1).toLowerCase(),
+      );
+    }
+    achados.push({
+      regra: 'caixa_alta',
+      nivel: 'sanitize',
+      motivo:
+        'palavra em caixa alta que não é sigla; normalmente é nome vindo do cadastro do iClinic, que guarda assim',
+      trecho: capsIndevidas.join(', ').slice(0, 60),
     });
   }
 

@@ -580,6 +580,35 @@ describe('veredito_criterio', () => {
 // regra por regra à mão não pega isso, porque o erro está justamente no caso
 // que eu não imaginei. Então a tabela inteira passa pela guarda, e a falha vem
 // de graça a cada texto novo que a clínica aprovar.
+describe('caixa alta: o nome vem do cadastro gritando', () => {
+  it('normaliza o nome e registra o conserto', () => {
+    const r = inspecionaSaida(
+      'Pronto, THIAGO, está agendado para segunda às 08:00.',
+      { agendouDeVerdade: true },
+    );
+    expect(r.texto).toContain('Thiago');
+    expect(r.texto).not.toContain('THIAGO');
+    expect(r.achados.map((a) => a.regra)).toContain('caixa_alta');
+  });
+
+  it('não mexe nas siglas que a clínica usa', () => {
+    const r = inspecionaSaida(
+      'A consulta pelo IASPI não é coberta. Já a cirurgia vai pelo PLAMTA, dentro dos critérios da ANS.',
+    );
+    expect(r.texto).toContain('IASPI');
+    expect(r.texto).toContain('PLAMTA');
+    expect(r.texto).toContain('ANS');
+    expect(r.achados.map((a) => a.regra)).not.toContain('caixa_alta');
+  });
+
+  it('pega nome completo, não só a primeira palavra', () => {
+    const r = inspecionaSaida('Pronto, MARIA DAS GRAÇAS, está agendado.', {
+      agendouDeVerdade: true,
+    });
+    expect(r.texto).toContain('Maria Das Graças');
+  });
+});
+
 describe('a guarda contra a tabela de templates aprovados', () => {
   const tabela = JSON.parse(
     readFileSync('groups/whatsapp_atendimento-teste/templates.json', 'utf-8'),
