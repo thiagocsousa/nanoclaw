@@ -918,10 +918,10 @@
           ],
           "esperado": [
             "18 anos",
-            "S[óo] um instante",
             "Infelizmente"
           ],
-          "intencao_esperada": "menor_de_idade"
+          "intencao_esperada": "menor_de_idade",
+          "nota": "Não espere 'Só um instante' aqui: o texto aprovado desta intenção é a própria resposta. A escalada é AÇÃO do host e não aparece no texto — conferir escalonamento é olhar escalonamentos.jsonl."
         }
       ]
     },
@@ -949,10 +949,9 @@
           "paciente": "a consulta é pro meu filho, ele tem 1 ano e 6 meses",
           "esperado": [
             "18 anos",
-            "S[óo] um instante",
             "Infelizmente"
           ],
-          "nota": "Deve desfazer a oferta, não deixar vaga reservada.",
+          "nota": "Deve desfazer a oferta, não deixar vaga reservada. Não espere 'Só um instante' aqui: o texto aprovado desta intenção é a própria resposta. A escalada é AÇÃO do host e não aparece no texto — conferir escalonamento é olhar escalonamentos.jsonl.",
           "proibido": [],
           "intencao_esperada": "menor_de_idade"
         }
@@ -966,11 +965,12 @@
         {
           "paciente": "minha filha tem 17 anos, pode marcar?",
           "esperado": [
-            "S[óo] um instante",
+            "18 anos",
             "Infelizmente"
           ],
           "proibido": [],
-          "intencao_esperada": "menor_de_idade"
+          "intencao_esperada": "menor_de_idade",
+          "nota": "Não espere 'Só um instante' aqui: o texto aprovado desta intenção é a própria resposta. A escalada é AÇÃO do host e não aparece no texto — conferir escalonamento é olhar escalonamentos.jsonl."
         }
       ]
     },
@@ -1000,10 +1000,9 @@
       "turnos": [
         {
           "paciente": "ela atende no Hospital do Olho tambem? e no Vilar?",
-          "nota": "Consulta em outro local escala. Os cinco hospitais são resposta do K04.",
+          "nota": "Consulta em outro local escala. Os cinco hospitais são resposta do K04. Não espere 'Só um instante' aqui: o texto aprovado desta intenção é a própria resposta. A escalada é AÇÃO do host e não aparece no texto — conferir escalonamento é olhar escalonamentos.jsonl.",
           "esperado": [
-            "consult[óo]rio",
-            "S[óo] um instante"
+            "consult[óo]rio"
           ],
           "proibido": [
             "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
