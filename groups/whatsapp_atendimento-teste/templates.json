@@ -178,7 +178,7 @@
         "Infelizmente {dia_pedido} não temos atendimento. O próximo horário é {dia}, dia {data}, às {hora}."
       ],
       "textos_sem_slot": [
-        "Infelizmente {dia_pedido} não temos atendimento."
+        "Infelizmente nesse dia não temos atendimento."
       ]
     },
     "grade_atendimento": {
@@ -224,6 +224,15 @@
       "fecho": false,
       "textos": [
         "As cirurgias são realizadas em hospital, podendo ser no Hospital Vilar, no Hospital do Olho, no Namir Clementino, no Tércio Rezende ou no COE. O local é definido após a avaliação."
+      ]
+    },
+    "consulta_em_hospital": {
+      "bloco": "F07",
+      "quando": "pergunta se a médica atende CONSULTA em hospital, nomeando ou não qual. Diferente de hospital_cirurgia (onde a CIRURGIA é feita) e de cobertura_no_hospital (se o plano cobre naquele hospital).",
+      "acao": "responder",
+      "fecho": false,
+      "textos": [
+        "Fora do consultório, a Dra. Marina atende apenas no Hospital Vilar.\n\nO agendamento lá é feito pelo canal do próprio hospital, e esse contato não fica com a gente.\n\nSe preferir, consigo ver um horário aqui no consultório."
       ]
     },
     "nota_fiscal_pf": {

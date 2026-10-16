@@ -42,7 +42,7 @@ const tabela: Tabela = {
       textos: [
         'Infelizmente {dia_pedido} não temos atendimento. O próximo horário é {dia} às {hora}.',
       ],
-      textos_sem_slot: ['Infelizmente {dia_pedido} não temos atendimento.'],
+      textos_sem_slot: ['Infelizmente nesse dia não temos atendimento.'],
     },
     clinico: {
       acao: 'escalar',
@@ -130,13 +130,12 @@ describe('texto curto quando a agenda não deu os slots', () => {
   // virava "Só um instante" porque o texto cheio emenda o próximo horário, e
   // a agenda só é consultada depois de necessidade e convênio.
   it('sem dia e hora, responde o "não" em vez de escalar', () => {
-    const r = renderiza(tabela, 'dia_sem_atendimento', {
-      slots: { dia_pedido: 'no sábado' },
-      aleatorio: sempre,
-    });
+    // Sem NENHUM slot, que é como o modelo de fato devolve quando a agenda
+    // não foi consultada. Em produção (16/10/2026) veio `slots: {}`.
+    const r = renderiza(tabela, 'dia_sem_atendimento', { aleatorio: sempre });
     expect(r.acao).toBe('responder');
     expect(r.intencao).toBe('dia_sem_atendimento');
-    expect(r.texto).toBe('Infelizmente no sábado não temos atendimento.');
+    expect(r.texto).toBe('Infelizmente nesse dia não temos atendimento.');
   });
 
   it('com dia e hora, segue emendando o próximo horário', () => {
@@ -154,7 +153,11 @@ describe('texto curto quando a agenda não deu os slots', () => {
   });
 
   it('a versão curta também é checada: slot aberto nela escala', () => {
-    const r = renderiza(tabela, 'dia_sem_atendimento', { aleatorio: sempre });
+    const comChave = JSON.parse(JSON.stringify(tabela)) as typeof tabela;
+    comChave.intencoes.dia_sem_atendimento.textos_sem_slot = [
+      'Infelizmente {dia_pedido} não temos atendimento.',
+    ];
+    const r = renderiza(comChave, 'dia_sem_atendimento', { aleatorio: sempre });
     expect(r.intencao).toBe('DESCONHECIDO');
   });
 });

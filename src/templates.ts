@@ -59,6 +59,13 @@ export interface Intencao {
    *
    * Opcional de propósito: para `horario_oferta` não existe versão curta
    * aceitável — sem dia e hora não há o que oferecer, e aí escalar é o certo.
+   *
+   * ⚠️ **A versão curta não pode depender de slot nenhum.** O primeiro texto
+   * que escrevi aqui era "Infelizmente {dia_pedido} não temos atendimento", e
+   * ela continuou escalando: quando a agenda não dá `dia` e `hora`, em geral o
+   * modelo não mandou slot algum, nem `dia_pedido`. O texto caía na checagem
+   * seguinte, de slot aberto, e virava DESCONHECIDO do mesmo jeito. Versão
+   * curta com chave dentro é versão curta que não serve.
    */
   textos_sem_slot?: string[];
   /**
