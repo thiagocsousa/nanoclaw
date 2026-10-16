@@ -1822,7 +1822,7 @@
     {
       "id": "E08",
       "categoria": "agenda",
-      "sobre": "Aceita o horário oferecido. O HOST lembra qual foi (o classificador é proibido de preencher dia e hora), marca no iClinic e só então confirma. Sem oferta registrada ou com ela vencida, escala. ⚠️ ESTE CENÁRIO MARCA DE VERDADE NO ICLINIC: rodar só quando alguém puder apagar a consulta criada.",
+      "sobre": "Fluxo completo até a marcação: menu, identificação pelo telefone, confirmação de quem é a consulta, resto da triagem, oferta e aceite. ⚠️ ESTE CENÁRIO MARCA DE VERDADE NO ICLINIC: rodar só quando alguém puder apagar a consulta criada.",
       "turnos": [
         {
           "paciente": "oi",
@@ -1833,14 +1833,28 @@
           "paciente": "2",
           "proibido": [],
           "intencao_esperada": "triagem_dados",
-          "nota": "Sem a necessidade o perfil não existe e o host NÃO consulta a agenda (F12). Antes este cenário pulava o menu e nenhuma oferta saía, então o aceite do turno seguinte escalava e o caminho de marcação nunca rodava."
+          "esperado": [
+            "É para você"
+          ],
+          "nota": "O host acha o cadastro pelo telefone e troca o formulário de quatro campos por uma pergunta. Antes de 07/10/2026 aqui vinha o formulário."
         },
         {
-          "paciente": "Thiago Carvalho de Sousa, 10/03/1980, Teresina, particular",
+          "paciente": "sou eu",
+          "proibido": [],
+          "intencao_esperada": "paciente_confirmado",
+          "esperado": [
+            "cidade"
+          ],
+          "nota": "Confirmado, nome e nascimento vêm do cadastro: sobram cidade e convênio."
+        },
+        {
+          "paciente": "Teresina, particular. tem horario?",
+          "proibido": [],
+          "intencao_esperada": "horario_oferta",
           "esperado": [
             "[0-9]{2}:[0-9]{2}"
           ],
-          "intencao_esperada": "horario_oferta"
+          "nota": "A necessidade ficou na memória desde o menu; o perfil cruzado sai dela com o convênio deste turno."
         },
         {
           "paciente": "pode ser esse horario",
