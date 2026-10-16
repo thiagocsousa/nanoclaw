@@ -186,6 +186,12 @@ beforeEach(async () => {
   marcou.length = 0;
   ofertaFalsa = undefined;
   marcaFalha = undefined;
+  // A memória de conversa persiste em arquivo e todos os testes usam o mesmo
+  // JID, então sem isto um teste herda a necessidade e o convênio do anterior.
+  // Em produção cada paciente é um chatJid; aqui é um só.
+  fs.rmSync(path.join(RAIZ, PASTA, 'slots_conversa.json'), { force: true });
+  candidatosFalsos = [];
+  buscasPorTelefone = [];
 });
 
 afterEach(() => {
@@ -522,6 +528,44 @@ describe('desconto da consulta é decisão do HOST (regra de 06/10/2026)', () =>
   });
 });
 
+describe('a agenda também lembra o que a conversa disse (E08, 16/10/2026)', () => {
+  it('necessidade dita antes, horário pedido depois: consulta a agenda', async () => {
+    vagasFalsas = [
+      {
+        data: '2026-10-19',
+        dia_semana: 'segunda',
+        inicio: '09:20',
+        fim: '09:50',
+      },
+    ];
+    // turno 1: só a necessidade, como o menu entrega
+    await rodar(
+      '{"intencao":"triagem_dados","confianca":0.95,"slots":{"necessidade":"catarata"}}',
+      '2',
+    );
+    // turno 2: os quatro dados, SEM repetir a necessidade — foi assim em produção
+    const r = await rodar(
+      '{"intencao":"horario_oferta","confianca":0.95,"slots":{"nome":"Thiago","nascimento":"10/03/1980","cidade":"Teresina","convenio":"particular"}}',
+      'Thiago, 10/03/1980, Teresina, particular',
+    );
+    // catarata é cirúrgico, então o perfil cruzado é particular-cirurgia — e o
+    // fato de ele sair daqui prova que a necessidade veio do turno ANTERIOR.
+    expect(buscou).toEqual([
+      { perfil: 'particular-cirurgia', dia: undefined },
+    ]);
+    expect(r?.acao).toBe('responder');
+    expect(r?.texto).toContain('09:20');
+  });
+
+  it('nada dito em turno nenhum: segue escalando, não chuta perfil', async () => {
+    const r = await rodar(
+      '{"intencao":"horario_oferta","confianca":0.95,"slots":{"nome":"Thiago"}}',
+    );
+    expect(buscou).toEqual([]);
+    expect(r?.acao).toBe('escalar');
+  });
+});
+
 describe('retorno e exame a Lara não agenda (regra de 06/10/2026)', () => {
   it('retorno escala SEM consultar a agenda', async () => {
     vagasFalsas = [
@@ -683,7 +727,11 @@ describe('resposta de quem é a consulta (peça 2)', () => {
     const { esqueceSlots } = await import('./memoria-conversa.js');
     esqueceSlots(PASTA, JID);
     candidatosFalsos = [
-      { id: 47555744, nome: 'THIAGO CARVALHO DE SOUSA', nascimento: '1980-06-01' },
+      {
+        id: 47555744,
+        nome: 'THIAGO CARVALHO DE SOUSA',
+        nascimento: '1980-06-01',
+      },
     ];
     buscasPorTelefone = [];
     await rodarDe(
@@ -715,7 +763,9 @@ describe('resposta de quem é a consulta (peça 2)', () => {
 
   it('confirmado vai com --paciente-id na marcação', async () => {
     await prepara();
-    await rodarDe('{"intencao":"paciente_confirmado","confianca":0.95,"slots":{}}');
+    await rodarDe(
+      '{"intencao":"paciente_confirmado","confianca":0.95,"slots":{}}',
+    );
     const { pacienteConfirmado } = await import('./memoria-conversa.js');
     expect(pacienteConfirmado(PASTA, JID)).toBe(47555744);
   });

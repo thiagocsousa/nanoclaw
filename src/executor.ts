@@ -220,11 +220,27 @@ export async function executa(
   // intenção exige esses slots, é o host que vai à agenda — senão o
   // renderizador rebaixa por slot ausente e NENHUMA oferta de horário seria
   // possível, que era o estado da primeira versão deste arquivo.
+  // Guarda o que este turno trouxe ANTES de qualquer decisão que leia a
+  // memória: agenda e desconto consultam logo abaixo.
+  lembraSlots(groupFolder, chatJid, c.slots);
+
   let slots = c.slots;
   let ofertaAOferecer: Omit<OfertaPendente, 'quando'> | undefined;
   const exige = tabela.intencoes[c.intencao]?.slots_obrigatorios ?? [];
   if (exige.includes('dia') || exige.includes('hora')) {
-    const perfil = perfilDe(c.slots.necessidade, c.slots.convenio);
+    // O perfil sai do que a CONVERSA disse, não só deste turno.
+    //
+    // Quando criei a memória em 07/10 escopei só ao desconto, escrevendo que
+    // aqui "a falha é escalar, que é segura". Era verdade sobre segurança e
+    // errado sobre utilidade: o E08 provou em 16/10 que escalar sempre
+    // significa que a marcação NUNCA roda. O log mostrou o turno pedindo
+    // horário com nome, nascimento, cidade e convênio, sem `necessidade` — e a
+    // memória, no mesmo instante, com `necessidade: catarata`.
+    //
+    // O risco de marcar com convênio velho segue pequeno: o turno atual vence
+    // o lembrado e a validade é de 4 horas. Sem isto, não há marcação alguma.
+    const paraPerfil = comLembrados(groupFolder, chatJid, c.slots);
+    const perfil = perfilDe(paraPerfil.necessidade, paraPerfil.convenio);
     if (perfil && soHumano(perfil)) {
       // Retorno e exame a Lara não agenda (regra do Thiago, 06/10/2026). Escala
       // ANTES de ir à agenda: consultar vaga aqui gastaria 18s para descobrir um
@@ -300,10 +316,7 @@ export async function executa(
     };
   }
 
-  // O desconto decide sobre o que a CONVERSA disse, não só sobre este turno:
-  // "e quanto fica a consulta?" não repete necessidade nem convênio, e sem
-  // isto a regra avalia falso e o paciente ouve o preço cheio (07/10/2026).
-  lembraSlots(groupFolder, chatJid, c.slots);
+
   const intencaoFinal = comDesconto(
     c.intencao,
     comLembrados(groupFolder, chatJid, slots),
