@@ -54,7 +54,12 @@ SUITE = RAIZ / "tests" / "conversas-lara.json"
 GRUPO_DIR = RAIZ / "groups" / "whatsapp_atendimento-teste"
 
 CHAT = "120363275085162068@g.us"
-SENDER = "195421196562669@lid"
+# TELEFONE, não LID. Em produção o canal resolve o LID antes de gravar
+# (`senderJid` em whatsapp.ts, conserto de 05/10/2026); o harness escreve direto
+# no banco e PULA o canal. Com o LID cru aqui, `telefoneDoJid` recusa — certo —,
+# a marcação vai sem telefone e a conferência de identidade reprova. O E08
+# falhou por isso em 16/10, parecendo defeito de produto.
+SENDER = "558681512111@s.whatsapp.net"
 SENDER_NAME = "Thiago Carvalho"
 # DM do Thiago: é onde a guarda de saída e a cobrança de escalonamento avisam.
 DM_THIAGO = "558681512111@s.whatsapp.net"
