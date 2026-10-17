@@ -261,6 +261,38 @@ export function jaPerguntouPaciente(folder: string, chatJid: string): boolean {
   return !!m && Date.now() - m.quando <= VALIDO_MS && !!m.perguntouPaciente;
 }
 
+/**
+ * A conversa passou a ser sobre OUTRA pessoa. Esquece quem era.
+ *
+ * Achado do review adversarial do Codex em 17/10/2026, e é o mais perigoso dos
+ * três altos. O `paciente_outro` chamava `lembraCandidatos(..., [])` para
+ * limpar os candidatos — mas essa função preserva o resto do registro pelo
+ * spread, de propósito, e o resto inclui `pacienteId`. O id do TITULAR
+ * continuava lá. A marcação o manda como `--paciente-id`, e o script pula a
+ * conferência de três fatores justamente quando recebe esse id: a consulta
+ * pedida para a filha era vinculada ao pai, sem nada detectar.
+ *
+ * Nome e nascimento vão junto porque vieram do mesmo cadastro errado. E a
+ * oferta pendente também precisa morrer, mas ela vive noutro arquivo
+ * (`agendamento.ts`), então quem chama isto cuida dela — está dito aqui porque
+ * esquecer metade é o que criou o bug.
+ */
+export function esqueceQuemEra(folder: string, chatJid: string): void {
+  const todas = le(folder);
+  const antes = todas[chatJid];
+  if (!antes) return;
+  todas[chatJid] = {
+    ...antes,
+    candidatos: [],
+    buscouPaciente: true,
+    pacienteId: undefined,
+    nome: undefined,
+    nascimento: undefined,
+    quando: Date.now(),
+  };
+  grava(folder, todas);
+}
+
 /** Marca que o convite de agendamento já foi pendurado nesta conversa. */
 export function marcaConvidou(folder: string, chatJid: string): void {
   const todas = le(folder);

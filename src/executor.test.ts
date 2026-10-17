@@ -563,6 +563,109 @@ describe('desconto da consulta é decisão do HOST (regra de 06/10/2026)', () =>
   });
 });
 
+describe('trocar de paciente esquece quem era (Codex, 17/10/2026)', () => {
+  // O cenário do achado: a pessoa confirma que é ela, depois corrige que é para
+  // a filha. O id do titular ficava na memória e a marcação ia nele.
+  it('paciente_outro apaga o id, o nome e o nascimento do titular', async () => {
+    const { esqueceSlots, pacienteConfirmado, comLembrados } = await import(
+      './memoria-conversa.js'
+    );
+    esqueceSlots(PASTA, JID);
+    candidatosFalsos = [
+      { id: 42, nome: 'JOAO DA SILVA', nascimento: '1958-07-09' },
+    ];
+    await rodarDe(
+      '{"intencao":"triagem_dados","confianca":0.95,"slots":{"necessidade":"catarata"}}',
+      'quero marcar',
+    );
+    await rodar('{"intencao":"paciente_confirmado","confianca":0.95,"slots":{}}');
+    expect(pacienteConfirmado(PASTA, JID)).toBe(42);
+
+    await rodar(
+      '{"intencao":"paciente_outro","confianca":0.95,"slots":{}}',
+      'na verdade é pra minha filha',
+    );
+    expect(pacienteConfirmado(PASTA, JID)).toBeUndefined();
+    const lembrado = comLembrados(PASTA, JID, {} as Record<string, string>);
+    expect(lembrado.nome).toBeUndefined();
+    expect(lembrado.nascimento).toBeUndefined();
+  });
+
+  it('paciente_outro também mata a oferta pendente do titular', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    const { ultimaOferta, registraOferta } = await import('./agendamento.js');
+    esqueceSlots(PASTA, JID);
+    registraOferta(PASTA, JID, {
+      vaga: { data: '2026-10-20', inicio: '09:00', fim: '09:20' },
+      perfil: 'particular',
+      nome: 'JOAO DA SILVA',
+    } as never);
+    expect(ultimaOferta(PASTA, JID)).toBeDefined();
+    await rodar(
+      '{"intencao":"paciente_outro","confianca":0.95,"slots":{}}',
+      'é pra minha filha',
+    );
+    expect(ultimaOferta(PASTA, JID)).toBeUndefined();
+  });
+});
+
+describe('o limiar vale ANTES de gravar (Codex, 17/10/2026)', () => {
+  it('confiança baixa escala e NÃO grava os slots na memória', async () => {
+    const { esqueceSlots, comLembrados } = await import(
+      './memoria-conversa.js'
+    );
+    esqueceSlots(PASTA, JID);
+    const r = await rodar(
+      '{"intencao":"preco_consulta","confianca":0.2,"slots":{"necessidade":"catarata","convenio":"Bradesco"}}',
+      'sei la',
+    );
+    expect(r?.acao).toBe('escalar');
+    // O que o review pegou: o turno gravava antes do limiar, e aí o turno
+    // SEGUINTE lia como fato o que ninguém confiou.
+    const lembrado = comLembrados(PASTA, JID, {} as Record<string, string>);
+    expect(lembrado.necessidade).toBeUndefined();
+    expect(lembrado.convenio).toBeUndefined();
+  });
+
+  it('confiança baixa NÃO fixa o cadastro confirmado', async () => {
+    const { esqueceSlots, pacienteConfirmado } = await import(
+      './memoria-conversa.js'
+    );
+    esqueceSlots(PASTA, JID);
+    candidatosFalsos = [
+      { id: 7, nome: 'ZULMIRA SOUSA', nascimento: '1950-03-02' },
+    ];
+    await rodarDe(
+      '{"intencao":"triagem_dados","confianca":0.95,"slots":{"necessidade":"catarata"}}',
+      'quero marcar',
+    );
+    const r = await rodar(
+      '{"intencao":"paciente_confirmado","confianca":0.1,"slots":{}}',
+      'aham',
+    );
+    expect(r?.acao).toBe('escalar');
+    expect(pacienteConfirmado(PASTA, JID)).toBeUndefined();
+  });
+
+  it('o escalonamento registra a confiança no motivo', async () => {
+    const r = await rodar(
+      '{"intencao":"endereco","confianca":0.3,"slots":{}}',
+      'onde fica?',
+    );
+    expect(r?.acao).toBe('escalar');
+    const p = pendencias();
+    expect(String(p[p.length - 1].motivo)).toMatch(/0\.30.*limiar/);
+  });
+
+  it('confiança no limiar exato passa', async () => {
+    const r = await rodar(
+      '{"intencao":"endereco","confianca":0.75,"slots":{}}',
+      'onde fica?',
+    );
+    expect(r?.texto).toContain('Elias João Tajra');
+  });
+});
+
 describe('o convite de agendamento é emenda do host (tom de 17/10/2026)', () => {
   it('emenda o pedido dos dados em quem tem `emenda_triagem`', async () => {
     const { esqueceSlots } = await import('./memoria-conversa.js');

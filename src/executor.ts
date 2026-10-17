@@ -30,6 +30,7 @@ import { logger } from './logger.js';
 import {
   candidatosLembrados,
   comLembrados,
+  esqueceQuemEra,
   jaConvidou,
   jaPerguntouPaciente,
   lembraCandidatos,
@@ -43,6 +44,7 @@ import { pacientesComTelefone, primeiroNome } from './paciente.js';
 import { interpreta } from './classify.js';
 import {
   carregaTabela,
+  limiarDeConfianca,
   renderiza,
   type Resultado,
   type Tabela,
@@ -257,6 +259,40 @@ export async function executa(
     );
   }
 
+  // ⚠️ O limiar de confiança é aplicado AQUI, antes de qualquer gravação,
+  // consulta ou retorno antecipado.
+  //
+  // Ele morava só no `renderiza`, no fim da função, e a promessa "classificação
+  // abaixo de 0,75 escala" era falsa: no caminho até lá o host já gravava os
+  // slots na memória e já chamava `lembraPacienteConfirmado`. Um
+  // `paciente_confirmado` com confiança 0,1 fixava o cadastro da conversa, e o
+  // ramo do convênio dirigido ainda renderizava com `confianca: 1` e retornava
+  // sem escalar — ou seja, o rebaixamento nunca acontecia. Achado do review
+  // adversarial do Codex em 17/10/2026.
+  //
+  // Confiança baixa não é só "não responda com este texto": é "não acredite nos
+  // slots". Gravar o que veio num rótulo que não se confia contamina os turnos
+  // seguintes, que leem a memória como fato.
+  //
+  // Os `renderiza(..., { confianca: 1 })` espalhados abaixo continuam em 1 de
+  // propósito: aqueles são decisão do HOST, não do modelo, e não têm confiança
+  // a medir.
+  const limiar = limiarDeConfianca(tabela);
+  if (c.intencao !== 'DESCONHECIDO' && c.confianca < limiar) {
+    logger.warn(
+      { groupFolder, intencao: c.intencao, confianca: c.confianca, limiar },
+      'executor: confiança abaixo do limiar, escala sem gravar nada',
+    );
+    return await escalaComo(
+      groupFolder,
+      tabela,
+      `classificou "${c.intencao}" com confiança ${c.confianca.toFixed(2)}, ` +
+        `abaixo do limiar ${limiar}; veja o que o paciente quer`,
+      perguntaDoPaciente,
+      deps,
+    );
+  }
+
   // `dia` e `hora` não vêm do modelo, por proibição do parser. Então quando a
   // intenção exige esses slots, é o host que vai à agenda — senão o
   // renderizador rebaixa por slot ausente e NENHUMA oferta de horário seria
@@ -326,7 +362,15 @@ export async function executa(
         }
       }
     } else {
-      lembraCandidatos(groupFolder, chatJid, []);
+      // É para outra pessoa: esquece o cadastro inteiro, não só os candidatos.
+      // `lembraCandidatos(..., [])` deixava `pacienteId`, nome e nascimento do
+      // titular no registro, e a marcação seguinte vinculava a consulta da
+      // filha a ele (Codex, 17/10/2026).
+      esqueceQuemEra(groupFolder, chatJid);
+      // A oferta pendente foi calculada para o perfil do titular e carrega o
+      // nome dele. Trocar de paciente sem apagá-la deixaria um "pode ser esse
+      // horário" marcar em nome de quem não é.
+      esqueceOferta(groupFolder, chatJid);
     }
   }
 
@@ -482,8 +526,18 @@ export async function executa(
   // O texto do desconto já recusa o convênio, mas a ação dele é `responder` e
   // isso perderia o pedido dos dados que faltam. Quando o desconto substitui a
   // recusa, mantemos a emenda: o F04 manda não gastar um turno só recusando.
+  // ⚠️ As duas decisões abaixo olham `r.intencao`, não `intencaoFinal`.
+  //
+  // `intencaoFinal` é o que o host PEDIU; `r.intencao` é o que o render
+  // ENTREGOU, e ele rebaixa para DESCONHECIDO quando falta slot. Com
+  // `intencaoFinal`, a troca pelo desconto forçava `recusar_e_triagem` mesmo
+  // sobre um texto rebaixado para escalonamento — o rebaixamento era desfeito
+  // de passagem. Achado do review do Codex em 17/10/2026.
+  const entregou = r.intencao;
   let acao =
-    intencaoFinal !== c.intencao && c.intencao === 'convenio_nao_atendido'
+    entregou === intencaoFinal &&
+    intencaoFinal !== c.intencao &&
+    c.intencao === 'convenio_nao_atendido'
       ? ('recusar_e_triagem' as Resultado['acao'])
       : r.acao;
 
@@ -496,7 +550,7 @@ export async function executa(
   // emenda entraria duas vezes no mesmo texto.
   const convidavel =
     acao === 'responder' &&
-    !!tabela.intencoes[intencaoFinal]?.emenda_triagem &&
+    !!tabela.intencoes[entregou]?.emenda_triagem &&
     !jaConvidou(groupFolder, chatJid);
   if (convidavel) {
     acao = 'recusar_e_triagem' as Resultado['acao'];

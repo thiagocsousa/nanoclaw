@@ -87,6 +87,71 @@ def responder(linhas, **extra):
     print(json.dumps({"wakeAgent": False, **extra}, ensure_ascii=False))
 
 
+# Chaves em que o iClinic já apareceu guardando o nome do paciente. Mais de uma
+# porque a rota da agenda e a de criação não usam o mesmo nome, e eu não tenho
+# contrato publicado — só o que foi medido no XHR real.
+CHAVES_NOME = ("patient_name", "patient__name", "title", "name")
+
+
+def _nome_do_evento(ev):
+    """O nome do paciente no evento da agenda, ou "" se ele não vier."""
+    for k in CHAVES_NOME:
+        v = ev.get(k)
+        if isinstance(v, str) and v.strip():
+            return v.strip()
+    p = ev.get("patient")
+    if isinstance(p, dict):
+        for k in ("name", "full_name", "patient_name"):
+            v = p.get(k)
+            if isinstance(v, str) and v.strip():
+                return v.strip()
+    return ""
+
+
+def _id_do_paciente(ev):
+    """O id do paciente no evento, ou None."""
+    p = ev.get("patient")
+    if isinstance(p, dict):
+        p = p.get("id")
+    if isinstance(p, bool):
+        return None
+    if isinstance(p, int):
+        return p
+    if isinstance(p, str) and p.strip().isdigit():
+        return int(p)
+    return None
+
+
+def _so_letras(s):
+    """Para comparar nome: sem acento, sem pontuação, caixa única."""
+    import unicodedata
+    n = unicodedata.normalize("NFD", s or "")
+    n = "".join(c for c in n if unicodedata.category(c) != "Mn")
+    return " ".join("".join(c if c.isalnum() else " " for c in n).lower().split())
+
+
+def confere_paciente(ev, a):
+    """O evento novo é do NOSSO paciente?
+
+    True = é, False = é de outro, None = a agenda não disse.
+
+    O id é a prova forte e vem primeiro. O nome é o que sobra quando a marcação
+    criou um cadastro novo (`--paciente-id` ausente): aí comparamos nome
+    normalizado, porque o iClinic devolve em CAIXA ALTA e às vezes com o
+    convênio pendurado no título.
+    """
+    pid = _id_do_paciente(ev)
+    if pid is not None and a.paciente_id:
+        return pid == int(a.paciente_id)
+    nome = _so_letras(_nome_do_evento(ev))
+    if not nome:
+        return None
+    nosso = _so_letras(a.nome)
+    if not nosso:
+        return None
+    return nosso in nome or nome in nosso
+
+
 def eventos_do_dia(pg, headers, ds):
     """Eventos da agenda num dia. Usado para verificar antes e depois."""
     r = pg.request.get(f"{BASE}/agenda/{PHYSICIAN_ID}/{ds}/?clinic={CLINIC_ID}&slide=1",
@@ -380,10 +445,62 @@ def main():
             novos = [e for e in depois if str(e.get("id")) not in ids_antes]
             meus = [e for e in novos
                     if (e.get("start_time") or "")[:5] == a.inicio]
+
+            # ⚠️ Evento novo no horário certo NÃO é prova de que foi o nosso.
+            #
+            # A diferença de ids já descarta o evento que JÁ estava lá. O que
+            # ela não descarta: a recepção criar um evento nesse mesmo horário
+            # entre as duas leituras, enquanto o NOSSO POST falhou. Aí há
+            # exatamente um evento novo às 09:20, `meus` tem tamanho 1, e
+            # dizíamos a este paciente que está marcado quando quem está é
+            # outro. Achado do review adversarial do Codex em 17/10/2026.
+            #
+            # Duas travas, nesta ordem:
+            #
+            # 1. O POST tem de ter dado 2xx. É incondicional e não depende de
+            #    conhecer o formato da agenda: no cenário do achado o nosso POST
+            #    falhou, e sem 2xx não há o que confirmar.
+            # 2. Quando o evento traz o paciente, ele tem de ser o nosso.
+            #    Quando não traz, o caso de UM evento novo deixa de ser sucesso
+            #    e passa a ser estado incerto — porque é indistinguível do
+            #    evento da recepção.
+            #
+            # Falhar para "incerto" aqui custa uma conferência à mão. Falhar
+            # para "marcado" custa um paciente indo à clínica sem horário.
+            if not (200 <= r.status < 300):
+                responder([f"POST devolveu HTTP {r.status} e apareceu evento novo às "
+                           f"{a.inicio} que pode não ser nosso.",
+                           f"Trecho da resposta: {corpo[:200]}",
+                           "ESTADO INCERTO: confira à mão antes de tentar de novo."]
+                          if meus else
+                          [f"POST devolveu HTTP {r.status}: NÃO marcou.",
+                           f"Trecho da resposta: {corpo[:200]}"],
+                          ok=None if meus else False,
+                          erro="http_sem_confirmacao" if meus else "nao_criou",
+                          http=r.status)
+                return 1
+
             if len(meus) == 1:
-                responder([f"Marcado: {a.data} {a.inicio}–{a.fim}, perfil {a.perfil}."],
-                          ok=True, http=r.status, evento_id=meus[0].get("id"))
-                return 0
+                ev = meus[0]
+                quem = confere_paciente(ev, a)
+                if quem is True:
+                    responder([f"Marcado: {a.data} {a.inicio}–{a.fim}, perfil {a.perfil}."],
+                              ok=True, http=r.status, evento_id=ev.get("id"))
+                    return 0
+                if quem is False:
+                    responder([f"Apareceu evento novo às {a.inicio}, mas é de outro "
+                               f"paciente: {_nome_do_evento(ev)!r}.",
+                               "ESTADO INCERTO: o nosso POST pode não ter criado nada."],
+                              ok=None, erro="paciente_divergente", http=r.status,
+                              evento_id=ev.get("id"))
+                    return 1
+                # quem is None: a agenda não disse de quem é o evento.
+                responder([f"Apareceu um evento novo às {a.inicio}, mas a agenda não "
+                           "informa o paciente, então não dá para afirmar que é o nosso.",
+                           "ESTADO INCERTO: confira à mão antes de tentar de novo."],
+                          ok=None, erro="sem_paciente_para_conferir", http=r.status,
+                          evento_id=ev.get("id"))
+                return 1
             if len(meus) > 1:
                 responder([f"POST devolveu HTTP {r.status} e apareceram {len(meus)} "
                            f"eventos novos às {a.inicio}.",
