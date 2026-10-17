@@ -356,7 +356,7 @@
       "acao": "responder",
       "fecho": true,
       "textos": [
-        "O Hospital Vilar fica na Rua Benjamin Constant, 2290, Centro (Norte), Teresina, PI, 64000-280\nhttps://www.google.com/maps/search/?api=1&query=Vilar%20Hospital%20de%20Olhos%2C%20Rua%20Benjamin%20Constant%2C%202290%2C%20Centro%20%28Norte%29%2C%20Teresina%2C%20PI%2C%2064000-280"
+        "O Hospital Vilar fica na Rua Benjamin Constant, 2290, Centro (Norte), Teresina, PI, 64000-280\nhttps://maps.google.com/?q=Vilar+Hospital+de+Olhos,+Benjamin+Constant,+2290,+Teresina"
       ]
     },
     "endereco_hospital_olho": {
@@ -365,7 +365,7 @@
       "acao": "responder",
       "fecho": true,
       "textos": [
-        "O Hospital do Olho fica na R. Magalhães Filho, 161, Centro (Sul), Teresina, PI\nhttps://www.google.com/maps/search/?api=1&query=Hospital%20do%20Olho%2C%20R.%20Magalh%C3%A3es%20Filho%2C%20161%2C%20Centro%20%28Sul%29%2C%20Teresina%2C%20PI"
+        "O Hospital do Olho fica na R. Magalhães Filho, 161, Centro (Sul), Teresina, PI\nhttps://maps.google.com/?q=Hospital+do+Olho,+Magalhaes+Filho,+161,+Teresina"
       ]
     },
     "endereco_hospital_namir": {
@@ -374,7 +374,7 @@
       "acao": "responder",
       "fecho": true,
       "textos": [
-        "O Namir Clementino fica na R. Áurea Freire, 1440, Jóquei, Teresina, PI, 64049-160\nhttps://www.google.com/maps/search/?api=1&query=Namir%20Clementino%2C%20R.%20%C3%81urea%20Freire%2C%201440%2C%20J%C3%B3quei%2C%20Teresina%2C%20PI%2C%2064049-160"
+        "O Namir Clementino fica na R. Áurea Freire, 1440, Jóquei, Teresina, PI, 64049-160\nhttps://maps.google.com/?q=Namir+Clementino,+Aurea+Freire,+1440,+Teresina"
       ]
     },
     "endereco_hospital_tercio": {
@@ -383,7 +383,7 @@
       "acao": "responder",
       "fecho": true,
       "textos": [
-        "O Tércio Rezende fica na R. Gabriel Ferreira, 262, Centro (Sul), Teresina, PI, 64001-250\nhttps://www.google.com/maps/search/?api=1&query=T%C3%A9rcio%20Rezende%2C%20R.%20Gabriel%20Ferreira%2C%20262%2C%20Centro%20%28Sul%29%2C%20Teresina%2C%20PI%2C%2064001-250"
+        "O Tércio Rezende fica na R. Gabriel Ferreira, 262, Centro (Sul), Teresina, PI, 64001-250\nhttps://maps.google.com/?q=Tercio+Rezende,+Gabriel+Ferreira,+262,+Teresina"
       ]
     },
     "endereco_hospital_coe": {
@@ -392,7 +392,7 @@
       "acao": "responder",
       "fecho": true,
       "textos": [
-        "O COE fica na R. Coelho Rodrigues, 2041, Centro (Norte), Teresina, PI, 64000-080\nhttps://www.google.com/maps/search/?api=1&query=COE%2C%20R.%20Coelho%20Rodrigues%2C%202041%2C%20Centro%20%28Norte%29%2C%20Teresina%2C%20PI%2C%2064000-080"
+        "O COE fica na R. Coelho Rodrigues, 2041, Centro (Norte), Teresina, PI, 64000-080\nhttps://maps.google.com/?q=COE,+Coelho+Rodrigues,+2041,+Teresina"
       ]
     },
     "sem_telefone": {
