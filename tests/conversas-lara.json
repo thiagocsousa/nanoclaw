@@ -862,7 +862,10 @@
             "mapeamento",
             "topografia"
           ],
-          "intencao_esperada": "paciente_de_fora"
+          "intencao_esperada": "paciente_de_fora",
+          "exige": [
+            "mesmo dia"
+          ]
         }
       ]
     },
@@ -899,9 +902,13 @@
           "esperado": [
             "S[óo] um instante"
           ],
-          "intencao_esperada": "DESCONHECIDO"
+          "intencao_esperada": "DESCONHECIDO",
+          "exige": [
+            "S[óo] um instante"
+          ]
         }
-      ]
+      ],
+      "escalou": true
     },
     {
       "id": "I03",
@@ -923,6 +930,36 @@
           "paciente": "Sandra, Floriano, Unimed",
           "proibido": [],
           "intencao_esperada": "triagem_dados"
+        }
+      ]
+    },
+    {
+      "id": "I04",
+      "categoria": "fora_de_teresina",
+      "sobre": "De fora, com cirurgia, RECUSA o mesmo dia. Não pode escalar: recusar é resposta normal, e a conversa segue para o agendamento comum (achado do Thiago, 17/10/2026).",
+      "escalou": false,
+      "turnos": [
+        {
+          "paciente": "oi"
+        },
+        {
+          "paciente": "queria fazer a cirurgia de catarata"
+        },
+        {
+          "paciente": "Rita, moro em Picos, particular",
+          "esperado": [
+            "mesmo dia"
+          ]
+        },
+        {
+          "paciente": "não, prefiro em dias separados",
+          "esperado": [
+            "problema|melhor para voc"
+          ],
+          "proibido": [
+            "S[óo] um instante"
+          ],
+          "nota": "Recusar o mesmo dia não é motivo de caso aberto: a pessoa só escolheu outro arranjo e ainda quer marcar."
         }
       ]
     },

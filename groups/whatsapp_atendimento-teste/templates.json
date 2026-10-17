@@ -302,6 +302,26 @@
         "Como você vem de fora, a gente consegue deixar tudo no mesmo dia: você faz os exames e já passa com a Dra. Marina na sequência.\n\nAssim você sai daqui já sabendo se está apto para a cirurgia. Prefere desse jeito?"
       ]
     },
+    "mesmo_dia_aceita": {
+      "bloco": "F15",
+      "quando": "RESPOSTA ao 'Prefere desse jeito?' do paciente_de_fora, ACEITANDO o mesmo dia: 'sim', 'prefiro', 'pode ser', 'quero fazer tudo no mesmo dia'. Só existe logo depois daquela pergunta.",
+      "acao": "escalar",
+      "urgente": false,
+      "fecho": false,
+      "motivo_escalada": "paciente de FORA aceitou fazer exames e consulta no mesmo dia. Encadear exame e consulta na sequência a Lara não monta: depende de encaixar dois horários e de a Dra. Marina estar livre entre eles. CASO DE CONVERSÃO, a pessoa vem de outra cidade para operar.",
+      "textos": [
+        "Só um instante."
+      ]
+    },
+    "mesmo_dia_recusa": {
+      "bloco": "F15",
+      "quando": "RESPOSTA ao 'Prefere desse jeito?' do paciente_de_fora, RECUSANDO o mesmo dia: 'não', 'prefiro em dias separados', 'não precisa'. Só existe logo depois daquela pergunta.",
+      "acao": "triagem",
+      "fecho": false,
+      "textos": [
+        "Sem problema, a gente marca do jeito que for melhor para você."
+      ]
+    },
     "menor_de_idade": {
       "bloco": "F16",
       "quando": "paciente com menos de 18 anos",
