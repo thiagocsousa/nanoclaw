@@ -593,6 +593,22 @@ describe('a triagem não repete o que a CONVERSA já respondeu (Codex, 17/10/202
     expect(t3?.texto.toLowerCase()).not.toContain('nascimento');
   });
 
+  // A linha vizinha à do achado 5, que eu deixei lendo só o turno. A passada 11
+  // cobrou no E08.
+  it('não pergunta a necessidade que a conversa já disse', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    await rodar(
+      '{"intencao":"triagem_dados","confianca":0.95,"slots":{"necessidade":"catarata"}}',
+      'é pra cirurgia de catarata',
+    );
+    const r = await rodar(
+      '{"intencao":"triagem_dados","confianca":0.95,"slots":{"nome":"Thiago","nascimento":"01/06/1980","cidade":"Teresina","convenio":"particular"}}',
+      'Thiago, 01/06/1980, Teresina, particular. tem horario?',
+    );
+    expect(r?.texto).not.toMatch(/cirurgia, ou uma consulta de rotina/i);
+  });
+
   it('a cidade sobrevive ao turno em que foi dita', async () => {
     const { esqueceSlots, comLembrados } =
       await import('./memoria-conversa.js');

@@ -674,7 +674,20 @@ export async function executa(
     // Só no caminho de TRIAGEM. Na recusa não: já existe decisão de que, com
     // tudo preenchido, a recusa não pendura pergunta no fim, e emendar o menu
     // ali seria desfazê-la de passagem.
-    if (acao === 'triagem' && !pedido && !slots.necessidade?.trim()) {
+    // ⚠️ A necessidade também vem da CONVERSA, não só deste turno.
+    //
+    // Eu consertei a `fraseDeTriagem` logo acima para ler a memória (achado 5
+    // do Codex) e deixei esta linha vizinha lendo só `slots`. A passada 11
+    // cobrou na hora, no E08: o paciente disse "é pra cirurgia de catarata" no
+    // turno 2 e, no turno 4, "Teresina, particular. tem horario?" recebeu de
+    // volta "Você está procurando cirurgia, ou uma consulta de rotina?" — com
+    // `necessidade: catarata` gravado na memória no mesmo instante. Perguntar o
+    // que o host já sabe é o defeito que a memória existe para matar.
+    if (
+      acao === 'triagem' &&
+      !pedido &&
+      !comLembrados(groupFolder, chatJid, slots).necessidade?.trim()
+    ) {
       // Pergunta, não menu. A abertura deixou de listar opções numeradas em
       // 17/10/2026 ("fica muito bot", Thiago), e quem pergunta a necessidade
       // quando ela falta passou a ser este texto.

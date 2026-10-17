@@ -219,11 +219,29 @@ def pede_dado_repetido(texto):
 
 # Saudação sem pedido: "oi", "bom dia", um emoji, "informação". É o único caso em
 # que a abertura (F00) é a resposta certa.
-RX_SO_SAUDACAO = re.compile(
-    r"^\W*(oi+|ol[áa]|al[ôo]|e?a[íi]|bo[am] (dia|tarde|noite)|"
-    r"informa[çc][ãa]o(es)?|boa|tudo bem)?\W*$",
+# Uma palavra de saudação. A mensagem é saudação pura quando sobra nada depois
+# de tirar todas elas.
+#
+# A primeira versão casava a mensagem INTEIRA contra uma alternação, e aí
+# aceitava uma saudação só: "oi, boa tarde" do M05 não casava, e a suíte acusava
+# falha dura na abertura correta. Tirar token por token em vez de casar a frase
+# inteira resolve sem quantificador aninhado, que é o que faz regex engasgar.
+RX_TOKEN_SAUDACAO = re.compile(
+    r"\b(oi+|ol[áa]|al[ôo]|e?a[íi]|bom|boa|dia|tarde|noite|tudo|bem|"
+    r"informa[çc][õo]?[ãe]?s?)\b",
     re.I,
 )
+
+
+def so_saudacao(msg):
+    """A mensagem é saudação e mais nada?
+
+    Tira as palavras de saudação e a pontuação. Se sobrar alguma letra ou
+    número, a pessoa pediu algo. Emoji e "???" sobrevivem como vazio, de
+    propósito: não dizem o que ela quer.
+    """
+    resto = RX_TOKEN_SAUDACAO.sub(" ", msg or "")
+    return not any(c.isalnum() for c in resto)
 
 
 def ainda_sem_pedido(turno, anteriores):
@@ -243,9 +261,9 @@ def ainda_sem_pedido(turno, anteriores):
     o "oi?" do I02 no terceiro turno — depois de "é pra cirurgia de catarata" —
     passaria batido.
     """
-    if not RX_SO_SAUDACAO.match(turno["paciente"].strip()):
+    if not so_saudacao(turno["paciente"]):
         return False
-    return all(RX_SO_SAUDACAO.match(m.strip()) for m in anteriores)
+    return all(so_saudacao(m) for m in anteriores)
 
 
 CHECAGENS = {

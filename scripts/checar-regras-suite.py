@@ -44,6 +44,15 @@ CASOS = [
     ("empurra_trabalho", "bom dia seco", ABERTURA, "bom dia", [], False),
     ("empurra_trabalho", "só emoji", ABERTURA, "👍", [], False),
     ("empurra_trabalho", "oi depois de oi", ABERTURA, "oi", ["oi"], False),
+    # "oi, boa tarde" são DUAS saudações. A primeira versão casava a frase
+    # inteira contra uma alternação e aceitava só uma, então o M05 reprovava na
+    # abertura correta (passada 11).
+    ("empurra_trabalho", "duas saudações juntas", ABERTURA,
+     "oi, boa tarde", [], False),
+    ("empurra_trabalho", "saudação com pontuação", ABERTURA,
+     "Olá! Tudo bem?", [], False),
+    ("empurra_trabalho", "bom dia + pedido", ABERTURA,
+     "bom dia, queria marcar", [], True),
     # Os quatro que seguram a regra no lugar: devolver a pergunta depois que a
     # pessoa já se explicou continua sendo regressão.
     ("empurra_trabalho", "pedido no próprio turno", ABERTURA,
