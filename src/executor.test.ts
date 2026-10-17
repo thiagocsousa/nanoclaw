@@ -158,12 +158,16 @@ const TABELA = {
     convenio_iaspi: {
       acao: 'responder',
       emenda_triagem: true,
-      textos: ['A consulta pelo IASPI é particular. A cirurgia sai pelo PLAMTA.'],
+      textos: [
+        'A consulta pelo IASPI é particular. A cirurgia sai pelo PLAMTA.',
+      ],
     },
     convenio_ipmt: {
       acao: 'responder',
       emenda_triagem: true,
-      textos: ['A consulta pelo IPMT é particular. A cirurgia sai pelo PLANTE.'],
+      textos: [
+        'A consulta pelo IPMT é particular. A cirurgia sai pelo PLANTE.',
+      ],
     },
     pentacam_cobertura: {
       acao: 'responder',
