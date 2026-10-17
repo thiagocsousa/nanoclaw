@@ -119,8 +119,18 @@
       "acao": "responder",
       "fecho": false,
       "textos": [
-        "O valor da cirurgia é definido depois da avaliação, porque depende da técnica indicada para o seu caso. A avaliação é R$ {valor_consulta}, e após a consulta já te passamos o orçamento fechado.",
-        "Não tem como passar valor antes da avaliação, depende da técnica e quem define é a Dra. Marina vendo seu exame. A avaliação é R$ {valor_consulta}."
+        "O valor da cirurgia depende da técnica indicada e do planejamento necessário para cada paciente.\n\nPor isso o primeiro passo é a avaliação com a Dra. Marina, que custa R$ {valor_consulta}. Nela a doutora verifica as condições dos seus olhos e investiga se existe indicação para a cirurgia."
+      ],
+      "emenda_triagem": true
+    },
+    "preco_cirurgia_refrativa": {
+      "bloco": "F05",
+      "quando": "quanto custa a cirurgia, quando a necessidade já diz REFRATIVA (miopia, astigmatismo, hipermetropia, parar de usar óculos). O host troca por esta intenção; o modelo continua rotulando preco_cirurgia.",
+      "acao": "responder",
+      "fecho": false,
+      "emenda_triagem": true,
+      "textos": [
+        "A cirurgia refrativa pode ser uma boa possibilidade para quem deseja diminuir a dependência dos óculos.\n\nO valor depende da técnica indicada e do planejamento necessário para cada paciente.\n\nPor isso o primeiro passo é a avaliação com a Dra. Marina, que custa R$ {valor_consulta}. Nela a doutora verifica as condições dos seus olhos e investiga se existe indicação para a cirurgia."
       ]
     },
     "desconto": {
@@ -129,8 +139,9 @@
       "acao": "responder",
       "fecho": false,
       "textos": [
-        "Infelizmente a gente não atende o seu convênio.\n\nComo você já paga um plano, a avaliação sai por R$ {valor_desconto} em vez de R$ {valor_consulta}."
-      ]
+        "Esse convênio não é atendido diretamente no consultório, mas temos uma condição diferenciada para a consulta particular.\n\nNesse caso, a avaliação com a Dra. Marina fica em R$ {valor_desconto}, em vez de R$ {valor_consulta}."
+      ],
+      "emenda_triagem": true
     },
     "convenio_consulta": {
       "bloco": "F04",
@@ -147,7 +158,7 @@
       "acao": "recusar_e_triagem",
       "fecho": false,
       "textos": [
-        "Infelizmente esse convênio a gente não atende para consulta, seria particular, no valor de R$ {valor_consulta}."
+        "As consultas com a Dra. Marina para esse convênio são realizadas de forma particular, no valor de R$ {valor_consulta}."
       ]
     },
     "convenio_cirurgia": {
@@ -165,8 +176,9 @@
       "acao": "responder",
       "fecho": false,
       "textos": [
-        "Infelizmente esse convênio a gente não atende, nem para consulta nem para cirurgia."
-      ]
+        "No momento, não trabalhamos com esse convênio para consultas ou cirurgias.\n\nMas temos a opção de atendimento particular com a Dra. Marina."
+      ],
+      "emenda_triagem": true
     },
     "convenio_iaspi": {
       "bloco": "F04",
@@ -174,8 +186,9 @@
       "acao": "responder",
       "fecho": false,
       "textos": [
-        "Infelizmente a consulta pelo IASPI a gente não atende, seria particular.\nJá a cirurgia conseguimos fazer pelo PLAMTA, caso você esteja dentro dos critérios que o plano exige."
-      ]
+        "A consulta com a Dra. Marina é realizada de forma particular para pacientes do IASPI.\n\nJá para a cirurgia, existe a possibilidade de atendimento pelo PLAMTA, conforme a indicação médica e os critérios de cobertura do plano."
+      ],
+      "emenda_triagem": true
     },
     "convenio_ipmt": {
       "bloco": "F04",
@@ -183,8 +196,9 @@
       "acao": "responder",
       "fecho": false,
       "textos": [
-        "Infelizmente a consulta pelo IPMT a gente não atende, seria particular.\nJá a cirurgia conseguimos fazer pelo PLANTE, caso você esteja dentro dos critérios que o plano exige."
-      ]
+        "A consulta com a Dra. Marina é realizada de forma particular para pacientes do IPMT.\n\nPara a cirurgia, existe a possibilidade de atendimento pelo PLANTE, conforme a indicação médica e os critérios de cobertura do plano."
+      ],
+      "emenda_triagem": true
     },
     "horario_oferta": {
       "bloco": "F12",
@@ -210,10 +224,10 @@
         "hora"
       ],
       "textos": [
-        "Infelizmente {dia_pedido} não temos atendimento. O próximo horário é {dia}, dia {data}, às {hora}."
+        "Nesse dia a Dra. Marina não estará atendendo no consultório, mas temos disponibilidade em {dia}, dia {data}, às {hora}.\n\nEsse horário seria bom para você?"
       ],
       "textos_sem_slot": [
-        "Infelizmente nesse dia não temos atendimento."
+        "Nesse dia não teremos atendimento, mas vou ver outras datas para você.\n\nTem algum outro dia da semana que seria melhor?"
       ]
     },
     "grade_atendimento": {
@@ -249,7 +263,7 @@
       "acao": "responder",
       "fecho": false,
       "textos": [
-        "O Pentacam nenhum convênio cobre, ele é particular. E não fazemos aqui no consultório."
+        "O Pentacam é realizado de forma particular e, atualmente, não fazemos esse exame dentro do consultório.\n\nQuando necessário, podemos orientar sobre o local de realização e como organizar essa etapa da avaliação."
       ]
     },
     "hospital_cirurgia": {
@@ -267,7 +281,7 @@
       "acao": "responder",
       "fecho": false,
       "textos": [
-        "Fora do consultório, a Dra. Marina atende apenas no Hospital Vilar.\n\nO agendamento lá é feito pelo canal do próprio hospital, e esse contato não fica com a gente.\n\nSe preferir, consigo ver um horário aqui no consultório."
+        "A Dra. Marina também realiza atendimentos no Hospital Vilar.\n\nNesse caso, o agendamento é feito diretamente pelo hospital.\n\nSe preferir realizar sua consulta no consultório particular, eu já vejo os horários disponíveis para você."
       ]
     },
     "nota_fiscal_pf": {
@@ -295,7 +309,7 @@
       "urgente": false,
       "fecho": false,
       "textos": [
-        "Infelizmente a Dra. Marina atende a partir de 18 anos, então não consigo agendar nessa idade."
+        "A Dra. Marina realiza atendimentos no consultório a partir dos 18 anos.\n\nPara pacientes mais jovens, o ideal é procurar um oftalmologista que também atenda essa faixa etária."
       ]
     },
     "clinico": {
@@ -324,7 +338,7 @@
       "acao": "responder",
       "fecho": false,
       "textos": [
-        "Não consigo ouvir áudio por aqui. Pode me escrever o que você precisa?"
+        "Recebi seu áudio, mas não consegui acessar o conteúdo por aqui.\n\nVocê poderia me enviar a mensagem por escrito, por favor? Assim consigo te ajudar melhor."
       ]
     },
     "DESCONHECIDO": {

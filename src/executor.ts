@@ -30,10 +30,12 @@ import { logger } from './logger.js';
 import {
   candidatosLembrados,
   comLembrados,
+  jaConvidou,
   jaPerguntouPaciente,
   lembraCandidatos,
   lembraPacienteConfirmado,
   lembraSlots,
+  marcaConvidou,
   marcaPerguntouPaciente,
   pacienteConfirmado,
 } from './memoria-conversa.js';
@@ -144,6 +146,45 @@ function comDesconto(
   if (!tabela.intencoes.desconto) return intencao;
   return temDescontoDeConsulta(slots.necessidade, slots.convenio)
     ? 'desconto'
+    : intencao;
+}
+
+/**
+ * Necessidade que diz REFRATIVA, e não só "cirurgia".
+ *
+ * Deliberadamente não inclui "cirurgia" solto: `ehCirurgico` em `vagas.ts`
+ * inclui, porque lá a pergunta é "esta pessoa vai para a fila cirúrgica?", e
+ * aqui é "posso falar de óculos com ela?". Catarata é cirurgia e não é isso.
+ */
+const RX_REFRATIVA =
+  /refrativ|miopia|astigmatism|hipermetrop|[óo]culos|lasik|prk/i;
+
+/**
+ * Troca `preco_cirurgia` pelo enquadramento refrativo quando a necessidade já
+ * disse que é disso que se trata.
+ *
+ * Mesmo arranjo do `comDesconto`: o modelo continua rotulando o que o paciente
+ * perguntou, e quem escolhe o texto é o host. Existe porque o documento de tom
+ * do Thiago (17/10/2026) pede, no item 09, que a resposta de preço reconheça o
+ * desejo de diminuir a dependência dos óculos — e, na própria orientação,
+ * limita isso a "somente quando o interesse em cirurgia refrativa estiver
+ * claro".
+ *
+ * Sem a troca, o texto refrativo teria de virar variante sorteada de
+ * `preco_cirurgia`, que é o que o host faz com textos múltiplos. Aí um
+ * paciente de CATARATA ouviria, em metade das vezes, que a cirurgia serve para
+ * "diminuir a dependência dos óculos". As duas variantes que existiam ali eram
+ * genéricas justamente por isso; nenhuma era de catarata.
+ */
+function comEnquadramentoRefrativo(
+  intencao: string,
+  slots: Record<string, string | undefined>,
+  tabela: Tabela,
+): string {
+  if (intencao !== 'preco_cirurgia') return intencao;
+  if (!tabela.intencoes.preco_cirurgia_refrativa) return intencao;
+  return RX_REFRATIVA.test(slots.necessidade ?? '')
+    ? 'preco_cirurgia_refrativa'
     : intencao;
 }
 
@@ -427,9 +468,10 @@ export async function executa(
     };
   }
 
-  const intencaoFinal = comDesconto(
-    c.intencao,
-    comLembrados(groupFolder, chatJid, slots),
+  const lembrados = comLembrados(groupFolder, chatJid, slots);
+  const intencaoFinal = comEnquadramentoRefrativo(
+    comDesconto(c.intencao, lembrados, tabela),
+    lembrados,
     tabela,
   );
   const r = renderiza(tabela, intencaoFinal, {
@@ -440,10 +482,25 @@ export async function executa(
   // O texto do desconto já recusa o convênio, mas a ação dele é `responder` e
   // isso perderia o pedido dos dados que faltam. Quando o desconto substitui a
   // recusa, mantemos a emenda: o F04 manda não gastar um turno só recusando.
-  const acao =
+  let acao =
     intencaoFinal !== c.intencao && c.intencao === 'convenio_nao_atendido'
       ? ('recusar_e_triagem' as Resultado['acao'])
       : r.acao;
+
+  // O convite de agendamento é emenda do HOST, não fim de texto (ver
+  // `emenda_triagem` em templates.ts). Uma vez por conversa: na primeira é
+  // iniciativa, na segunda é a insistência que o documento de tom proíbe.
+  //
+  // `acao === 'responder'` não é redundante com o `jaConvidou`: o caminho do
+  // desconto, logo acima, já forçou `recusar_e_triagem`, e sem essa condição a
+  // emenda entraria duas vezes no mesmo texto.
+  const convidavel =
+    acao === 'responder' &&
+    !!tabela.intencoes[intencaoFinal]?.emenda_triagem &&
+    !jaConvidou(groupFolder, chatJid);
+  if (convidavel) {
+    acao = 'recusar_e_triagem' as Resultado['acao'];
+  }
 
   // Triagem: pedir só o que falta. O texto da tabela é o formulário de quatro
   // tópicos, que só serve a quem não deu nada ainda; com qualquer dado na mão a
@@ -540,6 +597,10 @@ export async function executa(
       // manda não gastar um turno só perguntando. Sem nada faltando, só a
       // recusa, sem pergunta pendurada no fim.
       texto = [r.texto, pedido].filter(Boolean).join('\n\n');
+      // Só conta como convite o que virou pergunta de fato. Sem `pedido` não
+      // saiu convite nenhum, e marcar aqui gastaria a única chance da conversa
+      // num turno que não convidou.
+      if (pedido) marcaConvidou(groupFolder, chatJid);
     }
   }
 

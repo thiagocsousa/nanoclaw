@@ -152,6 +152,35 @@ const TABELA = {
         'Infelizmente esse convênio a gente não atende para consulta, seria particular, no valor de R$ {valor_consulta}.',
       ],
     },
+    // Os cinco abaixo cobrem a emenda condicional do convite e a troca do
+    // enquadramento refrativo (tom de 17/10/2026). `emenda_triagem` marca quem
+    // oferece o próximo passo; quem não tem a marca responde e para.
+    convenio_iaspi: {
+      acao: 'responder',
+      emenda_triagem: true,
+      textos: ['A consulta pelo IASPI é particular. A cirurgia sai pelo PLAMTA.'],
+    },
+    convenio_ipmt: {
+      acao: 'responder',
+      emenda_triagem: true,
+      textos: ['A consulta pelo IPMT é particular. A cirurgia sai pelo PLANTE.'],
+    },
+    pentacam_cobertura: {
+      acao: 'responder',
+      textos: ['O Pentacam é particular e não fazemos no consultório.'],
+    },
+    preco_cirurgia: {
+      acao: 'responder',
+      emenda_triagem: true,
+      textos: ['Depende da técnica. A avaliação é R$ {valor_consulta}.'],
+    },
+    preco_cirurgia_refrativa: {
+      acao: 'responder',
+      emenda_triagem: true,
+      textos: [
+        'A refrativa ajuda quem quer diminuir a dependência dos óculos. A avaliação é R$ {valor_consulta}.',
+      ],
+    },
     aceita_horario: {
       acao: 'marcar',
       textos: [
@@ -527,6 +556,86 @@ describe('desconto da consulta é decisão do HOST (regra de 06/10/2026)', () =>
       '{"intencao":"endereco","confianca":0.95,"slots":{"necessidade":"cirurgia refrativa","convenio":"Bradesco"}}',
     );
     expect(r?.intencao).toBe('endereco');
+  });
+});
+
+describe('o convite de agendamento é emenda do host (tom de 17/10/2026)', () => {
+  it('emenda o pedido dos dados em quem tem `emenda_triagem`', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    const r = await rodar(
+      '{"intencao":"convenio_iaspi","confianca":0.95,"slots":{"convenio":"IASPI"}}',
+      'atende IASPI?',
+    );
+    expect(r?.texto).toContain('PLAMTA');
+    expect(r?.texto.toLowerCase()).toContain('poderia me informar');
+    // O convite é declarativo, nunca pedido de permissão: é a frase que a
+    // guarda proíbe e que o próprio documento de tom manda evitar.
+    expect(r?.texto).not.toMatch(/posso (verificar|conferir|checar)/i);
+  });
+
+  it('convida UMA vez por conversa, não a cada resposta', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    const primeiro = await rodar(
+      '{"intencao":"convenio_iaspi","confianca":0.95,"slots":{"convenio":"IASPI"}}',
+      'atende IASPI?',
+    );
+    expect(primeiro?.texto.toLowerCase()).toContain('poderia me informar');
+    const segundo = await rodar(
+      '{"intencao":"convenio_ipmt","confianca":0.95,"slots":{"convenio":"IPMT"}}',
+      'e IPMT?',
+    );
+    expect(segundo?.texto).toContain('PLANTE');
+    expect(segundo?.texto.toLowerCase()).not.toContain('poderia me informar');
+  });
+
+  it('quem NÃO tem a marca responde e para', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    const r = await rodar(
+      '{"intencao":"pentacam_cobertura","confianca":0.95,"slots":{}}',
+      'o Pentacam é coberto?',
+    );
+    expect(r?.texto).toContain('Pentacam');
+    expect(r?.texto.toLowerCase()).not.toContain('poderia me informar');
+  });
+});
+
+describe('preço de cirurgia: refrativa fala de óculos, catarata não', () => {
+  it('necessidade refrativa recebe o enquadramento dos óculos', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    const r = await rodar(
+      '{"intencao":"preco_cirurgia","confianca":0.95,"slots":{"necessidade":"cirurgia refrativa, quero parar de usar óculos"}}',
+      'quanto custa a cirurgia?',
+    );
+    expect(r?.texto).toContain('óculos');
+    expect(r?.texto).toContain('430');
+  });
+
+  // O que esta troca existe para impedir. Catarata é cirurgia, e o texto
+  // refrativo diria a ele que a cirurgia serve para "diminuir a dependência dos
+  // óculos" — que não é o caso dele.
+  it('catarata NÃO recebe o texto refrativo', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    const r = await rodar(
+      '{"intencao":"preco_cirurgia","confianca":0.95,"slots":{"necessidade":"cirurgia de catarata"}}',
+      'quanto custa a cirurgia?',
+    );
+    expect(r?.texto).not.toContain('óculos');
+    expect(r?.texto).toContain('430');
+  });
+
+  it('sem necessidade nenhuma também fica no neutro', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    const r = await rodar(
+      '{"intencao":"preco_cirurgia","confianca":0.95,"slots":{}}',
+      'quanto custa a cirurgia?',
+    );
+    expect(r?.texto).not.toContain('óculos');
   });
 });
 

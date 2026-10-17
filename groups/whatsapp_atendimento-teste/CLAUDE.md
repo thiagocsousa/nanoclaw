@@ -147,6 +147,9 @@ Abaixo, só o que não cabe num campo `quando`:
   E não rotule `confirma_convenio` nem `pergunta_necessidade`: as duas são
   perguntas do host, não intenções do paciente.
 
+- 📄 **Tom de voz: [TOM-DE-VOZ.md](TOM-DE-VOZ.md)** (Thiago, 17/10/2026). É a
+  fonte das decisões de tom, inclusive de por que o convite de agendamento é
+  emenda do host e não fim de texto.
 - ⚠️ **A abertura NÃO é mais menu numerado** (17/10/2026). Ela pergunta "me conta
   o que você precisa", e a necessidade chega em frase solta: *"quero operar a
   catarata"*, *"é pra parar de usar óculos"*, *"queria uma consulta de rotina"*.

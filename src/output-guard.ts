@@ -144,7 +144,22 @@ const RX_INTERNO = /\bF\d{2}\b|\b\w+\.py\b|\biclinic_vagas\b|\bescalar\.py\b/;
 
 // --- estilo -----------------------------------------------------------------
 
-const PROIBIDAS: Array<[RegExp, string]> = [
+/**
+ * Frases de estilo proibidas. A terceira posição, quando existe, lista as
+ * intenções em que a frase é a resposta CERTA e a regra não vale.
+ *
+ * Nasceu em 17/10/2026, do mesmo erro de escopo que a regra `empurra_trabalho`
+ * tinha na suíte: o Thiago tirou o menu numerado da abertura e ela passou a ser
+ * "Em que posso ajudar?" — exatamente a frase proibida. Só que a guarda não
+ * sabe de intenção, então marcava TODA abertura com "⚠️ Resposta enviada com
+ * ressalva", e aí a ressalva deixa de informar: se toda conversa tem uma, quem
+ * atende para de olhar. Medido nos três cenários da passada 9.
+ *
+ * A razão escrita da proibição é "empurra o trabalho para quem já disse o que
+ * quer". A abertura responde a quem não disse nada. A regra continua valendo em
+ * todo o resto.
+ */
+const PROIBIDAS: Array<[RegExp, string, string[]?]> = [
   [/\bme conta\b/i, 'soa a chatbot de varejo'],
   // "me passa"/"me manda" sem atenuante é ordem, não pedido. O detector antigo
   // exigia dois-pontos ("me passa:") e deixou escapar "Me passa a data de
@@ -164,6 +179,7 @@ const PROIBIDAS: Array<[RegExp, string]> = [
   [
     /como posso (?:te )?ajudar|o que posso fazer por (?:voc[êe]|ti)|em que posso (?:te )?ajudar|como posso (?:te )?ser [úu]til/i,
     'empurra o trabalho para quem já disse o que quer',
+    ['abertura'],
   ],
   [
     /\b(?:cadastrad[oa]|no nosso sistema|na nossa base)\b/i,
@@ -404,6 +420,12 @@ export interface OpcoesDaInspecao {
    * paciente vai à clínica e não tem horário.
    */
   agendouDeVerdade?: boolean;
+  /**
+   * A intenção que o host escolheu neste turno. Serve às frases que são erradas
+   * em geral e certas numa intenção específica — hoje só a abertura (ver
+   * `PROIBIDAS`). Sem ela a guarda funciona igual, só mais ruidosa.
+   */
+  intencao?: string;
 }
 
 export function inspecionaSaida(
@@ -650,7 +672,8 @@ export function inspecionaSaida(
   }
 
   // 18. flag: frases proibidas de estilo
-  for (const [rx, motivo] of PROIBIDAS) {
+  for (const [rx, motivo, isentas] of PROIBIDAS) {
+    if (opts.intencao && isentas?.includes(opts.intencao)) continue;
     const m = texto.match(rx);
     if (m) {
       achados.push({

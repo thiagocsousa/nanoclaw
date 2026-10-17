@@ -60,6 +60,15 @@ export interface SlotsLembrados {
    * si mesmo.
    */
   pacienteId?: number;
+  /**
+   * Já penduramos o convite de agendamento (`emenda_triagem`) nesta conversa?
+   *
+   * O documento de tom do Thiago (17/10/2026) põe "terminar todas as respostas
+   * com perguntas de agendamento" e "convites desnecessários" na lista do que
+   * evitar. O convite é iniciativa na primeira vez e insistência na segunda,
+   * então ele sai uma vez e para.
+   */
+  convidou?: boolean;
   quando: number;
 }
 
@@ -250,6 +259,19 @@ export function marcaPerguntouPaciente(folder: string, chatJid: string): void {
 export function jaPerguntouPaciente(folder: string, chatJid: string): boolean {
   const m = le(folder)[chatJid];
   return !!m && Date.now() - m.quando <= VALIDO_MS && !!m.perguntouPaciente;
+}
+
+/** Marca que o convite de agendamento já foi pendurado nesta conversa. */
+export function marcaConvidou(folder: string, chatJid: string): void {
+  const todas = le(folder);
+  todas[chatJid] = { ...todas[chatJid], convidou: true, quando: Date.now() };
+  grava(folder, todas);
+}
+
+/** Já convidamos para agendar nesta conversa? */
+export function jaConvidou(folder: string, chatJid: string): boolean {
+  const m = le(folder)[chatJid];
+  return !!m && Date.now() - m.quando <= VALIDO_MS && !!m.convidou;
 }
 
 /** Esquece esta conversa. Usado em teste e quando o caso fecha. */

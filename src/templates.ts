@@ -69,6 +69,29 @@ export interface Intencao {
    */
   textos_sem_slot?: string[];
   /**
+   * Pendurar o pedido dos dados que faltam depois do texto, em vez de deixar o
+   * texto convidar sozinho.
+   *
+   * Vem da revisão de tom do Thiago (17/10/2026). O documento dele traz 8 dos
+   * 12 textos terminando em "Posso verificar os horários disponíveis para
+   * você?" — e três coisas batiam nisso: a guarda, que marca pedir permissão
+   * para fazer o próprio trabalho; a suíte, na regra `permissao`; e o próprio
+   * documento, que em outros dois pontos manda evitar "terminar todas as
+   * respostas com perguntas de agendamento" e preferir "Vou verificar para
+   * você".
+   *
+   * Com a emenda, nada disso precisa de exceção: o texto responde e o HOST
+   * decide se há abertura para o próximo passo. Quem monta o pedido é a
+   * `fraseDeTriagem`, que já pede só o que falta e já abre com "Para eu já ver
+   * um horário" — declarativo, como o Thiago pediu.
+   *
+   * É o mesmo caminho do `recusar_e_triagem`, que existia só para o desconto.
+   * A diferença é que ali a emenda era obrigatória e aqui é oportunidade: sai
+   * UMA vez por conversa, porque convidar a cada mensagem é o que o documento
+   * chama de convite desnecessário.
+   */
+  emenda_triagem?: boolean;
+  /**
    * Como o caso deve chegar à recepção, quando esta intenção escala. Escrito
    * por humano e aprovado, e por isso vale mais que a observação do modelo: é o
    * enquadramento que faz quem atende ver oportunidade em vez de problema. O

@@ -343,6 +343,7 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
       // paciente espera por uma resposta que ninguém sabe que foi barrada.
       let paraEnviar = text;
       let agendouNesteTurno = false;
+      let intencaoDoTurno = '';
 
       // Executor da tabela: quando a pasta responde por template, o texto vem
       // da tabela e o modelo só entregou um rótulo. A guarda abaixo continua
@@ -375,6 +376,7 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
         // Todo caminho de falha da marcação retorna antes com 'escalar',
         // então a ação já carrega o fato: não precisa de campo próprio.
         agendouNesteTurno = r.acao === 'marcar';
+        intencaoDoTurno = r.intencao;
       }
 
       // A guarda roda nos DOIS caminhos. No de template ela inspeciona texto
@@ -388,6 +390,7 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
         // agendado" — e deve bloquear.
         const veredito = inspecionaSaida(paraEnviar, {
           agendouDeVerdade: agendouNesteTurno,
+          intencao: intencaoDoTurno,
         });
         const precisaAvisar = veredito.achados.some(
           (a) => a.nivel !== 'sanitize',
