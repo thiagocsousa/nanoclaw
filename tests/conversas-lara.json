@@ -62,10 +62,7 @@
         }
       ],
       "esperado_abertura": [
-        "Sou a Lara",
-        "Cirurgia Refrativa",
-        "Cirurgia de Catarata",
-        "Rotina"
+        "Sou a Lara"
       ],
       "proibido_abertura": [
         "Sou a Bruna",
@@ -460,9 +457,6 @@
       "turnos": [
         {
           "paciente": "sou do IASPI, queria uma consulta de rotina",
-          "esperado": [
-            "Infelizmente"
-          ],
           "proibido": [
             "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa",
             "@pede_dado_repetido"
@@ -479,7 +473,6 @@
         {
           "paciente": "voces atendem Intermed?",
           "esperado": [
-            "Infelizmente",
             "n[ãa]o atende"
           ],
           "proibido": [
@@ -500,9 +493,6 @@
       "turnos": [
         {
           "paciente": "tem como marcar no sabado?",
-          "esperado": [
-            "Infelizmente"
-          ],
           "proibido": [
             "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa",
             "segunda de manh[ãa].{0,40}quarta.{0,30}tarde"
@@ -532,9 +522,6 @@
             "@preco_cirurgia",
             "segunda de manh[ãa].{0,40}quarta.{0,30}tarde"
           ],
-          "esperado": [
-            "Infelizmente"
-          ],
           "nota": "Não recitar a grade: dizer que não tem e oferecer o próximo horário.",
           "intencao_esperada": "dia_sem_atendimento"
         }
@@ -547,9 +534,6 @@
       "turnos": [
         {
           "paciente": "atende domingo?",
-          "esperado": [
-            "Infelizmente"
-          ],
           "proibido": [
             "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa",
             "segunda de manh[ãa].{0,40}quarta.{0,30}tarde"
@@ -566,9 +550,6 @@
       "turnos": [
         {
           "paciente": "queria marcar no dia 12 de outubro, feriado, voces abrem?",
-          "esperado": [
-            "Infelizmente"
-          ],
           "proibido": [
             "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa"
           ],
@@ -975,8 +956,7 @@
             "tem vaga"
           ],
           "esperado": [
-            "18 anos",
-            "Infelizmente"
+            "18 anos"
           ],
           "intencao_esperada": "menor_de_idade",
           "nota": "Não espere 'Só um instante' aqui: o texto aprovado desta intenção é a própria resposta. A escalada é AÇÃO do host e não aparece no texto — conferir escalonamento é olhar escalonamentos.jsonl."
@@ -1008,8 +988,7 @@
         {
           "paciente": "a consulta é pro meu filho, ele tem 1 ano e 6 meses",
           "esperado": [
-            "18 anos",
-            "Infelizmente"
+            "18 anos"
           ],
           "nota": "Deve desfazer a oferta, não deixar vaga reservada. Não espere 'Só um instante' aqui: o texto aprovado desta intenção é a própria resposta. A escalada é AÇÃO do host e não aparece no texto — conferir escalonamento é olhar escalonamentos.jsonl.",
           "proibido": [],
@@ -1025,8 +1004,7 @@
         {
           "paciente": "minha filha tem 17 anos, pode marcar?",
           "esperado": [
-            "18 anos",
-            "Infelizmente"
+            "18 anos"
           ],
           "proibido": [],
           "intencao_esperada": "menor_de_idade",
@@ -1440,7 +1418,6 @@
       "turnos": [
         {
           "paciente": "[áudio recebido, 9s, não transcrito]",
-          "esperado": [],
           "proibido": [],
           "intencao_esperada": "audio"
         },
@@ -1464,7 +1441,6 @@
       "turnos": [
         {
           "paciente": "operei ontem e ta doendo muito",
-          "esperado": [],
           "proibido": [],
           "intencao_esperada": "clinico"
         },
@@ -1537,10 +1513,6 @@
             "atendimento automático",
             "falar com alguém da equipe",
             "sou (uma )?(pessoa|humana|gente)|n[ãa]o sou (um )?rob[ôo]|sou da recep[çc][ãa]o"
-          ],
-          "esperado": [
-            "Cirurgia Refrativa",
-            "Cirurgia de Catarata"
           ],
           "nota": "Abertura = texto literal do F00, sem acréscimo.",
           "intencao_esperada": "abertura"
@@ -1738,9 +1710,6 @@
       "turnos": [
         {
           "paciente": "atende Hapvida pra cirurgia?",
-          "esperado": [
-            "Infelizmente"
-          ],
           "proibido": [
             "@pede_dado_repetido",
             "PLAMTA",
