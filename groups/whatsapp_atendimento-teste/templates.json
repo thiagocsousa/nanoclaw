@@ -17,7 +17,7 @@
       "acao": "responder",
       "fecho": false,
       "textos": [
-        "Olá, tudo bem? Sou a Lara, assistente da Dra. Marina Costa.\n\nMe conta o que você precisa que eu te ajudo."
+        "Olá, tudo bem? Sou a Lara, assistente da Dra. Marina Costa.\n\nEm que posso ajudar?"
       ]
     },
     "pergunta_necessidade": {
