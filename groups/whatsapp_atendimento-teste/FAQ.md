@@ -1339,17 +1339,32 @@ Confirmado pela clínica em 04/10/2026:
 
 > As consultas são aqui no consultório, na Av. Elias João Tajra, 1170, Sala 07, Jóquei.
 >
-> As cirurgias são realizadas em hospital, podendo ser no Hospital Vilar, no Hospital do
-> Olho, no Namir Clementino, no Tércio Rezende ou no COE. O local é definido após a
-> avaliação.
+> As cirurgias são realizadas em hospital, em um dos hospitais parceiros da clínica.
+>
+> O local é definido após a avaliação, e a Dra. Marina conversa isso com você na consulta.
 
-⛔ **Diga os cinco, nunca escolha um.** Não "vai ser no Vilar", não "normalmente é no
-Hospital do Olho". Quem define é a médica depois da avaliação, e antecipar um hospital faz
-o paciente se organizar para o lugar errado: pedir folga, arrumar quem o leve, às vezes
-reservar hotel se vem de fora.
+⛔ **Não nomeie hospital nenhum.** Nem um, nem os cinco.
 
-**Os cinco, na ordem em que a clínica confirmou (04/10/2026):** Hospital Vilar, Hospital
-do Olho, Namir Clementino, Tércio Rezende, COE.
+> ⚠️ **Isto mudou em 17/10/2026, e inverteu o que estava aqui.** Até esta data o bloco
+> mandava o contrário, com estas palavras: *"Diga os cinco, nunca escolha um"*, com a lista
+> confirmada pela clínica em 04/10/2026. O Thiago decidiu que onde a cirurgia é feita não
+> se diz por mensagem: se diz presencialmente.
+>
+> A razão antiga continua valendo e virou caso particular da nova. Antecipar **um**
+> hospital faz o paciente se organizar para o lugar errado — pedir folga, arrumar quem o
+> leve, às vezes reservar hotel se vem de fora. Listar **os cinco** não causa esse dano,
+> mas entrega por mensagem uma conversa que a médica prefere ter de viva voz, onde dá para
+> explicar o porquê de cada lugar.
+
+**Nomear UM hospital continua certo em dois casos, e só nesses dois:**
+
+- o paciente perguntou o endereço daquele hospital, que ele já conhecia pelo nome
+  (`endereco_hospital_*`);
+- a Dra. Marina atende **consulta** no Hospital Vilar (`consulta_em_hospital`), que é
+  informação sobre ela, não sobre onde se opera.
+
+A guarda de saída executa isso: a regra `lista_hospitais` marca a resposta que nomeia
+**dois ou mais**. Lista é o mapa de onde se opera, e é esse mapa que não vai por mensagem.
 
 ### Endereço dos hospitais
 

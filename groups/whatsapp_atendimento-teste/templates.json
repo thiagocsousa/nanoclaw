@@ -268,11 +268,11 @@
     },
     "hospital_cirurgia": {
       "bloco": "F17",
-      "quando": "onde a CIRURGIA é feita, em qual hospital ela opera. NÃO serve para 'ela atende consulta no hospital X?' nem 'ela dá plantão lá?': se a médica atende fora do consultório é escalonamento do F17, e responder com a lista de cirurgia responde outra pergunta.",
+      "quando": "onde a CIRURGIA é feita, em qual hospital ela opera. NÃO serve para 'ela atende consulta no hospital' (consulta_em_hospital) nem para o endereço de um hospital que o paciente nomeou (endereco_hospital_*). ⛔ A resposta NÃO nomeia os hospitais: decisão do Thiago em 17/10/2026, o local se diz presencialmente.",
       "acao": "responder",
       "fecho": false,
       "textos": [
-        "As cirurgias são realizadas em hospital, podendo ser no Hospital Vilar, no Hospital do Olho, no Namir Clementino, no Tércio Rezende ou no COE. O local é definido após a avaliação."
+        "As cirurgias são realizadas em hospital, em um dos hospitais parceiros da clínica.\n\nO local é definido após a avaliação, e a Dra. Marina conversa isso com você na consulta."
       ]
     },
     "consulta_em_hospital": {

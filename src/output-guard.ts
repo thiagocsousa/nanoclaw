@@ -346,6 +346,23 @@ const RX_ANUNCIA_BOT =
   /atendimento autom[áa]tico|assistente virtual|sou (?:um |uma )?(?:rob[ôo]|bot|IA|intelig[êe]ncia artificial)/i;
 
 /** Menu numerado sem separar refrativa de catarata (F00). */
+/**
+ * Os hospitais parceiros, nomeados.
+ *
+ * Decisão do Thiago em 17/10/2026: onde a cirurgia é feita não se diz por
+ * mensagem, se diz presencialmente. O texto do `hospital_cirurgia` listava os
+ * cinco; agora diz "um dos hospitais parceiros".
+ *
+ * ⚠️ A regra conta DOIS ou mais, não um. Nomear um hospital continua certo em
+ * dois casos legítimos: o paciente perguntou o endereço daquele hospital, que
+ * ele já conhecia pelo nome (`endereco_hospital_*`), e a Dra. Marina atende
+ * CONSULTA no Vilar (`consulta_em_hospital`), que é informação dela, não da
+ * cirurgia. Uma LISTA é outra coisa: lista é o mapa de onde se opera, e é isso
+ * que o Thiago quer dizer de viva voz.
+ */
+const RX_HOSPITAIS =
+  /\b(?:Vilar|Hospital do Olho|Namir(?: Clementino)?|T[ée]rcio(?: Rezende)?|COE)\b/gi;
+
 const RX_MENU_NUMERADO = /^\s*1\s*[-.)]\s*\S/m;
 const RX_MENU_COMPLETO =
   /Cirurgia Refrativa[\s\S]*Cirurgia de Catarata[\s\S]*Rotina/i;
@@ -668,6 +685,21 @@ export function inspecionaSaida(
       nivel: 'flag',
       motivo: 'nome de bloco do FAQ ou de script no texto ao paciente',
       trecho: interno[0],
+    });
+  }
+
+  // 17b. flag: listou os hospitais onde a cirurgia é feita
+  RX_HOSPITAIS.lastIndex = 0; // regex global: zera entre chamadas
+  const hospitais = new Set(
+    (texto.match(RX_HOSPITAIS) || []).map((h) => h.toLowerCase()),
+  );
+  if (hospitais.size > 1) {
+    achados.push({
+      regra: 'lista_hospitais',
+      nivel: 'flag',
+      motivo:
+        'nomeia mais de um hospital parceiro: onde a cirurgia é feita se diz presencialmente, não por mensagem (Thiago, 17/10/2026)',
+      trecho: [...hospitais].join(', ').slice(0, 120),
     });
   }
 

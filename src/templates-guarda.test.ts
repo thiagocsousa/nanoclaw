@@ -102,6 +102,30 @@ describe('a tabela de templates passa pela guarda', () => {
     expect(v.achados.map((a) => a.regra)).toContain('frase_proibida');
   });
 
+  it('pega a lista de hospitais, e deixa passar um só', () => {
+    // O texto que o `hospital_cirurgia` tinha até 17/10/2026.
+    const lista = inspecionaSaida(
+      'As cirurgias são realizadas em hospital, podendo ser no Hospital Vilar, ' +
+        'no Hospital do Olho, no Namir Clementino, no Tércio Rezende ou no COE.',
+      { intencao: 'hospital_cirurgia' },
+    );
+    expect(lista.achados.map((a) => a.regra)).toContain('lista_hospitais');
+
+    // Um hospital só continua certo: o paciente perguntou o endereço DELE.
+    const um = inspecionaSaida(
+      'O COE fica na R. Coelho Rodrigues, 2041, Centro (Norte), Teresina.',
+      { intencao: 'endereco_hospital_coe' },
+    );
+    expect(um.achados.map((a) => a.regra)).not.toContain('lista_hospitais');
+
+    // E a consulta no Vilar, que é informação da médica, não da cirurgia.
+    const vilar = inspecionaSaida(
+      'Fora do consultório, a Dra. Marina atende no Hospital Vilar.',
+      { intencao: 'consulta_em_hospital' },
+    );
+    expect(vilar.achados.map((a) => a.regra)).not.toContain('lista_hospitais');
+  });
+
   it('pega a frase da abertura fora da abertura', () => {
     const v = inspecionaSaida('Claro, em que posso te ajudar?', {
       intencao: 'convenio_consulta',

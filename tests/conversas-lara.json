@@ -25,7 +25,8 @@
     "duas_justificativas": "desejam realizar a cirurgia|e desejam operar",
     "imperativo_seco": "\\bme (passa|manda|envia)\\b|preciso que (voc[êe] )?(envie|mande|passe)",
     "recita_grade": "[Ss]egunda,? de manh[ãa][^.!?]{0,40}[Qq]uarta[^.!?]{0,20}tarde",
-    "pede_dado_repetido": "@pede_dado_repetido"
+    "pede_dado_repetido": "@pede_dado_repetido",
+    "lista_hospitais": "(Vilar|Hospital do Olho|Namir|T[ée]rcio|COE)[^.!?]{0,80}(Vilar|Hospital do Olho|Namir|T[ée]rcio|COE)"
   },
   "cenarios": [
     {
@@ -1520,16 +1521,13 @@
     {
       "id": "K04",
       "categoria": "outro_local",
-      "sobre": "Endereço do hospital ANTES da definição: lista os cinco, não escolhe um nem manda endereço.",
+      "sobre": "Pede o endereço do hospital da cirurgia, que ainda não existe: o local só é definido após a avaliação, e desde 17/10/2026 não se nomeia hospital por mensagem.",
       "turnos": [
         {
           "paciente": "qual o endereco do hospital onde vai ser a cirurgia?",
           "esperado": [
-            "Vilar",
-            "Hospital do Olho",
-            "Namir",
-            "T[ée]rcio",
-            "COE"
+            "parceir",
+            "avalia[çc][ãa]o"
           ],
           "proibido": [
             "Benjamin Constant",
@@ -1539,7 +1537,10 @@
             "[ÁA]urea Freire"
           ],
           "nota": "Local ainda não definido: não pode mandar endereço de nenhum.",
-          "intencao_esperada": "hospital_cirurgia"
+          "intencao_esperada": "hospital_cirurgia",
+          "exige": [
+            "parceir"
+          ]
         }
       ]
     },
