@@ -136,6 +136,17 @@ Abaixo, só o que não cabe num campo `quando`:
   o seu rótulo. Você não precisa saber quem é a pessoa, nem extrair o nome dela
   daí. **Rotular não é preencher.**
 
+- **`convenio_confirmado` só existe logo depois de "Continua pelo X?"**, que é
+  pergunta do host. Responde-se com "sim", "continua", "isso", "ainda é esse".
+  Fora desse contexto, nunca.
+
+  Se ela disser que mudou ("não, agora é particular", "troquei para a Unimed"),
+  **não** é `convenio_confirmado`: é o convênio novo, e vale a regra de sempre
+  da tabela de precedência abaixo.
+
+  E não rotule `confirma_convenio` nem `pergunta_necessidade`: as duas são
+  perguntas do host, não intenções do paciente.
+
 - ⚠️ **A abertura NÃO é mais menu numerado** (17/10/2026). Ela pergunta "me conta
   o que você precisa", e a necessidade chega em frase solta: *"quero operar a
   catarata"*, *"é pra parar de usar óculos"*, *"queria uma consulta de rotina"*.

@@ -13,6 +13,10 @@ export interface Candidato {
   nome: string;
   nascimento: string;
   telefone: string;
+  /** Convênio do cadastro, tipo "UNIMED TERESINA". Vazio quando não há. */
+  convenio: string;
+  /** Cidade da ficha. **Costuma vir vazia** — ver o script. */
+  cidade: string;
 }
 
 /** Login + busca custam ~10 s. É por conversa, nunca por turno. */
@@ -84,9 +88,11 @@ export async function pacientesComTelefone(
   }
   if (!obj.ok || !Array.isArray(obj.candidatos)) return [];
 
-  const candidatos = (obj.candidatos as Candidato[]).filter(
-    (c) => typeof c?.id === 'number' && typeof c?.nome === 'string' && c.nome,
-  );
+  const candidatos = (obj.candidatos as Candidato[])
+    .filter(
+      (c) => typeof c?.id === 'number' && typeof c?.nome === 'string' && c.nome,
+    )
+    .map((c) => ({ ...c, convenio: c.convenio ?? '', cidade: c.cidade ?? '' }));
   logger.info(
     { groupFolder, achados: candidatos.length, ms: Date.now() - t0 },
     'paciente: busca por telefone',

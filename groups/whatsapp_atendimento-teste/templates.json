@@ -69,6 +69,32 @@
         "Muito obrigada pelo seu contato. Para darmos início ao seu atendimento, poderia me informar:\n\nNome completo do paciente:\nData de nascimento:\nCidade:\nConvênio (ou particular):"
       ]
     },
+    "confirma_convenio": {
+      "bloco": "F00",
+      "quando": "NUNCA rotular isto: quem pergunta é o host, quando o cadastro já traz um convênio e falta confirmar se ainda vale.",
+      "acao": "responder",
+      "fecho": false,
+      "slots_obrigatorios": [
+        "convenio_cadastro"
+      ],
+      "textos": [
+        "Continua pelo {convenio_cadastro}?"
+      ]
+    },
+    "convenio_confirmado": {
+      "bloco": "F12",
+      "quando": "RESPOSTA a 'Continua pelo X?' confirmando que sim: 'sim', 'continua', 'isso', 'ainda é esse'. Só depois dessa pergunta.",
+      "acao": "responder",
+      "fecho": false,
+      "slots_obrigatorios": [
+        "dia",
+        "hora"
+      ],
+      "textos": [
+        "Tenho {dia}, dia {data}, às {hora}. Esse horário funciona para você?",
+        "O próximo horário disponível é {dia}, dia {data}, às {hora}. Consegue nesse dia?"
+      ]
+    },
     "paciente_outro": {
       "bloco": "F00",
       "quando": "RESPOSTA a 'É para você, X, ou para outra pessoa?' dizendo que é para OUTRA pessoa: 'é pra minha filha', 'pra outra pessoa', 'não, é pro meu pai', 'não'. Só depois dessa pergunta.",

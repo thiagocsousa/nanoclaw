@@ -35,7 +35,13 @@ export interface SlotsLembrados {
    * Cadastros do iClinic com o telefone desta conversa. Buscar custa ~10 s de
    * Playwright com login, então é uma vez por conversa, não por turno.
    */
-  candidatos?: Array<{ id: number; nome: string; nascimento: string }>;
+  candidatos?: Array<{
+    id: number;
+    nome: string;
+    nascimento: string;
+    convenio?: string;
+    cidade?: string;
+  }>;
   /**
    * Já procuramos? Distinto de `candidatos` vazio: "procurei e não achei" não
    * pode virar "procuro de novo a cada mensagem".
@@ -164,7 +170,13 @@ export function comLembrados<
 export function lembraCandidatos(
   folder: string,
   chatJid: string,
-  candidatos: Array<{ id: number; nome: string; nascimento: string }>,
+  candidatos: Array<{
+    id: number;
+    nome: string;
+    nascimento: string;
+    convenio?: string;
+    cidade?: string;
+  }>,
 ): void {
   const agora = Date.now();
   const todas = Object.fromEntries(
@@ -186,7 +198,13 @@ export function candidatosLembrados(
   chatJid: string,
 ): {
   buscou: boolean;
-  candidatos: Array<{ id: number; nome: string; nascimento: string }>;
+  candidatos: Array<{
+    id: number;
+    nome: string;
+    nascimento: string;
+    convenio?: string;
+    cidade?: string;
+  }>;
 } {
   const m = le(folder)[chatJid];
   if (!m || Date.now() - m.quando > VALIDO_MS) {

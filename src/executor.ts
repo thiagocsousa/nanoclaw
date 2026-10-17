@@ -242,6 +242,11 @@ export async function executa(
         nome: c.slots.nome?.trim() || cad.nome,
         nascimento: c.slots.nascimento?.trim() || isoParaBr(cad.nascimento),
       };
+      // A CIDADE também vem do cadastro, quando está preenchida. Costuma estar
+      // vazia (a do Thiago está), e aí a triagem pergunta, como antes.
+      if (cad.cidade?.trim() && !c.slots.cidade?.trim()) {
+        c.slots = { ...c.slots, cidade: cad.cidade.trim() };
+      }
       // Guardar, não só usar neste turno: a oferta de horário costuma vir dois
       // turnos depois, quando o modelo já não repete nome nem nascimento. Sem
       // isto a oferta é registrada sem nome e a marcação morre com
@@ -250,8 +255,47 @@ export async function executa(
         nome: c.slots.nome,
         nascimento: c.slots.nascimento,
       });
+
+      // Convênio do cadastro: pergunta DIRIGIDA em vez de genérica.
+      //
+      // "Continua pelo Unimed Teresina?" responde-se com um sim; "é particular
+      // ou convênio?" obriga a pessoa a digitar o nome do plano que a clínica
+      // já tem. Escolha do Thiago em 17/10/2026. Confirmar em vez de assumir
+      // porque plano muda, e o cadastro pode ter anos.
+      if (
+        cad.convenio?.trim() &&
+        !c.slots.convenio?.trim() &&
+        tabela.intencoes.confirma_convenio
+      ) {
+        const rc = renderiza(tabela, 'confirma_convenio', {
+          confianca: 1,
+          slots: { ...c.slots, convenio_cadastro: primeiroNome(cad.convenio) },
+        });
+        if (rc.texto) {
+          lembraSlots(groupFolder, chatJid, { convenio: '' });
+          logger.info(
+            { groupFolder, intencao: 'confirma_convenio' },
+            'executor: respondeu por template',
+          );
+          return {
+            texto: rc.texto,
+            intencao: 'confirma_convenio',
+            acao: 'responder',
+          };
+        }
+      }
     } else {
       lembraCandidatos(groupFolder, chatJid, []);
+    }
+  }
+
+  // "Sim, continua": o convênio vem do CADASTRO, não do que ela digitou.
+  if (c.intencao === 'convenio_confirmado' && !c.slots.convenio?.trim()) {
+    const { candidatos } = candidatosLembrados(groupFolder, chatJid);
+    const doCadastro = candidatos[0]?.convenio?.trim();
+    if (doCadastro) {
+      c.slots = { ...c.slots, convenio: doCadastro };
+      lembraSlots(groupFolder, chatJid, { convenio: doCadastro });
     }
   }
 
