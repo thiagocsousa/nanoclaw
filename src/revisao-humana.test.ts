@@ -19,7 +19,9 @@ beforeEach(async () => {
   process.env.REVISAO_JID = '120363000@g.us';
   process.env.REVISAO_FOLDER = 'whatsapp_main';
   fs.mkdirSync(path.join(RAIZ, PASTA), { recursive: true });
-  fs.rmSync(path.join(RAIZ, PASTA, 'respostas_pendentes.json'), { force: true });
+  fs.rmSync(path.join(RAIZ, PASTA, 'respostas_pendentes.json'), {
+    force: true,
+  });
   vi.resetModules();
   mod = await import('./revisao-humana.js');
 });

@@ -91,6 +91,18 @@ export interface SlotsLembrados {
    */
   ultimaIntencao?: string;
   repeticoes?: number;
+  /**
+   * Quando esta conversa COMEÇOU, em epoch ms.
+   *
+   * Existe para o expediente: a regra do Thiago (17/10/2026) é que quem iniciou
+   * antes das 18h continua até encerrar ou escalar. O corte é no início, não em
+   * cada mensagem — alguém que escreveu 17h55 e está no meio da triagem não
+   * pode levar silêncio às 18h01.
+   *
+   * O TTL de 4 horas desta memória já delimita o que é "a mesma conversa": a
+   * pessoa que volta no dia seguinte abre uma nova, e aí a regra vale de novo.
+   */
+  abertaEm?: number;
   quando: number;
 }
 
@@ -360,6 +372,39 @@ export function contaRepeticao(
   };
   grava(folder, todas);
   return n;
+}
+
+/**
+ * Quando esta conversa começou. Marca na primeira vez e NÃO remarca depois:
+ * remarcar a cada mensagem faria uma conversa aberta às 17h55 virar "aberta às
+ * 19h" no turno seguinte, e o expediente a cortaria no meio.
+ */
+export function abreConversa(
+  folder: string,
+  chatJid: string,
+  agora: number = Date.now(),
+): number {
+  const todas = le(folder);
+  const antes = todas[chatJid];
+  const valida = antes && agora - antes.quando <= VALIDO_MS;
+  if (valida && antes.abertaEm !== undefined) return antes.abertaEm;
+  todas[chatJid] = {
+    ...(valida ? antes : {}),
+    abertaEm: agora,
+    quando: agora,
+  };
+  grava(folder, todas);
+  return agora;
+}
+
+/** Quando a conversa começou, se ainda está dentro da validade. */
+export function conversaAbertaEm(
+  folder: string,
+  chatJid: string,
+): number | undefined {
+  const m = le(folder)[chatJid];
+  if (!m || Date.now() - m.quando > VALIDO_MS) return undefined;
+  return m.abertaEm;
 }
 
 /** Esquece esta conversa. Usado em teste e quando o caso fecha. */

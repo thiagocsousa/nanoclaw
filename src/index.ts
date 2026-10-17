@@ -89,6 +89,12 @@ import {
 import { humanDelayMs, sleep, wantsHumanCadence } from './human-cadence.js';
 import { mensagensDe } from './templates.js';
 import {
+  dentroDoExpediente,
+  podeResponder,
+  wantsExpediente,
+} from './expediente.js';
+import { abreConversa, conversaAbertaEm } from './memoria-conversa.js';
+import {
   aprovaEmQualquerPasta,
   destinoDaRevisao,
   pastasComRevisao,
@@ -276,6 +282,42 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
 
   if (missedMessages.length === 0) return true;
 
+  // Expediente: 8h às 18h, segunda a sexta (regra do Thiago, 17/10/2026).
+  //
+  // Fora disso a Lara fica CALADA, porque quem responde é a mensagem de
+  // ausência do WhatsApp Business, que é nativa. Duas respostas automáticas
+  // para a mesma mensagem é pior que uma.
+  //
+  // Quem iniciou ANTES das 18h continua até encerrar ou escalar: o corte é no
+  // início da conversa, e quem está no meio da triagem às 17h55 não pode levar
+  // silêncio às 18h01.
+  //
+  // ⚠️ Isto vem ANTES de o cursor avançar, de propósito. Devolvendo aqui, as
+  // mensagens da noite continuam PENDENTES, e a primeira varredura das 8h as
+  // pega todas de uma vez, com o fio inteiro da conversa no prompt. Na primeira
+  // versão eu pus este bloco depois do cursor e as mensagens da madrugada
+  // seriam marcadas como vistas e perdidas — o Thiago perguntou justamente se a
+  // Lara retoma o que chegou entre 18h e 8h, e com o gate no lugar errado a
+  // resposta seria não.
+  if (wantsExpediente(group.folder)) {
+    const abertaEm = conversaAbertaEm(group.folder, chatJid);
+    if (!podeResponder(abertaEm)) {
+      logger.info(
+        {
+          group: group.name,
+          dentro: dentroDoExpediente(),
+          abertaEm,
+          pendentes: missedMessages.length,
+        },
+        'expediente: fora do horário, a Lara não responde (mensagens ficam pendentes)',
+      );
+      return true;
+    }
+    // Dentro do horário: marca o início, se ainda não houver. Não remarca,
+    // senão a conversa das 17h55 vira "aberta às 19h" no turno seguinte.
+    abreConversa(group.folder, chatJid);
+  }
+
   // For non-main groups, check if trigger is required and present
   if (!isMainGroup && group.requiresTrigger !== false) {
     const triggerPattern = getTriggerPattern(group.trigger);
@@ -455,10 +497,16 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
               // A marcação no iClinic já aconteceu: segurar o texto não desfaz.
               jaMarcou: acaoDoTurno === 'marcar',
             });
-            await findChannelForGroup(channels, alvo.folder)
-              ?.sendMessage(alvo.jid, textoDaRevisao(pendente));
+            await findChannelForGroup(channels, alvo.folder)?.sendMessage(
+              alvo.jid,
+              textoDaRevisao(pendente),
+            );
             logger.info(
-              { group: group.name, codigo: pendente.codigo, partes: partes.length },
+              {
+                group: group.name,
+                codigo: pendente.codigo,
+                partes: partes.length,
+              },
               'revisão: resposta aguardando aprovação',
             );
             return;
@@ -878,7 +926,10 @@ async function main(): Promise<void> {
               await canalPaciente?.sendMessage(pendente.chatJid, parte);
             }
           })().catch((err) =>
-            logger.error({ err, codigo: pendente.codigo }, 'revisão: envio falhou'),
+            logger.error(
+              { err, codigo: pendente.codigo },
+              'revisão: envio falhou',
+            ),
           );
           logger.info(
             { codigo: pendente.codigo, partes: pendente.partes.length },
