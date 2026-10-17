@@ -1363,6 +1363,12 @@ Confirmado pela clínica em 04/10/2026:
 - a Dra. Marina atende **consulta** no Hospital Vilar (`consulta_em_hospital`), que é
   informação sobre ela, não sobre onde se opera.
 
+> **Por que a primeira exceção não fura a regra** (Thiago, 17/10/2026): quem pergunta
+> "onde fica o COE?" quase sempre já passou pela consulta e já teve a cirurgia indicada —
+> ele soube o nome ali, de viva voz, que é onde o Thiago quer que isso seja dito. Responder
+> o endereço é ajudar alguém a chegar, não revelar o mapa. A regra protege a LISTA, que é o
+> que antecipa o local para quem ainda nem foi avaliado.
+
 A guarda de saída executa isso: a regra `lista_hospitais` marca a resposta que nomeia
 **dois ou mais**. Lista é o mapa de onde se opera, e é esse mapa que não vai por mensagem.
 
