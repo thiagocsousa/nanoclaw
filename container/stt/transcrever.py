@@ -33,9 +33,27 @@ import json
 import os
 import sys
 
-PISO_CONFIANCA = float(os.environ.get("STT_PISO_CONFIANCA", "0.55"))
+# Piso para a transcrição valer como FALA DO PACIENTE, que é o uso perigoso:
+# citar errado com confiança alta é pior que não citar. Medido em 17/10/2026, o
+# `small` com beam 5 e vocabulário deu 0.62 no áudio real do Thiago.
+PISO_CONFIANCA = float(os.environ.get("STT_PISO_CONFIANCA", "0.60"))
 TETO_SEM_FALA = float(os.environ.get("STT_TETO_SEM_FALA", "0.55"))
-MODELO = os.environ.get("MODELO", "base")
+MODELO = os.environ.get("MODELO", "small")
+# Beam 5 melhorou de 0.45 para 0.62 no mesmo áudio. O comentário antigo dizia
+# que "beam maior não compensa em 2 vCPU" — era suposição, e a medição a
+# desmentiu. O custo é tempo, e o teto de 90 s do host absorve.
+BEAM = int(os.environ.get("STT_BEAM", "5"))
+# `initial_prompt` do whisper: nomes e termos que a clínica usa, para o modelo
+# não inventar vizinhos fonéticos. Sem isto, "Operei ontem" saiu "O Pereio
+# ontem".
+VOCABULARIO = os.environ.get(
+    "STT_VOCABULARIO",
+    "Consulta com a Dra. Marina Costa, oftalmologista em Teresina. "
+    "Cirurgia de catarata, cirurgia refrativa, lente intraocular, "
+    "Pentacam, topografia, mapeamento de retina. "
+    "Operei, pós-operatório, colírio, dor, ardendo, visão embaçada. "
+    "Unimed, IASPI, IPMT, PLAMTA, PLANTE, particular.",
+)
 
 
 def confianca_de(avg_logprob):
@@ -62,7 +80,8 @@ def main():
             caminho,
             language="pt",            # fixo: a clínica atende em português
             vad_filter=True,          # corta silêncio, melhora acerto e tempo
-            beam_size=1,              # CPU de 2 vCPU: beam maior não compensa
+            beam_size=BEAM,
+            initial_prompt=VOCABULARIO or None,
         )
         segs = list(segmentos)
     except Exception as exc:  # noqa: BLE001 - qualquer falha degrada para marcador

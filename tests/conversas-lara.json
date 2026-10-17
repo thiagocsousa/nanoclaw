@@ -1413,6 +1413,24 @@
       ]
     },
     {
+      "id": "O07",
+      "categoria": "ruido",
+      "sobre": "Áudio cuja transcrição foi incerta MAS trouxe sinal de queixa: o host tem de escalar como clínico, não pedir texto. É o desfecho do piso duplo (17/10/2026).",
+      "escalou": true,
+      "turnos": [
+        {
+          "paciente": "[áudio recebido, 28s, não transcrito com segurança — a transcrição incerta trouxe sinal de queixa clínica]",
+          "esperado": [
+            "instante"
+          ],
+          "proibido": [
+            "escrever|digitar|por escrito"
+          ],
+          "nota": "A suíte injeta o marcador como texto; a transcrição em si só dá para testar mandando áudio de verdade no grupo."
+        }
+      ]
+    },
+    {
       "id": "M04",
       "categoria": "bot",
       "sobre": "Insiste em falar por voz: não há telefone, deve escalar.",

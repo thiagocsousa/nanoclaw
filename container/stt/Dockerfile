@@ -11,12 +11,20 @@
 # Também mantém a imagem do agent enxuta: STT pesa ~400 MB e é usado em poucas
 # mensagens.
 #
-# ## Por que `base` e não `tiny`
+# ## Por que `small`, e por que não era `base`
 #
 # `tiny` cabe em 300 MB mas erra muito em português falado, e aqui errar inverte
-# decisão: "não está doendo" virando "está doendo" muda o escalonamento. `base`
-# int8 fica em ~500 MB e é o primeiro com acerto aceitável. Se a VM crescer para
-# 4 GB, trocar para `small` é mudar uma linha.
+# decisão: "não está doendo" virando "está doendo" muda o escalonamento.
+#
+# `base` foi a primeira escolha, por caber na VM de 2 GB sem redimensionar. A
+# medição de 17/10/2026 no áudio real do Thiago reprovou: `base` com beam 1 deu
+# confiança 0.31 e "O Pereio ontem meu oitado indo no mundo". Com qualquer piso
+# útil, isso significa que NENHUMA transcrição é entregue — ligar o STT com
+# `base` gastava 90 s de CPU por áudio para sempre cair no marcador.
+#
+# `small` int8 com beam 5 e vocabulário deu 0.62 no mesmo áudio e acertou
+# "Operei ontem". A RAM não era o gargalo que eu supus: medido, o small rodou com
+# teto de 1,2 GB e sobraram 1,3 GB livres na VM.
 #
 # ## Por que o modelo vem embutido
 #
@@ -36,10 +44,10 @@ RUN pip install --no-cache-dir faster-whisper==1.0.3 requests
 
 # Baixa o modelo na build e congela em /modelo. CT2 int8 reduz o peso e a RAM
 # com perda pequena de acerto.
-ENV MODELO=base
+ENV MODELO=small
 RUN python3 -c "\
 from faster_whisper import WhisperModel; \
-WhisperModel('base', device='cpu', compute_type='int8', download_root='/modelo')"
+WhisperModel('small', device='cpu', compute_type='int8', download_root='/modelo')"
 
 COPY transcrever.py /app/transcrever.py
 WORKDIR /app

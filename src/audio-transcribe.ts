@@ -45,6 +45,10 @@ const envConfig = readEnvFile([
   'STT_MEMORY',
   'STT_TIMEOUT_MS',
   'STT_ENABLED',
+  'STT_MODELO',
+  'STT_BEAM',
+  'STT_PISO_CONFIANCA',
+  'STT_PISO_URGENCIA',
 ]);
 
 function env(key: string, fallback: string): string {
@@ -87,6 +91,40 @@ const TIMEOUT_MS = parseInt(env('STT_TIMEOUT_MS', '90000'), 10);
  */
 const ENABLED = env('STT_ENABLED', 'false') === 'true';
 
+/**
+ * Dois pisos, porque são dois usos com riscos OPOSTOS.
+ *
+ * A medição de 17/10/2026 no áudio real do Thiago mostrou a confiança
+ * anticorrelacionada com o acerto clínico: a configuração que capturou "está
+ * doendo" ficou em 0.45 e seria descartada; a que passou o piso (0.62) virou a
+ * queixa em "do Índio do Mundo". Com um piso só, não há escolha boa — subir
+ * rejeita tudo, descer entrega palpite como fala do paciente.
+ *
+ * Decisão do Thiago no mesmo dia: separar os dois.
+ *
+ *   PISO_CONFIANCA (alto)  → a transcrição pode ser CITADA como fala dele.
+ *                            Errar aqui põe palavra na boca do paciente.
+ *   PISO_URGENCIA  (baixo) → a transcrição pode levantar SUSPEITA de queixa
+ *                            clínica. Errar aqui escala um caso que não era
+ *                            urgente, e um humano lê e fecha.
+ *
+ * O erro troca de lado, e é esse o ganho: falso positivo escala, falso negativo
+ * pede texto — que é exatamente o comportamento de antes. Nenhum caminho novo
+ * entrega texto incerto ao paciente.
+ */
+const PISO_CONFIANCA = parseFloat(env('STT_PISO_CONFIANCA', '0.60'));
+const PISO_URGENCIA = parseFloat(env('STT_PISO_URGENCIA', '0.30'));
+const MODELO = env('STT_MODELO', 'small');
+const BEAM = env('STT_BEAM', '5');
+
+/**
+ * Vocabulário de queixa clínica. Igual ao `RX_DOR` da guarda de saída, e
+ * deliberadamente largo: aqui um falso positivo custa um escalonamento a mais,
+ * então errar para o lado de escalar é o projeto.
+ */
+const RX_QUEIXA =
+  /\b(?:dor|dores|doendo|doer|d[óo]i|ardendo|arder|queimando|incomodando|urg[êe]ncia|urgente|p[óo]s[-\s]?operat[óo]rio|operei|cirurgia|inchad|vermelh|secre[çc][ãa]o|vista escura|n[ãa]o (?:estou |to )?vendo|emba[çc]ad|sangrando|sangue)/i;
+
 export interface Transcricao {
   texto: string;
   segundos: number;
@@ -105,6 +143,24 @@ export function marcadorDeAudio(segundos?: number): string {
 }
 
 /**
+ * Marcador de áudio que a transcrição não deu para citar, mas em que apareceu
+ * palavra de queixa clínica.
+ *
+ * ⚠️ O texto transcrito NÃO entra aqui. Ele é incerto e é fala de paciente
+ * sobre saúde: entregá-lo à agente seria a mesma coisa que citá-lo, e é o que
+ * o piso alto existe para impedir. O que atravessa é só o fato de que havia
+ * sinal de queixa — o suficiente para a classificação cair em `clinico` e o
+ * host escalar como urgente, que é o desfecho seguro.
+ */
+export function marcadorDeQueixa(segundos?: number): string {
+  const s = segundos && segundos > 0 ? `, ${Math.round(segundos)}s` : '';
+  return (
+    `[áudio recebido${s}, não transcrito com segurança — ` +
+    `a transcrição incerta trouxe sinal de queixa clínica]`
+  );
+}
+
+/**
  * Monta o texto que a agente vê. Transcrição incerta NÃO é entregue como fala
  * do paciente: vira marcador, porque agir sobre palpite é pior que admitir que
  * não entendeu.
@@ -113,8 +169,15 @@ export function textoParaAgente(
   t: Transcricao | undefined,
   segundos?: number,
 ): string {
-  if (!t || t.incerta || !t.texto)
-    return marcadorDeAudio(t?.segundos ?? segundos);
+  if (!t || !t.texto) return marcadorDeAudio(t?.segundos ?? segundos);
+  if (t.incerta) {
+    // Incerta demais para citar, confiável o bastante para suspeitar: vira
+    // marcador de queixa, não resposta. Ver PISO_URGENCIA.
+    if (t.confianca >= PISO_URGENCIA && RX_QUEIXA.test(t.texto)) {
+      return marcadorDeQueixa(t.segundos ?? segundos);
+    }
+    return marcadorDeAudio(t.segundos ?? segundos);
+  }
   return `[áudio transcrito, ${Math.round(t.segundos)}s] ${t.texto}`;
 }
 
@@ -162,6 +225,14 @@ export async function transcreveAudio(
     '--memory-swap',
     MEMORY, // sem swap: estourar deve falhar rápido, não arrastar a VM
     '--cpus=1.5',
+    // O piso de citação é do CONTÊINER (ele marca `incerta`); o de urgência é
+    // do host, porque é ele que conhece o vocabulário de queixa.
+    '-e',
+    `MODELO=${MODELO}`,
+    '-e',
+    `STT_BEAM=${BEAM}`,
+    '-e',
+    `STT_PISO_CONFIANCA=${PISO_CONFIANCA}`,
     '-v',
     `${dir}:/audio:ro`,
     IMAGE,

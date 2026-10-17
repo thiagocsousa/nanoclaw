@@ -571,7 +571,12 @@ describe('triagem completa vira oferta de horário (Thiago, 17/10/2026)', () => 
     const { esqueceSlots } = await import('./memoria-conversa.js');
     esqueceSlots(PASTA, JID);
     vagasFalsas = [
-      { data: '2026-10-22', dia_semana: 'quinta', inicio: '09:00', fim: '09:20' },
+      {
+        data: '2026-10-22',
+        dia_semana: 'quinta',
+        inicio: '09:00',
+        fim: '09:20',
+      },
     ];
     await rodar(
       '{"intencao":"triagem_dados","confianca":0.95,"slots":{"necessidade":"catarata"}}',
@@ -589,7 +594,12 @@ describe('triagem completa vira oferta de horário (Thiago, 17/10/2026)', () => 
     const { esqueceSlots } = await import('./memoria-conversa.js');
     esqueceSlots(PASTA, JID);
     vagasFalsas = [
-      { data: '2026-10-22', dia_semana: 'quinta', inicio: '09:00', fim: '09:20' },
+      {
+        data: '2026-10-22',
+        dia_semana: 'quinta',
+        inicio: '09:00',
+        fim: '09:20',
+      },
     ];
     const r = await rodar(
       '{"intencao":"triagem_dados","confianca":0.95,"slots":{"necessidade":"catarata","nome":"Thiago","cidade":"Teresina","convenio":"particular"}}',
@@ -603,7 +613,12 @@ describe('triagem completa vira oferta de horário (Thiago, 17/10/2026)', () => 
     const { esqueceSlots } = await import('./memoria-conversa.js');
     esqueceSlots(PASTA, JID);
     vagasFalsas = [
-      { data: '2026-10-22', dia_semana: 'quinta', inicio: '09:00', fim: '09:20' },
+      {
+        data: '2026-10-22',
+        dia_semana: 'quinta',
+        inicio: '09:00',
+        fim: '09:20',
+      },
     ];
     const r = await rodar(
       '{"intencao":"triagem_dados","confianca":0.95,"slots":{"nome":"Thiago","nascimento":"01/06/1980","cidade":"Teresina","convenio":"particular"}}',
@@ -618,7 +633,12 @@ describe('triagem completa vira oferta de horário (Thiago, 17/10/2026)', () => 
     const { esqueceSlots } = await import('./memoria-conversa.js');
     esqueceSlots(PASTA, JID);
     vagasFalsas = [
-      { data: '2026-10-22', dia_semana: 'quinta', inicio: '09:00', fim: '09:20' },
+      {
+        data: '2026-10-22',
+        dia_semana: 'quinta',
+        inicio: '09:00',
+        fim: '09:20',
+      },
     ];
     const r = await rodar(
       '{"intencao":"triagem_dados","confianca":0.95,"slots":{"necessidade":"retorno","nome":"Thiago","nascimento":"01/06/1980","cidade":"Teresina","convenio":"particular"}}',
