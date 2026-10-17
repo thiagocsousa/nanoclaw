@@ -76,6 +76,21 @@ export interface SlotsLembrados {
    * então ele sai uma vez e para.
    */
   convidou?: boolean;
+  /**
+   * A última intenção RESPONDIDA e quantas vezes seguidas ela saiu.
+   *
+   * O FAQ manda "escalar: se insistir" em pelo menos quatro blocos (voz,
+   * preço de cirurgia, desconto, grau), e até 17/10/2026 nada contava
+   * insistência: era regra escrita que nenhuma camada executava. O Thiago
+   * cobrou no mesmo dia.
+   *
+   * Insistência, aqui, é a mesma resposta saindo de novo. Não é o paciente
+   * escrevendo parecido: é o HOST tendo escolhido o mesmo texto outra vez, o
+   * que significa que o texto não resolveu. Quem sabe isso é o host, sem a LLM
+   * precisar julgar "ele está insistindo?".
+   */
+  ultimaIntencao?: string;
+  repeticoes?: number;
   quando: number;
 }
 
@@ -317,6 +332,32 @@ export function marcaConvidou(folder: string, chatJid: string): void {
 export function jaConvidou(folder: string, chatJid: string): boolean {
   const m = le(folder)[chatJid];
   return !!m && Date.now() - m.quando <= VALIDO_MS && !!m.convidou;
+}
+
+/**
+ * Quantas vezes seguidas esta intenção foi respondida, contando esta.
+ *
+ * Grava e devolve: 1 na primeira, 2 na segunda seguida, e assim por diante.
+ * Intenção diferente zera a contagem, porque a conversa andou.
+ */
+export function contaRepeticao(
+  folder: string,
+  chatJid: string,
+  intencao: string,
+): number {
+  const todas = le(folder);
+  const antes = todas[chatJid];
+  const valida = antes && Date.now() - antes.quando <= VALIDO_MS;
+  const n =
+    valida && antes.ultimaIntencao === intencao ? (antes.repeticoes ?? 1) + 1 : 1;
+  todas[chatJid] = {
+    ...antes,
+    ultimaIntencao: intencao,
+    repeticoes: n,
+    quando: Date.now(),
+  };
+  grava(folder, todas);
+  return n;
 }
 
 /** Esquece esta conversa. Usado em teste e quando o caso fecha. */

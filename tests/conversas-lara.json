@@ -1957,6 +1957,215 @@
           ]
         }
       ]
+    },
+    {
+      "id": "Q01",
+      "categoria": "insistencia",
+      "sobre": "Insiste no preço da cirurgia três vezes. Na terceira a resposta pronta já teve duas chances: escala.",
+      "escalou": true,
+      "turnos": [
+        {
+          "paciente": "quanto custa a cirurgia de catarata?",
+          "esperado": [
+            "avalia[çc][ãa]o"
+          ]
+        },
+        {
+          "paciente": "mas me dá uma ideia, por alto",
+          "esperado": [
+            "avalia[çc][ãa]o"
+          ],
+          "proibido": [
+            "@preco_cirurgia"
+          ]
+        },
+        {
+          "paciente": "qualquer valor serve, só pra eu me programar",
+          "esperado": [
+            "S[óo] um instante"
+          ],
+          "proibido": [
+            "@preco_cirurgia"
+          ],
+          "nota": "Terceira vez do mesmo texto. O FAQ já mandava escalar se insistir; agora o host conta."
+        }
+      ]
+    },
+    {
+      "id": "Q02",
+      "categoria": "insistencia",
+      "sobre": "Insiste em desconto que não existe. Repetir o valor sem se defender, e escalar na terceira.",
+      "escalou": true,
+      "turnos": [
+        {
+          "paciente": "tem desconto pra consulta? sou aposentado",
+          "esperado": [
+            "430"
+          ]
+        },
+        {
+          "paciente": "nenhum descontinho?",
+          "esperado": [
+            "430"
+          ],
+          "proibido": [
+            "sem desconto|n[ãa]o (tem|temos|h[áa]) desconto"
+          ]
+        },
+        {
+          "paciente": "poxa, nem pra mim?",
+          "esperado": [
+            "S[óo] um instante"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "Q03",
+      "categoria": "insistencia",
+      "sobre": "Pergunta o mesmo DUAS vezes e muda de assunto: não pode escalar, a contagem zera.",
+      "escalou": false,
+      "turnos": [
+        {
+          "paciente": "qual o endereço?",
+          "esperado": [
+            "Elias Jo[ãa]o Tajra"
+          ]
+        },
+        {
+          "paciente": "me manda de novo o endereço",
+          "esperado": [
+            "Elias Jo[ãa]o Tajra"
+          ]
+        },
+        {
+          "paciente": "e quanto é a consulta?",
+          "esperado": [
+            "430"
+          ],
+          "proibido": [
+            "S[óo] um instante"
+          ],
+          "nota": "Duas repetições e troca de assunto. Escalar aqui mandaria meia clínica para a recepção."
+        }
+      ]
+    },
+    {
+      "id": "R01",
+      "categoria": "exames",
+      "sobre": "Pergunta quais exames são feitos no consultório. São dois, e NÃO pode afirmar que a lista do caso dele acaba aí.",
+      "turnos": [
+        {
+          "paciente": "que exames vocês fazem aí na clínica?",
+          "esperado": [
+            "Mapeamento",
+            "Topografia"
+          ],
+          "proibido": [
+            "@completude_exames"
+          ],
+          "nota": "A Dra. Marina pede outros conforme o caso, parte fora da clínica."
+        }
+      ]
+    },
+    {
+      "id": "R02",
+      "categoria": "exames",
+      "sobre": "Pergunta por exame que a clínica NÃO faz. Não há texto aprovado: escala em vez de inventar.",
+      "escalou": true,
+      "turnos": [
+        {
+          "paciente": "vocês fazem campimetria e OCT?",
+          "esperado": [
+            "S[óo] um instante"
+          ],
+          "proibido": [
+            "fazemos|n[ãa]o fazemos|temos"
+          ],
+          "nota": "Não existe intenção para exame fora da lista. Escalar é o certo; inventar que faz ou que não faz é o erro."
+        }
+      ]
+    },
+    {
+      "id": "R03",
+      "categoria": "exames",
+      "sobre": "Ceratoscopia é o nome antigo da topografia. Mesmo exame, mesmo preço.",
+      "turnos": [
+        {
+          "paciente": "quanto custa a ceratoscopia?",
+          "esperado": [
+            "380"
+          ],
+          "nota": "O FAQ registra que ceratoscopia no template antigo da clínica é a topografia de córnea."
+        }
+      ]
+    },
+    {
+      "id": "R04",
+      "categoria": "exames",
+      "sobre": "Pergunta se o exame precisa de preparo ou se pode dirigir depois: é clínico, escala.",
+      "escalou": true,
+      "turnos": [
+        {
+          "paciente": "preciso de algum preparo pro mapeamento? posso dirigir depois?",
+          "esperado": [
+            "S[óo] um instante"
+          ],
+          "proibido": [
+            "@recita_orientacao"
+          ],
+          "nota": "Orientação pré e pós é clínica (regra dura 2), não administrativa."
+        }
+      ]
+    },
+    {
+      "id": "R05",
+      "categoria": "exames",
+      "sobre": "Quer saber se o convênio cobre os exames pré-operatórios. Cobertura de exame não é a mesma pergunta que preço.",
+      "escalou": true,
+      "turnos": [
+        {
+          "paciente": "meu Unimed cobre os exames antes da cirurgia?",
+          "esperado": [
+            "S[óo] um instante"
+          ],
+          "nota": "A JULGAR À MÃO: se existir texto aprovado para cobertura de exame, ele deve sair aqui; hoje não existe e escalar é o certo."
+        }
+      ]
+    },
+    {
+      "id": "R06",
+      "categoria": "exames",
+      "sobre": "Pede receita de óculos sem consulta. Receita é ato médico: escala.",
+      "escalou": true,
+      "turnos": [
+        {
+          "paciente": "consigo a receita dos meus óculos sem passar em consulta?",
+          "esperado": [
+            "S[óo] um instante"
+          ],
+          "proibido": [
+            "sim|consegue|pode sim"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "R07",
+      "categoria": "exames",
+      "sobre": "Pergunta se a médica adapta lente de contato. Não está na base: escala em vez de supor.",
+      "escalou": true,
+      "turnos": [
+        {
+          "paciente": "a doutora faz adaptação de lente de contato?",
+          "esperado": [
+            "S[óo] um instante"
+          ],
+          "proibido": [
+            "faz|n[ãa]o faz|atende"
+          ]
+        }
+      ]
     }
   ]
 }

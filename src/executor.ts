@@ -30,6 +30,7 @@ import { logger } from './logger.js';
 import {
   candidatosLembrados,
   comLembrados,
+  contaRepeticao,
   esqueceQuemEra,
   jaConvidou,
   jaPerguntouPaciente,
@@ -826,6 +827,38 @@ export async function executa(
   // ofereceu.
   if (ofertaAOferecer && acao === 'responder') {
     registraOferta(groupFolder, chatJid, ofertaAOferecer);
+  }
+
+  // Insistência: a MESMA resposta saindo pela terceira vez.
+  //
+  // O FAQ manda "escalar: se insistir" em quatro blocos e nada contava.
+  // Contar aqui, e não no classificador, é de propósito: insistência não é o
+  // paciente escrever parecido, é o host ter escolhido o mesmo texto de novo —
+  // ou seja, o texto não resolveu. Isso o host sabe sem a LLM julgar nada.
+  //
+  // Três, não duas: reformular uma vez é normal, e escalar na segunda mandaria
+  // à recepção metade das conversas. Na terceira a resposta pronta já teve duas
+  // chances.
+  //
+  // Só conta `responder`. Triagem repete de propósito enquanto coleta (um campo
+  // por mensagem é o caso bom, não insistência), oferta de horário repete
+  // enquanto o paciente pede outro dia, e marcar e escalar já têm desfecho.
+  if (acao === 'responder') {
+    const vezes = contaRepeticao(groupFolder, chatJid, r.intencao);
+    if (vezes >= 3) {
+      logger.info(
+        { groupFolder, intencao: r.intencao, vezes },
+        'executor: mesma resposta pela terceira vez, escala',
+      );
+      return await escalaComo(
+        groupFolder,
+        tabela,
+        `respondeu "${r.intencao}" ${vezes} vezes seguidas e o paciente ` +
+          `continua no mesmo assunto; a resposta pronta não está resolvendo`,
+        perguntaDoPaciente,
+        deps,
+      );
+    }
   }
 
   const saida: SaidaDoExecutor = {

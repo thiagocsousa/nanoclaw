@@ -563,6 +563,54 @@ describe('desconto da consulta é decisão do HOST (regra de 06/10/2026)', () =>
   });
 });
 
+describe('insistir no mesmo assunto escala (Thiago, 17/10/2026)', () => {
+  // O FAQ manda "escalar: se insistir" em quatro blocos e nada contava.
+  it('a MESMA resposta pela terceira vez escala', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    const p = (n: number) =>
+      rodar(
+        '{"intencao":"preco_consulta","confianca":0.95,"slots":{}}',
+        `quanto é a consulta? (${n})`,
+      );
+    expect((await p(1))?.acao).toBe('responder');
+    expect((await p(2))?.acao).toBe('responder');
+    const terceira = await p(3);
+    expect(terceira?.acao).toBe('escalar');
+    expect(String(pendencias().pop()?.motivo)).toMatch(/3 vezes seguidas/);
+  });
+
+  it('mudar de assunto zera a contagem', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    await rodar('{"intencao":"preco_consulta","confianca":0.95,"slots":{}}');
+    await rodar('{"intencao":"preco_consulta","confianca":0.95,"slots":{}}');
+    await rodar('{"intencao":"endereco","confianca":0.95,"slots":{}}');
+    // A terceira de preço agora é a PRIMEIRA desde que o assunto mudou.
+    const r = await rodar(
+      '{"intencao":"preco_consulta","confianca":0.95,"slots":{}}',
+    );
+    expect(r?.acao).toBe('responder');
+  });
+
+  // ⚠️ A trava que impede isto de estragar a coleta: triagem repete de
+  // propósito enquanto pede um campo por vez, e isso é o caso BOM.
+  it('triagem pode repetir sem escalar', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    for (const slots of [
+      '{"nome":"Thiago"}',
+      '{"nascimento":"01/06/1980"}',
+      '{"cidade":"Teresina"}',
+    ]) {
+      const r = await rodar(
+        `{"intencao":"triagem_dados","confianca":0.95,"slots":${slots}}`,
+      );
+      expect(r?.acao, slots).not.toBe('escalar');
+    }
+  });
+});
+
 describe('triagem completa vira oferta de horário (Thiago, 17/10/2026)', () => {
   // O turno 4 do E08: a mensagem dá os dados que faltavam E pede horário. O
   // classificador rotula `triagem_dados`, e antes disto o host respondia "Só um
