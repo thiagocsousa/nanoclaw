@@ -283,6 +283,12 @@ const SIGLAS_OK = new Set([
 /**
  * A agente escala quando perguntam se é robô, e nunca afirma ser pessoa. Calar e
  * passar adiante não é mentira; dizer que é humana, é, e isso bloqueia.
+ *
+ * Reafirmado pelo Thiago em 17/10/2026, com a alternativa na mesa: ela poderia
+ * responder de frente ("sou um atendimento automatizado da clínica"), o que
+ * seria mais transparente e evitaria gastar um escalonamento numa pergunta que
+ * ela própria resolveria. A escolha foi manter o escalonamento. Não é omissão
+ * de desenho: é decisão, e quem for mexer aqui deve saber que já foi pesada.
  */
 /**
  * Veredito sobre o paciente se encaixar nos critérios de cobertura.
