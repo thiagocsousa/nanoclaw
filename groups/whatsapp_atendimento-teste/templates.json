@@ -224,7 +224,7 @@
         "hora"
       ],
       "textos": [
-        "Nesse dia a Dra. Marina não estará atendendo no consultório, mas temos disponibilidade em {dia}, dia {data}, às {hora}.\n\nEsse horário seria bom para você?"
+        "Nesse dia a Dra. Marina não estará atendendo no consultório, mas tenho {dia}, dia {data}, às {hora}.\n\nEsse horário seria bom para você?"
       ],
       "textos_sem_slot": [
         "Nesse dia não teremos atendimento, mas vou ver outras datas para você.\n\nTem algum outro dia da semana que seria melhor?"

@@ -102,6 +102,49 @@ describe('a tabela de templates passa pela guarda', () => {
     expect(v.achados.map((a) => a.regra)).toContain('frase_proibida');
   });
 
+  // Terceira vez no mesmo dia que artigo antes de um slot dá errado: "da/do
+  // Zulmira" (gênero do paciente), "pela Unimed" (gênero do plano) e "em
+  // segunda" (dia da semana). A regra que saiu das três é a mesma: o host não
+  // sabe o gênero do que vai no slot, então nada de artigo nem preposição
+  // flexionada colada nele.
+  //
+  // {dia} é o pior porque parece seguro: segunda a sexta são femininas ("na
+  // segunda") e sábado é masculino ("no sábado"). Hoje a clínica não atende
+  // sábado, então "na" acertaria sempre — e é exatamente esse tipo de "não
+  // pode acontecer" que me pegou duas vezes hoje.
+  //
+  // "para" NÃO entra na lista: não flexiona gênero e é idiomático antes de dia
+  // da semana. A primeira versão desta regra o incluiu e acusou o
+  // `aceita_horario` ("agendado para {dia}"), que está certo. Regra que acusa o
+  // certo é desligada pela equipe em uma semana.
+  it('nenhum texto põe artigo ou preposição colada em {dia}', () => {
+    const ruins: string[] = [];
+    for (const [nome, def] of Object.entries(TABELA.intencoes)) {
+      for (const t of [...(def.textos ?? []), ...(def.textos_sem_slot ?? [])]) {
+        if (/\b(em|n[ao]|d[ao]|pel[ao])\s+\{dia\}/i.test(t)) {
+          ruins.push(`${nome}: ${t.slice(0, 80)}`);
+        }
+      }
+    }
+    expect(ruins).toEqual([]);
+  });
+
+  it('o detector de artigo colado em {dia} funciona', () => {
+    // Sem isto, a asserção acima passaria mesmo quebrada.
+    const quebrado = 'mas temos disponibilidade em {dia}, dia {data}';
+    expect(/\b(em|n[ao]|d[ao]|pel[ao])\s+\{dia\}/i.test(quebrado)).toBe(
+      true,
+    );
+    const certo = 'mas tenho {dia}, dia {data}';
+    // "para" é invariável e idiomático: tem de passar.
+    expect(/\b(em|n[ao]|d[ao]|pel[ao])\s+\{dia\}/i.test('agendado para {dia}')).toBe(
+      false,
+    );
+    expect(/\b(em|n[ao]|d[ao]|pel[ao])\s+\{dia\}/i.test(certo)).toBe(
+      false,
+    );
+  });
+
   it('pega a lista de hospitais, e deixa passar um só', () => {
     // O texto que o `hospital_cirurgia` tinha até 17/10/2026.
     const lista = inspecionaSaida(
