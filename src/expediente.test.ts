@@ -49,9 +49,9 @@ describe('quem começou antes das 18h continua', () => {
   // O outro lado: quem CHEGA fora do horário não é atendido, e quem responde é
   // a mensagem de ausência do WhatsApp Business.
   it('conversa NOVA às 20h não é atendida', () => {
-    expect(mod.podeResponder(undefined, emTeresina('2026-10-20T20:00:00'))).toBe(
-      false,
-    );
+    expect(
+      mod.podeResponder(undefined, emTeresina('2026-10-20T20:00:00')),
+    ).toBe(false);
   });
 
   it('conversa aberta às 20h não vira passe livre', () => {
@@ -69,9 +69,9 @@ describe('quem começou antes das 18h continua', () => {
   });
 
   it('dentro do horário responde mesmo sem conversa aberta', () => {
-    expect(mod.podeResponder(undefined, emTeresina('2026-10-20T09:00:00'))).toBe(
-      true,
-    );
+    expect(
+      mod.podeResponder(undefined, emTeresina('2026-10-20T09:00:00')),
+    ).toBe(true);
   });
 });
 

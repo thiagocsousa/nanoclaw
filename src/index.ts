@@ -497,10 +497,20 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
               // A marcação no iClinic já aconteceu: segurar o texto não desfaz.
               jaMarcou: acaoDoTurno === 'marcar',
             });
-            await findChannelForGroup(channels, alvo.folder)?.sendMessage(
-              alvo.jid,
-              textoDaRevisao(pendente),
-            );
+            // Fallback pelo JID, como o escalonamento faz. Sem ele, um
+            // REVISAO_FOLDER errado faria a revisão sumir EM SILÊNCIO: a
+            // pendência existiria, ninguém veria, e o paciente esperaria —
+            // inclusive a cobrança de 3 min, que vai pelo mesmo caminho.
+            const canalRevisao =
+              findChannelForGroup(channels, alvo.folder) ||
+              findChannel(channels, alvo.jid);
+            if (!canalRevisao) {
+              logger.error(
+                { jid: alvo.jid, folder: alvo.folder },
+                'revisão: nenhum canal para o destino, resposta NÃO foi revisada',
+              );
+            }
+            await canalRevisao?.sendMessage(alvo.jid, textoDaRevisao(pendente));
             logger.info(
               {
                 group: group.name,
