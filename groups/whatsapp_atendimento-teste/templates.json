@@ -31,7 +31,7 @@
     },
     "pedir_esclarecimento": {
       "bloco": "F00",
-      "quando": "escolheu '4 - Outros', ou escreveu algo vago como 'informação'; e o menu já foi uma vez",
+      "quando": "a pessoa sinalizou que quer algo mas não disse o quê. Os dois casos comuns: respondeu 'sim', 'tenho', 'queria sim' ao fecho 'Ajudo em algo mais?'; ou escreveu algo vago como 'informação', 'uma dúvida', 'queria saber uma coisa'. ⚠️ NÃO confundir com 'sim' logo depois de uma pergunta concreta da Lara: aceitar horário é aceita_horario, confirmar o convênio é convenio_confirmado, confirmar que é para si é paciente_confirmado. Aqui o 'sim' responde a um convite aberto, e por isso não diz nada ainda.",
       "acao": "responder",
       "fecho": false,
       "textos": [

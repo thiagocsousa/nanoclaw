@@ -1366,6 +1366,31 @@
       "escalou": false
     },
     {
+      "id": "P04",
+      "categoria": "ruido",
+      "sobre": "Responde 'sim' ao fecho 'Ajudo em algo mais?'. Tem de perguntar o que ele precisa, não escalar nem oferecer horário do nada (achado do Thiago, 17/10/2026).",
+      "escalou": false,
+      "turnos": [
+        {
+          "paciente": "onde fica a clinica?",
+          "esperado": [
+            "Elias Jo[ãa]o Tajra"
+          ]
+        },
+        {
+          "paciente": "sim",
+          "esperado": [
+            "precisando|precisa"
+          ],
+          "proibido": [
+            "[0-9]{2}:[0-9]{2}",
+            "S[óo] um instante"
+          ],
+          "nota": "O 'sim' aqui responde a um convite aberto. Os outros 'sim' da suíte respondem a pergunta concreta e têm intenção própria."
+        }
+      ]
+    },
+    {
       "id": "O05",
       "categoria": "ruido",
       "sobre": "Dois áudios seguidos: pode ser quem não consegue digitar, deve escalar em vez de insistir.",
