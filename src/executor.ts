@@ -58,7 +58,7 @@ import {
   telefoneDoJid,
   ultimaOferta,
 } from './agendamento.js';
-import { fraseDeTriagem } from './triagem.js';
+import { faltamNaTriagem, fraseDeTriagem } from './triagem.js';
 import {
   VOCABULARIO_REFRATIVO,
   buscaVagas,
@@ -151,6 +151,41 @@ function comDesconto(
   return temDescontoDeConsulta(slots.necessidade, slots.convenio)
     ? 'desconto'
     : intencao;
+}
+
+/**
+ * Triagem que se completou vira oferta de horário.
+ *
+ * Decisão do Thiago em 17/10/2026, com as três opções na mesa, depois que a
+ * passada 11 reprovou o E08 no turno "Teresina, particular. tem horario?".
+ *
+ * Aquela mensagem faz as DUAS coisas: entrega os dados que faltavam e pede
+ * horário. O classificador rotulou `triagem_dados`, que é defensável, e aí o
+ * bloco da agenda não rodava — ele só roda quando a intenção exige `dia` e
+ * `hora`. O host tinha os quatro dados e a necessidade na mão e respondia "Só
+ * um instante.".
+ *
+ * É o host decidindo com o que ele SABE, em vez de depender de o rótulo ter
+ * caído do lado certo — mesmo arranjo do `comDesconto`. E era a única saída
+ * honesta: pedir ao modelo que acertasse o rótulo é devolver a decisão a quem
+ * errou.
+ *
+ * A troca acontece ANTES do bloco da agenda de propósito; depois dele seria
+ * trocar o texto sem ter ido buscar a vaga. E retorno/exame continuam
+ * protegidos: quem barra é o `soHumano` dentro do bloco, não esta função.
+ */
+function comOfertaDeHorario(
+  intencao: string,
+  lembrados: Record<string, string | undefined>,
+  tabela: Tabela,
+): string {
+  if (tabela.intencoes[intencao]?.acao !== 'triagem') return intencao;
+  if (!tabela.intencoes.horario_oferta) return intencao;
+  if (!lembrados.necessidade?.trim()) return intencao;
+  if (faltamNaTriagem(lembrados as Record<string, string>).length > 0) {
+    return intencao;
+  }
+  return 'horario_oferta';
 }
 
 /**
@@ -422,6 +457,21 @@ export async function executa(
   // registrada sem nome e a marcação morria com "faltou: paciente".
 
   let slots = c.slots;
+  // A triagem completa passa a pedir horário. Tem de vir antes do bloco abaixo,
+  // porque é ele que vai à agenda (ver `comOfertaDeHorario`).
+  const completa = comOfertaDeHorario(
+    c.intencao,
+    comLembrados(groupFolder, chatJid, c.slots),
+    tabela,
+  );
+  if (completa !== c.intencao) {
+    logger.info(
+      { groupFolder, de: c.intencao, para: completa },
+      'executor: triagem completa, host vai à agenda',
+    );
+    c.intencao = completa;
+  }
+
   let ofertaAOferecer: Omit<OfertaPendente, 'quando'> | undefined;
   const exige = tabela.intencoes[c.intencao]?.slots_obrigatorios ?? [];
   if (exige.includes('dia') || exige.includes('hora')) {

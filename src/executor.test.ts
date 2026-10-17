@@ -563,6 +563,72 @@ describe('desconto da consulta é decisão do HOST (regra de 06/10/2026)', () =>
   });
 });
 
+describe('triagem completa vira oferta de horário (Thiago, 17/10/2026)', () => {
+  // O turno 4 do E08: a mensagem dá os dados que faltavam E pede horário. O
+  // classificador rotula `triagem_dados`, e antes disto o host respondia "Só um
+  // instante." com os quatro dados e a necessidade na mão.
+  it('dá os dados e pede horário na mesma mensagem: oferta', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    vagasFalsas = [
+      { data: '2026-10-22', dia_semana: 'quinta', inicio: '09:00', fim: '09:20' },
+    ];
+    await rodar(
+      '{"intencao":"triagem_dados","confianca":0.95,"slots":{"necessidade":"catarata"}}',
+      'é pra cirurgia de catarata',
+    );
+    const r = await rodar(
+      '{"intencao":"triagem_dados","confianca":0.95,"slots":{"nome":"Thiago","nascimento":"01/06/1980","cidade":"Teresina","convenio":"particular"}}',
+      'Thiago, 01/06/1980, Teresina, particular. tem horario?',
+    );
+    expect(r?.texto).toMatch(/09:00/);
+    expect(r?.acao).toBe('responder');
+  });
+
+  it('com dado faltando continua pedindo, não oferta', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    vagasFalsas = [
+      { data: '2026-10-22', dia_semana: 'quinta', inicio: '09:00', fim: '09:20' },
+    ];
+    const r = await rodar(
+      '{"intencao":"triagem_dados","confianca":0.95,"slots":{"necessidade":"catarata","nome":"Thiago","cidade":"Teresina","convenio":"particular"}}',
+      'Thiago, Teresina, particular',
+    );
+    expect(r?.texto).not.toMatch(/09:00/);
+    expect(r?.texto.toLowerCase()).toContain('nascimento');
+  });
+
+  it('sem necessidade não oferta: o perfil dependeria de adivinhar', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    vagasFalsas = [
+      { data: '2026-10-22', dia_semana: 'quinta', inicio: '09:00', fim: '09:20' },
+    ];
+    const r = await rodar(
+      '{"intencao":"triagem_dados","confianca":0.95,"slots":{"nome":"Thiago","nascimento":"01/06/1980","cidade":"Teresina","convenio":"particular"}}',
+      'Thiago, 01/06/1980, Teresina, particular',
+    );
+    expect(r?.texto).not.toMatch(/09:00/);
+  });
+
+  // A trava que importa: retorno e exame a Lara NÃO agenda, e a troca não pode
+  // furar isso. Quem barra é o `soHumano` dentro do bloco da agenda.
+  it('retorno com triagem completa escala, não oferta', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    vagasFalsas = [
+      { data: '2026-10-22', dia_semana: 'quinta', inicio: '09:00', fim: '09:20' },
+    ];
+    const r = await rodar(
+      '{"intencao":"triagem_dados","confianca":0.95,"slots":{"necessidade":"retorno","nome":"Thiago","nascimento":"01/06/1980","cidade":"Teresina","convenio":"particular"}}',
+      'Thiago, 01/06/1980, Teresina, particular',
+    );
+    expect(r?.acao).toBe('escalar');
+    expect(r?.texto).not.toMatch(/09:00/);
+  });
+});
+
 describe('a triagem não repete o que a CONVERSA já respondeu (Codex, 17/10/2026)', () => {
   // O cenário do achado: um campo por mensagem. O classificador extrai só a
   // mensagem atual, então sem memória a triagem pedia tudo de novo.
