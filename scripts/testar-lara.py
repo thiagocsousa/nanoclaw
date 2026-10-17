@@ -65,6 +65,26 @@ SENDER_NAME = "Thiago Carvalho"
 DM_THIAGO = "558681512111@s.whatsapp.net"
 
 CONTROLE = "--- NOVO PACIENTE ---"
+# Estado que o HOST mantém por conversa, em arquivo, dentro da pasta do grupo.
+#
+# ⚠️ Todos os cenários usam o mesmo CHAT, porque é o grupo de teste de verdade.
+# Então, para o host, a suíte inteira é UMA conversa: a memória vale 4 h e a
+# oferta pendente 30 min, e o `--- NOVO PACIENTE ---` é só texto — o host não o
+# trata, nunca tratou.
+#
+# O resultado, medido pelo review do Codex em 17/10/2026: o cenário seguinte
+# herdava necessidade, convênio, identidade e as travas de "já perguntei" e "já
+# convidei" do anterior, e um "pode ser esse horário" podia consumir uma oferta
+# de outro cenário. Os resultados mudavam com a ORDEM da suíte, o que torna uma
+# passada verde pouco conclusiva.
+#
+# Apagar os arquivos entre cenários é o isolamento que o CHAT compartilhado não
+# dá. É o mesmo que o `beforeEach` do executor.test.ts já fazia com a memória.
+ESTADO_DO_HOST = ("slots_conversa.json", "ofertas_pendentes.json")
+# Auditoria de escalonamento do host. Usada para a checagem `escalou` do
+# cenário: o TEXTO de um escalonamento é "Só um instante.", igual ao de um
+# DESCONHECIDO, então pelo texto não há como saber se o caso chegou à recepção.
+LOG_ESCALADAS = GRUPO_DIR / "escalonamentos.jsonl"
 # Teto por turno: container frio mais agente mais cadência (até 60 s).
 TIMEOUT_TURNO = 240
 # Depois da 1ª mensagem dela, espera este tanto de silêncio para capturar as
@@ -268,15 +288,57 @@ def checa(resposta, turno, globais, anteriores=()):
         m = re.search(rx, resposta, re.I)
         if m:
             duras.append("proibido %s: %r" % (rx, m.group(0)[:60]))
+    # `exige` é falha DURA; `esperado` é aviso. A diferença é o que a ausência
+    # significa.
+    #
+    # `esperado` cobre REDAÇÃO: "deveria citar 430" pode sair como "quatrocentos
+    # e trinta" e estar certo, então acusar falha dura ali encheria o relatório
+    # de ruído e treinaria quem lê a ignorá-lo.
+    #
+    # `exige` cobre FUNÇÃO: o horário saiu, a marcação foi confirmada, o preço
+    # apareceu. Sem isto a suíte não reprovava uma Lara que respondesse "Só um
+    # instante." a tudo — o Codex mediu em 17/10/2026: zero falhas duras nos 135
+    # turnos, só avisos. Toda ausência era leve, inclusive a do comportamento.
+    for rx in turno.get("exige", []):
+        if not re.search(rx, resposta, re.I):
+            duras.append("EXIGIDO e ausente: %s" % rx)
     for rx in turno.get("esperado", []):
         if not re.search(rx, resposta, re.I):
             avisos.append("esperado e ausente: %s" % rx)
     return duras, avisos
 
 
+def escaladas():
+    """Quantos escalonamentos o host registrou até agora."""
+    try:
+        with open(LOG_ESCALADAS, encoding="utf-8") as f:
+            return sum(1 for linha in f if linha.strip())
+    except OSError:
+        return 0
+
+
+def isola_cenario():
+    """Apaga o estado de conversa do host antes do cenário.
+
+    Sem isto a suíte não mede o cenário, mede o cenário mais o rastro de todos
+    os anteriores. Ver ESTADO_DO_HOST.
+    """
+    apagados = []
+    for nome in ESTADO_DO_HOST:
+        alvo = GRUPO_DIR / nome
+        if alvo.exists():
+            try:
+                alvo.unlink()
+                apagados.append(nome)
+            except OSError as exc:
+                print("  (não consegui apagar %s: %s)" % (nome, exc), flush=True)
+    return apagados
+
+
 def roda_cenario(cen, globais):
     res = {"id": cen["id"], "categoria": cen["categoria"], "sobre": cen["sobre"],
-           "turnos": [], "duras": [], "avisos": []}
+           "turnos": [], "duras": [], "avisos": [],
+           "_escaladas_antes": escaladas()}
     for i, turno in enumerate(cen["turnos"]):
         texto = turno["paciente"]
         if i == 0:
@@ -318,6 +380,19 @@ def roda_cenario(cen, globais):
         })
         res["duras"] += ["T%d: %s" % (i + 1, d) for d in duras]
         res["avisos"] += ["T%d: %s" % (i + 1, a) for a in avisos]
+
+    # `escalou`: o caso chegou à recepção?
+    #
+    # Pelo texto não dá para saber. O escalonamento responde "Só um instante.",
+    # exatamente como um DESCONHECIDO, então um cenário que DEVE escalar ficava
+    # verde quer o caso tenha sido aberto ou não. Quem sabe é o log de auditoria
+    # do host.
+    if "escalou" in cen:
+        houve = escaladas() > res["_escaladas_antes"]
+        if houve != bool(cen["escalou"]):
+            res["duras"].append(
+                "escalou=%s, esperado %s" % (houve, bool(cen["escalou"])))
+    del res["_escaladas_antes"]
     return res
 
 
@@ -419,6 +494,7 @@ def main():
     for n, cen in enumerate(cenarios, 1):
         print("[%d/%d] %s %s ..." % (n, len(cenarios), cen["id"], cen["categoria"]),
               end=" ", flush=True)
+        isola_cenario()
         r = roda_cenario(cen, globais)
         resultados.append(r)
         print("%d dura(s), %d aviso(s)" % (len(r["duras"]), len(r["avisos"])), flush=True)
@@ -433,7 +509,11 @@ def main():
     print("\nfalhas duras: %d | avisos: %d" % (
         dur, sum(len(r["avisos"]) for r in resultados)))
     print("relatório: %s" % destino)
-    return 0
+    # Devolve 1 quando houve falha dura. Devolvia 0 sempre, e aí nenhum laço de
+    # automação em volta desta suíte conseguia reprovar uma passada — quem lesse
+    # o código de saída via sucesso com 30 falhas no relatório (Codex,
+    # 17/10/2026).
+    return 1 if dur else 0
 
 
 if __name__ == "__main__":

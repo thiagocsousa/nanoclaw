@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  perfilDe,
-  slotsDaVaga,
-  temDescontoDeConsulta,
-} from './vagas.js';
+import { perfilDe, slotsDaVaga, temDescontoDeConsulta } from './vagas.js';
 
 // O perfil decide duração, antecedência e cota da agenda. Errá-lo não produz
 // texto errado: produz uma vaga que não existe, já prometida ao paciente. Por

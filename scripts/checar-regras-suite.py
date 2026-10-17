@@ -57,6 +57,31 @@ CASOS = [
 ]
 
 
+def lara_constante():
+    """Uma Lara que responde sempre a mesma coisa tem de REPROVAR.
+
+    O Codex mediu em 17/10/2026: com a resposta constante "Só um instante." nos
+    135 turnos da suíte, zero falhas duras. Toda ausência de comportamento era
+    `esperado`, que é aviso — então uma regressão total do atendimento passava
+    pela automação sem reprovar.
+
+    Isto não mede a Lara. Mede se a SUÍTE tem como reprovar: devolve quantos
+    turnos acusariam falha dura, e exige que seja mais de zero.
+    """
+    with open(
+        os.path.join(RAIZ, "tests", "conversas-lara.json"), encoding="utf-8"
+    ) as f:
+        suite = json.load(f)
+    duras = 0
+    for cen in suite["cenarios"]:
+        anteriores = []
+        for turno in cen.get("turnos", []):
+            du, _ = tl.checa("Só um instante.", turno, GLOBAIS, anteriores)
+            duras += len(du)
+            anteriores.append(turno["paciente"])
+    return duras
+
+
 def main():
     falhas = 0
     for regra, desc, resposta, msg, anteriores, deve_bater in CASOS:
@@ -70,8 +95,15 @@ def main():
         )
         if not ok:
             print("        duras: %s" % duras)
+    duras = lara_constante()
+    ok = duras > 0
+    falhas += not ok
+    print(
+        "%-5s %-18s %-32s turnos que reprovam: %d"
+        % ("ok" if ok else "FALHA", "suite", "resposta constante reprova", duras)
+    )
     print()
-    print("%d casos, %d falhas" % (len(CASOS), falhas))
+    print("%d casos, %d falhas" % (len(CASOS) + 1, falhas))
     return 1 if falhas else 0
 
 

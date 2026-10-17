@@ -594,9 +594,8 @@ describe('a triagem não repete o que a CONVERSA já respondeu (Codex, 17/10/202
   });
 
   it('a cidade sobrevive ao turno em que foi dita', async () => {
-    const { esqueceSlots, comLembrados } = await import(
-      './memoria-conversa.js'
-    );
+    const { esqueceSlots, comLembrados } =
+      await import('./memoria-conversa.js');
     esqueceSlots(PASTA, JID);
     await rodar(
       '{"intencao":"triagem_dados","confianca":0.95,"slots":{"cidade":"Picos"}}',

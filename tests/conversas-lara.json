@@ -118,7 +118,8 @@
           "nota": "Intenção = opção 1. Deve ir direto ao 2º passo.",
           "intencao_esperada": "triagem_dados"
         }
-      ]
+      ],
+      "escalou": false
     },
     {
       "id": "A05",
@@ -178,7 +179,8 @@
           ],
           "intencao_esperada": "preco_cirurgia"
         }
-      ]
+      ],
+      "escalou": false
     },
     {
       "id": "B02",
@@ -289,7 +291,10 @@
             "valor cheio"
           ],
           "nota": "Desconto exige plano NÃO atendido. Particular puro paga cheio.",
-          "intencao_esperada": "preco_consulta"
+          "intencao_esperada": "preco_consulta",
+          "exige": [
+            "430"
+          ]
         }
       ]
     },
@@ -324,9 +329,13 @@
             "desejam realizar a cirurgia"
           ],
           "nota": "Uma frase, um motivo (o plano dele), os dois números juntos.",
-          "intencao_esperada": "desconto"
+          "intencao_esperada": "desconto",
+          "exige": [
+            "300"
+          ]
         }
-      ]
+      ],
+      "escalou": false
     },
     {
       "id": "C03",
@@ -664,7 +673,8 @@
           "proibido": [],
           "intencao_esperada": "DESCONHECIDO"
         }
-      ]
+      ],
+      "escalou": true
     },
     {
       "id": "F04",
@@ -704,7 +714,8 @@
           ],
           "intencao_esperada": "clinico"
         }
-      ]
+      ],
+      "escalou": true
     },
     {
       "id": "G02",
@@ -932,7 +943,8 @@
           "intencao_esperada": "menor_de_idade",
           "nota": "Não espere 'Só um instante' aqui: o texto aprovado desta intenção é a própria resposta. A escalada é AÇÃO do host e não aparece no texto — conferir escalonamento é olhar escalonamentos.jsonl."
         }
-      ]
+      ],
+      "escalou": true
     },
     {
       "id": "J02",
@@ -982,7 +994,8 @@
           "intencao_esperada": "menor_de_idade",
           "nota": "Não espere 'Só um instante' aqui: o texto aprovado desta intenção é a própria resposta. A escalada é AÇÃO do host e não aparece no texto — conferir escalonamento é olhar escalonamentos.jsonl."
         }
-      ]
+      ],
+      "escalou": true
     },
     {
       "id": "K01",
@@ -1054,7 +1067,8 @@
           ],
           "intencao_esperada": "DESCONHECIDO"
         }
-      ]
+      ],
+      "escalou": true
     },
     {
       "id": "L02",
@@ -1543,7 +1557,8 @@
           "nota": "Jejum muda entre catarata e PRK. Não recitar o documento.",
           "intencao_esperada": "DESCONHECIDO"
         }
-      ]
+      ],
+      "escalou": true
     },
     {
       "id": "H07",
@@ -1582,7 +1597,8 @@
           "nota": "Queda súbita de visão e secreção são sinais de alerta do próprio documento. escalar.py --urgente.",
           "intencao_esperada": "clinico"
         }
-      ]
+      ],
+      "escalou": true
     },
     {
       "id": "M06",
@@ -1676,7 +1692,10 @@
             "porque (voc[êe] )?(quer|vai) operar"
           ],
           "nota": "Uma frase, um motivo (o plano dele), os dois números juntos.",
-          "intencao_esperada": "desconto"
+          "intencao_esperada": "desconto",
+          "exige": [
+            "300"
+          ]
         }
       ]
     },
@@ -1866,7 +1885,10 @@
           "esperado": [
             "[0-9]{2}:[0-9]{2}"
           ],
-          "nota": "A necessidade ficou na memória desde o menu; o perfil cruzado sai dela com o convênio deste turno."
+          "nota": "A necessidade ficou na memória desde o menu; o perfil cruzado sai dela com o convênio deste turno.",
+          "exige": [
+            "[0-9]{2}:[0-9]{2}"
+          ]
         },
         {
           "paciente": "pode ser esse horario",
@@ -1876,7 +1898,13 @@
           "proibido": [
             "\\{\\w+\\}"
           ],
-          "intencao_esperada": "aceita_horario"
+          "intencao_esperada": "aceita_horario",
+          "exige": [
+            "agendad"
+          ],
+          "permitido": [
+            "confirmou_agendamento"
+          ]
         }
       ]
     }
