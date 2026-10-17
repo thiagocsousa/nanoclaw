@@ -349,7 +349,9 @@ export function contaRepeticao(
   const antes = todas[chatJid];
   const valida = antes && Date.now() - antes.quando <= VALIDO_MS;
   const n =
-    valida && antes.ultimaIntencao === intencao ? (antes.repeticoes ?? 1) + 1 : 1;
+    valida && antes.ultimaIntencao === intencao
+      ? (antes.repeticoes ?? 1) + 1
+      : 1;
   todas[chatJid] = {
     ...antes,
     ultimaIntencao: intencao,

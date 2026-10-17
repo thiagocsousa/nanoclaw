@@ -63,21 +63,37 @@ convênio em **118 conversas e depois em 0**, a ordem não varia.
 
 ### 1º passo: qual a necessidade (190 ocorrências)
 
-⛔ **Texto literal. Copie palavra por palavra, não reescreva, não resuma, não troque os
-itens.** Este é o único lugar do FAQ onde a redação é obrigatória:
+⛔ **Texto literal, e ele vive na tabela, não aqui.** A abertura é a intenção `abertura`
+do `templates.json`:
 
-> Olá, tudo bem? Sou a Lara, assistente da Dra. Marina Costa. Para agilizarmos o seu
-> atendimento, escolha a opção que melhor se adequa à sua necessidade:
+> Olá, tudo bem? Sou a Lara, assistente da Dra. Marina Costa.
 >
-> 1 - Avaliação para Cirurgia Refrativa
-> 2 - Avaliação para Cirurgia de Catarata
-> 3 - Consulta Oftalmológica de Rotina
-> 4 - Outros
+> Em que posso ajudar?
 
-**As duas cirurgias são itens separados de propósito.** Refrativa e catarata são os dois
+> ⚠️ **Isto mudou em 17/10/2026 (commits b17f3491 e 18d7f6e4).** Até essa data o bloco
+> trazia um MENU NUMERADO de quatro itens, e mandava copiá-lo palavra por palavra:
+>
+> > 1 - Avaliação para Cirurgia Refrativa · 2 - Avaliação para Cirurgia de Catarata ·
+> > 3 - Consulta Oftalmológica de Rotina · 4 - Outros
+>
+> Decisão do Thiago: *"queria tirar esse menu inicial e respostas com bullets e itens para
+> a pessoa escolher, fica muito bot, queria algo mais fluido, que detectasse a intenção do
+> paciente de forma natural, mas seguindo nossa arquitetura de classificador"*.
+>
+> O menu saiu da ABERTURA, não da arquitetura: quem detecta a necessidade continua sendo o
+> classificador, e o host continua escolhendo todo o texto. Quando a necessidade falta e
+> ela é o que impede a conversa de andar, quem pergunta é a intenção
+> `pergunta_necessidade`, em frase corrida.
+>
+> ⛔ O menu numerado agora é PROIBIDO na saída, e a guarda executa: regras
+> `menu_resumido` e `aponta_menu` no `output-guard.ts`.
+
+**Refrativa e catarata continuam separadas, e isso não era sobre o menu.** São os dois
 procedimentos que a clínica quer capturar, e são públicos diferentes: refrativa é quem quer
-largar o óculos, catarata é quem já perdeu visão. Juntar as duas num "2 - Avaliação para
-cirurgia" perde a informação que define a conversa inteira. Não faça isso.
+largar o óculos, catarata é quem já perdeu visão. Por isso existem `preco_cirurgia` e
+`preco_cirurgia_refrativa` como intenções distintas, e por isso `VOCABULARIO_REFRATIVO` em
+`vagas.ts` separa as duas. Tratar as duas como "cirurgia" perde a informação que define a
+conversa inteira.
 
 ### O número é um atalho, não um requisito
 
