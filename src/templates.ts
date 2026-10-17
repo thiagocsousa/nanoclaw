@@ -114,6 +114,33 @@ export const VALORES: Record<string, string> = {
 
 export const FECHO = 'Ajudo em algo mais?';
 
+/**
+ * Separador de MENSAGENS dentro de uma resposta.
+ *
+ * O host às vezes emenda duas coisas num turno: a resposta e o pedido dos
+ * dados que faltam (`emenda_triagem`, `recusar_e_triagem`). Até 17/10/2026 isso
+ * saía num `sendMessage` só, e o Thiago apontou o resultado: dois parágrafos
+ * sobre o preço da cirurgia seguidos do formulário de quatro campos, tudo numa
+ * bolha. O documento de tom dele põe "mensagens excessivamente longas" na lista
+ * do que evitar.
+ *
+ * Quebrar em duas é como a recepção escreve: responde, e aí pede os dados.
+ *
+ * ⚠️ NÃO dá para quebrar em `\n\n`: quase todo texto aprovado tem parágrafo
+ * dentro, e aí uma resposta viraria quatro bolhas. Por isso um caractere de
+ * controle, que nunca aparece em texto escrito por humano — e some na quebra,
+ * então nunca chega ao paciente.
+ */
+export const SEPARA_MENSAGEM = '\u001e';
+
+/** Divide a saída do executor nas mensagens a enviar, na ordem. */
+export function mensagensDe(texto: string): string[] {
+  return texto
+    .split(SEPARA_MENSAGEM)
+    .map((p) => p.trim())
+    .filter(Boolean);
+}
+
 const cache = new Map<string, Tabela>();
 
 const ACOES_VALIDAS: ReadonlySet<string> = new Set<Acao>([

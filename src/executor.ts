@@ -44,6 +44,7 @@ import {
 import { pacientesComTelefone, primeiroNome } from './paciente.js';
 import { interpreta } from './classify.js';
 import {
+  SEPARA_MENSAGEM,
   VALORES,
   carregaTabela,
   limiarDeConfianca,
@@ -770,7 +771,9 @@ export async function executa(
       // A recusa vem primeiro e o pedido emenda, na mesma mensagem: o F04
       // manda não gastar um turno só perguntando. Sem nada faltando, só a
       // recusa, sem pergunta pendurada no fim.
-      texto = [r.texto, pedido].filter(Boolean).join('\n\n');
+      // Duas MENSAGENS, não dois parágrafos: a resposta e, em seguida, o
+      // pedido dos dados. Ver SEPARA_MENSAGEM em templates.ts.
+      texto = [r.texto, pedido].filter(Boolean).join(SEPARA_MENSAGEM);
       // Só conta como convite o que virou pergunta de fato. Sem `pedido` não
       // saiu convite nenhum, e marcar aqui gastaria a única chance da conversa
       // num turno que não convidou.

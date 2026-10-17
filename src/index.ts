@@ -86,6 +86,7 @@ import {
   wantsOutputGuard,
 } from './output-guard.js';
 import { humanDelayMs, sleep, wantsHumanCadence } from './human-cadence.js';
+import { mensagensDe } from './templates.js';
 import { logger } from './logger.js';
 
 // Re-export for backwards compatibility during refactor
@@ -423,20 +424,35 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
       }
 
       if (paraEnviar) {
+        let inicioDaMensagem = inicioDoTurno;
+        let enviou = false;
         if (wantsHumanCadence(group.folder)) {
-          const espera = humanDelayMs(paraEnviar, Date.now() - inicioDoTurno);
-          if (espera > 0) {
-            logger.debug(
-              { group: group.name, espera },
-              'cadência humana: aguardando antes de enviar',
-            );
-            // Mantém o "digitando" de pé: a presença do WhatsApp expira, e
-            // silêncio sem indicador parece queda, não pessoa pensando.
-            await channel.setTyping?.(chatJid, true);
-            await sleep(espera);
+          // A cadência é por MENSAGEM, não pela resposta inteira: o alvo é o
+          // tempo de digitar aquele texto, e somar o das duas faria a segunda
+          // chegar tarde demais.
+          for (const parte of mensagensDe(paraEnviar)) {
+            const espera = humanDelayMs(parte, Date.now() - inicioDaMensagem);
+            if (espera > 0) {
+              logger.debug(
+                { group: group.name, espera },
+                'cadência humana: aguardando antes de enviar',
+              );
+              // Mantém o "digitando" de pé: a presença do WhatsApp expira, e
+              // silêncio sem indicador parece queda, não pessoa pensando.
+              await channel.setTyping?.(chatJid, true);
+              await sleep(espera);
+            }
+            await channel.sendMessage(chatJid, parte);
+            // A próxima mensagem conta o tempo dela, do zero.
+            inicioDaMensagem = Date.now();
+          }
+          enviou = true;
+        }
+        if (!enviou) {
+          for (const parte of mensagensDe(paraEnviar)) {
+            await channel.sendMessage(chatJid, parte);
           }
         }
-        await channel.sendMessage(chatJid, paraEnviar);
         outputSentToUser = true;
       }
       // Only reset idle timer on actual results, not session-update markers (result: null)

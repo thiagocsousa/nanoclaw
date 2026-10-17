@@ -71,6 +71,13 @@ describe('a tabela de templates passa pela guarda', () => {
     }
   }
 
+  it('nenhum texto aprovado traz o separador de mensagem', () => {
+    // Ele é posto pelo HOST ao emendar, nunca escrito na tabela. Se aparecer
+    // num texto, vira quebra onde ninguém decidiu quebrar.
+    const comSeparador = casos.filter(([, , t]) => t.includes('\u001e'));
+    expect(comSeparador.map(([nome]) => nome)).toEqual([]);
+  });
+
   it('tem texto para inspecionar', () => {
     expect(casos.length).toBeGreaterThan(40);
   });

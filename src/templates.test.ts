@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest';
 
 import {
   FECHO,
+  SEPARA_MENSAGEM,
   type Tabela,
   carregaTabela,
   esqueceTabela,
   intencoesValidas,
+  mensagensDe,
   renderiza,
 } from './templates.js';
 
@@ -229,5 +231,34 @@ describe('a tabela real do grupo de teste', () => {
     const lista = intencoesValidas(t);
     expect(lista).not.toContain('DESCONHECIDO');
     expect(lista.length).toBeGreaterThan(15);
+  });
+});
+
+describe('mensagensDe: a resposta pode virar mais de uma mensagem', () => {
+  it('divide no separador e some com ele', () => {
+    const r = mensagensDe(`Primeira.${SEPARA_MENSAGEM}Segunda.`);
+    expect(r).toEqual(['Primeira.', 'Segunda.']);
+    expect(r.join('')).not.toContain(SEPARA_MENSAGEM);
+  });
+
+  // ⚠️ A razão de existir um caractere de controle em vez de quebrar em "\n\n":
+  // quase todo texto aprovado tem parágrafo dentro, e dividir por parágrafo
+  // transformaria uma resposta em quatro bolhas.
+  it('NÃO divide em parágrafo', () => {
+    const dois =
+      'O valor depende da técnica.\n\nPor isso o primeiro passo é a avaliação.';
+    expect(mensagensDe(dois)).toEqual([dois]);
+  });
+
+  it('texto simples continua uma mensagem só', () => {
+    expect(mensagensDe('Só um instante.')).toEqual(['Só um instante.']);
+  });
+
+  it('separador sobrando não vira mensagem vazia', () => {
+    expect(mensagensDe(`A.${SEPARA_MENSAGEM}${SEPARA_MENSAGEM}B.`)).toEqual([
+      'A.',
+      'B.',
+    ]);
+    expect(mensagensDe(`${SEPARA_MENSAGEM}A.`)).toEqual(['A.']);
   });
 });
