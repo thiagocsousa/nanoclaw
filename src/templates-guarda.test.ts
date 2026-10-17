@@ -132,17 +132,13 @@ describe('a tabela de templates passa pela guarda', () => {
   it('o detector de artigo colado em {dia} funciona', () => {
     // Sem isto, a asserção acima passaria mesmo quebrada.
     const quebrado = 'mas temos disponibilidade em {dia}, dia {data}';
-    expect(/\b(em|n[ao]|d[ao]|pel[ao])\s+\{dia\}/i.test(quebrado)).toBe(
-      true,
-    );
+    expect(/\b(em|n[ao]|d[ao]|pel[ao])\s+\{dia\}/i.test(quebrado)).toBe(true);
     const certo = 'mas tenho {dia}, dia {data}';
     // "para" é invariável e idiomático: tem de passar.
-    expect(/\b(em|n[ao]|d[ao]|pel[ao])\s+\{dia\}/i.test('agendado para {dia}')).toBe(
-      false,
-    );
-    expect(/\b(em|n[ao]|d[ao]|pel[ao])\s+\{dia\}/i.test(certo)).toBe(
-      false,
-    );
+    expect(
+      /\b(em|n[ao]|d[ao]|pel[ao])\s+\{dia\}/i.test('agendado para {dia}'),
+    ).toBe(false);
+    expect(/\b(em|n[ao]|d[ao]|pel[ao])\s+\{dia\}/i.test(certo)).toBe(false);
   });
 
   it('pega a lista de hospitais, e deixa passar um só', () => {
