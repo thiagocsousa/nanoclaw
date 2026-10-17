@@ -85,6 +85,32 @@ ESTADO_DO_HOST = ("slots_conversa.json", "ofertas_pendentes.json")
 # cenário: o TEXTO de um escalonamento é "Só um instante.", igual ao de um
 # DESCONHECIDO, então pelo texto não há como saber se o caso chegou à recepção.
 LOG_ESCALADAS = GRUPO_DIR / "escalonamentos.jsonl"
+# Fila da revisão humana. Quando ela está ligada, a resposta NÃO vai ao
+# paciente: fica aqui esperando um "ok CODIGO" vindo do grupo de atendimento.
+#
+# A suíte injeta no chat do paciente e espera a resposta chegar nele, então com
+# revisão ligada todo cenário daria timeout. Aprovar automaticamente é o que
+# mantém a suíte medindo o COMPORTAMENTO (qual texto saiu, se escalou) em vez de
+# medir a presença de um humano.
+#
+# ⚠️ Isto NÃO testa a revisão em si: testa que o resto continua funcionando com
+# ela ligada. A revisão tem teste próprio em src/revisao-humana.test.ts.
+FILA_REVISAO = GRUPO_DIR / "respostas_pendentes.json"
+# De onde a aprovação é aceita. Lido do .env, igual ao host: fixar aqui faria a
+# suíte aprovar num JID e o host esperar noutro, e o sintoma seria 99 timeouts
+# sem nenhuma pista.
+def _env(chave):
+    try:
+        for linha in (RAIZ / ".env").read_text(encoding="utf-8").splitlines():
+            if linha.startswith(chave + "="):
+                return linha.split("=", 1)[1].strip()
+    except OSError:
+        pass
+    return ""
+
+
+REVISAO_JID = _env("REVISAO_JID") or _env("ESCALONAMENTO_JID")
+REVISAO_SENDER = REVISAO_JID
 # Teto por turno: container frio mais agente mais cadência (até 60 s).
 TIMEOUT_TURNO = 240
 # Depois da 1ª mensagem dela, espera este tanto de silêncio para capturar as
@@ -109,15 +135,20 @@ def conn():
     return c
 
 
-def injeta(texto):
-    """Grava a mensagem do 'paciente' e devolve o timestamp usado."""
+def injeta(texto, chat=None, sender=None):
+    """Grava uma mensagem e devolve o timestamp usado.
+
+    Sem `chat`, fala como o paciente no grupo de teste. Com `chat`, fala como
+    outra pessoa noutro lugar — é assim que a aprovação da revisão é imitada,
+    falando como o grupo de atendimento.
+    """
     ts = agora_iso()
     mid = "TESTE" + "".join(random.choices(string.ascii_uppercase + string.digits, k=15))
     with conn() as c:
         c.execute(
             "INSERT INTO messages (id, chat_jid, sender, sender_name, content,"
             " timestamp, is_from_me, is_bot_message) VALUES (?,?,?,?,?,?,1,0)",
-            (mid, CHAT, SENDER, SENDER_NAME, texto, ts),
+            (mid, chat or CHAT, sender or SENDER, SENDER_NAME, texto, ts),
         )
     return ts
 
@@ -326,6 +357,42 @@ def checa(resposta, turno, globais, anteriores=()):
     return duras, avisos
 
 
+def aprova_pendentes():
+    """Aprova o que estiver na fila da revisão, como a recepção faria.
+
+    ⚠️ A aprovação TEM de passar pelo host: é ele que envia ao paciente. Apagar
+    o arquivo da fila deixaria o paciente sem nada e o cenário no timeout do
+    mesmo jeito. Então o harness fala como o grupo de atendimento, mandando
+    "ok CODIGO" no JID de onde a aprovação é aceita.
+
+    Devolve os códigos aprovados.
+    """
+    if not REVISAO_JID:
+        return []
+    try:
+        with open(FILA_REVISAO, encoding="utf-8") as f:
+            itens = json.load(f)
+    except (OSError, ValueError):
+        return []
+    codigos = [p.get("codigo") for p in itens if p.get("codigo")]
+    for codigo in codigos:
+        injeta("ok %s" % codigo, chat=REVISAO_JID, sender=REVISAO_SENDER)
+    return codigos
+
+
+def espera_e_aprova(desde, limite_s=60):
+    """Espera a resposta cair na fila da revisão e aprova. Vazio = sem revisão."""
+    if not FILA_REVISAO.exists() and not REVISAO_JID:
+        return []
+    fim = time.time() + limite_s
+    while time.time() < fim:
+        codigos = aprova_pendentes()
+        if codigos:
+            return codigos
+        time.sleep(2)
+    return []
+
+
 def escaladas():
     """Quantos escalonamentos o host registrou até agora."""
     try:
@@ -364,6 +431,9 @@ def roda_cenario(cen, globais):
         marco = agora_iso()
         t0 = time.time()
         injeta(texto)
+        # Com revisão ligada, a resposta espera aprovação antes de ir ao
+        # paciente. O harness aprova, senão todo cenário daria timeout.
+        aprovados = espera_e_aprova(marco)
         partes = espera_resposta(marco)
         resposta = "\n".join(partes)
         bloqueios = avisos_da_guarda(marco)

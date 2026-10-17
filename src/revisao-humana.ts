@@ -1,0 +1,293 @@
+/**
+ * Revisão humana: a resposta vai ao grupo antes de ir ao paciente.
+ *
+ * ## Por que existe
+ *
+ * Decisão do Thiago em 17/10/2026, antes de abrir para pacientes de verdade:
+ * *"queria que enviasse a resposta pro grupo de atendimento, para avaliarmos
+ * antes de responder ao paciente, e após autorização enviar pra ele. Acho que
+ * ficaríamos mais confortáveis com essa alternativa antes de deixar 100%
+ * automatizado."*
+ *
+ * É uma fase de confiança, não o desenho final: a tabela de templates já
+ * garante que o TEXTO foi aprovado por humano uma vez, e o que a revisão
+ * acrescenta é conferir se foi o texto CERTO para aquela pergunta. Os dois
+ * erros da passada 13 ("campimetria e OCT" respondido com a tabela de preços,
+ * cobertura de EXAME respondida com a da cirurgia) são exatamente o que ela
+ * pega e nenhuma guarda pegaria: os dois textos estavam corretos, só não
+ * respondiam o que foi perguntado.
+ *
+ * ## Um passo de aprovação já foi removido antes, e não é o mesmo
+ *
+ * `agendamento.ts` registra que eu havia construído aprovação para a MARCAÇÃO e
+ * removido, porque "uma pessoa clicando confirmar três minutos depois" não
+ * protege contra colisão de horário. Aquele argumento é sobre uma corrida de
+ * escrita. Aqui o risco é outro: resposta errada chegando ao paciente, que uma
+ * pessoa lendo três minutos depois pega muito bem.
+ *
+ * ## O que NÃO passa por revisão
+ *
+ * Escalonamento. O caso já está na mão de um humano, e pedir que ele aprove uma
+ * mensagem que diz "olha isto" é uma volta inútil.
+ *
+ * ## Marcação já aconteceu quando o texto chega aqui
+ *
+ * ⚠️ Em `aceita_horario`, o `marca()` escreve no iClinic ANTES de o texto ser
+ * enviado, e a revisão não desfaz isso. Segurar a escrita seria pior: a vaga
+ * pode ser tomada enquanto a confirmação espera aprovação, e aí o paciente
+ * recebe um "está agendado" sobre um horário que outro levou.
+ *
+ * Então, nesses casos, o horário JÁ ESTÁ na agenda e só falta avisar o
+ * paciente. A mensagem para o grupo diz isso com todas as letras, e a pendência
+ * entra como urgente: esquecer dela deixa alguém com consulta marcada e sem
+ * saber.
+ */
+import fs from 'fs';
+import path from 'path';
+
+import { GROUPS_DIR } from './config.js';
+import { readEnvFile } from './env.js';
+import { destinoDoAviso, proximoDegrau } from './escalation-sla.js';
+import { logger } from './logger.js';
+
+const envConfig = readEnvFile([
+  'REVISAO_HUMANA_FOLDERS',
+  'REVISAO_JID',
+  'REVISAO_FOLDER',
+]);
+
+function env(key: string, fallback = ''): string {
+  return process.env[key] || envConfig[key] || fallback;
+}
+
+const FOLDERS = new Set(
+  env('REVISAO_HUMANA_FOLDERS')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean),
+);
+
+/**
+ * Para onde vai a resposta a revisar, e de onde a aprovação é aceita.
+ *
+ * ⚠️ Default é o destino do escalonamento, que hoje é a DM do Thiago — NÃO o
+ * grupo de atendimento. O Thiago pediu o grupo, então em produção isto precisa
+ * do `REVISAO_JID` apontando para lá. Sem env próprio, um `ok R7K2` mandado no
+ * grupo seria ignorado em silêncio, que é o pior desfecho possível: a recepção
+ * acha que aprovou e o paciente não recebe nada.
+ */
+function destino(): { jid: string; folder: string } {
+  const padrao = destinoDoAviso();
+  return {
+    jid: env('REVISAO_JID', padrao.jid),
+    folder: env('REVISAO_FOLDER', padrao.folder),
+  };
+}
+
+export function destinoDaRevisao(): { jid: string; folder: string } {
+  return destino();
+}
+
+export function wantsRevisaoHumana(groupFolder?: string): boolean {
+  return !!groupFolder && FOLDERS.has(groupFolder);
+}
+
+/** Só de onde a revisão foi pedida se aceita a aprovação. */
+export function podeAprovar(jid: string): boolean {
+  return FOLDERS.size > 0 && jid === destino().jid;
+}
+
+export interface RespostaPendente {
+  codigo: string;
+  /** epoch ms de quando ficou pronta */
+  quando: number;
+  /** Para quem vai, depois de aprovada. */
+  chatJid: string;
+  /**
+   * As mensagens já divididas e já inspecionadas pela guarda. Guardadas como
+   * lista, e não como texto com separador dentro, porque na aprovação elas são
+   * enviadas VERBATIM: a guarda não roda de novo (já rodou) e a cadência humana
+   * não se aplica (o tempo de revisão já foi a espera).
+   */
+  partes: string[];
+  intencao: string;
+  /** O que o paciente perguntou, para quem revisa julgar se a resposta cabe. */
+  pergunta: string;
+  /** A marcação no iClinic já foi feita e só falta avisar. */
+  jaMarcou?: boolean;
+  cobrado?: boolean;
+  alarmado?: boolean;
+}
+
+const ARQUIVO = 'respostas_pendentes.json';
+const ALFABETO = 'ABCDEFGHJKMNPQRTUVWXY34679';
+
+function arquivo(folder: string): string {
+  return path.join(GROUPS_DIR, folder, ARQUIVO);
+}
+
+export function lePendentes(folder: string): RespostaPendente[] {
+  try {
+    const d = JSON.parse(fs.readFileSync(arquivo(folder), 'utf-8'));
+    return Array.isArray(d) ? (d as RespostaPendente[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function grava(folder: string, itens: RespostaPendente[]): void {
+  try {
+    const alvo = arquivo(folder);
+    fs.mkdirSync(path.dirname(alvo), { recursive: true });
+    const tmp = `${alvo}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(itens, null, 2));
+    fs.renameSync(tmp, alvo);
+  } catch (err) {
+    // ⚠️ Diferente da memória de conversa, perder isto NÃO é degradação
+    // aceitável: a resposta some e o paciente fica sem nada. Por isso o erro é
+    // logado como error, e quem chama trata a falha.
+    logger.error({ err, folder }, 'revisao: NÃO gravou a pendência');
+    throw err;
+  }
+}
+
+function geraCodigo(usados: Set<string>): string {
+  for (let i = 0; i < 50; i++) {
+    let c = '';
+    for (let j = 0; j < 4; j++) {
+      c += ALFABETO[Math.floor(Math.random() * ALFABETO.length)];
+    }
+    if (!usados.has(c)) return c;
+  }
+  return `R${Date.now().toString(36).slice(-3).toUpperCase()}`;
+}
+
+/** Guarda a resposta e devolve o código para quem revisa aprovar. */
+export function registraParaRevisao(
+  folder: string,
+  dados: Omit<RespostaPendente, 'codigo' | 'quando'>,
+): RespostaPendente {
+  const itens = lePendentes(folder);
+  const p: RespostaPendente = {
+    ...dados,
+    codigo: geraCodigo(new Set(itens.map((x) => x.codigo))),
+    quando: Date.now(),
+  };
+  itens.push(p);
+  grava(folder, itens);
+  return p;
+}
+
+/** A mensagem que o grupo recebe. */
+export function textoDaRevisao(p: RespostaPendente): string {
+  const corpo = p.partes.map((t, i) => `*${i + 1}.* ${t}`).join('\n\n');
+  const aviso = p.jaMarcou
+    ? '\n\n⚠️ *O horário JÁ ESTÁ na agenda do iClinic.* Falta só avisar o paciente.'
+    : '';
+  return (
+    `📝 *Resposta pronta* · *${p.codigo}*\n\n` +
+    `*Paciente:* ${p.pergunta}\n\n` +
+    `${corpo}${aviso}\n\n` +
+    `Responda *ok ${p.codigo}* para enviar ao paciente.`
+  );
+}
+
+/** Tira a pendência da fila e devolve o que enviar. Idempotente. */
+export function aprova(
+  folder: string,
+  codigo: string,
+): RespostaPendente | undefined {
+  const itens = lePendentes(folder);
+  const i = itens.findIndex(
+    (x) => x.codigo.toUpperCase() === codigo.toUpperCase(),
+  );
+  if (i < 0) return undefined;
+  const [p] = itens.splice(i, 1);
+  grava(folder, itens);
+  return p;
+}
+
+/** Procura o código em todas as pastas com revisão ligada. */
+export function aprovaEmQualquerPasta(
+  codigo: string,
+): { folder: string; pendente: RespostaPendente } | undefined {
+  for (const folder of FOLDERS) {
+    const p = aprova(folder, codigo);
+    if (p) return { folder, pendente: p };
+  }
+  return undefined;
+}
+
+export function pastasComRevisao(): string[] {
+  return [...FOLDERS];
+}
+
+export function salvaPendentes(
+  folder: string,
+  itens: RespostaPendente[],
+): void {
+  grava(folder, itens);
+}
+
+/**
+ * A escada de cobrança, reusando `proximoDegrau` do escalonamento.
+ *
+ * Reusar, e não copiar: duas escadas com os mesmos números em arquivos
+ * diferentes divergem na primeira vez que alguém ajusta uma. Já aconteceu duas
+ * vezes hoje com a mesma regra escrita em dois lugares (o escopo do
+ * `empurra_trabalho` e a regex de telefone com e sem `\b`).
+ *
+ * Diferença de fundo em relação ao escalonamento: ali a cobrança é por um caso
+ * esquecido; aqui é por um PACIENTE esperando uma resposta que já está pronta.
+ * Nada sai sozinho — decisão do Thiago em 17/10/2026, com a alternativa de
+ * enviar automaticamente após N minutos na mesa. Enviar sozinho faria a revisão
+ * virar opcional: num dia corrido, tudo passaria sem ninguém ler.
+ */
+export interface RevisaoSlaDeps {
+  sendMessage: (jid: string, texto: string, folder?: string) => unknown;
+  tocaAlarme: () => Promise<void> | void;
+}
+
+export async function tickRevisaoSla(
+  deps: RevisaoSlaDeps,
+  agora: number = Date.now(),
+): Promise<void> {
+  const alvo = destino();
+  for (const folder of FOLDERS) {
+    const itens = lePendentes(folder);
+    if (itens.length === 0) continue;
+    let mudou = false;
+    for (const p of itens) {
+      // `proximoDegrau` lê `quando`, `cobrado`, `alarmado` e `urgente`. Uma
+      // resposta com a marcação já feita é urgente: esquecer dela deixa alguém
+      // com consulta na agenda e sem saber.
+      const degrau = proximoDegrau(
+        { ...p, motivo: '', pergunta: '', urgente: !!p.jaMarcou },
+        agora,
+      );
+      if (degrau === 'nada') continue;
+      const minutos = Math.floor((agora - p.quando) / 60_000);
+      if (degrau === 'cobrar') {
+        p.cobrado = true;
+        mudou = true;
+        deps.sendMessage(
+          alvo.jid,
+          `⏰ *${p.codigo}* esperando aprovação há ${minutos} min\n\n` +
+            `O paciente está sem resposta. Responda *ok ${p.codigo}* para enviar.` +
+            (p.jaMarcou
+              ? '\n\n⚠️ O horário já está na agenda: ele não sabe ainda.'
+              : ''),
+          alvo.folder,
+        );
+        logger.info({ folder, codigo: p.codigo }, 'revisão: cobrado');
+      } else {
+        p.alarmado = true;
+        p.cobrado = true;
+        mudou = true;
+        await deps.tocaAlarme();
+        logger.warn({ folder, codigo: p.codigo }, 'revisão: alarme');
+      }
+    }
+    if (mudou) grava(folder, itens);
+  }
+}

@@ -78,6 +78,7 @@ import {
   destinoDoAviso,
   podeDarBaixa,
   startEscalationSla,
+  tocaAlarme,
 } from './escalation-sla.js';
 import { executa, listaDeIntencoes, wantsTemplates } from './executor.js';
 import {
@@ -87,6 +88,16 @@ import {
 } from './output-guard.js';
 import { humanDelayMs, sleep, wantsHumanCadence } from './human-cadence.js';
 import { mensagensDe } from './templates.js';
+import {
+  aprovaEmQualquerPasta,
+  destinoDaRevisao,
+  pastasComRevisao,
+  tickRevisaoSla,
+  podeAprovar,
+  registraParaRevisao,
+  textoDaRevisao,
+  wantsRevisaoHumana,
+} from './revisao-humana.js';
 import { logger } from './logger.js';
 
 // Re-export for backwards compatibility during refactor
@@ -345,6 +356,8 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
       let paraEnviar = text;
       let agendouNesteTurno = false;
       let intencaoDoTurno = '';
+      let acaoDoTurno = '';
+      let perguntaDoTurno = '';
 
       // Executor da tabela: quando a pasta responde por template, o texto vem
       // da tabela e o modelo só entregou um rótulo. A guarda abaixo continua
@@ -378,6 +391,8 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
         // então a ação já carrega o fato: não precisa de campo próprio.
         agendouNesteTurno = r.acao === 'marcar';
         intencaoDoTurno = r.intencao;
+        acaoDoTurno = r.acao;
+        perguntaDoTurno = ultima?.content ?? '';
       }
 
       // A guarda roda nos DOIS caminhos. No de template ela inspeciona texto
@@ -424,6 +439,32 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
       }
 
       if (paraEnviar) {
+        // Revisão humana: a resposta vai ao GRUPO antes do paciente.
+        //
+        // Escalonamento passa direto: o caso já está com um humano, e pedir que
+        // ele aprove a mensagem que diz "olha isto" é uma volta inútil.
+        if (wantsRevisaoHumana(group.folder) && acaoDoTurno !== 'escalar') {
+          const partes = mensagensDe(paraEnviar);
+          if (partes.length > 0) {
+            const alvo = destinoDaRevisao();
+            const pendente = registraParaRevisao(group.folder, {
+              chatJid,
+              partes,
+              intencao: intencaoDoTurno,
+              pergunta: perguntaDoTurno.slice(0, 200),
+              // A marcação no iClinic já aconteceu: segurar o texto não desfaz.
+              jaMarcou: acaoDoTurno === 'marcar',
+            });
+            await findChannelForGroup(channels, alvo.folder)
+              ?.sendMessage(alvo.jid, textoDaRevisao(pendente));
+            logger.info(
+              { group: group.name, codigo: pendente.codigo, partes: partes.length },
+              'revisão: resposta aguardando aprovação',
+            );
+            return;
+          }
+        }
+
         let inicioDaMensagem = inicioDoTurno;
         let enviou = false;
         if (wantsHumanCadence(group.folder)) {
@@ -817,6 +858,40 @@ async function main(): Promise<void> {
         return;
       }
 
+      // Aprovação de resposta: "ok R7K2" de quem recebe a revisão.
+      //
+      // Vem ANTES da baixa de escalonamento porque os dois usam o mesmo
+      // "ok XXXX": se o código for de uma resposta pendente, aprovar é o que
+      // se quis dizer. `aprovaEmQualquerPasta` devolve undefined quando não é,
+      // e aí o fluxo segue para a baixa.
+      if (!msg.is_bot_message && podeAprovar(chatJid)) {
+        const codigo = codigoDaBaixa(trimmed);
+        const achado = codigo ? aprovaEmQualquerPasta(codigo) : undefined;
+        if (achado) {
+          const { pendente } = achado;
+          const canalPaciente = findChannel(channels, pendente.chatJid);
+          // VERBATIM: a guarda já inspecionou e a cadência já não se aplica —
+          // o tempo de revisão foi a espera. Em sequência, para as duas partes
+          // chegarem na ordem.
+          void (async () => {
+            for (const parte of pendente.partes) {
+              await canalPaciente?.sendMessage(pendente.chatJid, parte);
+            }
+          })().catch((err) =>
+            logger.error({ err, codigo: pendente.codigo }, 'revisão: envio falhou'),
+          );
+          logger.info(
+            { codigo: pendente.codigo, partes: pendente.partes.length },
+            'revisão: aprovada e enviada ao paciente',
+          );
+          findChannel(channels, chatJid)
+            ?.sendMessage(chatJid, `✅ ${pendente.codigo} enviado ao paciente.`)
+            .catch((err) => logger.warn({ err }, 'revisão: ack falhou'));
+          storeMessage(msg);
+          return;
+        }
+      }
+
       // Baixa de escalonamento: "ok E7K2" de quem recebe a cobrança.
       if (!msg.is_bot_message && podeDarBaixa(chatJid)) {
         const codigo = codigoDaBaixa(trimmed);
@@ -943,6 +1018,30 @@ async function main(): Promise<void> {
       return channel.sendMessage(jid, text);
     },
   });
+  // Mesma escada, mesmo relógio: uma resposta pronta e não aprovada é um
+  // paciente esperando, e a cobrança é a única coisa que impede isso de virar
+  // silêncio. Nada sai sem aprovação (decisão do Thiago, 17/10/2026).
+  if (pastasComRevisao().length > 0) {
+    const enviaRevisao = (jid: string, text: string, groupFolder?: string) => {
+      const channel =
+        (groupFolder && findChannelForGroup(channels, groupFolder)) ||
+        findChannel(channels, jid);
+      if (!channel) {
+        logger.warn({ jid }, 'revisão: nenhum canal para o destino');
+        return;
+      }
+      return channel.sendMessage(jid, text);
+    };
+    logger.info(
+      { pastas: pastasComRevisao(), destino: destinoDaRevisao() },
+      'revisão humana: respostas vão ao grupo antes do paciente',
+    );
+    setInterval(() => {
+      void tickRevisaoSla({ sendMessage: enviaRevisao, tocaAlarme }).catch(
+        (err) => logger.warn({ err }, 'revisão: tick falhou'),
+      );
+    }, 60_000);
+  }
   startIpcWatcher({
     sendMessage: (jid, text, groupFolder) => {
       const channel =

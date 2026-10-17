@@ -167,7 +167,7 @@ export function podeDarBaixa(jid: string): boolean {
   return FOLDERS.length > 0 && jid === DESTINO_JID;
 }
 
-async function tocaAlarme(): Promise<void> {
+export async function tocaAlarme(): Promise<void> {
   if (!NTFY_TOPIC) {
     logger.warn('escalation-sla: sem NTFY_TOPIC, alarme não disparou');
     return;
