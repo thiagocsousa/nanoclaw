@@ -79,6 +79,14 @@ export function fraseDeTriagem(
     // ⚠️ "de", nunca "da" nem "do": o artigo exigiria adivinhar o gênero pelo
     // nome, e errar isso é errar com a pessoa, não com a gramática. "de Marcos"
     // e "de Joana" funcionam igual, e combinam com o tom formal.
+    //
+    // E não, não é por falta do dado: a ficha do iClinic TEM o campo de gênero
+    // (conferido em 17/10/2026). A decisão de não usá-lo é do Thiago, no mesmo
+    // dia, por dois motivos. "Data de nascimento de Zulmira" está correto em
+    // português, então o ganho é de proximidade, não de correção. E o campo é
+    // preenchido pela recepção, às vezes anos atrás e às vezes no chute pelo
+    // nome — usá-lo seria terceirizar a mesma adivinhação, com a diferença de
+    // que o erro passaria a ser invisível para nós.
     c === 'nascimento' && de ? `${EM_FRASE[c]} de ${de}` : EM_FRASE[c],
   );
   const proposito =
