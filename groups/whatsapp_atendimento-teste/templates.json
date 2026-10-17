@@ -17,7 +17,16 @@
       "acao": "responder",
       "fecho": false,
       "textos": [
-        "Olá, tudo bem? Sou a Lara, assistente da Dra. Marina Costa. Para agilizarmos o seu atendimento, escolha a opção que melhor se adequa à sua necessidade:\n\n1 - Avaliação para Cirurgia Refrativa\n2 - Avaliação para Cirurgia de Catarata\n3 - Consulta Oftalmológica de Rotina\n4 - Outros"
+        "Olá, tudo bem? Sou a Lara, assistente da Dra. Marina Costa.\n\nMe conta o que você precisa que eu te ajudo."
+      ]
+    },
+    "pergunta_necessidade": {
+      "bloco": "F00",
+      "quando": "NUNCA rotular isto: quem pergunta é o host, quando precisa saber se é cirurgia ou rotina e a pessoa ainda não disse.",
+      "acao": "responder",
+      "fecho": false,
+      "textos": [
+        "Você está procurando cirurgia, ou uma consulta de rotina?"
       ]
     },
     "pedir_esclarecimento": {

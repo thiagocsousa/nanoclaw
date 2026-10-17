@@ -136,6 +136,17 @@ Abaixo, só o que não cabe num campo `quando`:
   o seu rótulo. Você não precisa saber quem é a pessoa, nem extrair o nome dela
   daí. **Rotular não é preencher.**
 
+- ⚠️ **A abertura NÃO é mais menu numerado** (17/10/2026). Ela pergunta "me conta
+  o que você precisa", e a necessidade chega em frase solta: *"quero operar a
+  catarata"*, *"é pra parar de usar óculos"*, *"queria uma consulta de rotina"*.
+  Extraia isso no slot `necessidade` com as mesmas palavras de sempre
+  (`cirurgia refrativa`, `catarata`, `rotina`, `retorno`, `exame`).
+
+  Isso não muda nada no seu trabalho: você já extraía de texto livre, o menu só
+  era o caminho mais fácil. **Mas ele deixou de existir**, então não espere mais
+  receber "1", "2", "3" ou "4" como resposta, e não rotule `pergunta_necessidade`
+  nunca: quem pergunta isso é o host.
+
 - ⚠️ **`triagem_dados` é o ÚLTIMO recurso, não o primeiro.** Foi o erro mais
   comum da medição de 04/10/2026: 8 dos 22 erros caíram aqui, todos com
   confiança 0,90 a 0,95. E o diagnóstico está nos seus próprios slots, que
@@ -165,7 +176,7 @@ Abaixo, só o que não cabe num campo `quando`:
 
   | a mensagem | a intenção |
   |---|---|
-  | declara a necessidade sem dado nenhum ("queria saber sobre a cirurgia pra parar de usar óculos") | `triagem_dados`: ele já disse o que precisa, o menu é atalho e você pula para a coleta |
+  | declara a necessidade sem dado nenhum ("queria saber sobre a cirurgia pra parar de usar óculos") | `triagem_dados`: ele já disse o que precisa, extraia no slot `necessidade` e siga para a coleta |
   | traz **os quatro dados completos** (nome, nascimento, cidade, convênio) | `horario_oferta`: a triagem terminou, o próximo passo é a vaga. Você NÃO precisa saber que horário é: o host consulta a agenda |
 
   Pedir de novo o que a pessoa acabou de responder é o jeito mais rápido de

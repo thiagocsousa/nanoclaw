@@ -294,6 +294,31 @@ export async function executa(
     }
     if (!perfil) {
       // "Não rode no chute" (F12): perfil errado é vaga inválida já prometida.
+      //
+      // Mas se o que falta é SÓ a necessidade, perguntar é melhor que escalar.
+      // Isso ficou mais comum quando a abertura deixou de ser menu em
+      // 17/10/2026: sem o "1, 2, 3, 4" a necessidade nem sempre vem no
+      // primeiro turno, e escalar aí mandaria para a recepção um caso que uma
+      // pergunta resolve.
+      const faltaSoNecessidade =
+        !paraPerfil.necessidade?.trim() && !!paraPerfil.convenio?.trim();
+      if (faltaSoNecessidade && tabela.intencoes.pergunta_necessidade) {
+        const rn = renderiza(tabela, 'pergunta_necessidade', {
+          confianca: 1,
+          slots,
+        });
+        if (rn.texto) {
+          logger.info(
+            { groupFolder, intencao: c.intencao },
+            'executor: falta só a necessidade, pergunta em vez de escalar',
+          );
+          return {
+            texto: rn.texto,
+            intencao: 'pergunta_necessidade',
+            acao: 'responder',
+          };
+        }
+      }
       logger.info(
         { groupFolder, intencao: c.intencao, slots: c.slots },
         'executor: sem perfil para a agenda, vai escalar',
@@ -447,7 +472,10 @@ export async function executa(
     // tudo preenchido, a recusa não pendura pergunta no fim, e emendar o menu
     // ali seria desfazê-la de passagem.
     if (acao === 'triagem' && !pedido && !slots.necessidade?.trim()) {
-      pedido = tabela.intencoes.abertura?.textos?.[0] ?? '';
+      // Pergunta, não menu. A abertura deixou de listar opções numeradas em
+      // 17/10/2026 ("fica muito bot", Thiago), e quem pergunta a necessidade
+      // quando ela falta passou a ser este texto.
+      pedido = tabela.intencoes.pergunta_necessidade?.textos?.[0] ?? '';
     }
 
     if (acao === 'triagem') {

@@ -131,9 +131,7 @@ export function lembraSlots(
       : slots.necessidade,
     convenio: vazio(slots.convenio) ? antes?.convenio : slots.convenio,
     nome: vazio(slots.nome) ? antes?.nome : slots.nome,
-    nascimento: vazio(slots.nascimento)
-      ? antes?.nascimento
-      : slots.nascimento,
+    nascimento: vazio(slots.nascimento) ? antes?.nascimento : slots.nascimento,
     quando: agora,
   };
   grava(folder, todas);

@@ -78,9 +78,11 @@ const TABELA = {
   intencoes: {
     abertura: {
       acao: 'responder',
-      textos: [
-        'Olá! Escolha a opção:\n1 - Refrativa\n2 - Catarata\n3 - Rotina\n4 - Outros',
-      ],
+      textos: ['Olá! Me conta o que você precisa que eu te ajudo.'],
+    },
+    pergunta_necessidade: {
+      acao: 'responder',
+      textos: ['Você está procurando cirurgia, ou uma consulta de rotina?'],
     },
     endereco: {
       acao: 'responder',
@@ -531,7 +533,11 @@ describe('desconto da consulta é decisão do HOST (regra de 06/10/2026)', () =>
 describe('o nome do cadastro sobrevive até a marcação (E08, 16/10/2026)', () => {
   it('confirmou dois turnos antes: a oferta leva o nome do cadastro', async () => {
     candidatosFalsos = [
-      { id: 47555744, nome: 'THIAGO CARVALHO DE SOUSA', nascimento: '1980-06-01' },
+      {
+        id: 47555744,
+        nome: 'THIAGO CARVALHO DE SOUSA',
+        nascimento: '1980-06-01',
+      },
     ];
     vagasFalsas = [
       {
@@ -563,7 +569,10 @@ describe('o nome do cadastro sobrevive até a marcação (E08, 16/10/2026)', () 
     );
     expect(marcou.length).toBe(1);
     // eslint-disable-next-line no-console
-    console.log('DEBUG memoria:', fs.readFileSync(path.join(RAIZ, PASTA, 'slots_conversa.json'), 'utf-8'));
+    console.log(
+      'DEBUG memoria:',
+      fs.readFileSync(path.join(RAIZ, PASTA, 'slots_conversa.json'), 'utf-8'),
+    );
     expect(marcou[0].paciente).toContain('THIAGO');
   });
 });
@@ -815,7 +824,7 @@ describe('triagem não repete o que já foi dado (E08 da passada 6)', () => {
       '{"intencao":"triagem_dados","confianca":0.95,"slots":{"nome":"Thiago Carvalho de Sousa","nascimento":"10/03/1980","cidade":"Teresina","convenio":"particular"}}',
       'Thiago Carvalho de Sousa, 10/03/1980, Teresina, particular',
     );
-    expect(r?.texto).toContain('Escolha a opção');
+    expect(r?.texto).toContain('cirurgia, ou uma consulta de rotina');
     // o pecado capital: devolver os quatro rótulos que a pessoa acabou de dar
     expect(r?.texto).not.toContain('Nome completo do paciente');
   });
@@ -832,7 +841,7 @@ describe('triagem não repete o que já foi dado (E08 da passada 6)', () => {
       '{"intencao":"triagem_dados","confianca":0.95,"slots":{"nome":"Joana","cidade":"Teresina"}}',
     );
     expect(r?.texto).toContain('poderia me informar');
-    expect(r?.texto).not.toContain('Escolha a opção');
+    expect(r?.texto).not.toContain('cirurgia, ou uma consulta de rotina');
   });
 });
 

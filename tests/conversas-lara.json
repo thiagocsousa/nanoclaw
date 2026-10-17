@@ -39,14 +39,14 @@
           "intencao_esperada": "abertura"
         },
         {
-          "paciente": "1",
+          "paciente": "queria fazer a cirurgia pra parar de usar óculos",
           "esperado": [
             "[Nn]ome completo",
             "[Nn]ascimento",
             "[Cc]idade",
             "[Cc]onv[êe]nio"
           ],
-          "nota": "Quatro dados EM TÓPICOS, um por linha. Não em frase corrida.",
+          "nota": "Quatro dados EM TÓPICOS, um por linha. Não em frase corrida. A abertura deixou de ser menu numerado em 17/10/2026: a necessidade agora vem de frase solta, e é isso que este turno exercita.",
           "proibido": [],
           "intencao_esperada": "triagem_dados"
         },
@@ -95,9 +95,10 @@
           "intencao_esperada": "abertura"
         },
         {
-          "paciente": "4",
+          "paciente": "tenho outra dúvida",
           "proibido": [],
-          "intencao_esperada": "pedir_esclarecimento"
+          "intencao_esperada": "pedir_esclarecimento",
+          "nota": "A abertura deixou de ser menu numerado em 17/10/2026: a necessidade agora vem de frase solta, e é isso que este turno exercita."
         }
       ]
     },
@@ -261,12 +262,13 @@
           "intencao_esperada": "abertura"
         },
         {
-          "paciente": "1",
+          "paciente": "queria fazer a cirurgia pra parar de usar óculos",
           "proibido": [
             "sem desconto",
             "valor cheio"
           ],
-          "intencao_esperada": "triagem_dados"
+          "intencao_esperada": "triagem_dados",
+          "nota": "A abertura deixou de ser menu numerado em 17/10/2026: a necessidade agora vem de frase solta, e é isso que este turno exercita."
         },
         {
           "paciente": "Carlos, Teresina, particular, nao tenho plano",
@@ -302,9 +304,10 @@
           "intencao_esperada": "abertura"
         },
         {
-          "paciente": "1",
+          "paciente": "queria fazer a cirurgia pra parar de usar óculos",
           "proibido": [],
-          "intencao_esperada": "triagem_dados"
+          "intencao_esperada": "triagem_dados",
+          "nota": "A abertura deixou de ser menu numerado em 17/10/2026: a necessidade agora vem de frase solta, e é isso que este turno exercita."
         },
         {
           "paciente": "Victor, Teresina, tenho Bradesco Saude",
@@ -339,12 +342,13 @@
           "intencao_esperada": "abertura"
         },
         {
-          "paciente": "3",
+          "paciente": "queria marcar uma consulta de rotina",
           "proibido": [
             "sem desconto",
             "valor cheio"
           ],
-          "intencao_esperada": "triagem_dados"
+          "intencao_esperada": "triagem_dados",
+          "nota": "A abertura deixou de ser menu numerado em 17/10/2026: a necessidade agora vem de frase solta, e é isso que este turno exercita."
         },
         {
           "paciente": "Joana, Teresina, Amil",
@@ -573,9 +577,10 @@
           "intencao_esperada": "abertura"
         },
         {
-          "paciente": "3",
+          "paciente": "queria marcar uma consulta de rotina",
           "proibido": [],
-          "intencao_esperada": "triagem_dados"
+          "intencao_esperada": "triagem_dados",
+          "nota": "A abertura deixou de ser menu numerado em 17/10/2026: a necessidade agora vem de frase solta, e é isso que este turno exercita."
         },
         {
           "paciente": "Zulmira Testelli, Teresina, particular",
@@ -601,9 +606,10 @@
           "intencao_esperada": "abertura"
         },
         {
-          "paciente": "3",
+          "paciente": "queria marcar uma consulta de rotina",
           "proibido": [],
-          "intencao_esperada": "triagem_dados"
+          "intencao_esperada": "triagem_dados",
+          "nota": "A abertura deixou de ser menu numerado em 17/10/2026: a necessidade agora vem de frase solta, e é isso que este turno exercita."
         },
         {
           "paciente": "Pedro, Teresina, Unimed",
@@ -827,9 +833,10 @@
           "intencao_esperada": "abertura"
         },
         {
-          "paciente": "1",
+          "paciente": "queria fazer a cirurgia pra parar de usar óculos",
           "proibido": [],
-          "intencao_esperada": "triagem_dados"
+          "intencao_esperada": "triagem_dados",
+          "nota": "A abertura deixou de ser menu numerado em 17/10/2026: a necessidade agora vem de frase solta, e é isso que este turno exercita."
         },
         {
           "paciente": "Marcos, moro em Parnaiba, particular",
@@ -858,9 +865,10 @@
           "intencao_esperada": "abertura"
         },
         {
-          "paciente": "2",
+          "paciente": "é pra cirurgia de catarata",
           "proibido": [],
-          "intencao_esperada": "triagem_dados"
+          "intencao_esperada": "triagem_dados",
+          "nota": "A abertura deixou de ser menu numerado em 17/10/2026: a necessidade agora vem de frase solta, e é isso que este turno exercita."
         },
         {
           "paciente": "Luiza, Picos, particular",
@@ -894,9 +902,10 @@
           "intencao_esperada": "abertura"
         },
         {
-          "paciente": "3",
+          "paciente": "queria marcar uma consulta de rotina",
           "proibido": [],
-          "intencao_esperada": "triagem_dados"
+          "intencao_esperada": "triagem_dados",
+          "nota": "A abertura deixou de ser menu numerado em 17/10/2026: a necessidade agora vem de frase solta, e é isso que este turno exercita."
         },
         {
           "paciente": "Sandra, Floriano, Unimed",
@@ -936,9 +945,10 @@
           "intencao_esperada": "abertura"
         },
         {
-          "paciente": "3",
+          "paciente": "queria marcar uma consulta de rotina",
           "proibido": [],
-          "intencao_esperada": "triagem_dados"
+          "intencao_esperada": "triagem_dados",
+          "nota": "A abertura deixou de ser menu numerado em 17/10/2026: a necessidade agora vem de frase solta, e é isso que este turno exercita."
         },
         {
           "paciente": "Diogenes, Teresina, Unimed",
@@ -1260,9 +1270,10 @@
       "sobre": "Número solto fora de contexto de menu.",
       "turnos": [
         {
-          "paciente": "2",
+          "paciente": "é pra cirurgia de catarata",
           "proibido": [],
-          "intencao_esperada": "pedir_esclarecimento"
+          "intencao_esperada": "pedir_esclarecimento",
+          "nota": "A abertura deixou de ser menu numerado em 17/10/2026: a necessidade agora vem de frase solta, e é isso que este turno exercita."
         }
       ]
     },
@@ -1642,9 +1653,10 @@
           "intencao_esperada": "abertura"
         },
         {
-          "paciente": "1",
+          "paciente": "queria fazer a cirurgia pra parar de usar óculos",
           "proibido": [],
-          "intencao_esperada": "triagem_dados"
+          "intencao_esperada": "triagem_dados",
+          "nota": "A abertura deixou de ser menu numerado em 17/10/2026: a necessidade agora vem de frase solta, e é isso que este turno exercita."
         },
         {
           "paciente": "Bruno, Teresina, tenho Bradesco Saude",
@@ -1830,13 +1842,13 @@
           "intencao_esperada": "abertura"
         },
         {
-          "paciente": "2",
+          "paciente": "é pra cirurgia de catarata",
           "proibido": [],
           "intencao_esperada": "triagem_dados",
           "esperado": [
             "É para você"
           ],
-          "nota": "O host acha o cadastro pelo telefone e troca o formulário de quatro campos por uma pergunta. Antes de 07/10/2026 aqui vinha o formulário."
+          "nota": "O host acha o cadastro pelo telefone e troca o formulário de quatro campos por uma pergunta. Antes de 07/10/2026 aqui vinha o formulário. A abertura deixou de ser menu numerado em 17/10/2026: a necessidade agora vem de frase solta, e é isso que este turno exercita."
         },
         {
           "paciente": "sou eu",
