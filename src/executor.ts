@@ -43,6 +43,7 @@ import {
 import { pacientesComTelefone, primeiroNome } from './paciente.js';
 import { interpreta } from './classify.js';
 import {
+  VALORES,
   carregaTabela,
   limiarDeConfianca,
   renderiza,
@@ -59,6 +60,7 @@ import {
 } from './agendamento.js';
 import { fraseDeTriagem } from './triagem.js';
 import {
+  VOCABULARIO_REFRATIVO,
   buscaVagas,
   perfilDe,
   slotsDaVaga,
@@ -152,14 +154,45 @@ function comDesconto(
 }
 
 /**
- * Necessidade que diz REFRATIVA, e não só "cirurgia".
+ * O valor da avaliação que ESTE paciente paga, em todo texto que o cita.
  *
- * Deliberadamente não inclui "cirurgia" solto: `ehCirurgico` em `vagas.ts`
- * inclui, porque lá a pergunta é "esta pessoa vai para a fila cirúrgica?", e
- * aqui é "posso falar de óculos com ela?". Catarata é cirurgia e não é isso.
+ * Achado do review do Codex em 17/10/2026, e metade dele é do código que eu
+ * acabei de escrever. O `comDesconto` troca a INTENÇÃO quando o desconto se
+ * aplica, e isso resolve `preco_consulta` e `convenio_nao_atendido`, que têm um
+ * texto de desconto para onde ir. Mas `preco_cirurgia` e
+ * `preco_cirurgia_refrativa` também citam `{valor_consulta}` e não têm — então
+ * o mesmo paciente, na mesma conversa, ouvia R$ 300 ao perguntar o preço da
+ * consulta e R$ 430 ao perguntar o da cirurgia. Sem erro nenhum do
+ * classificador, e passando pela guarda.
+ *
+ * Trocar essas duas pelo texto do desconto perderia a resposta sobre a
+ * cirurgia, que é o que foi perguntado. Então o que muda é o VALOR, não o
+ * texto: a regra já decidiu que esta pessoa paga R$ 300, e todo texto que cita
+ * a avaliação tem de dizer R$ 300.
+ *
+ * A exceção se reconhece sozinha: um texto que cita os DOIS valores está
+ * contrastando-os ("fica R$ 300, em vez de R$ 430"), e sobrescrever ali faria
+ * "R$ 300 em vez de R$ 300". Citar só `valor_consulta` é cobrar; citar os dois
+ * é comparar.
  */
-const RX_REFRATIVA =
-  /refrativ|miopia|astigmatism|hipermetrop|[óo]culos|lasik|prk/i;
+function comValorDaAvaliacao(
+  intencao: string,
+  slots: Record<string, string>,
+  lembrados: Record<string, string | undefined>,
+  tabela: Tabela,
+): Record<string, string> {
+  if (slots.valor_consulta?.trim()) return slots;
+  if (!temDescontoDeConsulta(lembrados.necessidade, lembrados.convenio)) {
+    return slots;
+  }
+  const textos = [
+    ...(tabela.intencoes[intencao]?.textos ?? []),
+    ...(tabela.intencoes[intencao]?.textos_sem_slot ?? []),
+  ].join(' ');
+  if (!textos.includes('{valor_consulta}')) return slots;
+  if (textos.includes('{valor_desconto}')) return slots;
+  return { ...slots, valor_consulta: VALORES.valor_desconto };
+}
 
 /**
  * Troca `preco_cirurgia` pelo enquadramento refrativo quando a necessidade já
@@ -185,7 +218,7 @@ function comEnquadramentoRefrativo(
 ): string {
   if (intencao !== 'preco_cirurgia') return intencao;
   if (!tabela.intencoes.preco_cirurgia_refrativa) return intencao;
-  return RX_REFRATIVA.test(slots.necessidade ?? '')
+  return VOCABULARIO_REFRATIVO.test(slots.necessidade ?? '')
     ? 'preco_cirurgia_refrativa'
     : intencao;
 }
@@ -520,7 +553,7 @@ export async function executa(
   );
   const r = renderiza(tabela, intencaoFinal, {
     confianca: c.confianca,
-    slots,
+    slots: comValorDaAvaliacao(intencaoFinal, slots, lembrados, tabela),
   });
 
   // O texto do desconto já recusa o convênio, mas a ação dele é `responder` e
@@ -611,7 +644,22 @@ export async function executa(
 
   if (acao === 'triagem' || acao === 'recusar_e_triagem') {
     const formulario = tabela.intencoes.triagem_dados?.textos?.[0] ?? r.texto;
-    let pedido = fraseDeTriagem(slots, { textoCompleto: formulario });
+    // ⚠️ Sobre os dados ACUMULADOS da conversa, não só os deste turno.
+    //
+    // `slots` é o que o classificador extraiu da mensagem atual, e ele extrai
+    // só dela — isso é projeto, não defeito. Então numa conversa em que cada
+    // mensagem traz um campo ("Marcos" / "12/03/1980" / "Teresina"), a triagem
+    // voltava a pedir o que já havia sido respondido: pedir de novo o que a
+    // pessoa acabou de dizer é o jeito mais rápido de parecer máquina, que é
+    // exatamente o que esta função existe para evitar.
+    //
+    // A memória já era consultada para perfil e desconto. Ficar de fora aqui
+    // fazia a coleta depender de a LLM reconstruir o formulário inteiro a cada
+    // turno — o oposto da separação que esta arquitetura promete. Achado do
+    // review do Codex em 17/10/2026.
+    let pedido = fraseDeTriagem(comLembrados(groupFolder, chatJid, slots), {
+      textoCompleto: formulario,
+    });
 
     // Os quatro dados completos e ainda assim triagem: o que falta é a
     // NECESSIDADE, que não é um dos quatro campos, e quem pergunta isso é o

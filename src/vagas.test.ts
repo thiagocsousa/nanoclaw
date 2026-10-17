@@ -1,10 +1,52 @@
 import { describe, expect, it } from 'vitest';
 
-import { perfilDe, slotsDaVaga } from './vagas.js';
+import {
+  perfilDe,
+  slotsDaVaga,
+  temDescontoDeConsulta,
+} from './vagas.js';
 
 // O perfil decide duração, antecedência e cota da agenda. Errá-lo não produz
 // texto errado: produz uma vaga que não existe, já prometida ao paciente. Por
 // isso a regra do F12 é "não rode no chute", e aqui isso significa undefined.
+describe('uma só definição de intenção cirúrgica (Codex, 17/10/2026)', () => {
+  // As duas definições discordavam. Eu tinha escrito um regex próprio no
+  // executor para escolher o texto de preço que fala de óculos, e ele
+  // reconhecia "quero parar de usar óculos"; o `ehCirurgico` daqui não. O mesmo
+  // paciente recebia o enquadramento de cirurgia refrativa E o preço cheio da
+  // consulta, porque o desconto julgou que não havia intenção cirúrgica.
+  it('"parar de usar óculos" dá desconto igual a "refrativa"', () => {
+    for (const n of [
+      'quero parar de usar óculos',
+      'cirurgia refrativa',
+      'tenho miopia e astigmatismo',
+      'queria fazer lasik',
+      'cirurgia de catarata',
+    ]) {
+      expect(temDescontoDeConsulta(n, 'Bradesco'), n).toBe(true);
+    }
+  });
+
+  it('o mesmo vocabulário manda para o perfil cirúrgico', () => {
+    expect(perfilDe('quero parar de usar óculos', 'Bradesco')).toContain(
+      'cirurgia',
+    );
+  });
+
+  it('rotina continua sem desconto e sem perfil cirúrgico', () => {
+    expect(temDescontoDeConsulta('consulta de rotina', 'Bradesco')).toBe(false);
+    expect(perfilDe('consulta de rotina', 'Bradesco')).not.toContain(
+      'cirurgia',
+    );
+  });
+
+  it('plano ACEITO não tem desconto, mesmo sendo cirúrgico', () => {
+    expect(temDescontoDeConsulta('quero parar de usar óculos', 'Unimed')).toBe(
+      false,
+    );
+  });
+});
+
 describe('perfilDe', () => {
   it('cruza necessidade e convênio', () => {
     expect(perfilDe('cirurgia refrativa', 'particular')).toBe(

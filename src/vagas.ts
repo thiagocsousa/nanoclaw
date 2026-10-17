@@ -92,10 +92,34 @@ const PERFIS = new Set([
   'exame',
 ]);
 
-/** Necessidade com intenção de cirurgia. Usada pelo perfil E pelo desconto. */
+/**
+ * Vocabulário de cirurgia REFRATIVA, exportado porque o host precisa dele duas
+ * vezes e com as duas definições tinha de bater.
+ *
+ * Em 17/10/2026 um teste pegou as duas discordando. Eu tinha escrito um regex
+ * próprio no executor, para escolher o texto de preço que fala de óculos, e ele
+ * reconhecia "quero parar de usar óculos". O `ehCirurgico` aqui não — então o
+ * mesmo paciente recebia o enquadramento de cirurgia refrativa E o preço cheio
+ * da consulta, porque o desconto julgou que não havia intenção cirúrgica.
+ *
+ * Duas definições de "intenção de cirurgia" no mesmo host é o achado 4 do
+ * review do Codex outra vez, só noutro lugar. Agora é uma.
+ */
+export const VOCABULARIO_REFRATIVO =
+  /refrativ|miopia|astigmatism|hipermetrop|[óo]culos|lasik|prk/i;
+
+/**
+ * Necessidade com intenção de cirurgia. Usada pelo perfil E pelo desconto.
+ *
+ * "Quero parar de usar óculos" é intenção de cirurgia dita como o paciente
+ * fala, e entra: quem diz isso vai para a fila cirúrgica e paga a consulta com
+ * desconto se o plano não for aceito, igual a quem escreve "refrativa".
+ */
 function ehCirurgico(n: string): boolean {
   return (
-    n.includes('cirurgia') || n.includes('refrativa') || n.includes('catarata')
+    n.includes('cirurgia') ||
+    n.includes('catarata') ||
+    VOCABULARIO_REFRATIVO.test(n)
   );
 }
 

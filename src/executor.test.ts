@@ -563,13 +563,113 @@ describe('desconto da consulta é decisão do HOST (regra de 06/10/2026)', () =>
   });
 });
 
+describe('a triagem não repete o que a CONVERSA já respondeu (Codex, 17/10/2026)', () => {
+  // O cenário do achado: um campo por mensagem. O classificador extrai só a
+  // mensagem atual, então sem memória a triagem pedia tudo de novo.
+  it('um campo por mensagem, e nenhum é pedido duas vezes', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+
+    const t1 = await rodar(
+      '{"intencao":"triagem_dados","confianca":0.95,"slots":{"necessidade":"catarata","nome":"Marcos"}}',
+      'sou o Marcos, quero operar catarata',
+    );
+    expect(t1?.texto.toLowerCase()).toContain('nascimento');
+
+    const t2 = await rodar(
+      '{"intencao":"triagem_dados","confianca":0.95,"slots":{"nascimento":"12/03/1980"}}',
+      '12/03/1980',
+    );
+    // Nascimento veio: não pode ser pedido de novo.
+    expect(t2?.texto.toLowerCase()).not.toContain('nascimento');
+    expect(t2?.texto.toLowerCase()).not.toContain('nome completo');
+
+    const t3 = await rodar(
+      '{"intencao":"triagem_dados","confianca":0.95,"slots":{"cidade":"Teresina"}}',
+      'Teresina',
+    );
+    // Cidade era o único campo que a memória não guardava.
+    expect(t3?.texto.toLowerCase()).not.toContain('cidade');
+    expect(t3?.texto.toLowerCase()).not.toContain('nascimento');
+  });
+
+  it('a cidade sobrevive ao turno em que foi dita', async () => {
+    const { esqueceSlots, comLembrados } = await import(
+      './memoria-conversa.js'
+    );
+    esqueceSlots(PASTA, JID);
+    await rodar(
+      '{"intencao":"triagem_dados","confianca":0.95,"slots":{"cidade":"Picos"}}',
+      'Picos',
+    );
+    const lembrado = comLembrados(PASTA, JID, {} as Record<string, string>);
+    expect(lembrado.cidade).toBe('Picos');
+  });
+});
+
+describe('o valor da avaliação é o mesmo em toda a conversa (Codex, 17/10/2026)', () => {
+  // O cenário exato do achado: dois turnos, duas perguntas de preço, dois
+  // valores diferentes para a MESMA pessoa.
+  it('quem tem desconto ouve 300 também ao perguntar o preço da cirurgia', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    const consulta = await rodar(
+      '{"intencao":"preco_consulta","confianca":0.95,"slots":{"necessidade":"cirurgia refrativa","convenio":"Bradesco"}}',
+      'quanto fica a consulta?',
+    );
+    expect(consulta?.texto).toContain('300');
+
+    const cirurgia = await rodar(
+      '{"intencao":"preco_cirurgia","confianca":0.95,"slots":{}}',
+      'e quanto custa a cirurgia?',
+    );
+    expect(cirurgia?.texto).toContain('300');
+    expect(cirurgia?.texto).not.toContain('430');
+  });
+
+  it('o enquadramento refrativo também segue o desconto', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    const r = await rodar(
+      '{"intencao":"preco_cirurgia","confianca":0.95,"slots":{"necessidade":"quero parar de usar óculos","convenio":"Bradesco"}}',
+      'quanto custa pra parar de usar óculos?',
+    );
+    expect(r?.texto).toContain('óculos');
+    expect(r?.texto).toContain('300');
+    expect(r?.texto).not.toContain('430');
+  });
+
+  it('sem desconto continua 430', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    const r = await rodar(
+      '{"intencao":"preco_cirurgia","confianca":0.95,"slots":{"necessidade":"catarata","convenio":"Unimed"}}',
+      'quanto custa a cirurgia?',
+    );
+    expect(r?.texto).toContain('430');
+    expect(r?.texto).not.toContain('300');
+  });
+
+  // A trava da exceção: o texto do desconto CONTRASTA os dois valores, e
+  // sobrescrever ali faria "R$ 300 em vez de R$ 300".
+  it('o texto do desconto mantém os dois valores distintos', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    const r = await rodar(
+      '{"intencao":"preco_consulta","confianca":0.95,"slots":{"necessidade":"catarata","convenio":"Bradesco"}}',
+      'quanto fica a consulta?',
+    );
+    expect(r?.texto).toContain('300');
+    expect(r?.texto).toContain('430');
+  });
+});
+
 describe('trocar de paciente esquece quem era (Codex, 17/10/2026)', () => {
   // O cenário do achado: a pessoa confirma que é ela, depois corrige que é para
   // a filha. O id do titular ficava na memória e a marcação ia nele.
   it('paciente_outro apaga o id, o nome e o nascimento do titular', async () => {
-    const { esqueceSlots, pacienteConfirmado, comLembrados } = await import(
-      './memoria-conversa.js'
-    );
+    const { esqueceSlots, pacienteConfirmado, comLembrados } =
+      await import('./memoria-conversa.js');
     esqueceSlots(PASTA, JID);
     candidatosFalsos = [
       { id: 42, nome: 'JOAO DA SILVA', nascimento: '1958-07-09' },
@@ -578,7 +678,9 @@ describe('trocar de paciente esquece quem era (Codex, 17/10/2026)', () => {
       '{"intencao":"triagem_dados","confianca":0.95,"slots":{"necessidade":"catarata"}}',
       'quero marcar',
     );
-    await rodar('{"intencao":"paciente_confirmado","confianca":0.95,"slots":{}}');
+    await rodar(
+      '{"intencao":"paciente_confirmado","confianca":0.95,"slots":{}}',
+    );
     expect(pacienteConfirmado(PASTA, JID)).toBe(42);
 
     await rodar(
@@ -611,9 +713,8 @@ describe('trocar de paciente esquece quem era (Codex, 17/10/2026)', () => {
 
 describe('o limiar vale ANTES de gravar (Codex, 17/10/2026)', () => {
   it('confiança baixa escala e NÃO grava os slots na memória', async () => {
-    const { esqueceSlots, comLembrados } = await import(
-      './memoria-conversa.js'
-    );
+    const { esqueceSlots, comLembrados } =
+      await import('./memoria-conversa.js');
     esqueceSlots(PASTA, JID);
     const r = await rodar(
       '{"intencao":"preco_consulta","confianca":0.2,"slots":{"necessidade":"catarata","convenio":"Bradesco"}}',
@@ -628,9 +729,8 @@ describe('o limiar vale ANTES de gravar (Codex, 17/10/2026)', () => {
   });
 
   it('confiança baixa NÃO fixa o cadastro confirmado', async () => {
-    const { esqueceSlots, pacienteConfirmado } = await import(
-      './memoria-conversa.js'
-    );
+    const { esqueceSlots, pacienteConfirmado } =
+      await import('./memoria-conversa.js');
     esqueceSlots(PASTA, JID);
     candidatosFalsos = [
       { id: 7, nome: 'ZULMIRA SOUSA', nascimento: '1950-03-02' },

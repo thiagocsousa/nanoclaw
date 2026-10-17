@@ -32,6 +32,13 @@ export interface SlotsLembrados {
   nome?: string;
   nascimento?: string;
   /**
+   * A cidade nunca era guardada, e a triagem a pede. Achado do review do Codex
+   * em 17/10/2026: numa conversa em que cada mensagem traz um campo, o
+   * classificador extrai só a mensagem atual — comportamento previsto aqui — e
+   * a Lara voltava a pedir o que já tinha sido respondido.
+   */
+  cidade?: string;
+  /**
    * Cadastros do iClinic com o telefone desta conversa. Buscar custa ~10 s de
    * Playwright com login, então é uma vez por conversa, não por turno.
    */
@@ -122,6 +129,7 @@ export function lembraSlots(
     convenio?: string;
     nome?: string;
     nascimento?: string;
+    cidade?: string;
   },
 ): void {
   const algumPreenchido = [
@@ -129,6 +137,7 @@ export function lembraSlots(
     slots.convenio,
     slots.nome,
     slots.nascimento,
+    slots.cidade,
   ].some((v) => !vazio(v));
   if (!algumPreenchido) return;
   const agora = Date.now();
@@ -147,6 +156,7 @@ export function lembraSlots(
     convenio: vazio(slots.convenio) ? antes?.convenio : slots.convenio,
     nome: vazio(slots.nome) ? antes?.nome : slots.nome,
     nascimento: vazio(slots.nascimento) ? antes?.nascimento : slots.nascimento,
+    cidade: vazio(slots.cidade) ? antes?.cidade : slots.cidade,
     quando: agora,
   };
   grava(folder, todas);
@@ -162,6 +172,7 @@ export function comLembrados<
     convenio?: string;
     nome?: string;
     nascimento?: string;
+    cidade?: string;
   },
 >(folder: string, chatJid: string, slots: T): T {
   const m = le(folder)[chatJid];
@@ -172,6 +183,7 @@ export function comLembrados<
     convenio: vazio(slots.convenio) ? m.convenio : slots.convenio,
     nome: vazio(slots.nome) ? m.nome : slots.nome,
     nascimento: vazio(slots.nascimento) ? m.nascimento : slots.nascimento,
+    cidade: vazio(slots.cidade) ? m.cidade : slots.cidade,
   };
 }
 
@@ -288,6 +300,7 @@ export function esqueceQuemEra(folder: string, chatJid: string): void {
     pacienteId: undefined,
     nome: undefined,
     nascimento: undefined,
+    cidade: undefined,
     quando: Date.now(),
   };
   grava(folder, todas);
