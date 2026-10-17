@@ -580,6 +580,21 @@ describe('insistir no mesmo assunto escala (Thiago, 17/10/2026)', () => {
     expect(String(pendencias().pop()?.motivo)).toMatch(/3 vezes seguidas/);
   });
 
+  // O caso exato que a passada 13 pegou: a intenção tem `emenda_triagem`, o
+  // primeiro turno vira `recusar_e_triagem`, e a contagem pulava ele.
+  it('conta mesmo quando o convite converteu a ação', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    const p = (n: number) =>
+      rodar(
+        '{"intencao":"preco_cirurgia","confianca":0.95,"slots":{}}',
+        `quanto custa a cirurgia? (${n})`,
+      );
+    await p(1); // recusar_e_triagem: responde e emenda o pedido dos dados
+    await p(2);
+    expect((await p(3))?.acao).toBe('escalar');
+  });
+
   it('mudar de assunto zera a contagem', async () => {
     const { esqueceSlots } = await import('./memoria-conversa.js');
     esqueceSlots(PASTA, JID);

@@ -843,10 +843,17 @@ export async function executa(
   // à recepção metade das conversas. Na terceira a resposta pronta já teve duas
   // chances.
   //
-  // Só conta `responder`. Triagem repete de propósito enquanto coleta (um campo
-  // por mensagem é o caso bom, não insistência), oferta de horário repete
-  // enquanto o paciente pede outro dia, e marcar e escalar já têm desfecho.
-  if (acao === 'responder') {
+  // Conta `responder` E `recusar_e_triagem`. A segunda entrou depois da passada
+  // 13: o Q01 repetiu o mesmo texto de preço três vezes e NÃO escalou, porque
+  // `preco_cirurgia` tem `emenda_triagem` e o primeiro turno virou
+  // `recusar_e_triagem` — que eu não contava. A conta nunca chegava a três.
+  //
+  // Faz sentido contar: `recusar_e_triagem` é resposta mais pedido, e repetir a
+  // mesma RESPOSTA três vezes é insistência, tenha ou não pedido junto.
+  //
+  // `triagem` pura fica de fora porque repete de propósito enquanto coleta (um
+  // campo por mensagem é o caso bom), e marcar e escalar já têm desfecho.
+  if (acao === 'responder' || acao === 'recusar_e_triagem') {
     const vezes = contaRepeticao(groupFolder, chatJid, r.intencao);
     if (vezes >= 3) {
       logger.info(

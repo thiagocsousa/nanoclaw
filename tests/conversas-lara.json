@@ -15,7 +15,7 @@
     "orcamento_na_consulta": "na consulta.{0,30}(or[çc]amento|passa o valor)",
     "nega_desconto": "sem desconto|n[ãa]o (tem|temos|h[áa]|oferecemos) desconto|valor cheio",
     "aponta_menu": "escolh[ae]r? (uma )?(das )?op[çc][õo]es|escolh[ae]r? (um )?n[úu]mero|op[çc][õo]es que (eu )?enviei",
-    "telefone": "\\(?\\d{2}\\)? ?\\d{4,5}[- ]?\\d{4}",
+    "telefone": "(?<!\\d)\\(?\\d{2}\\)? ?\\d{4,5}[- ]?\\d{4}(?!\\d)",
     "anuncia_bot": "atendimento automático|sou (um )?(rob[ôo]|bot|IA)",
     "finge_humana": "sou (uma )?(pessoa|humana|gente)|n[ãa]o sou (um )?rob[ôo]|sou da recep[çc][ãa]o",
     "completude_exames": "(s[ãa]o|[ée]) (apenas |s[óo] )?dois exames|exames[^.!?]{0,40}(s[ãa]o|[ée]) (apenas |s[óo] )?dois",
@@ -1396,8 +1396,14 @@
         },
         {
           "paciente": "obrigado, era só isso",
-          "proibido": [],
-          "intencao_esperada": "DESCONHECIDO"
+          "proibido": [
+            "S[óo] um instante"
+          ],
+          "intencao_esperada": "DESCONHECIDO",
+          "esperado": [
+            "agrade[çc]|Imagina|me chamar"
+          ],
+          "nota": "Agradecer e encerrar é o desfecho mais comum de conversa resolvida. Escalava (passada 13)."
         }
       ],
       "escalou": false
@@ -2117,7 +2123,9 @@
             "S[óo] um instante"
           ],
           "proibido": [
-            "fazemos|n[ãa]o fazemos|temos"
+            "Mapeamento",
+            "Topografia",
+            "R\\$"
           ],
           "nota": "Não existe intenção para exame fora da lista. Escalar é o certo; inventar que faz ou que não faz é o erro."
         }
@@ -2166,7 +2174,11 @@
           "esperado": [
             "S[óo] um instante"
           ],
-          "nota": "A JULGAR À MÃO: se existir texto aprovado para cobertura de exame, ele deve sair aqui; hoje não existe e escalar é o certo."
+          "nota": "A JULGAR À MÃO: se existir texto aprovado para cobertura de exame, ele deve sair aqui; hoje não existe e escalar é o certo.",
+          "proibido": [
+            "a cirurgia .{0,30}cobre",
+            "maioria dos conv[êe]nios"
+          ]
         }
       ]
     },

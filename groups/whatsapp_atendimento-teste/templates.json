@@ -38,6 +38,16 @@
         "Pode me explicar o que você está precisando? Assim eu já te oriento."
       ]
     },
+    "agradece_fecha": {
+      "bloco": "F00f",
+      "quando": "agradece e/ou encerra, sem pedir mais nada: 'obrigado', 'era só isso', 'valeu', 'ok obrigada'. ⚠️ NÃO é pedir_esclarecimento: aqui ele está FECHANDO, não sinalizando que quer algo.",
+      "acao": "responder",
+      "fecho": false,
+      "textos": [
+        "Eu que agradeço! Qualquer coisa é só me chamar por aqui.",
+        "Imagina! Estou por aqui se precisar de mais alguma coisa."
+      ]
+    },
     "triagem_dados": {
       "bloco": "F00",
       "quando": "intenção conhecida e faltam os quatro dados",
@@ -163,7 +173,7 @@
     },
     "convenio_cirurgia": {
       "bloco": "F04",
-      "quando": "pergunta se o plano cobre a CIRURGIA, para plano que não seja IASPI/IAPEP/IPMT (esses têm intenção própria) nem Intermed/Hapvida/Humana (esses são convenio_bloqueado)",
+      "quando": "pergunta se o plano cobre a CIRURGIA, para plano que não seja IASPI/IAPEP/IPMT (esses têm intenção própria) nem Intermed/Hapvida/Humana (esses são convenio_bloqueado) ⛔ NÃO serve para cobertura de EXAME ('o plano cobre os exames?'): exame e cirurgia são coberturas diferentes, e responder pela cirurgia faz o paciente achar que o exame está coberto. Não há texto aprovado para cobertura de exame: é DESCONHECIDO, que escala.",
       "acao": "responder",
       "fecho": false,
       "textos": [
@@ -250,7 +260,7 @@
     },
     "exames_preco": {
       "bloco": "F08",
-      "quando": "quais exames, quanto custam os exames pré-operatórios. NÃO serve para o Pentacam: esse texto só tem mapeamento e topografia, e não há valor de Pentacam na base. Pergunta sobre preço ou onde fazer o Pentacam é DESCONHECIDO; só a cobertura dele tem intenção própria (pentacam_cobertura).",
+      "quando": "quais exames PRÉ-OPERATÓRIOS são feitos na clínica, quanto custam, ou pergunta pelo mapeamento de retina / topografia de córnea / ceratoscopia pelo nome. ⛔ NÃO serve quando o paciente nomeia um exame que não está nessa lista (campimetria, OCT, biometria, paquimetria, gonioscopia, retinografia, Pentacam): responder com a lista faz ele achar que a pergunta dele foi respondida. Para esses, DESCONHECIDO, que escala. Pentacam tem bloco próprio quando a pergunta é de cobertura.",
       "acao": "responder",
       "fecho": true,
       "textos": [
