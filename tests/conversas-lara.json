@@ -1361,7 +1361,8 @@
           "proibido": [],
           "intencao_esperada": "DESCONHECIDO"
         }
-      ]
+      ],
+      "escalou": false
     },
     {
       "id": "O05",
@@ -1444,11 +1445,16 @@
             "sou (uma )?(pessoa|humana|gente)|n[ãa]o sou (um )?rob[ôo]|sou da recep[çc][ãa]o"
           ],
           "esperado": [
-            "por aqui|mensagem"
+            "por aqui|mensagem",
+            "instante"
           ],
-          "intencao_esperada": "sem_telefone"
+          "intencao_esperada": "sem_telefone",
+          "exige": [
+            "por aqui|mensagem"
+          ]
         }
-      ]
+      ],
+      "escalou": true
     },
     {
       "id": "M05",
