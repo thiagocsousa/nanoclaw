@@ -403,10 +403,18 @@ export async function executa(
 
       // Convênio do cadastro: pergunta DIRIGIDA em vez de genérica.
       //
-      // "Continua pelo Unimed Teresina?" responde-se com um sim; "é particular
-      // ou convênio?" obriga a pessoa a digitar o nome do plano que a clínica
-      // já tem. Escolha do Thiago em 17/10/2026. Confirmar em vez de assumir
-      // porque plano muda, e o cadastro pode ter anos.
+      // "O convênio continua sendo Unimed?" responde-se com um sim; "é
+      // particular ou convênio?" obriga a pessoa a digitar o nome do plano que
+      // a clínica já tem. Escolha do Thiago em 17/10/2026. Confirmar em vez de
+      // assumir porque plano muda, e o cadastro pode ter anos.
+      //
+      // ⚠️ O texto NÃO leva artigo antes do nome do plano, e isso é o mesmo
+      // motivo do "de Zulmira" em `triagem.ts`: artigo exige saber o gênero.
+      // O Thiago apontou que "Continua pelo Unimed" devia ser "pela Unimed", e
+      // está certo — mas `convenio_cadastro` é o campo `health_insurances` do
+      // iClinic, que guarda o plano do PACIENTE, não o que a clínica atende.
+      // Chega gente com IASPI, IPMT, Intermed, Hapvida e Humana (há template
+      // para cada um), e "pela IASPI" erraria igual. Sem artigo acerta sempre.
       if (
         cad.convenio?.trim() &&
         !c.slots.convenio?.trim() &&

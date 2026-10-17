@@ -71,14 +71,14 @@
     },
     "confirma_convenio": {
       "bloco": "F00",
-      "quando": "NUNCA rotular isto: quem pergunta é o host, quando o cadastro já traz um convênio e falta confirmar se ainda vale.",
+      "quando": "NUNCA rotular isto: quem pergunta é o host, quando o cadastro já traz um convênio e falta confirmar se ainda vale. ⚠️ O texto não leva artigo antes do nome do plano: `{convenio_cadastro}` vem do cadastro e pode ser qualquer plano, inclusive os que a clínica não atende.",
       "acao": "responder",
       "fecho": false,
       "slots_obrigatorios": [
         "convenio_cadastro"
       ],
       "textos": [
-        "Continua pelo {convenio_cadastro}?"
+        "O convênio continua sendo {convenio_cadastro}?"
       ]
     },
     "convenio_confirmado": {
