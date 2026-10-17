@@ -197,13 +197,44 @@ def pede_dado_repetido(texto):
     return None
 
 
+# Saudação sem pedido: "oi", "bom dia", um emoji, "informação". É o único caso em
+# que a abertura (F00) é a resposta certa.
+RX_SO_SAUDACAO = re.compile(
+    r"^\W*(oi+|ol[áa]|al[ôo]|e?a[íi]|bo[am] (dia|tarde|noite)|"
+    r"informa[çc][ãa]o(es)?|boa|tudo bem)?\W*$",
+    re.I,
+)
+
+
+def ainda_sem_pedido(turno, anteriores):
+    """A conversa até aqui não disse o que o paciente quer?
+
+    Existe por causa de `empurra_trabalho`. A proibição de "em que posso
+    ajudar?" nasceu com a razão escrita em PERSONA-TEXTO-LIVRE.md: ela empurra o
+    trabalho para o paciente "que já disse o que quer", e a alternativa era o
+    menu numerado do F00. Em 17/10/2026 o Thiago tirou o menu, e a abertura
+    passou a ser exatamente essa pergunta — então a regra acusava falha dura na
+    resposta certa a um "oi" seco.
+
+    O que ela guarda continua valendo e continua ligado: devolver a pergunta
+    DEPOIS que a pessoa já se explicou é regressão. Por isso a dispensa é a
+    conjunção, não só "é a primeira mensagem": a mensagem atual precisa ser
+    saudação pura E nenhuma antes pode ter trazido pedido. Sem a segunda metade,
+    o "oi?" do I02 no terceiro turno — depois de "é pra cirurgia de catarata" —
+    passaria batido.
+    """
+    if not RX_SO_SAUDACAO.match(turno["paciente"].strip()):
+        return False
+    return all(RX_SO_SAUDACAO.match(m.strip()) for m in anteriores)
+
+
 CHECAGENS = {
     "@preco_cirurgia": acha_preco_de_cirurgia,
     "@pede_dado_repetido": pede_dado_repetido,
 }
 
 
-def checa(resposta, turno, globais):
+def checa(resposta, turno, globais, anteriores=()):
     """Devolve (falhas_duras, avisos).
 
     Um turno pode declarar `permitido: [nome_da_regra_global]` quando a regra
@@ -219,6 +250,8 @@ def checa(resposta, turno, globais):
     """
     duras, avisos = [], []
     permitido = set(turno.get("permitido") or [])
+    if ainda_sem_pedido(turno, anteriores):
+        permitido.add("empurra_trabalho")
     for nome, rx in globais.items():
         if nome in permitido:
             continue
@@ -260,7 +293,10 @@ def roda_cenario(cen, globais):
             duras.append("SEM RESPOSTA em %ds" % TIMEOUT_TURNO
                          + (" (guarda bloqueou)" if bloqueios else ""))
         else:
-            duras, avisos = checa(resposta, turno, globais)
+            duras, avisos = checa(
+                resposta, turno, globais,
+                [t["paciente"] for t in cen["turnos"][:i]],
+            )
         if i == 0:
             for rx in cen.get("proibido_abertura", []):
                 m = re.search(rx, resposta, re.I)
