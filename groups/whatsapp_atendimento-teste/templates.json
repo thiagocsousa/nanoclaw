@@ -356,7 +356,7 @@
       "acao": "responder",
       "fecho": true,
       "textos": [
-        "O Hospital Vilar fica na Rua Benjamin Constant, 2290, Centro (Norte), Teresina, PI, 64000-280\nhttps://maps.google.com/?q=Vilar+Hospital+de+Olhos,+Benjamin+Constant,+2290,+Teresina"
+        "O Hospital Vilar fica na Rua Benjamin Constant, 2290, Centro (Norte), Teresina, PI, 64000-280\nhttps://maps.google.com/?cid=9234548830964360577"
       ]
     },
     "endereco_hospital_olho": {
@@ -365,7 +365,7 @@
       "acao": "responder",
       "fecho": true,
       "textos": [
-        "O Hospital do Olho fica na R. Magalhães Filho, 161, Centro (Sul), Teresina, PI\nhttps://maps.google.com/?q=Hospital+do+Olho,+Magalhaes+Filho,+161,+Teresina"
+        "O Hospital do Olho fica na R. Magalhães Filho, 161, Centro (Sul), Teresina, PI\nhttps://maps.google.com/?cid=7985518968874684935"
       ]
     },
     "endereco_hospital_namir": {
@@ -374,7 +374,7 @@
       "acao": "responder",
       "fecho": true,
       "textos": [
-        "O Namir Clementino fica na R. Áurea Freire, 1440, Jóquei, Teresina, PI, 64049-160\nhttps://maps.google.com/?q=Namir+Clementino,+Aurea+Freire,+1440,+Teresina"
+        "O Namir Clementino fica na R. Áurea Freire, 1440, Jóquei, Teresina, PI, 64049-160\nhttps://maps.google.com/?cid=12803210192708176241"
       ]
     },
     "endereco_hospital_tercio": {
@@ -383,7 +383,7 @@
       "acao": "responder",
       "fecho": true,
       "textos": [
-        "O Tércio Rezende fica na R. Gabriel Ferreira, 262, Centro (Sul), Teresina, PI, 64001-250\nhttps://maps.google.com/?q=Tercio+Rezende,+Gabriel+Ferreira,+262,+Teresina"
+        "O Tércio Rezende fica na R. Gabriel Ferreira, 262, Centro (Sul), Teresina, PI, 64001-250\nhttps://maps.google.com/?cid=1521083578785563015"
       ]
     },
     "endereco_hospital_coe": {
@@ -392,7 +392,7 @@
       "acao": "responder",
       "fecho": true,
       "textos": [
-        "O COE fica na R. Coelho Rodrigues, 2041, Centro (Norte), Teresina, PI, 64000-080\nhttps://maps.google.com/?q=COE,+Coelho+Rodrigues,+2041,+Teresina"
+        "O COE fica na R. Coelho Rodrigues, 2041, Centro (Norte), Teresina, PI, 64000-080\nhttps://maps.google.com/?cid=12702427087344302750"
       ]
     },
     "sem_telefone": {
