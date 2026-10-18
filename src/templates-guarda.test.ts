@@ -78,6 +78,19 @@ describe('a tabela de templates passa pela guarda', () => {
     expect(comSeparador.map(([nome]) => nome)).toEqual([]);
   });
 
+  // `fecho` e `emenda_triagem` se contradizem: o primeiro encerra ("Ajudo em
+  // algo mais?") e o segundo abre ("Para eu já ver um horário, poderia me
+  // informar..."). O FECHO é colado dentro do `renderiza`, ANTES de o executor
+  // emendar, então as duas marcas juntas produziriam "Ajudo em algo mais?"
+  // seguido de um pedido de dados.
+  it('nenhuma intenção fecha e convida ao mesmo tempo', () => {
+    const ambos = Object.entries(TABELA.intencoes)
+      .filter(([, d]) => (d as Record<string, unknown>).fecho === true &&
+        (d as Record<string, unknown>).emenda_triagem === true)
+      .map(([nome]) => nome);
+    expect(ambos).toEqual([]);
+  });
+
   it('tem texto para inspecionar', () => {
     expect(casos.length).toBeGreaterThan(40);
   });
