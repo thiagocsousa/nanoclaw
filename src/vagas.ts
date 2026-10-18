@@ -104,9 +104,17 @@ const PERFIS = new Set([
  *
  * Duas definições de "intenção de cirurgia" no mesmo host é o achado 4 do
  * review do Codex outra vez, só noutro lugar. Agora é uma.
+ *
+ * ⚠️ "óculos" SOZINHO não entra, e isso foi conserto de 18/10/2026. Na primeira
+ * versão eu pus a palavra solta, e o Thiago pediu para conferir que o desconto
+ * só vale para intenção cirúrgica — a conferência mostrou "preciso trocar o
+ * grau do óculos" recebendo R$ 300. Trocar o grau é ROTINA: a pessoa quer
+ * receita nova, não operar. Agora o vocabulário exige o verbo de livrar-se
+ * deles ("parar de usar óculos", "largar os óculos"), que é como quem quer
+ * cirurgia refrativa fala.
  */
 export const VOCABULARIO_REFRATIVO =
-  /refrativ|miopia|astigmatism|hipermetrop|[óo]culos|lasik|prk/i;
+  /refrativ|miopia|astigmatism|hipermetrop|lasik|prk|(?:parar de usar|largar|deixar de usar|n[ãa]o usar mais|livrar|sem)[^.!?]{0,20}[óo]culos/i;
 
 /**
  * Necessidade com intenção de cirurgia. Usada pelo perfil E pelo desconto.

@@ -29,6 +29,28 @@ describe('uma só definição de intenção cirúrgica (Codex, 17/10/2026)', () 
     );
   });
 
+  // Conferência pedida pelo Thiago em 18/10: "o desconto só ocorre quando a
+  // intenção é cirúrgica". Ocorria, menos num caso que eu tinha acabado de
+  // criar — "óculos" solto no vocabulário fazia "trocar o grau do óculos"
+  // valer R$ 300. Trocar o grau é ROTINA: quer receita nova, não operar.
+  it('óculos só conta com verbo de livrar-se deles', () => {
+    for (const n of [
+      'quero parar de usar óculos',
+      'queria largar os óculos',
+      'quero me livrar dos oculos',
+      'queria ficar sem óculos',
+    ]) {
+      expect(temDescontoDeConsulta(n, 'Bradesco'), n).toBe(true);
+    }
+    for (const n of [
+      'preciso trocar o grau do óculos',
+      'quebrei meus óculos',
+      'perdi o óculos',
+    ]) {
+      expect(temDescontoDeConsulta(n, 'Bradesco'), n).toBe(false);
+    }
+  });
+
   it('rotina continua sem desconto e sem perfil cirúrgico', () => {
     expect(temDescontoDeConsulta('consulta de rotina', 'Bradesco')).toBe(false);
     expect(perfilDe('consulta de rotina', 'Bradesco')).not.toContain(
