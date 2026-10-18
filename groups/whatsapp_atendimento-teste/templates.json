@@ -118,10 +118,11 @@
       "bloco": "F01",
       "quando": "quanto custa a consulta, valor da avaliação",
       "acao": "responder",
-      "fecho": true,
+      "fecho": false,
       "textos": [
         "A avaliação com a Dra. Marina é R$ {valor_consulta}, com a possibilidade de retorno em até 30 dias."
-      ]
+      ],
+      "emenda_triagem": true
     },
     "preco_cirurgia": {
       "bloco": "F03",
@@ -157,10 +158,11 @@
       "bloco": "F04",
       "quando": "atende [plano] para consulta",
       "acao": "responder",
-      "fecho": true,
+      "fecho": false,
       "textos": [
         "Para consulta a gente atende particular e Unimed."
-      ]
+      ],
+      "emenda_triagem": true
     },
     "convenio_nao_atendido": {
       "bloco": "F04",
@@ -178,7 +180,8 @@
       "fecho": false,
       "textos": [
         "A cirurgia a maioria dos convênios cobre, depende de o seu plano autorizar e de você estar dentro dos critérios que ele exige. Isso a gente vê depois da avaliação com a Dra. Marina."
-      ]
+      ],
+      "emenda_triagem": true
     },
     "convenio_bloqueado": {
       "bloco": "F04",
@@ -244,10 +247,11 @@
       "bloco": "F06",
       "quando": "SÓ quando perguntam literalmente quais dias ela atende",
       "acao": "responder",
-      "fecho": true,
+      "fecho": false,
       "textos": [
         "A Dra. Marina atende:\n• Segunda, de manhã\n• Quarta, à tarde\n• Sexta, de manhã"
-      ]
+      ],
+      "emenda_triagem": true
     },
     "endereco": {
       "bloco": "F07",
@@ -262,10 +266,11 @@
       "bloco": "F08",
       "quando": "quais exames PRÉ-OPERATÓRIOS são feitos na clínica, quanto custam, ou pergunta pelo mapeamento de retina / topografia de córnea / ceratoscopia pelo nome. ⛔ NÃO serve quando o paciente nomeia um exame que não está nessa lista (campimetria, OCT, biometria, paquimetria, gonioscopia, retinografia, Pentacam): responder com a lista faz ele achar que a pergunta dele foi respondida. Para esses, DESCONHECIDO, que escala. Pentacam tem bloco próprio quando a pergunta é de cobertura.",
       "acao": "responder",
-      "fecho": true,
+      "fecho": false,
       "textos": [
         "Aqui no consultório a gente faz dois, com a Dra. Marina, e o valor já inclui os dois olhos:\n\n• Mapeamento de retina: R$ 300,00\n• Topografia de córnea: R$ 380,00\n\nDependendo do seu caso a Dra. Marina pode pedir outros exames, alguns feitos fora da clínica. Isso ela define na avaliação."
-      ]
+      ],
+      "emenda_triagem": true
     },
     "pentacam_cobertura": {
       "bloco": "F08",
@@ -462,7 +467,8 @@
       "fecho": false,
       "textos": [
         "Para o plano autorizar a cirurgia refrativa, os critérios são da ANS, não da clínica:\n\n• Mais de 18 anos, com o grau estável há pelo menos um ano\n• Miopia de -5,0 a -10,0 graus, com ou sem astigmatismo associado de até -4,0\n• Ou hipermetropia de até 6,0 graus, com ou sem astigmatismo associado de até -4,0\n• Indicação médica com laudo, depois da avaliação oftalmológica\n\nQuem autoriza é o seu plano, e a indicação é da Dra. Marina na avaliação."
-      ]
+      ],
+      "emenda_triagem": true
     },
     "cobertura_no_hospital": {
       "bloco": "F17",

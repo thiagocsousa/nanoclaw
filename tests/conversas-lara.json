@@ -2184,6 +2184,107 @@
           ]
         }
       ]
+    },
+    {
+      "id": "S01",
+      "categoria": "conversao",
+      "sobre": "Preço da consulta é a pergunta de preço mais comum do corpus (24 conversas) e era a única que não convidava. Agora emenda o próximo passo.",
+      "escalou": false,
+      "turnos": [
+        {
+          "paciente": "quanto custa a consulta?",
+          "esperado": [
+            "430",
+            "poderia me informar"
+          ],
+          "exige": [
+            "430"
+          ],
+          "proibido": [
+            "Ajudo em algo mais"
+          ],
+          "nota": "Encerrar e convidar na mesma mensagem seria contraditório."
+        }
+      ]
+    },
+    {
+      "id": "S02",
+      "categoria": "conversao",
+      "sobre": "Que dias a médica atende: perguntar quando dá para ir É intenção de marcar.",
+      "escalou": false,
+      "turnos": [
+        {
+          "paciente": "que dias a Dra. Marina atende?",
+          "esperado": [
+            "[Ss]egunda",
+            "poderia me informar"
+          ],
+          "proibido": [
+            "Ajudo em algo mais"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S03",
+      "categoria": "conversao",
+      "sobre": "Convênio para consulta: responde e convida, sem encerrar.",
+      "escalou": false,
+      "turnos": [
+        {
+          "paciente": "vocês atendem Unimed para consulta?",
+          "esperado": [
+            "Unimed",
+            "poderia me informar"
+          ],
+          "proibido": [
+            "Ajudo em algo mais"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S04",
+      "categoria": "conversao",
+      "sobre": "O convite sai UMA vez: duas perguntas de preço seguidas não viram dois pedidos de dados. É a trava contra o convite virar insistência.",
+      "escalou": false,
+      "turnos": [
+        {
+          "paciente": "quanto custa a consulta?",
+          "esperado": [
+            "poderia me informar"
+          ]
+        },
+        {
+          "paciente": "e os exames pré-operatórios?",
+          "esperado": [
+            "300",
+            "380"
+          ],
+          "proibido": [
+            "poderia me informar"
+          ],
+          "nota": "Segunda pergunta: responde o preço e para. O convite já foi."
+        }
+      ]
+    },
+    {
+      "id": "S05",
+      "categoria": "conversao",
+      "sobre": "Quem só quer INFORMAÇÃO não é convidado: endereço encerra, não pede dados. Teu documento de tom manda não forçar agendamento.",
+      "escalou": false,
+      "turnos": [
+        {
+          "paciente": "onde fica a clínica?",
+          "esperado": [
+            "Elias Jo[ãa]o Tajra"
+          ],
+          "proibido": [
+            "poderia me informar"
+          ],
+          "nota": "O outro lado da regra: convidar quem só quer saber onde fica é o que faz soar a vendedor."
+        }
+      ]
     }
   ]
 }

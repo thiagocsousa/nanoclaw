@@ -91,6 +91,7 @@ const TABELA = {
     },
     preco_consulta: {
       acao: 'responder',
+      emenda_triagem: true,
       textos: ['A avaliação é R$ {valor_consulta}.'],
     },
     desconto: {
@@ -563,6 +564,37 @@ describe('desconto da consulta é decisão do HOST (regra de 06/10/2026)', () =>
   });
 });
 
+describe('perguntar preço leva ao próximo passo (Thiago, 18/10/2026)', () => {
+  // A análise de conversão: "quanto custa a consulta" é a pergunta de preço
+  // mais comum do corpus (24 conversas, contra 18 da cirurgia) e era a única
+  // das duas que não convidava. Terminava em "Ajudo em algo mais?".
+  it('o preço da consulta emenda o pedido dos dados', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    const r = await rodar(
+      '{"intencao":"preco_consulta","confianca":0.95,"slots":{}}',
+      'quanto custa a consulta?',
+    );
+    expect(r?.texto).toContain('430');
+    expect(r?.texto.toLowerCase()).toContain('poderia me informar');
+    // E não encerra: "Ajudo em algo mais?" com um pedido de dados em seguida
+    // seria encerrar e abrir na mesma respiração.
+    expect(r?.texto).not.toContain('Ajudo em algo mais');
+  });
+
+  it('mas convida UMA vez: a segunda pergunta de preço só responde', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    await rodar('{"intencao":"preco_consulta","confianca":0.95,"slots":{}}');
+    const r = await rodar(
+      '{"intencao":"exames_preco","confianca":0.95,"slots":{}}',
+      'e os exames?',
+    );
+    expect(r?.texto).toContain('150');
+    expect(r?.texto.toLowerCase()).not.toContain('poderia me informar');
+  });
+});
+
 describe('insistir no mesmo assunto escala (Thiago, 17/10/2026)', () => {
   // O FAQ manda "escalar: se insistir" em quatro blocos e nada contava.
   it('a MESMA resposta pela terceira vez escala', async () => {
@@ -573,8 +605,11 @@ describe('insistir no mesmo assunto escala (Thiago, 17/10/2026)', () => {
         '{"intencao":"preco_consulta","confianca":0.95,"slots":{}}',
         `quanto é a consulta? (${n})`,
       );
-    expect((await p(1))?.acao).toBe('responder');
-    expect((await p(2))?.acao).toBe('responder');
+    // O que importa nos dois primeiros é NÃO escalar. A ação exata varia:
+    // desde 18/10 o `preco_consulta` convida, então o primeiro turno sai como
+    // `recusar_e_triagem`. Assertar 'responder' aqui era precisão falsa.
+    expect((await p(1))?.acao).not.toBe('escalar');
+    expect((await p(2))?.acao).not.toBe('escalar');
     const terceira = await p(3);
     expect(terceira?.acao).toBe('escalar');
     expect(String(pendencias().pop()?.motivo)).toMatch(/3 vezes seguidas/);
