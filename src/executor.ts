@@ -944,13 +944,23 @@ export async function executa(
       // abaixo é o que produz "nesse horário não consigo encaixar, mas tenho X".
       let periodoNegado = false;
       if (periodo && vagas.length > 0) {
-        const noPeriodo = vagas.filter((v) => vagaNoPeriodo(v, periodo));
+        // ⚠️ Decide DENTRO do dia pedido, quando ele pediu um dia.
+        //
+        // Filtrar a lista inteira pelo período derrubava o dia pedido e ficava
+        // com outro que casasse: quem perguntou "quarta pela manhã" recebia
+        // "sexta, às 09:20" sem nenhuma explicação de que a quarta não deu.
+        // Achado medindo a saída real, depois de o Thiago apontar que eu tinha
+        // composto um exemplo à mão em vez de medir.
+        const doDia = diaAlvo ? vagas.filter((v) => v.data === diaAlvo) : vagas;
+        const noPeriodo = doDia.filter((v) => vagaNoPeriodo(v, periodo));
         if (noPeriodo.length > 0) {
           vagas = noPeriodo;
         } else {
+          // Nada no período pedido: o `horario_pedido_indisponivel` abaixo diz
+          // "não consigo encaixar, mas tenho X" — sem dizer POR QUE não dá.
           periodoNegado = true;
           logger.info(
-            { groupFolder, periodo, dia: diaAlvo },
+            { groupFolder, periodo, dia: diaAlvo, vagas: vagas.length },
             'executor: período pedido sem vaga, oferecendo o que existe',
           );
         }

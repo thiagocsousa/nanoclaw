@@ -145,7 +145,10 @@ const TABELA = {
       acao: 'responder',
       slots_obrigatorios: ['dia', 'hora'],
       textos: [
-        'Nesse horário não consigo encaixar, mas tenho {dia} às {hora}.',
+        'Nesse horário não consigo encaixar, mas tenho {dia} às {hora}. Esse funciona para você?',
+      ],
+      textos_dois: [
+        'Nesse horário não consigo encaixar, mas tenho {dia} às {hora}, ou {dia_b} às {hora_b}. Qual fica melhor?',
       ],
     },
     pergunta_lente: {
@@ -2856,6 +2859,38 @@ describe('período pedido ("pela manhã")', () => {
     expect(r?.texto).toContain('17:40');
     // ⛔ E NÃO diz que a quarta é só de tarde: a grade não se deduz daqui.
     expect(r?.texto).not.toMatch(/tarde|manh[ãa]|n[ãa]o atende/i);
+    // ⚠️ Com UMA vaga, o fecho é "Esse funciona para você?" — perguntar "qual
+    // fica melhor" sem ter duas não faz sentido, e o Thiago apontou isso quando
+    // eu compus um exemplo à mão em vez de medir a saída. A tabela já estava
+    // certa; a frase errada era a minha.
+    expect(r?.texto).toContain('Esse funciona para você');
+    expect(r?.texto).not.toMatch(/[Qq]ual fica melhor/);
+  });
+
+  // ⚠️ E com DUAS vagas o fecho muda, porque aí a pergunta cabe.
+  it('com duas vagas, pergunta qual fica melhor', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    vagasFalsas = [
+      {
+        data: '2026-10-21',
+        dia_semana: 'quarta',
+        inicio: '17:40',
+        fim: '18:00',
+      },
+      {
+        data: '2026-10-23',
+        dia_semana: 'sexta',
+        inicio: '09:20',
+        fim: '09:40',
+      },
+    ];
+    const r = await rodar(
+      `{"intencao":"horario_oferta","confianca":0.95,"slots":{${SLOTS},"dia_pedido":"quarta"}}`,
+      'ela atende na quarta pela manhã?',
+    );
+    expect(r?.texto).toMatch(/[Qq]ual fica melhor/);
+    expect(r?.texto).not.toContain('Esse funciona para você');
   });
 
   // ⚠️ Com vaga NO período pedido, oferece normalmente — sem a frase de recusa.
@@ -2871,7 +2906,7 @@ describe('período pedido ("pela manhã")', () => {
       },
     ];
     const r = await rodar(
-      `{"intencao":"horario_oferta","confianca":0.95,"slots":{${SLOTS},"dia_pedido":"segunda"}}`,
+      `{"intencao":"horario_oferta","confianca":0.95,"slots":{${SLOTS},"dia_pedido":"2026-10-26"}}`,
       'tem na segunda de manhã?',
     );
     expect(r?.texto).toContain('09:20');
@@ -2897,7 +2932,7 @@ describe('período pedido ("pela manhã")', () => {
       },
     ];
     const r = await rodar(
-      `{"intencao":"horario_oferta","confianca":0.95,"slots":{${SLOTS},"dia_pedido":"segunda"}}`,
+      `{"intencao":"horario_oferta","confianca":0.95,"slots":{${SLOTS},"dia_pedido":"2026-10-26"}}`,
       'tem na segunda de manhã?',
     );
     expect(r?.texto).toContain('09:20');
