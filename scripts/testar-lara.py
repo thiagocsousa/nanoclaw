@@ -631,8 +631,16 @@ def main():
     cenarios = suite["cenarios"]
 
     if args.only:
+        # ⚠️ Compara em caixa alta nos DOIS lados. Com `.upper()` só no
+        # argumento, qualquer id que tenha minúscula — `T08b`, `Z05b` — era
+        # silenciosamente excluído: o runner imprimia "60 cenários" para uma
+        # lista de 62 e não dizia quais sumiram. Perdi uma passada começando
+        # sem os dois cenários que eu tinha acabado de escrever (19/10/2026).
         ids = {x.strip().upper() for x in args.only.split(",")}
-        cenarios = [c for c in cenarios if c["id"] in ids]
+        cenarios = [c for c in cenarios if c["id"].upper() in ids]
+        faltando = sorted(ids - {c["id"].upper() for c in cenarios})
+        if faltando:
+            print("⚠️  ids que não existem na suíte: %s" % ", ".join(faltando))
     if args.categoria:
         cenarios = [c for c in cenarios if c["categoria"] == args.categoria]
 
