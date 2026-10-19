@@ -547,8 +547,11 @@ export async function executa(
   // catarata?" saía R$ 300 — a mesma pergunta, dois preços, com a regra do
   // desconto certa nos dois casos. Ver `necessidadeMencionada`, em
   // `convenio.ts`. Decisão do Thiago em 19/10/2026.
+  // Lê a memória, não só o slot do turno: senão uma menção nova a cirurgia
+  // atropela o "cirurgia refrativa" ou o "retorno" que a conversa já
+  // estabeleceu. Achado do Codex em 19/10/2026.
   const necessidadeDita = necessidadeMencionada(
-    c.slots.necessidade,
+    comLembrados(groupFolder, chatJid, c.slots).necessidade,
     perguntaDoPaciente,
   );
   if (necessidadeDita && necessidadeDita !== c.slots.necessidade) {

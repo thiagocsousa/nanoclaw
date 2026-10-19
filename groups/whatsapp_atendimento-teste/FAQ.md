@@ -537,8 +537,17 @@ tenho certeza, acho que é Bradesco", "nao tenho o cartao aqui, mas é Amil", "H
 pago por fora o que ele não cobre" e "Bradesco Saúde particular" passaram a NEGAR o
 desconto a quem tem plano. Enumerar não converge em nenhuma das duas direções.
 
-**A ordem converge:** se o paciente NOMEOU um plano, ele tem plano, não importa o que mais
-escreveu na frase. Está em `temPlano`, em `src/convenio.ts` — módulo criado para isso,
+**A ordem converge**, em três degraus — e o primeiro é correção do Codex no mesmo dia:
+
+1. **Ausência EXPLÍCITA vence tudo.** "particular, cancelei o Bradesco e não tenho mais
+   plano" devolvia TEM PLANO, porque eu dera a vitória ao nome sem exceção — e aí um
+   particular ouvia R$ 300,00. Declaração explícita é mais forte que a menção de um nome,
+   que pode ser o do plano que ele acabou de cancelar. Exige o OBJETO: "não tenho plano",
+   "cancelei"; **não** "não tenho certeza" nem "não uso mais o Bradesco" (que costuma
+   emendar "agora é Amil").
+2. **Nome de plano vence palavra solta de ausência.** "não tenho certeza, acho que é
+   Bradesco" é incerteza sobre QUAL plano, não ausência.
+3. **Palavra solta sem objeto**: particular, privado, por fora. Está em `temPlano`, em `src/convenio.ts` — módulo criado para isso,
 porque o vocabulário de convênio já vivia em quatro lugares (desconto em `vagas.ts`, plano
 parcial em `executor.ts`, formulário na guarda, e a lista nova). Travado nos dois sentidos
 em `convenio.test.ts`, e verificado por sabotagem: sem a regra de ordem, os casos de "tem
@@ -565,6 +574,25 @@ quem ouvia o valor mais alto, justo quem o desconto existe para converter.
 **Decisão do Thiago em 19/10/2026: o host preenche.** `necessidadeMencionada`, em
 `src/convenio.ts`, devolve o termo genérico `"cirurgia"` quando a mensagem menciona
 cirurgia e o slot está vazio.
+
+⚠️ **E devolve o termo ESPECÍFICO, não "cirurgia" genérico.** O review adversarial do Codex
+reproduziu o custo da primeira versão, no mesmo dia:
+
+| o paciente disse | devolvia | o que se perdia |
+|---|---|---|
+| "é para o retorno da cirurgia" | `cirurgia` | perfil deixava de ser `soHumano` — **a trava do retorno era contornada** |
+| "quero marcar a cirurgia refrativa" | `cirurgia` | pergunta da lente e os 3 dias de antecedência |
+
+Cada valor liga uma trava diferente, e o genérico não liga nenhuma. Agora a ordem vai do
+específico para o genérico: retorno, catarata, refrativa, cirurgia.
+
+⚠️ **E lê a MEMÓRIA, não só o slot do turno.** A primeira versão lia o slot, então uma
+menção nova a cirurgia apagava o "cirurgia refrativa" ou o "retorno" que a conversa já
+tinha estabelecido dois turnos antes — e com ele a trava.
+
+⚠️ **"óculos" exige verbo de livrar-se deles**, igual ao `VOCABULARIO_REFRATIVO`: "trocar o
+grau do óculos" é rotina, quer receita nova. Com `óculos` solto, meu regex mandava quem
+quer receita para a fila cirúrgica e dava desconto a ele.
 
 ⛔ **Nunca sobrescreve o rótulo do modelo** — se ele disse catarata, é catarata; o host não
 adivinha procedimento. E só preenche quando o paciente MENCIONOU: preencher no chute daria

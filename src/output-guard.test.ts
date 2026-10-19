@@ -845,3 +845,40 @@ describe('promete_resultado (19/10/2026)', () => {
     expect(v.achados.map((a) => a.regra)).not.toContain('promete_resultado');
   });
 });
+
+/**
+ * Codex, 19/10/2026: vocabulário comercial dispensava a frase inteira.
+ *
+ * "Garantimos que sua visão vai melhorar após a cirurgia." era bloqueada, e
+ * acrescentar "Pelo valor combinado," na frente fazia a MESMA promessa passar
+ * limpa — bastava a palavra "valor" aparecer. Numa resposta que junta resultado
+ * e condição comercial, que é justamente o caso de conversão, a regra dura saía
+ * de serviço.
+ */
+describe('promete_resultado: comercial não dispensa resultado', () => {
+  it.each([
+    'Garantimos que sua visão vai melhorar após a cirurgia.',
+    'Pelo valor combinado, garantimos que sua visão vai melhorar após a cirurgia.',
+    'Pelo horário reservado, garantimos o resultado da cirurgia.',
+    'Com certeza seu grau não volta, pelo preço que combinamos.',
+    'Posso assegurar que você vai enxergar bem, pelo valor da avaliação.',
+  ])('BLOQUEIA: %s', (t) => {
+    expect(inspecionaSaida(t, { intencao: 'preco_cirurgia' }).bloqueado).toBe(
+      true,
+    );
+  });
+
+  // ⚠️ E garantir o que a clínica PODE garantir continua passando. O F05 é o
+  // texto de maior conversão: bloqueá-lo foi o primeiro resultado do meu regex
+  // ingênuo, e é o que faz uma equipe desligar a guarda.
+  it.each([
+    'Podemos fazer seu agendamento garantindo o desconto?',
+    'A avaliação, que normalmente custa R$ 430,00, sai por R$ 300,00.',
+    'Garanto o seu horário de quarta às 17:40.',
+    'A cirurgia refrativa diminui bastante a dependência dos óculos, e muita gente passa a não usar no dia a dia.',
+  ])('PASSA: %s', (t) => {
+    expect(inspecionaSaida(t, { intencao: 'preco_cirurgia' }).bloqueado).toBe(
+      false,
+    );
+  });
+});

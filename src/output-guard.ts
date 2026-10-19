@@ -387,13 +387,17 @@ const RX_PALAVRA_DE_PROMESSA = /\bgarant\w*|\bassegur\w*|\bcom certeza\b/i;
 const RX_ASSUNTO_RESULTADO =
   /\bresultado|\bvis[ãa]o\b|\bgrau\b|[óo]culos\b|\benxerg\w+/i;
 /**
- * ...e não do que a clínica PODE garantir. O F05 diz "Podemos fazer seu
- * agendamento garantindo o desconto?" — garantir desconto é legítimo, e
- * bloquear o texto de maior conversão da clínica foi o primeiro resultado do
- * meu regex ingênuo, pego pelo controle negativo deste arquivo.
+ * ...e não do que a clínica PODE garantir.
+ *
+ * O F05 diz "Podemos fazer seu agendamento garantindo o desconto?" — garantir
+ * desconto é legítimo, e bloquear o texto de maior conversão da clínica foi o
+ * primeiro resultado do meu regex ingênuo, pego pelo controle negativo deste
+ * arquivo.
+ *
+ * ⚠️ Mas essa frase não chega aqui: ela não tem assunto de RESULTADO, então o
+ * laço já a dispensou antes. Esta lista ficou sem uso em 19/10/2026 e saiu —
+ * ver o comentário no laço de `achaPromessaDeResultado`.
  */
-const RX_ASSUNTO_LEGITIMO =
-  /\bdesconto|\bvalor|\bpre[çc]o|\bagendamento|\bhor[áa]rio|\bnota\b|\bvaga\b/i;
 
 function achaPromessaDeResultado(texto: string): string | undefined {
   const limpo = semAbreviacoes(texto);
@@ -407,7 +411,21 @@ function achaPromessaDeResultado(texto: string): string | undefined {
     const m = RX_PALAVRA_DE_PROMESSA.exec(frase);
     if (!m) continue;
     if (!RX_ASSUNTO_RESULTADO.test(frase)) continue;
-    if (RX_ASSUNTO_LEGITIMO.test(frase)) continue;
+    // ⚠️ A isenção comercial NÃO vale quando a frase também fala de resultado.
+    //
+    // O Codex reproduziu em 19/10/2026: "Garantimos que sua visão vai melhorar
+    // após a cirurgia." era bloqueada, e acrescentar "Pelo valor combinado,"
+    // na frente fazia a MESMA promessa passar limpa — bastava a palavra "valor"
+    // aparecer para a frase inteira ser dispensada. Numa resposta que junta
+    // resultado e condição comercial, que é o caso de conversão, a regra dura
+    // simplesmente saía de serviço.
+    //
+    // A isenção existe para "garantindo o desconto", onde o objeto garantido é
+    // comercial. Quando há objeto de RESULTADO na frase, a promessa é sobre ele.
+    //
+    // ⚠️ E a frase do F05 não chega aqui: ela não tem assunto de resultado, e o
+    // `continue` acima já a dispensou. A isenção por vocabulário comercial era
+    // redundante com essa condição — e, sendo mais larga, abria o furo.
     return m[0];
   }
   return undefined;

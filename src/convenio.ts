@@ -50,14 +50,37 @@ export const RX_SEM_PLANO =
  * Decide dinheiro (ver `temDescontoDeConsulta`, em `vagas.ts`), então a ordem
  * importa e está testada nos dois sentidos em `convenio.test.ts`.
  */
+/**
+ * Ausência EXPLÍCITA: a frase diz que o plano não existe mais, ou não existe.
+ *
+ * Precisa do OBJETO. "não tenho plano" e "cancelei" são ausência; "não tenho
+ * certeza" e "não tenho o cartão aqui" não são — são incerteza sobre QUAL plano,
+ * e foi confundi-las que criou o bug inverso do desconto em 19/10/2026.
+ *
+ * ⚠️ Esta vence o nome do plano. O Codex reproduziu em 19/10: "particular,
+ * cancelei o Bradesco e não tenho mais plano" devolvia TEM PLANO, porque minha
+ * regra de ordem dava a vitória ao nome sem exceção — e aí um particular ouvia
+ * R$ 300,00. Declaração explícita de ausência é mais forte que a menção de um
+ * nome, que pode ser histórico.
+ *
+ * ⛔ Não inclui "não uso mais o Bradesco": quem diz isso costuma emendar "agora
+ * é Amil", e o nome seguinte é que vale.
+ */
+const RX_AUSENCIA_EXPLICITA =
+  /\bcancel\w+|n[ãa]o\s+tenho\s+(?:mais\s+)?(?:plano|conv[êe]nio|seguro|nenhum)|n[ãa]o\s+(?:tenho|possuo)\s+(?:mais\s+)?nada|sem\s+(?:plano|conv[êe]nio|seguro)\b|nenhum\s+(?:plano|conv[êe]nio)/i;
+
 export function temPlano(convenio?: string): boolean {
   const c = (convenio ?? '').toLowerCase().trim();
   if (!c) return false;
-  // 1. Nomeou um plano: tem plano, qualquer que seja o resto da frase.
+  // 1. Disse EXPLICITAMENTE que não tem, ou que cancelou: não tem. Vence o
+  //    nome, que pode ser o do plano que ele acabou de cancelar.
+  if (RX_AUSENCIA_EXPLICITA.test(c)) return false;
+  // 2. Nomeou um plano: tem plano. Vence a palavra solta de ausência —
+  //    "não tenho certeza, acho que é Bradesco" é incerteza, não ausência.
   if (RX_CITA_PLANO.test(c)) return true;
-  // 2. Disse que não tem: não tem.
+  // 3. Palavra de ausência sem objeto: particular, privado, por fora.
   if (RX_SEM_PLANO.test(c)) return false;
-  // 3. Escreveu um nome que não conhecemos: é um plano. Negar o desconto a
+  // 4. Escreveu um nome que não conhecemos: é um plano. Negar o desconto a
   //    quem tem plano é o erro caro; conceder a quem não tem custa R$ 130.
   //    Entre os dois, o padrão protege o paciente de ouvir dois preços.
   return true;
@@ -98,13 +121,48 @@ export function ehUnimed(convenio?: string): boolean {
  * ⚠️ Só roda com o slot VAZIO. Nunca sobrescreve o que o modelo rotulou: se ele
  * disse "catarata", é catarata.
  */
-const RX_MENCIONA_CIRURGIA =
-  /\bcirurgi\w*|\bcatarata\b|\boperar\b|\bopera[çc][ãa]o\b|\brefrativ\w*|\blasik\b|\bprk\b/i;
+/**
+ * Em ORDEM, do mais específico para o genérico. A primeira que casa manda.
+ *
+ * ⚠️ A especificidade é load-bearing, não enfeite:
+ *   - `retorno` vai para um perfil `soHumano` — a Lara não agenda retorno.
+ *   - `cirurgia refrativa` dispara a pergunta da lente e os 3 dias de
+ *     antecedência (`VOCABULARIO_REFRATIVO`, em `vagas.ts`).
+ *   - `cirurgia` genérico NÃO dispara nenhum dos dois.
+ *
+ * A primeira versão devolvia sempre "cirurgia", e o Codex reproduziu o custo em
+ * 19/10/2026: "é para o retorno da cirurgia" caía em `particular-cirurgia`, que
+ * não é `soHumano` — a trava do retorno era contornada por uma omissão do
+ * classificador. E "quero marcar a cirurgia refrativa" perdia a pergunta da
+ * lente, podendo oferecer horário para menos de 3 dias a quem usa lente.
+ */
+const MENCOES: Array<[RegExp, string]> = [
+  // Retorno primeiro: "retorno da cirurgia" tem as duas palavras, e é retorno.
+  [
+    /\bretorno\b[^.!?\n]{0,30}\bcirurgi\w*|\bcirurgi\w*[^.!?\n]{0,30}\bretorno\b/i,
+    'retorno de cirurgia',
+  ],
+  [/\bretorno\b|\bvolta\w*\s+da\s+consulta\b/i, 'retorno'],
+  [/\bcatarata\b/i, 'catarata'],
+  // ⚠️ "óculos" exige verbo de livrar-se deles, igual ao `VOCABULARIO_REFRATIVO`
+  // de `vagas.ts` — a razão está lá: "trocar o grau do óculos" é ROTINA, quer
+  // receita nova, não operar. Com `óculos` solto, meu primeiro regex mandava
+  // quem quer receita para a fila cirúrgica e dava desconto a ele.
+  [
+    /\brefrativ\w*|\blasik\b|\bprk\b|\bmiopia\b|\bastigmatism\w*|\bhipermetrop\w*|(?:parar de usar|largar|deixar de usar|n[ãa]o usar mais|livrar|sem)[^.!?]{0,20}[óo]culos/i,
+    'cirurgia refrativa',
+  ],
+  [/\bcirurgi\w*|\boperar\b|\bopera[çc][ãa]o\b/i, 'cirurgia'],
+];
 
 export function necessidadeMencionada(
   necessidade: string | undefined,
   mensagem: string,
 ): string | undefined {
+  // ⚠️ `necessidade` tem de chegar aqui JÁ COM A MEMÓRIA (`comLembrados`), não
+  // só com o slot do turno. A primeira versão lia o slot do turno, então uma
+  // menção nova a cirurgia com slot omitido ATROPELAVA o "cirurgia refrativa"
+  // ou o "retorno" que a conversa já tinha estabelecido. Achado do Codex.
   if (necessidade?.trim()) return necessidade;
-  return RX_MENCIONA_CIRURGIA.test(mensagem) ? 'cirurgia' : undefined;
+  return MENCOES.find(([rx]) => rx.test(mensagem))?.[1];
 }

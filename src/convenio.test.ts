@@ -62,17 +62,20 @@ describe('temPlano: nome de plano vence palavra de ausência', () => {
  * `necessidade` vinha vazio quando "cirurgia" aparecia sem diagnóstico junto.
  */
 describe('necessidadeMencionada', () => {
+  // ⚠️ Devolve o termo ESPECÍFICO quando dá para saber, e o genérico só quando
+  // não dá. A primeira versão devolvia sempre "cirurgia" — ver o describe do
+  // Codex abaixo para o que isso custava.
   it.each([
-    'voces fazem cirurgia pelo PLAMTA?',
-    'queria operar a vista',
-    'quanto custa a cirurgia refrativa?',
-    'fazem lasik?',
-    'tenho catarata, queria marcar',
-    'quero fazer a operação',
-    'faz PRK?',
-  ])('preenche "cirurgia": %s', (msg) => {
-    expect(necessidadeMencionada(undefined, msg), msg).toBe('cirurgia');
-    expect(necessidadeMencionada('', msg), msg).toBe('cirurgia');
+    ['voces fazem cirurgia pelo PLAMTA?', 'cirurgia'],
+    ['queria operar a vista', 'cirurgia'],
+    ['quero fazer a operação', 'cirurgia'],
+    ['quanto custa a cirurgia refrativa?', 'cirurgia refrativa'],
+    ['fazem lasik?', 'cirurgia refrativa'],
+    ['faz PRK?', 'cirurgia refrativa'],
+    ['tenho catarata, queria marcar', 'catarata'],
+  ])('%s -> %s', (msg, esperado) => {
+    expect(necessidadeMencionada(undefined, msg), msg).toBe(esperado);
+    expect(necessidadeMencionada('', msg), msg).toBe(esperado);
   });
 
   // ⚠️ NUNCA sobrescreve o que o modelo rotulou. Se ele disse catarata, é
@@ -97,4 +100,64 @@ describe('necessidadeMencionada', () => {
   ])('não preenche: %s', (msg) => {
     expect(necessidadeMencionada(undefined, msg), msg).toBeUndefined();
   });
+});
+
+/**
+ * Os dois achados do review adversarial do Codex, 19/10/2026.
+ *
+ * Os dois contra código que eu havia escrito no mesmo dia, e os dois
+ * reproduzidos antes de consertar.
+ */
+describe('Codex: ausência explícita vence o nome do plano', () => {
+  it.each([
+    'particular, cancelei o Bradesco e não tenho mais plano',
+    'cancelei o Bradesco',
+    'cancelei meu convênio',
+    'não tenho mais plano',
+    'não tenho mais convênio',
+    'não tenho nenhum plano',
+  ])('NÃO tem plano: %s', (c) => {
+    expect(temPlano(c), c).toBe(false);
+  });
+
+  // ⚠️ E a incerteza sobre QUAL plano continua sendo "tem plano". Confundir as
+  // duas foi o que criou o bug inverso do desconto, horas antes.
+  it.each([
+    'não tenho certeza, acho que é Bradesco',
+    'nao tenho o cartao aqui, mas é Amil',
+    'não uso mais o Bradesco, agora é Amil',
+    'tinha Amil, hoje é Bradesco',
+  ])('TEM plano: %s', (c) => {
+    expect(temPlano(c), c).toBe(true);
+  });
+});
+
+describe('Codex: o fallback preserva a especificidade', () => {
+  // ⚠️ Cada um desses valores liga uma trava diferente, e "cirurgia" genérico
+  // não liga nenhuma: `retorno*` é soHumano, `cirurgia refrativa` dispara a
+  // pergunta da lente e os 3 dias.
+  it.each([
+    ['é para o retorno da cirurgia', 'retorno de cirurgia'],
+    ['queria marcar meu retorno', 'retorno'],
+    ['quero marcar a cirurgia refrativa', 'cirurgia refrativa'],
+    ['quero parar de usar óculos', 'cirurgia refrativa'],
+    ['tenho miopia, quero operar', 'cirurgia refrativa'],
+    ['quero operar a catarata', 'catarata'],
+    ['voces fazem cirurgia?', 'cirurgia'],
+  ])('%s -> %s', (msg, esperado) => {
+    expect(necessidadeMencionada(undefined, msg), msg).toBe(esperado);
+  });
+
+  // ⚠️ E NUNCA atropela o que a conversa já estabeleceu. A primeira versão lia
+  // só o slot do turno, então uma menção nova a "cirurgia" apagava o
+  // "cirurgia refrativa" ou o "retorno" de dois turnos antes — e com ele a
+  // pergunta da lente ou a trava do retorno.
+  it.each(['cirurgia refrativa', 'retorno', 'catarata', 'rotina', 'exame'])(
+    'memória "%s" sobrevive a uma menção genérica',
+    (lembrado) => {
+      expect(necessidadeMencionada(lembrado, 'voces fazem cirurgia?')).toBe(
+        lembrado,
+      );
+    },
+  );
 });
