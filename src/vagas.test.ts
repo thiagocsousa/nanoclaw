@@ -3,9 +3,11 @@ import { describe, expect, it } from 'vitest';
 import {
   duasOpcoes,
   perfilDe,
+  periodoPedido,
   slotsDaVaga,
   temDescontoDeConsulta,
   vagaEscolhida,
+  vagaNoPeriodo,
 } from './vagas.js';
 
 // O perfil decide duração, antecedência e cota da agenda. Errá-lo não produz
@@ -385,5 +387,55 @@ describe('duasOpcoes: o teto de 10 dias (Thiago, 19/10/2026)', () => {
   it('data em formato inesperado não vira segunda opção', () => {
     const r = duasOpcoes([v('2026-10-21', '17:40'), v('amanhã', '09:00')]);
     expect(r).toHaveLength(1);
+  });
+});
+
+describe('periodoPedido e vagaNoPeriodo (Marina, 19/10/2026)', () => {
+  it.each([
+    ['quarta pela manhã', 'manha'],
+    ['de manhã', 'manha'],
+    ['tem de manha?', 'manha'],
+    ['atende no período matutino?', 'manha'],
+    ['prefiro de tarde', 'tarde'],
+    ['à tarde', 'tarde'],
+    ['vespertino', 'tarde'],
+  ])('%s -> %s', (texto, esperado) => {
+    expect(periodoPedido(texto), texto).toBe(esperado);
+  });
+
+  // ⚠️ Sem período, undefined: não inventa janela para quem não pediu.
+  it.each(['quarta', 'tem horario?', '10h', 'amanhã', ''])(
+    'sem período: %s',
+    (texto) => {
+      expect(periodoPedido(texto), texto).toBeUndefined();
+    },
+  );
+
+  // ⚠️ O corte é meio-dia, e é por isso que período NÃO é hora: mapear "manhã"
+  // para 08:00 faria o host dizer "nesse horário não dá, mas tenho 09:20" — e
+  // 09:20 é de manhã.
+  it.each([
+    ['08:00', 'manha', true],
+    ['09:20', 'manha', true],
+    ['11:59', 'manha', true],
+    ['12:00', 'manha', false],
+    ['14:30', 'manha', false],
+    ['14:30', 'tarde', true],
+    ['17:40', 'tarde', true],
+    ['11:59', 'tarde', false],
+  ])('%s em %s -> %s', (inicio, periodo, esperado) => {
+    const v = { data: '2026-10-21', dia_semana: 'quarta', inicio, fim: inicio };
+    expect(vagaNoPeriodo(v, periodo as 'manha' | 'tarde')).toBe(esperado);
+  });
+
+  it('hora inválida não cai em período nenhum', () => {
+    const v = {
+      data: '2026-10-21',
+      dia_semana: 'quarta',
+      inicio: '??',
+      fim: '',
+    };
+    expect(vagaNoPeriodo(v, 'manha')).toBe(false);
+    expect(vagaNoPeriodo(v, 'tarde')).toBe(false);
   });
 });

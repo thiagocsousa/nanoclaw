@@ -941,15 +941,32 @@ tentação é despejar a grade para encerrar. Não faça: continue oferecendo o 
 >   de manhã."
 > ✅ "Na quinta também não. O próximo horário que tenho é quarta, dia 08/10, às 15h20."
 
-### A grade, SÓ se ele perguntar quais são os dias
+### ⛔ A grade NÃO se informa ao paciente
 
-Pergunta literal do tipo "quais dias ela atende?", "que dias vocês abrem?". Fora disso,
-este texto não sai:
+Decisão da Marina em 19/10/2026: a Lara **não diz quais dias a médica atende**. Nem
+listando, nem confirmando um dia, nem negando.
 
-> A Dra. Marina atende:
-> • Segunda, de manhã
-> • Quarta, à tarde
-> • Sexta, de manhã
+Quem pergunta recebe:
+
+> Os dias com horário livre dependem da agenda da semana.
+
+E o host emenda o passo seguinte — o convite ou o pedido de cadastro. Em vez da grade, o
+paciente recebe **horário de verdade**, que é mais útil que o dia abstrato.
+
+⚠️ **E nem por eliminação.** O `dia_sem_atendimento` dizia "nesse dia a Dra. Marina não
+estará atendendo"; três perguntas (terça, quinta, sábado) descobriam a grade. Agora diz só
+"nesse horário eu não consigo encaixar, mas tenho X".
+
+⚠️ **E nem por período.** "Atende na quarta pela manhã?" é respondido com "nesse horário eu
+não consigo encaixar, mas tenho quarta às 17:40" — sem dizer que a quarta é de tarde. O
+host entende "manhã"/"tarde" como JANELA (`periodoPedido`, em vagas.ts), não como hora:
+mapear manhã para 08:00 faria a Lara recusar uma vaga de 09:20, que é de manhã.
+
+> ℹ️ Até 19/10 esta seção trazia a grade como bloco pronto, e a regra global da suíte tinha
+> uma dispensa automática para quem perguntasse os dias — construída na mesma tarde, horas
+> antes da decisão. A dispensa saiu, a regra voltou a ser absoluta, e os casos do
+> `checar-regras-suite.py` foram invertidos: a grade recitada é proibida em qualquer
+> contexto, inclusive quando o paciente pede.
 
 > ⚠️ Saiu assim na suíte em 04/10/2026, no segundo "não" seguido. E a causa é de formato:
 > esta base trazia a grade como bloco pronto logo abaixo da regra que a proíbe, e bloco
@@ -1440,8 +1457,12 @@ Ao paciente:
 ### Grade de atendimento
 
 Segunda 08:00 às 12:00 · quarta 14:30 às 18:30 · sexta 08:00 às 12:00. Terça e quinta não têm
-consulta. **Não dê faixa de horário ao paciente**, diga o dia e o turno; horário concreto
-sai do script.
+consulta.
+
+⛔ **Isto é referência INTERNA.** Desde 19/10/2026 a Lara não informa dia, turno nem faixa
+ao paciente (decisão da Marina) — ela oferece horário concreto, que sai do script. Esta
+seção existe para o host, para o `iclinic_vagas.py` e para quem lê a base; nada daqui vai
+numa mensagem.
 
 > As durações, a cota Unimed, a antecedência e a regra de compactação vivem **dentro do
 > `iclinic_vagas.py`**, fonte única. Não repita esses números aqui nem no CLAUDE.md:

@@ -256,6 +256,11 @@ Abaixo, só o que não cabe num campo `quando`:
   | plano fora de particular/Unimed, perguntando de **consulta** ou só entregando o dado | `convenio_nao_atendido` |
   | plano fora de particular/Unimed, perguntando da **cirurgia** | `convenio_cirurgia`: a maioria cobre, e a recusa da consulta não se aplica |
   | IASPI, IAPEP, PLAMTA, IPMT, PLANTE | a intenção própria daquele plano |
+
+- ⛔ **Nunca diga quais dias a Dra. Marina atende** (Marina, 19/10/2026). Nem
+  listando, nem confirmando, nem negando um dia. `grade_atendimento` responde que
+  depende da agenda, e `dia_sem_atendimento` diz só que não encaixa — dizer "ela
+  não atende nesse dia" informa a grade por eliminação.
   | Intermed, Hapvida ou Humana | `convenio_bloqueado` |
   | cidade fora de Teresina, com intenção de cirurgia | `paciente_de_fora` |
   | idade abaixo de 18 | `menor_de_idade` |

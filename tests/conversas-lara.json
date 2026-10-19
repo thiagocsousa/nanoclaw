@@ -1580,13 +1580,39 @@
     {
       "id": "E07",
       "categoria": "agenda",
-      "sobre": "Pergunta literal pelos dias: aí sim a grade aparece (F06).",
+      "sobre": "Pergunta os dias de atendimento. ⛔ A Lara NÃO informa (Marina, 19/10/2026): diz que depende da agenda e emenda o próximo passo.",
       "turnos": [
         {
           "paciente": "quais dias a dra marina atende?",
-          "esperado": ["Segunda", "Quarta", "Sexta"],
+          "exige": ["agenda da semana|depende"],
+          "proibido": [
+            "Segunda",
+            "Quarta",
+            "Sexta",
+            "de manh[ãa]",
+            "[àa] tarde",
+            "S[óo] um instante"
+          ],
           "intencao_esperada": "grade_atendimento",
-          "permitido": ["recita_grade"]
+          "nota": "Até 19/10 este cenário EXIGIA Segunda/Quarta/Sexta e dispensava a regra `recita_grade`. A Marina decidiu que os dias não se informam, então a regra voltou a ser absoluta e a dispensa saiu."
+        }
+      ]
+    },
+    {
+      "id": "E07b",
+      "categoria": "agenda_bloqueada",
+      "sobre": "Pede um dia sem vaga (terça). ⛔ A resposta NÃO diz que a médica não atende nesse dia: isso informa a grade por ELIMINAÇÃO, três perguntas descobrem os dias dela (Marina, 19/10/2026).",
+      "turnos": [
+        {
+          "paciente": "consigo na terça?",
+          "proibido": [
+            "n[ãa]o (estar[áa] )?atend",
+            "n[ãa]o h[áa] atendimento",
+            "Segunda",
+            "Quarta",
+            "Sexta"
+          ],
+          "nota": "Diz só que não encaixa, e oferece o que existe."
         }
       ]
     },
@@ -1886,13 +1912,14 @@
     {
       "id": "S02",
       "categoria": "conversao",
-      "sobre": "Que dias a médica atende: perguntar quando dá para ir É intenção de marcar.",
+      "sobre": "Pergunta os dias e segue para o agendamento. ⛔ Sem informar os dias.",
       "escalou": false,
       "turnos": [
         {
           "paciente": "que dias a Dra. Marina atende?",
-          "esperado": ["[Ss]egunda", "poderia me informar"],
-          "proibido": ["Ajudo em algo mais"]
+          "exige": ["agenda da semana|depende"],
+          "esperado": ["hor[áa]rios dispon|poderia me informar"],
+          "proibido": ["Segunda", "Quarta", "Sexta", "Ajudo em algo mais"]
         }
       ]
     },

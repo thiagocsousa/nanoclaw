@@ -76,8 +76,10 @@ import {
   slotsDasVagas,
   horaPedidaIso,
   vagaEscolhida,
+  vagaNoPeriodo,
   buscaVagas,
   perfilDe,
+  periodoPedido,
   slotsDaVaga,
   soHumano,
   temDescontoDeConsulta,
@@ -885,6 +887,19 @@ export async function executa(
       // No convênio a agenda manda, e o host EXPLICA em vez de ignorar.
       const horaAlvo = horaPedidaIso(c.slots.hora_pedida);
       const filtraPelaHora = !!horaAlvo && !!diaAlvo && ehParticular(perfil);
+      // PERÍODO ("pela manhã", "de tarde"), quando ele não nomeou a hora.
+      //
+      // A Marina decidiu em 19/10/2026 que a Lara não informa os dias de
+      // atendimento. Sem isto, "atende na quarta pela manhã?" recebia "tenho
+      // quarta às 17:40": não revela a grade, mas ignora metade da pergunta.
+      //
+      // Com o período, a resposta passa a ser o `horario_pedido_indisponivel`
+      // — "nesse horário não consigo encaixar, mas tenho X" — que responde sem
+      // dizer POR QUE não dá, que é exatamente o recorte que ela pediu.
+      const periodo = horaAlvo
+        ? undefined
+        : (periodoPedido(c.slots.hora_pedida) ??
+          periodoPedido(perguntaDoPaciente));
       // 3 dias sem lente antes da avaliação (Marina, 19/10/2026). Vai para o
       // script, que é a fonte única da aritmética de agenda, em vez de filtrar
       // aqui: assim a busca já nasce no primeiro dia possível.
@@ -923,6 +938,22 @@ export async function executa(
           ...(antecedencia ? { antecedencia } : {}),
         });
         horaNegada = vagas.length > 0;
+      }
+
+      // Período pedido: filtra o que a agenda deu. Se sobrar vazio, o `horaNegada`
+      // abaixo é o que produz "nesse horário não consigo encaixar, mas tenho X".
+      let periodoNegado = false;
+      if (periodo && vagas.length > 0) {
+        const noPeriodo = vagas.filter((v) => vagaNoPeriodo(v, periodo));
+        if (noPeriodo.length > 0) {
+          vagas = noPeriodo;
+        } else {
+          periodoNegado = true;
+          logger.info(
+            { groupFolder, periodo, dia: diaAlvo },
+            'executor: período pedido sem vaga, oferecendo o que existe',
+          );
+        }
       }
 
       // Terceira busca: o DIA inteiro não serve, não só a hora.
@@ -989,7 +1020,10 @@ export async function executa(
         // horário que ele não viu, que é a falha que este módulo impede.
         // Guarda também QUEM é o paciente: no turno do aceite ("pode ser") os
         // slots vêm vazios, e sem isto a marcação recusa por dado faltando.
-        if (horaNegada && tabela.intencoes.horario_pedido_indisponivel) {
+        if (
+          (horaNegada || periodoNegado) &&
+          tabela.intencoes.horario_pedido_indisponivel
+        ) {
           logger.info(
             { groupFolder, hora: horaAlvo },
             'executor: hora pedida indisponível, oferecendo alternativa',

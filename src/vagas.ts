@@ -492,6 +492,39 @@ export function ehParticular(perfil: string): boolean {
  */
 const TETO_DA_SEGUNDA_EM_DIAS = 10;
 
+/**
+ * PERÍODO pedido: "pela manhã", "de tarde".
+ *
+ * Existe porque a Marina decidiu em 19/10/2026 que a Lara NÃO informa os dias de
+ * atendimento. Sem entender o período, "ela atende na quarta pela manhã?" era
+ * respondido com "tenho quarta às 17:40" — não revela a grade, mas ignora metade
+ * da pergunta, e o paciente lê como desatenção.
+ *
+ * ⚠️ NÃO é uma hora. Mapear "manhã" para 08:00 pareceria resolver e criaria o
+ * erro inverso: com uma vaga de 09:20 na agenda, o host diria "nesse horário não
+ * consigo encaixar, mas tenho 09:20" — e 09:20 É de manhã. Período é janela.
+ *
+ * O corte é meio-dia, que é o que a palavra significa em português e o que
+ * separa as duas janelas da clínica (`JANELAS`, em iclinic_vagas.py).
+ */
+export type Periodo = 'manha' | 'tarde';
+
+export function periodoPedido(texto?: string): Periodo | undefined {
+  const t = semAcento(texto ?? '').toLowerCase();
+  if (/\bmanha\b|\bde manha\b|\bpela manha\b|\bmatutino\b/.test(t)) {
+    return 'manha';
+  }
+  if (/\btarde\b|\bde tarde\b|\bvespertino\b/.test(t)) return 'tarde';
+  return undefined;
+}
+
+/** A vaga cai no período pedido? Corte em 12:00. */
+export function vagaNoPeriodo(vaga: Vaga, periodo: Periodo): boolean {
+  const h = Number(String(vaga.inicio).slice(0, 2));
+  if (!Number.isFinite(h)) return false;
+  return periodo === 'manha' ? h < 12 : h >= 12;
+}
+
 /** Dias entre duas datas ISO. Devolve undefined se alguma não for ISO. */
 function diasEntre(a: string, b: string): number | undefined {
   const ta = Date.parse(`${a}T12:00:00Z`);

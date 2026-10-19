@@ -308,31 +308,6 @@ def sem_abreviacoes(texto):
     return RX_ABREVIACAO.sub(lambda m: m.group(1) + " ", texto)
 
 
-RX_PEDIU_A_GRADE = re.compile(
-    r"que[\s-]*dias?\b|quais\s+(?:os\s+)?dias|dias?\s+(?:que\s+)?(?:ela|a\s+(?:dra|doutora))"
-    r"|dias?\s+de\s+atendimento|hor[áa]rio\s+de\s+(?:atendimento|funcionamento)"
-    r"|quando\s+(?:ela|a\s+(?:dra|doutora))\s+atende|atende\s+(?:em\s+)?quais?\s+dias",
-    re.I,
-)
-
-
-def perguntou_a_grade(turno):
-    """O paciente pediu a grade de atendimento nesta mensagem?
-
-    `recita_grade` nasceu para impedir que a grade saia NO LUGAR de uma oferta de
-    horário. Quando a pessoa pergunta literalmente que dias a médica atende,
-    recitar é o comportamento CERTO (F06) e existe intenção aprovada para isso
-    (`grade_atendimento`).
-
-    O turno pode dispensar a regra à mão com `permitido: [recita_grade]`, e o E07
-    fazia isso. Mas o S02 pergunta a mesma coisa e não foi anotado, então a
-    passada 15 acusou falha dura num acerto — a quarta vez nesta sessão que uma
-    regra global de escopo errado reprovou a resposta certa. Anotar cenário a
-    cenário é o que faz o próximo esquecer; o escopo é da REGRA.
-    """
-    return bool(RX_PEDIU_A_GRADE.search(turno.get("paciente", "")))
-
-
 def ainda_sem_pedido(turno, anteriores):
     """A conversa até aqui não disse o que o paciente quer?
 
@@ -379,8 +354,6 @@ def checa(resposta, turno, globais, anteriores=()):
     permitido = set(turno.get("permitido") or [])
     if ainda_sem_pedido(turno, anteriores):
         permitido.add("empurra_trabalho")
-    if perguntou_a_grade(turno):
-        permitido.add("recita_grade")
     limpo = sem_abreviacoes(resposta)
     for nome, rx in globais.items():
         if nome in permitido:

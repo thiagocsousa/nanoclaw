@@ -2824,3 +2824,83 @@ describe('intenção só do host rotulada pelo modelo é vetada', () => {
     },
   );
 });
+
+/**
+ * "Ela atende na quarta pela manhã?" — a pergunta do Thiago, 19/10/2026.
+ *
+ * A Marina decidiu que a Lara NÃO informa os dias de atendimento. Sem entender
+ * o período, isto era respondido com "tenho quarta às 17:40": não revela a
+ * grade, mas ignora metade da pergunta. Com o período, vira "nesse horário eu
+ * não consigo encaixar, mas tenho X" — responde sem dizer POR QUE não dá.
+ */
+describe('período pedido ("pela manhã")', () => {
+  const SLOTS =
+    '"nome":"Clara Souza","nascimento":"1975-07-20","cidade":"Teresina","convenio":"particular","necessidade":"rotina"';
+
+  it('quarta pela manhã, com a agenda só de tarde, diz que não encaixa', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    vagasFalsas = [
+      {
+        data: '2026-10-21',
+        dia_semana: 'quarta',
+        inicio: '17:40',
+        fim: '18:00',
+      },
+    ];
+    const r = await rodar(
+      `{"intencao":"horario_oferta","confianca":0.95,"slots":{${SLOTS},"dia_pedido":"quarta"}}`,
+      'ela atende na quarta pela manhã?',
+    );
+    expect(r?.texto).toContain('não consigo encaixar');
+    expect(r?.texto).toContain('17:40');
+    // ⛔ E NÃO diz que a quarta é só de tarde: a grade não se deduz daqui.
+    expect(r?.texto).not.toMatch(/tarde|manh[ãa]|n[ãa]o atende/i);
+  });
+
+  // ⚠️ Com vaga NO período pedido, oferece normalmente — sem a frase de recusa.
+  it('manhã com vaga de manhã oferece direto', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    vagasFalsas = [
+      {
+        data: '2026-10-26',
+        dia_semana: 'segunda',
+        inicio: '09:20',
+        fim: '09:40',
+      },
+    ];
+    const r = await rodar(
+      `{"intencao":"horario_oferta","confianca":0.95,"slots":{${SLOTS},"dia_pedido":"segunda"}}`,
+      'tem na segunda de manhã?',
+    );
+    expect(r?.texto).toContain('09:20');
+    expect(r?.texto).not.toContain('não consigo encaixar');
+  });
+
+  // ⚠️ E o período FILTRA: com manhã e tarde na agenda, só a manhã é oferecida.
+  it('filtra as vagas pelo período, não só nega', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    vagasFalsas = [
+      {
+        data: '2026-10-26',
+        dia_semana: 'segunda',
+        inicio: '14:30',
+        fim: '14:50',
+      },
+      {
+        data: '2026-10-26',
+        dia_semana: 'segunda',
+        inicio: '09:20',
+        fim: '09:40',
+      },
+    ];
+    const r = await rodar(
+      `{"intencao":"horario_oferta","confianca":0.95,"slots":{${SLOTS},"dia_pedido":"segunda"}}`,
+      'tem na segunda de manhã?',
+    );
+    expect(r?.texto).toContain('09:20');
+    expect(r?.texto).not.toContain('14:30');
+  });
+});

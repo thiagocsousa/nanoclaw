@@ -350,25 +350,23 @@
     },
     "dia_sem_atendimento": {
       "bloco": "F06",
-      "quando": "sábado, domingo, terça, quinta, feriado",
+      "quando": "pede um dia em que não há vaga: sábado, domingo, terça, quinta, feriado.\n\n⛔ A resposta NÃO diz que a médica não atende nesse dia (Marina, 19/10/2026). Dizer isso informa a grade por ELIMINAÇÃO: três perguntas descobrem os dias dela. Diz só que não encaixa, e oferece o que existe.",
       "acao": "responder",
       "fecho": false,
       "slots_obrigatorios": ["dia", "hora"],
       "textos": [
-        "Nesse dia a Dra. Marina não estará atendendo no consultório, mas tenho {dia}, dia {data}, às {hora}.\n\nEsse horário seria bom para você?"
+        "Nesse horário eu não consigo encaixar, mas tenho {dia}, dia {data}, às {hora}.\n\nEsse horário seria bom para você?"
       ],
       "textos_sem_slot": [
-        "Nesse dia não teremos atendimento, mas vou ver outras datas para você.\n\nTem algum outro dia da semana que seria melhor?"
+        "Nesse horário eu não consigo encaixar, mas vou ver outras datas para você.\n\nTem algum outro dia que seria melhor?"
       ]
     },
     "grade_atendimento": {
       "bloco": "F06",
-      "quando": "SÓ quando perguntam literalmente quais dias ela atende",
+      "quando": "pergunta quais dias ou horários a Dra. Marina atende.\n\n⛔ A resposta NÃO informa os dias (Marina, 19/10/2026). O host emenda o passo seguinte; a Lara nunca lista Segunda/Quarta/Sexta nem diz que um dia não tem atendimento.",
       "acao": "responder",
       "fecho": false,
-      "textos": [
-        "A Dra. Marina atende:\n• Segunda, de manhã\n• Quarta, à tarde\n• Sexta, de manhã"
-      ],
+      "textos": ["Os dias com horário livre dependem da agenda da semana."],
       "emenda_triagem": true
     },
     "endereco": {
