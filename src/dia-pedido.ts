@@ -35,11 +35,7 @@ const DIAS: Record<string, number> = {
 };
 
 function semAcento(s: string): string {
-  return s
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .trim();
+  return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
 }
 
 /** Hoje no fuso da clínica, como {ano, mes, dia, diaSemana}. */

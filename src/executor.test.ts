@@ -1029,13 +1029,71 @@ describe('o limiar vale ANTES de gravar (Codex, 17/10/2026)', () => {
   });
 });
 
+describe('retorno e exame não passam pelo formulário (Thiago, 19/10/2026)', () => {
+  // Medido antes de mexer: "quero marcar meu retorno" virava `triagem_dados`,
+  // o paciente digitava os QUATRO campos e só então ouvia "Só um instante".
+  // Justamente quem a clínica já tem no cadastro.
+  it('retorno sem dados escala na hora, sem pedir nada', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    const r = await rodar(
+      '{"intencao":"triagem_dados","confianca":0.95,"slots":{"necessidade":"retorno"}}',
+      'quero marcar meu retorno',
+    );
+    expect(r?.acao).toBe('escalar');
+    expect(r?.texto.toLowerCase()).not.toContain('nome completo');
+    expect(String(pendencias().pop()?.motivo)).toMatch(/retorno/);
+  });
+
+  it('exame também', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    const r = await rodar(
+      '{"intencao":"triagem_dados","confianca":0.95,"slots":{"necessidade":"exame"}}',
+      'quero marcar o mapeamento',
+    );
+    expect(r?.acao).toBe('escalar');
+    expect(r?.texto.toLowerCase()).not.toContain('nome completo');
+  });
+
+  // ⚠️ O outro lado: em `recusar_e_triagem` a resposta JÁ SAIU e é aprovada.
+  // Escalar ali engoliria uma resposta correta — "quanto custa o retorno?"
+  // continua sendo respondido.
+  it('pergunta de PREÇO sobre retorno continua respondida', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    const r = await rodar(
+      '{"intencao":"preco_consulta","confianca":0.95,"slots":{"necessidade":"retorno","convenio":"particular"}}',
+      'quanto custa o retorno?',
+    );
+    expect(r?.acao).not.toBe('escalar');
+    expect(r?.texto).toContain('430');
+  });
+
+  it('consulta normal segue pedindo os dados', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    const r = await rodar(
+      '{"intencao":"triagem_dados","confianca":0.95,"slots":{"necessidade":"rotina"}}',
+      'quero marcar uma consulta',
+    );
+    expect(r?.acao).not.toBe('escalar');
+    expect(r?.texto.toLowerCase()).toContain('nome completo');
+  });
+});
+
 describe('dia e hora pedidos pelo paciente (Thiago, 19/10/2026)', () => {
   it('o DIA pedido chega à agenda como data', async () => {
     const { esqueceSlots } = await import('./memoria-conversa.js');
     esqueceSlots(PASTA, JID);
     buscou.length = 0;
     vagasFalsas = [
-      { data: '2026-10-23', dia_semana: 'sexta', inicio: '09:00', fim: '09:30' },
+      {
+        data: '2026-10-23',
+        dia_semana: 'sexta',
+        inicio: '09:00',
+        fim: '09:30',
+      },
     ];
     await rodar(
       '{"intencao":"horario_oferta","confianca":0.95,"slots":{"necessidade":"catarata","convenio":"particular","dia_pedido":"sexta"}}',
@@ -1051,7 +1109,12 @@ describe('dia e hora pedidos pelo paciente (Thiago, 19/10/2026)', () => {
     esqueceSlots(PASTA, JID);
     buscou.length = 0;
     vagasFalsas = [
-      { data: '2026-10-23', dia_semana: 'sexta', inicio: '10:00', fim: '10:30' },
+      {
+        data: '2026-10-23',
+        dia_semana: 'sexta',
+        inicio: '10:00',
+        fim: '10:30',
+      },
     ];
     await rodar(
       '{"intencao":"horario_oferta","confianca":0.95,"slots":{"necessidade":"catarata","convenio":"particular","dia_pedido":"sexta","hora_pedida":"10h"}}',
@@ -1067,7 +1130,12 @@ describe('dia e hora pedidos pelo paciente (Thiago, 19/10/2026)', () => {
     esqueceSlots(PASTA, JID);
     buscou.length = 0;
     vagasFalsas = [
-      { data: '2026-10-23', dia_semana: 'sexta', inicio: '08:40', fim: '09:00' },
+      {
+        data: '2026-10-23',
+        dia_semana: 'sexta',
+        inicio: '08:40',
+        fim: '09:00',
+      },
     ];
     const r = await rodar(
       '{"intencao":"horario_oferta","confianca":0.95,"slots":{"necessidade":"rotina","convenio":"Unimed","dia_pedido":"sexta","hora_pedida":"10h"}}',
@@ -1083,7 +1151,12 @@ describe('dia e hora pedidos pelo paciente (Thiago, 19/10/2026)', () => {
     esqueceSlots(PASTA, JID);
     buscou.length = 0;
     vagasFalsas = [
-      { data: '2026-10-23', dia_semana: 'sexta', inicio: '08:40', fim: '09:00' },
+      {
+        data: '2026-10-23',
+        dia_semana: 'sexta',
+        inicio: '08:40',
+        fim: '09:00',
+      },
     ];
     const r = await rodar(
       '{"intencao":"horario_oferta","confianca":0.95,"slots":{"necessidade":"rotina","convenio":"Unimed"}}',

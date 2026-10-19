@@ -2615,6 +2615,45 @@
           "nota": "Antes disso a hora era descartada e ela oferecia o mesmo horário de novo, sem dizer por quê."
         }
       ]
+    },
+    {
+      "id": "X01",
+      "categoria": "agenda_bloqueada",
+      "sobre": "Quer marcar RETORNO: escala sem pedir os quatro campos. Quem pede retorno já é paciente da casa (Thiago, 19/10).",
+      "escalou": true,
+      "turnos": [
+        {
+          "paciente": "oi"
+        },
+        {
+          "paciente": "queria marcar meu retorno",
+          "esperado": [
+            "S[óo] um instante"
+          ],
+          "proibido": [
+            "Nome completo",
+            "poderia me informar"
+          ],
+          "nota": "Antes de 19/10 ele digitava nome, nascimento, cidade e convênio e só então era escalado."
+        }
+      ]
+    },
+    {
+      "id": "X02",
+      "categoria": "agenda_bloqueada",
+      "sobre": "Preço do retorno continua respondido: a regra vale para MARCAR, não para informar.",
+      "escalou": false,
+      "turnos": [
+        {
+          "paciente": "o retorno é cobrado?",
+          "esperado": [
+            "30 dias"
+          ],
+          "proibido": [
+            "S[óo] um instante"
+          ]
+        }
+      ]
     }
   ]
 }

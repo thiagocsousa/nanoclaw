@@ -802,6 +802,37 @@ export async function executa(
     }
   }
 
+  // Retorno e exame a Lara não agenda, e a regra tem de valer ANTES do
+  // formulário.
+  //
+  // `soHumano` existia e estava certo, mas só era consultado dentro do bloco da
+  // agenda — que roda DEPOIS da triagem. Medido em 19/10/2026, a pedido do
+  // Thiago: "quero marcar meu retorno" sem dados virava `triagem_dados`, o
+  // paciente digitava nome, nascimento, cidade e convênio, e só então ouvia
+  // "Só um instante.". Justamente quem a clínica já tem no cadastro.
+  //
+  // ⚠️ Só no caminho de `triagem`, que existe para COLETAR e marcar. Em
+  // `recusar_e_triagem` a resposta já saiu (preço, convênio) e é aprovada:
+  // escalar ali engoliria uma resposta correta. "Quanto custa o retorno?"
+  // continua sendo respondido.
+  if (acao === 'triagem') {
+    const perfilAlvo = perfilDe(lembrados.necessidade, lembrados.convenio);
+    if (perfilAlvo && soHumano(perfilAlvo)) {
+      logger.info(
+        { groupFolder, perfil: perfilAlvo },
+        'executor: retorno/exame não passa pelo formulário, escala direto',
+      );
+      return await escalaComo(
+        groupFolder,
+        tabela,
+        `quer marcar ${perfilAlvo}, que a Lara não agenda; depende da data da ` +
+          `última consulta e quem organiza é a recepção`,
+        perguntaDoPaciente,
+        deps,
+      );
+    }
+  }
+
   if (acao === 'triagem' || acao === 'recusar_e_triagem') {
     const formulario = tabela.intencoes.triagem_dados?.textos?.[0] ?? r.texto;
     // ⚠️ Sobre os dados ACUMULADOS da conversa, não só os deste turno.

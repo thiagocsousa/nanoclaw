@@ -49,10 +49,14 @@ describe('o dia que o paciente pediu', () => {
 
   // ⚠️ undefined é o caso SEGURO: a agenda devolve o próximo disponível.
   // Chutar uma data seria oferecer um dia que ninguém pediu.
-  it.each(['', undefined, 'qualquer dia', 'o mais cedo possível', 'dia 45', '13/13'])(
-    '%s não vira data',
-    (pedido) => {
-      expect(resolveDiaPedido(pedido, SEGUNDA)).toBeUndefined();
-    },
-  );
+  it.each([
+    '',
+    undefined,
+    'qualquer dia',
+    'o mais cedo possível',
+    'dia 45',
+    '13/13',
+  ])('%s não vira data', (pedido) => {
+    expect(resolveDiaPedido(pedido, SEGUNDA)).toBeUndefined();
+  });
 });
