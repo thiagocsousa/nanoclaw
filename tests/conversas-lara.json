@@ -2449,6 +2449,67 @@
           "nota": "Decisão do Thiago em 19/10: não falar sobre organizar o agendamento do Pentacam."
         }
       ]
+    },
+    {
+      "id": "U01",
+      "categoria": "conversao",
+      "sobre": "Só pesquisando preço: convite LEVE, sem pedir três campos de cara (o melhor dos dois, Thiago 19/10).",
+      "escalou": false,
+      "turnos": [
+        {
+          "paciente": "quanto custa a consulta?",
+          "esperado": [
+            "430",
+            "eu já vejo um hor[áa]rio"
+          ],
+          "proibido": [
+            "poderia me informar"
+          ],
+          "nota": "Exigir cadastro para informar valor é o que o manual chama de atrito desnecessário."
+        }
+      ]
+    },
+    {
+      "id": "U02",
+      "categoria": "conversao",
+      "sobre": "Já se identificou: o convite pede o que falta, que é o passo útil.",
+      "escalou": false,
+      "turnos": [
+        {
+          "paciente": "sou o Marcos, de Teresina, particular. quanto é a consulta?",
+          "esperado": [
+            "430",
+            "poderia me informar"
+          ],
+          "proibido": [
+            "eu já vejo um hor[áa]rio"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "U03",
+      "categoria": "conversao",
+      "sobre": "Aceita o convite leve: a conversa segue para os dados, não para o vazio.",
+      "escalou": false,
+      "turnos": [
+        {
+          "paciente": "quanto custa a consulta?",
+          "esperado": [
+            "eu já vejo um hor[áa]rio"
+          ]
+        },
+        {
+          "paciente": "quero sim",
+          "esperado": [
+            "poderia me informar|Nome completo"
+          ],
+          "proibido": [
+            "S[óo] um instante"
+          ],
+          "nota": "Sem o quer_horario, esse 'sim' cairia em DESCONHECIDO."
+        }
+      ]
     }
   ]
 }

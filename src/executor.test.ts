@@ -84,6 +84,15 @@ const TABELA = {
       acao: 'responder',
       textos: ['Você está procurando cirurgia, ou uma consulta de rotina?'],
     },
+    // O convite LEVE: vai para quem ainda não se identificou.
+    convite_horario: {
+      acao: 'responder',
+      textos: ['Se quiser, eu já vejo um horário para você.'],
+    },
+    quer_horario: {
+      acao: 'triagem',
+      textos: ['Perfeito.'],
+    },
     endereco: {
       acao: 'responder',
       fecho: true,
@@ -568,7 +577,10 @@ describe('perguntar preço leva ao próximo passo (Thiago, 18/10/2026)', () => {
   // A análise de conversão: "quanto custa a consulta" é a pergunta de preço
   // mais comum do corpus (24 conversas, contra 18 da cirurgia) e era a única
   // das duas que não convidava. Terminava em "Ajudo em algo mais?".
-  it('o preço da consulta emenda o pedido dos dados', async () => {
+  // Quem só perguntou o preço, sem se identificar, recebe o convite LEVE.
+  // Três campos de cara é o que o manual chama de exigir cadastro para
+  // informar valor (Thiago, 19/10/2026: "o melhor dos dois").
+  it('quem só pesquisa preço recebe o convite leve', async () => {
     const { esqueceSlots } = await import('./memoria-conversa.js');
     esqueceSlots(PASTA, JID);
     const r = await rodar(
@@ -576,10 +588,45 @@ describe('perguntar preço leva ao próximo passo (Thiago, 18/10/2026)', () => {
       'quanto custa a consulta?',
     );
     expect(r?.texto).toContain('430');
-    expect(r?.texto.toLowerCase()).toContain('poderia me informar');
-    // E não encerra: "Ajudo em algo mais?" com um pedido de dados em seguida
-    // seria encerrar e abrir na mesma respiração.
+    expect(r?.texto).toContain('eu já vejo um horário');
+    expect(r?.texto.toLowerCase()).not.toContain('poderia me informar');
     expect(r?.texto).not.toContain('Ajudo em algo mais');
+  });
+
+  // Quem já se identificou está marcando: pedir o que falta é o passo útil.
+  it('quem já deu dado pessoal recebe o pedido do que falta', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    const r = await rodar(
+      '{"intencao":"preco_consulta","confianca":0.95,"slots":{"nome":"Thiago","convenio":"particular"}}',
+      'sou Thiago, particular. quanto custa a consulta?',
+    );
+    expect(r?.texto).toContain('430');
+    expect(r?.texto.toLowerCase()).toContain('poderia me informar');
+    expect(r?.texto).not.toContain('eu já vejo um horário');
+  });
+
+  // ⚠️ `necessidade` não conta como compromisso: ela é preenchida por qualquer
+  // pergunta, e usá-la faria o convite leve nunca acontecer.
+  it('saber só o ASSUNTO não dispara o pedido de dados', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    const r = await rodar(
+      '{"intencao":"preco_consulta","confianca":0.95,"slots":{"necessidade":"catarata"}}',
+      'quanto custa a consulta pra catarata?',
+    );
+    expect(r?.texto).toContain('eu já vejo um horário');
+  });
+
+  it('o convite leve também sai UMA vez por conversa', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    await rodar('{"intencao":"preco_consulta","confianca":0.95,"slots":{}}');
+    const r = await rodar(
+      '{"intencao":"exames_preco","confianca":0.95,"slots":{}}',
+      'e os exames?',
+    );
+    expect(r?.texto).not.toContain('eu já vejo um horário');
   });
 
   it('mas convida UMA vez: a segunda pergunta de preço só responde', async () => {

@@ -29,6 +29,24 @@
         "Você está procurando cirurgia, ou uma consulta de rotina?"
       ]
     },
+    "convite_horario": {
+      "bloco": "F00g",
+      "quando": "NUNCA rotular isto: quem decide é o host. É o convite LEVE, pendurado depois de uma resposta quando a conversa ainda não mostrou que a pessoa quer marcar.",
+      "acao": "responder",
+      "fecho": false,
+      "textos": [
+        "Se quiser, eu já vejo um horário para você."
+      ]
+    },
+    "quer_horario": {
+      "bloco": "F00g",
+      "quando": "RESPOSTA ao convite 'Se quiser, eu já vejo um horário', ACEITANDO: 'sim', 'quero', 'pode ver', 'por favor', 'vamos'. Diferente de aceita_horario, que aceita um horário JÁ OFERECIDO com dia e hora.",
+      "acao": "triagem",
+      "fecho": false,
+      "textos": [
+        "Perfeito."
+      ]
+    },
     "pedir_esclarecimento": {
       "bloco": "F00",
       "quando": "a pessoa sinalizou que quer algo mas não disse o quê. Os dois casos comuns: respondeu 'sim', 'tenho', 'queria sim' ao fecho 'Ajudo em algo mais?'; ou escreveu algo vago como 'informação', 'uma dúvida', 'queria saber uma coisa'. ⚠️ NÃO confundir com 'sim' logo depois de uma pergunta concreta da Lara: aceitar horário é aceita_horario, confirmar o convênio é convenio_confirmado, confirmar que é para si é paciente_confirmado. Aqui o 'sim' responde a um convite aberto, e por isso não diz nada ainda.",

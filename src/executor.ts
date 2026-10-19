@@ -645,7 +645,33 @@ export async function executa(
     acao === 'responder' &&
     !!tabela.intencoes[entregou]?.emenda_triagem &&
     !jaConvidou(groupFolder, chatJid);
-  if (convidavel) {
+
+  // COMO convidar depende do quanto a conversa já se comprometeu.
+  //
+  // Decisão do Thiago em 19/10/2026, depois da análise do manual que ele
+  // trouxe de outra IA: "vamos tentar o melhor dos dois". O manual convida com
+  // uma pergunta leve e só pede os dados depois do sim; a nossa versão pede os
+  // três dados junto com a resposta. A dele tem menos atrito com quem só
+  // pesquisava preço; a nossa é mais rápida com quem já quer marcar.
+  //
+  // O host escolhe pelo que SABE: se a pessoa já deu algum dado PESSOAL (nome,
+  // nascimento, cidade, convênio), ela está se identificando, e aí pedir o que
+  // falta é o passo útil. Se só sabemos o assunto, ela ainda está pesquisando,
+  // e três campos de cara é o que o próprio manual chama de exigir cadastro
+  // para informar valor.
+  //
+  // ⚠️ `necessidade` NÃO conta como compromisso. Ela é preenchida por qualquer
+  // pergunta ("quanto custa a catarata?" já define necessidade), e usá-la aqui
+  // faria o convite leve nunca acontecer.
+  const seIdentificou = [
+    lembrados.nome,
+    lembrados.nascimento,
+    lembrados.cidade,
+    lembrados.convenio,
+  ].some((v) => !!v?.trim());
+  const conviteLeve =
+    convidavel && !seIdentificou && !!tabela.intencoes.convite_horario;
+  if (convidavel && !conviteLeve) {
     acao = 'recusar_e_triagem' as Resultado['acao'];
   }
 
@@ -868,6 +894,16 @@ export async function executa(
         perguntaDoPaciente,
         deps,
       );
+    }
+  }
+
+  // O convite leve é uma SEGUNDA mensagem, como a emenda dos dados: a resposta
+  // termina e o convite vem depois, não grudado no fim do parágrafo.
+  if (conviteLeve) {
+    const t = tabela.intencoes.convite_horario?.textos?.[0];
+    if (t) {
+      texto = [texto, t].filter(Boolean).join(SEPARA_MENSAGEM);
+      marcaConvidou(groupFolder, chatJid);
     }
   }
 
