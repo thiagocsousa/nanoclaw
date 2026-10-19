@@ -2567,3 +2567,60 @@ describe('o host preenche a necessidade cirúrgica (passada 17)', () => {
     expect(r?.texto).toContain('430,00');
   });
 });
+
+/**
+ * O VETO do desconto: o rótulo do modelo não decide dinheiro.
+ *
+ * Passada 18, C01. "Carlos, Teresina, particular, nao tenho plano" perguntou
+ * "tem desconto pra quem vai operar?", o modelo rotulou `desconto` — que é
+ * defensável, ele perguntou exatamente isso — e a Lara ofereceu R$ 300,00 a
+ * quem paga R$ 430,00.
+ *
+ * Eu havia "consertado" o C01 duas vezes antes, as duas no `temPlano`, e as
+ * duas vezes o gate certo NUNCA foi chamado: o `comDesconto` guardava só a
+ * troca PARA desconto, e um `desconto` vindo direto do modelo passava por cima.
+ */
+describe('desconto: o rótulo do modelo não decide dinheiro (passada 18)', () => {
+  it.each([
+    ['particular', 'particular'],
+    ['sem plano', 'nao tenho plano'],
+    ['particular + sem plano', 'particular, nao tenho plano'],
+    ['cancelou', 'cancelei o Bradesco e não tenho mais plano'],
+    ['Unimed (plano ATENDIDO)', 'Unimed'],
+  ])('VETA `desconto` para %s', async (_c, convenio) => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    const r = await rodar(
+      `{"intencao":"desconto","confianca":0.95,"slots":{"convenio":"${convenio}","necessidade":"cirurgia refrativa"}}`,
+      'tem desconto pra quem vai operar?',
+    );
+    expect(r?.texto, convenio).toContain('430,00');
+    expect(r?.texto, convenio).not.toContain('300,00');
+  });
+
+  // ⚠️ E quem TEM direito continua recebendo, com o rótulo vindo do modelo.
+  // Sem este par, o veto poderia ter matado o desconto inteiro.
+  it.each(['Bradesco', 'Amil', 'não tenho certeza, acho que é Bradesco'])(
+    'MANTÉM `desconto` para %s',
+    async (convenio) => {
+      const { esqueceSlots } = await import('./memoria-conversa.js');
+      esqueceSlots(PASTA, JID);
+      const r = await rodar(
+        `{"intencao":"desconto","confianca":0.95,"slots":{"convenio":"${convenio}","necessidade":"cirurgia refrativa"}}`,
+        'tem desconto?',
+      );
+      expect(r?.texto, convenio).toContain('300,00');
+    },
+  );
+
+  // ⚠️ E sem intenção cirúrgica também veta: é a terceira condição.
+  it('VETA `desconto` sem intenção cirúrgica', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    const r = await rodar(
+      '{"intencao":"desconto","confianca":0.95,"slots":{"convenio":"Bradesco","necessidade":"consulta de rotina"}}',
+      'tem desconto?',
+    );
+    expect(r?.texto).toContain('430,00');
+  });
+});

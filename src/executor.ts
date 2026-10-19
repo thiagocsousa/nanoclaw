@@ -145,13 +145,31 @@ function comDesconto(
   slots: Record<string, string | undefined>,
   tabela: Tabela,
 ): string {
+  const temDireito = temDescontoDeConsulta(slots.necessidade, slots.convenio);
+
+  // ⛔ VETO: o modelo rotulou `desconto` e o paciente NÃO tem direito.
+  //
+  // Esta metade faltava, e custou R$ 130 em produção duas vezes. Eu guardava só
+  // a troca PARA desconto — então um `desconto` vindo direto do modelo passava
+  // por cima da regra de dinheiro inteira, sem o gate rodar uma vez.
+  //
+  // Saiu na passada 18, no C01: "Carlos, Teresina, particular, nao tenho plano"
+  // perguntou "tem desconto pra quem vai operar?", o modelo rotulou `desconto`
+  // (defensável — ele perguntou isso!) e a Lara ofereceu R$ 300,00 a quem paga
+  // R$ 430,00. Eu havia "consertado" o C01 duas vezes antes, as duas no
+  // `temPlano`, e as duas vezes o gate certo nunca foi chamado.
+  //
+  // É o ponto cego da arquitetura: "rotular não é preencher", mas aqui o
+  // RÓTULO sozinho decidia dinheiro. Agora o host decide, nos dois sentidos.
+  if (intencao === 'desconto' && !temDireito) {
+    return tabela.intencoes.preco_consulta ? 'preco_consulta' : intencao;
+  }
+
   if (intencao !== 'preco_consulta' && intencao !== 'convenio_nao_atendido') {
     return intencao;
   }
   if (!tabela.intencoes.desconto) return intencao;
-  return temDescontoDeConsulta(slots.necessidade, slots.convenio)
-    ? 'desconto'
-    : intencao;
+  return temDireito ? 'desconto' : intencao;
 }
 
 /**

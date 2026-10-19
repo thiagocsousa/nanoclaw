@@ -556,6 +556,25 @@ plano" reprovam.
 ℹ️ Um nome de plano fora da lista cai no padrão `true`, de propósito: negar o desconto a
 quem tem plano é o erro caro, e o padrão protege contra ele.
 
+### ⛔ E o rótulo do modelo NÃO decide o desconto
+
+O `comDesconto` guardava só a troca PARA desconto (`preco_consulta` →
+`desconto`). Um `desconto` vindo direto do modelo passava por cima da regra de
+dinheiro inteira, sem o gate rodar uma vez.
+
+Saiu na passada 18, no C01: *"Carlos, Teresina, particular, nao tenho plano"*
+perguntou *"tem desconto pra quem vai operar?"*, o modelo rotulou `desconto` — o
+que é defensável, ele perguntou exatamente isso — e a Lara ofereceu R$ 300,00 a
+quem paga R$ 430,00.
+
+⚠️ **Eu havia "consertado" o C01 duas vezes antes, as duas no `temPlano`.** As
+duas vezes o gate certo nunca foi chamado. É o ponto cego da arquitetura: o
+mantra é "rotular não é preencher", mas aqui o RÓTULO sozinho decidia dinheiro.
+
+Agora o veto é nos dois sentidos, e travado com o par: cinco convênios sem
+direito recebem R$ 430,00 mesmo com o modelo pedindo desconto, e três com direito
+continuam recebendo R$ 300,00.
+
 ### E a terceira condição: o host preenche a necessidade
 
 O desconto exige **três** coisas: intenção cirúrgica, ter plano, e o plano não ser Unimed.
