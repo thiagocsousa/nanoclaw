@@ -346,10 +346,7 @@ export async function buscaVagas(
  *
  * Com uma vaga só, qualquer aceite serve: não há o que confundir.
  */
-export function vagaEscolhida(
-  vagas: Vaga[],
-  texto: string,
-): Vaga | undefined {
+export function vagaEscolhida(vagas: Vaga[], texto: string): Vaga | undefined {
   if (vagas.length === 0) return undefined;
   if (vagas.length === 1) return vagas[0];
   const t = texto
@@ -383,6 +380,31 @@ export function vagaEscolhida(
     );
   });
   return casam.length === 1 ? casam[0] : undefined;
+}
+
+/**
+ * A hora pedida vira `HH:MM`, ou `undefined` quando não der para saber.
+ *
+ * O script valida o formato e recusa fora da janela, mas aceita só `HH:MM`.
+ * "10h", "10 horas" e "10:00" são a mesma coisa para quem escreve.
+ */
+export function horaPedidaIso(pedido?: string): string | undefined {
+  const t = (pedido ?? '').trim().toLowerCase();
+  if (!t) return undefined;
+  // O `h` ou `:` é OBRIGATÓRIO: sem ele, "dia 10" viraria 10:00. E o casamento
+  // termina no marcador, não num `\b` — entre "0" e "h" não existe fronteira de
+  // palavra, e a primeira versão desta regex não casava "10h", que é
+  // exatamente como as pessoas escrevem.
+  const m = t.match(/\b([01]?\d|2[0-3])\s*(?::|h|\s*horas?\b)\s*([0-5]\d)?/);
+  if (!m) return undefined;
+  const hh = Number(m[1]);
+  const mm = m[2] ? Number(m[2]) : 0;
+  return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+}
+
+/** O perfil é particular? A hora pedida só é aceita nesses (Thiago, 19/10). */
+export function ehParticular(perfil: string): boolean {
+  return perfil.startsWith('particular');
 }
 
 export function slotsDaVaga(v: Vaga): Record<string, string> {

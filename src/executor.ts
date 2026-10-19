@@ -61,8 +61,11 @@ import {
   ultimaOferta,
 } from './agendamento.js';
 import { faltamNaTriagem, fraseDeTriagem } from './triagem.js';
+import { resolveDiaPedido } from './dia-pedido.js';
 import {
   VOCABULARIO_REFRATIVO,
+  ehParticular,
+  horaPedidaIso,
   vagaEscolhida,
   buscaVagas,
   perfilDe,
@@ -484,6 +487,9 @@ export async function executa(
   }
 
   let ofertaAOferecer: Omit<OfertaPendente, 'quando'> | undefined;
+  // Quando a agenda decide trocar o texto (hoje só o caso do convênio com hora
+  // pedida). Fica aqui porque o render acontece bem depois do bloco da agenda.
+  let intencaoDaAgenda: string | undefined;
   const exige = tabela.intencoes[c.intencao]?.slots_obrigatorios ?? [];
   if (exige.includes('dia') || exige.includes('hora')) {
     // O perfil sai do que a CONVERSA disse, não só deste turno.
@@ -547,9 +553,21 @@ export async function executa(
         'executor: sem perfil para a agenda, vai escalar',
       );
     } else {
+      // O dia pedido vira data de verdade no HOST (ver dia-pedido.ts). Antes
+      // de 19/10/2026 só passava o que já estivesse em ISO, e o modelo manda
+      // "sexta": o pedido de dia era descartado em silêncio.
+      const diaAlvo = resolveDiaPedido(c.slots.dia_pedido);
+      // A hora pedida só vale no PARTICULAR (regra do Thiago, 19/10/2026).
+      // No convênio a agenda manda, e o host EXPLICA em vez de ignorar.
+      const horaAlvo = horaPedidaIso(c.slots.hora_pedida);
+      const horaValeAqui = !!horaAlvo && !!diaAlvo && ehParticular(perfil);
       const vagas = await buscaVagas(groupFolder, perfil, {
-        dia: diaIso(c.slots.dia_pedido),
+        dia: diaAlvo,
+        ...(horaValeAqui ? { hora: horaAlvo } : {}),
       });
+      // Pediu hora, não é particular, e a agenda deu alternativa: explica.
+      const explicaConvenio =
+        !!horaAlvo && !ehParticular(perfil) && vagas.length > 0;
       if (vagas.length > 0) {
         // Duas opções quando a agenda deu duas: poupa uma ida e volta se a
         // primeira não servir (manual trazido pelo Thiago, 19/10/2026).
@@ -570,6 +588,13 @@ export async function executa(
         // horário que ele não viu, que é a falha que este módulo impede.
         // Guarda também QUEM é o paciente: no turno do aceite ("pode ser") os
         // slots vêm vazios, e sem isto a marcação recusa por dado faltando.
+        if (explicaConvenio && tabela.intencoes.horario_pedido_convenio) {
+          logger.info(
+            { groupFolder, perfil },
+            'executor: hora pedida no convênio, explicando em vez de ignorar',
+          );
+          intencaoDaAgenda = 'horario_pedido_convenio';
+        }
         ofertaAOferecer = {
           vaga: oferecidas[0],
           // As duas, para o aceite poder dizer qual. Sem isto, "pode ser" com
@@ -616,7 +641,11 @@ export async function executa(
   // escolher a primeira por omissão manda a pessoa à clínica no dia errado,
   // que é a mesma classe de erro de marcar no paciente errado. Quando o texto
   // não desambigua, o host PERGUNTA.
-  const oferecidas = oferta?.vagas?.length ? oferta.vagas : oferta ? [oferta.vaga] : [];
+  const oferecidas = oferta?.vagas?.length
+    ? oferta.vagas
+    : oferta
+      ? [oferta.vaga]
+      : [];
   const escolhida = oferta
     ? vagaEscolhida(oferecidas, perguntaDoPaciente)
     : undefined;
@@ -649,11 +678,13 @@ export async function executa(
   }
 
   const lembrados = comLembrados(groupFolder, chatJid, slots);
-  const intencaoFinal = comEnquadramentoRefrativo(
-    comDesconto(c.intencao, lembrados, tabela),
-    lembrados,
-    tabela,
-  );
+  const intencaoFinal = intencaoDaAgenda
+    ? intencaoDaAgenda
+    : comEnquadramentoRefrativo(
+        comDesconto(c.intencao, lembrados, tabela),
+        lembrados,
+        tabela,
+      );
   const r = renderiza(tabela, intencaoFinal, {
     confianca: c.confianca,
     slots: comValorDaAvaliacao(intencaoFinal, slots, lembrados, tabela),

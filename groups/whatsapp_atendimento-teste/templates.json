@@ -321,6 +321,22 @@
         "Só para eu não errar: {dia}, às {hora}, ou {dia_b}, às {hora_b}?"
       ]
     },
+    "horario_pedido_convenio": {
+      "bloco": "F11c",
+      "quando": "NUNCA rotular isto: quem decide é o host, quando o paciente pede um HORÁRIO específico e o atendimento é por convênio.",
+      "acao": "responder",
+      "fecho": false,
+      "slots_obrigatorios": [
+        "dia",
+        "hora"
+      ],
+      "textos": [
+        "Pelo convênio os horários seguem a disponibilidade da agenda, então não consigo reservar um horário específico.\n\nO que tenho é {dia}, dia {data}, às {hora}. Esse horário funciona para você?"
+      ],
+      "textos_dois": [
+        "Pelo convênio os horários seguem a disponibilidade da agenda, então não consigo reservar um horário específico.\n\nTenho {dia}, dia {data}, às {hora}, ou {dia_b}, dia {data_b}, às {hora_b}. Qual fica melhor para você?"
+      ]
+    },
     "dia_sem_atendimento": {
       "bloco": "F06",
       "quando": "sábado, domingo, terça, quinta, feriado",

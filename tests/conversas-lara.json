@@ -2543,6 +2543,78 @@
           "nota": "Dizer QUAL é o que permite marcar. Um 'pode ser' seco com duas opções tem de perguntar, não marcar."
         }
       ]
+    },
+    {
+      "id": "W01",
+      "categoria": "agenda",
+      "sobre": "Pede um DIA específico: até 19/10 o pedido era descartado em silêncio e a agenda devolvia qualquer dia.",
+      "turnos": [
+        {
+          "paciente": "oi"
+        },
+        {
+          "paciente": "consulta de rotina, particular"
+        },
+        {
+          "paciente": "Ana, 10/02/1990, Teresina"
+        },
+        {
+          "paciente": "tem vaga na sexta?",
+          "esperado": [
+            "[0-9]{2}:[0-9]{2}"
+          ],
+          "nota": "A JULGAR À MÃO: a vaga oferecida tem de ser de SEXTA."
+        }
+      ]
+    },
+    {
+      "id": "W02",
+      "categoria": "agenda",
+      "sobre": "Particular pedindo hora específica: a hora vai à agenda (Thiago, 19/10).",
+      "turnos": [
+        {
+          "paciente": "oi"
+        },
+        {
+          "paciente": "consulta de rotina, particular"
+        },
+        {
+          "paciente": "Bruno, 03/05/1988, Teresina"
+        },
+        {
+          "paciente": "consigo sexta às 10h?",
+          "esperado": [
+            "[0-9]{2}:[0-9]{2}"
+          ],
+          "nota": "A JULGAR À MÃO: se as 10:00 estiverem vagas e dentro da janela, é esse o horário oferecido."
+        }
+      ]
+    },
+    {
+      "id": "W03",
+      "categoria": "agenda",
+      "sobre": "Unimed pedindo hora específica: a Lara EXPLICA em vez de ignorar.",
+      "turnos": [
+        {
+          "paciente": "oi"
+        },
+        {
+          "paciente": "consulta de rotina, Unimed"
+        },
+        {
+          "paciente": "Clara, 20/07/1975, Teresina"
+        },
+        {
+          "paciente": "consigo sexta às 10h?",
+          "esperado": [
+            "seguem a disponibilidade|n[ãa]o consigo reservar"
+          ],
+          "proibido": [
+            "S[óo] um instante"
+          ],
+          "nota": "Antes disso a hora era descartada e ela oferecia o mesmo horário de novo, sem dizer por quê."
+        }
+      ]
     }
   ]
 }

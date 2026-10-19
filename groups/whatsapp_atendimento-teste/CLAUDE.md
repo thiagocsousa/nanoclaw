@@ -56,7 +56,17 @@ código, sem explicação antes ou depois:
 | `nascimento` | data que ele escreveu | "10/03/1980" |
 | `cidade` | cidade que ele escreveu | "Parnaíba" |
 | `convenio` | plano que ele citou, ou "particular" | "Unimed" |
-| `dia_pedido` | dia que ele pediu | "sábado" |
+| `dia_pedido` | dia que ele pediu, como ele falou | "sexta", "amanhã", "dia 23" |
+| `hora_pedida` | hora que ele pediu, como ele falou | "10h", "14:30" |
+
+> O HOST converte os dois: `dia_pedido` vira data em `src/dia-pedido.ts` e
+> `hora_pedida` vira `HH:MM` em `vagas.ts`. **Mande como a pessoa falou**, sem
+> calcular data — até 19/10/2026 o host só aceitava `AAAA-MM-DD` e descartava
+> "sexta" em silêncio, e o pedido de dia nunca era respeitado.
+>
+> A hora pedida só é atendida no **particular** (regra do Thiago, 19/10/2026).
+> No convênio os horários seguem a agenda, e o host responde explicando, em vez
+> de ignorar e oferecer o mesmo horário de novo.
 | `idade` | só se ele disse um número de idade | "8" |
 | `necessidade` | o que ele veio buscar | "cirurgia refrativa", "catarata", "rotina", "retorno", "exame" |
 

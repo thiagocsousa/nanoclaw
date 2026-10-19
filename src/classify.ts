@@ -33,6 +33,15 @@ const SLOTS_PERMITIDOS = new Set([
   'cidade',
   'convenio',
   'dia_pedido',
+  /**
+   * A hora que o PACIENTE pediu ("pode ser às 10h?"). Diferente de `hora`, que
+   * é a hora OFERECIDA e o modelo nunca toca: esta é pedido, não oferta.
+   *
+   * Entrou em 19/10/2026. Até então não havia slot nenhum para hora, e o
+   * pedido do paciente era descartado em silêncio: a Lara oferecia o mesmo
+   * horário compactado de novo, e na terceira vez escalava por insistência.
+   */
+  'hora_pedida',
   'idade',
   // `necessidade` é CATEGORIA, não valor: "cirurgia refrativa", "catarata",
   // "rotina", "retorno", "exame". Entra na lista porque errá-la não produz uma

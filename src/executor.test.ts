@@ -12,7 +12,7 @@ const PASTA = 'whatsapp_exec-teste';
 // O que se testa aqui é a decisão do executor: quando ele vai à agenda, e o que
 // faz com o resultado. O iClinic de verdade é testado à mão, contra a agenda
 // real, porque mock de Playwright não prova nada sobre o iClinic.
-const buscou: Array<{ perfil: string; dia?: string }> = [];
+const buscou: Array<{ perfil: string; dia?: string; hora?: string }> = [];
 let vagasFalsas: Array<Record<string, string>> = [];
 
 const marcou: Array<Record<string, string>> = [];
@@ -60,9 +60,9 @@ vi.mock('./vagas.js', async (orig) => {
     buscaVagas: async (
       _f: string,
       perfil: string,
-      o: { dia?: string } = {},
+      o: { dia?: string; hora?: string } = {},
     ) => {
-      buscou.push({ perfil, dia: o.dia });
+      buscou.push({ perfil, dia: o.dia, hora: o.hora });
       return vagasFalsas;
     },
   };
@@ -120,12 +120,23 @@ const TABELA = {
       acao: 'responder',
       slots_obrigatorios: ['dia', 'hora'],
       textos: ['Tenho {dia} às {hora}.'],
-      textos_dois: ['Tenho {dia} às {hora}, ou {dia_b} às {hora_b}. Qual fica melhor?'],
+      textos_dois: [
+        'Tenho {dia} às {hora}, ou {dia_b} às {hora_b}. Qual fica melhor?',
+      ],
+    },
+    horario_pedido_convenio: {
+      acao: 'responder',
+      slots_obrigatorios: ['dia', 'hora'],
+      textos: [
+        'Pelo convênio os horários seguem a agenda. Tenho {dia} às {hora}.',
+      ],
     },
     qual_horario: {
       acao: 'responder',
       slots_obrigatorios: ['dia', 'hora', 'dia_b', 'hora_b'],
-      textos: ['Só para eu não errar: {dia}, às {hora}, ou {dia_b}, às {hora_b}?'],
+      textos: [
+        'Só para eu não errar: {dia}, às {hora}, ou {dia_b}, às {hora_b}?',
+      ],
     },
     clinico: {
       acao: 'escalar',
@@ -1018,11 +1029,85 @@ describe('o limiar vale ANTES de gravar (Codex, 17/10/2026)', () => {
   });
 });
 
+describe('dia e hora pedidos pelo paciente (Thiago, 19/10/2026)', () => {
+  it('o DIA pedido chega à agenda como data', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    buscou.length = 0;
+    vagasFalsas = [
+      { data: '2026-10-23', dia_semana: 'sexta', inicio: '09:00', fim: '09:30' },
+    ];
+    await rodar(
+      '{"intencao":"horario_oferta","confianca":0.95,"slots":{"necessidade":"catarata","convenio":"particular","dia_pedido":"sexta"}}',
+      'tem vaga na sexta?',
+    );
+    // Antes de 19/10 isto ia vazio: `diaIso` só aceitava ISO e o modelo manda
+    // "sexta", então o pedido de dia era descartado em silêncio.
+    expect(buscou[0]?.dia).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it('a HORA pedida vale no particular', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    buscou.length = 0;
+    vagasFalsas = [
+      { data: '2026-10-23', dia_semana: 'sexta', inicio: '10:00', fim: '10:30' },
+    ];
+    await rodar(
+      '{"intencao":"horario_oferta","confianca":0.95,"slots":{"necessidade":"catarata","convenio":"particular","dia_pedido":"sexta","hora_pedida":"10h"}}',
+      'pode ser sexta às 10h?',
+    );
+    expect(buscou[0]?.hora).toBe('10:00');
+  });
+
+  // ⚠️ No convênio a agenda manda: a hora pedida NÃO vai ao script, e o host
+  // EXPLICA em vez de ignorar e oferecer o mesmo horário de novo.
+  it('a hora pedida NÃO vale no convênio, e a Lara explica', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    buscou.length = 0;
+    vagasFalsas = [
+      { data: '2026-10-23', dia_semana: 'sexta', inicio: '08:40', fim: '09:00' },
+    ];
+    const r = await rodar(
+      '{"intencao":"horario_oferta","confianca":0.95,"slots":{"necessidade":"rotina","convenio":"Unimed","dia_pedido":"sexta","hora_pedida":"10h"}}',
+      'pode ser sexta às 10h?',
+    );
+    expect(buscou[0]?.hora).toBeUndefined();
+    expect(r?.texto).toContain('seguem a agenda');
+    expect(r?.texto).toContain('08:40');
+  });
+
+  it('sem hora pedida, nada muda', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    buscou.length = 0;
+    vagasFalsas = [
+      { data: '2026-10-23', dia_semana: 'sexta', inicio: '08:40', fim: '09:00' },
+    ];
+    const r = await rodar(
+      '{"intencao":"horario_oferta","confianca":0.95,"slots":{"necessidade":"rotina","convenio":"Unimed"}}',
+      'tem horario?',
+    );
+    expect(r?.texto).not.toContain('seguem a agenda');
+  });
+});
+
 describe('duas opções de horário (manual, 19/10/2026)', () => {
   const duas = () => {
     vagasFalsas = [
-      { data: '2026-10-20', dia_semana: 'terça', inicio: '09:00', fim: '09:20' },
-      { data: '2026-10-22', dia_semana: 'quinta', inicio: '14:30', fim: '14:50' },
+      {
+        data: '2026-10-20',
+        dia_semana: 'terça',
+        inicio: '09:00',
+        fim: '09:20',
+      },
+      {
+        data: '2026-10-22',
+        dia_semana: 'quinta',
+        inicio: '14:30',
+        fim: '14:50',
+      },
     ];
   };
 
@@ -1042,7 +1127,12 @@ describe('duas opções de horário (manual, 19/10/2026)', () => {
     const { esqueceSlots } = await import('./memoria-conversa.js');
     esqueceSlots(PASTA, JID);
     vagasFalsas = [
-      { data: '2026-10-20', dia_semana: 'terça', inicio: '09:00', fim: '09:20' },
+      {
+        data: '2026-10-20',
+        dia_semana: 'terça',
+        inicio: '09:00',
+        fim: '09:20',
+      },
     ];
     const r = await rodar(
       '{"intencao":"horario_oferta","confianca":0.95,"slots":{"necessidade":"catarata","convenio":"particular"}}',
@@ -1094,7 +1184,12 @@ describe('duas opções de horário (manual, 19/10/2026)', () => {
     const { esqueceSlots } = await import('./memoria-conversa.js');
     esqueceSlots(PASTA, JID);
     vagasFalsas = [
-      { data: '2026-10-20', dia_semana: 'terça', inicio: '09:00', fim: '09:20' },
+      {
+        data: '2026-10-20',
+        dia_semana: 'terça',
+        inicio: '09:00',
+        fim: '09:20',
+      },
     ];
     await rodarDe(
       '{"intencao":"triagem_dados","confianca":0.95,"slots":{"necessidade":"catarata","nome":"Thiago","nascimento":"01/06/1980","cidade":"Teresina","convenio":"particular"}}',
