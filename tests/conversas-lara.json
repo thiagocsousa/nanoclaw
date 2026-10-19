@@ -7,7 +7,7 @@
     "script": "\\w+\\.py\\b",
     "sistema": "cadastrad[oa]|no nosso sistema|na nossa base",
     "protocolo": "Prezad[oa]|Informamos que|estamos [àa] disposi[çc][ãa]o",
-    "permissao": "quer que eu (veja|confira|busque)[^.!?]{0,30}\\?|posso (verificar|conferir|checar)[^.!?]{0,30}\\?",
+    "permissao": "quer que eu (?!veja os hor[áa]rios dispon[íi]veis para voc[êe]\\?)(veja|confira|busque)[^.!?]{0,30}\\?|posso (verificar|conferir|checar)[^.!?]{0,30}\\?",
     "varejo": "me conta\\b",
     "confirmou_agendamento": "est[áa] (marcad|agendad|confirmad|reservad)|j[áa] (marquei|agendei|confirmei|reservei)",
     "empurra_trabalho": "como posso (te )?ajudar|o que posso fazer por voc|em que posso (te )?ajudar",
@@ -2461,7 +2461,7 @@
           "paciente": "quanto custa a consulta?",
           "esperado": [
             "430",
-            "eu já vejo um hor[áa]rio"
+            "Quer que eu veja os hor[áa]rios"
           ],
           "proibido": [
             "poderia me informar"
@@ -2483,7 +2483,7 @@
             "poderia me informar"
           ],
           "proibido": [
-            "eu já vejo um hor[áa]rio"
+            "Quer que eu veja os hor[áa]rios"
           ]
         }
       ]
@@ -2497,7 +2497,7 @@
         {
           "paciente": "quanto custa a consulta?",
           "esperado": [
-            "eu já vejo um hor[áa]rio"
+            "Quer que eu veja os hor[áa]rios"
           ]
         },
         {
@@ -2773,7 +2773,7 @@
         {
           "paciente": "quanto custa a consulta?",
           "esperado": [
-            "eu já vejo um hor[áa]rio"
+            "Quer que eu veja os hor[áa]rios"
           ]
         },
         {
@@ -2795,7 +2795,7 @@
         {
           "paciente": "quanto custa a consulta?",
           "esperado": [
-            "eu já vejo um hor[áa]rio"
+            "Quer que eu veja os hor[áa]rios"
           ]
         },
         {

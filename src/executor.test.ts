@@ -99,7 +99,7 @@ const TABELA = {
     // O convite LEVE: vai para quem ainda não se identificou.
     convite_horario: {
       acao: 'responder',
-      textos: ['Se quiser, eu já vejo um horário para você.'],
+      textos: ['Quer que eu veja os horários disponíveis para você?'],
     },
     quer_horario: {
       acao: 'triagem',
@@ -673,7 +673,7 @@ describe('perguntar preço leva ao próximo passo (Thiago, 18/10/2026)', () => {
       'quanto custa a consulta?',
     );
     expect(r?.texto).toContain('430');
-    expect(r?.texto).toContain('eu já vejo um horário');
+    expect(r?.texto).toContain('Quer que eu veja os horários');
     expect(r?.texto.toLowerCase()).not.toContain('poderia me informar');
     expect(r?.texto).not.toContain('Ajudo em algo mais');
   });
@@ -688,7 +688,7 @@ describe('perguntar preço leva ao próximo passo (Thiago, 18/10/2026)', () => {
     );
     expect(r?.texto).toContain('430');
     expect(r?.texto.toLowerCase()).toContain('poderia me informar');
-    expect(r?.texto).not.toContain('eu já vejo um horário');
+    expect(r?.texto).not.toContain('Quer que eu veja os horários');
   });
 
   // ⚠️ `necessidade` não conta como compromisso: ela é preenchida por qualquer
@@ -700,7 +700,7 @@ describe('perguntar preço leva ao próximo passo (Thiago, 18/10/2026)', () => {
       '{"intencao":"preco_consulta","confianca":0.95,"slots":{"necessidade":"catarata"}}',
       'quanto custa a consulta pra catarata?',
     );
-    expect(r?.texto).toContain('eu já vejo um horário');
+    expect(r?.texto).toContain('Quer que eu veja os horários');
   });
 
   it('o convite leve também sai UMA vez por conversa', async () => {
@@ -711,7 +711,7 @@ describe('perguntar preço leva ao próximo passo (Thiago, 18/10/2026)', () => {
       '{"intencao":"exames_preco","confianca":0.95,"slots":{}}',
       'e os exames?',
     );
-    expect(r?.texto).not.toContain('eu já vejo um horário');
+    expect(r?.texto).not.toContain('Quer que eu veja os horários');
   });
 
   it('mas convida UMA vez: a segunda pergunta de preço só responde', async () => {

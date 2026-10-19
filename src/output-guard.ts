@@ -169,8 +169,17 @@ const PROIBIDAS: Array<[RegExp, string, string[]?]> = [
     'imperativo seco ao pedir dado; use "poderia me informar" ou "qual é" (F10)',
   ],
   [
-    /quer que eu (?:veja|confira|busque|procure)/i,
+    // A exceção é UMA frase, nomeada no próprio regex, e não a intenção
+    // inteira: isentando `convite_horario` como um todo, qualquer variação
+    // passaria lá dentro, e editar o template para "quer que eu veja um
+    // horário?" deixaria de ser pego. A suíte usa a mesma forma.
+    /quer que eu (?!veja os hor[áa]rios dispon[íi]veis para voc[êe]\?)(?:veja|confira|busque|procure)/i,
     'pede permissão para fazer o próprio trabalho',
+    // A razão da exceção está na própria regra: ela vale quando você JÁ TEM o
+    // que precisa para consultar (PERSONA-TEXTO-LIVRE.md). No convite leve a
+    // Lara não tem — quem só perguntou preço não deu nome, nascimento nem
+    // cidade. Perguntar ali é honesto. Mesmo erro de escopo que a
+    // `empurra_trabalho` tinha na abertura em 17/10/2026.
   ],
   [
     /posso (?:verificar|conferir|checar)/i,

@@ -35,7 +35,7 @@
       "acao": "responder",
       "fecho": false,
       "textos": [
-        "Se quiser, eu já vejo um horário para você."
+        "Quer que eu veja os horários disponíveis para você?"
       ]
     },
     "quer_horario": {

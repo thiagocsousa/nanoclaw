@@ -164,6 +164,32 @@ describe('a tabela de templates passa pela guarda', () => {
     expect(/\b(em|n[ao]|d[ao]|pel[ao])\s+\{dia\}/i.test(certo)).toBe(false);
   });
 
+  // O convite leve é a ÚNICA frase de permissão aprovada (Thiago, 19/10/2026),
+  // e a exceção é da FRASE, não da intenção: isentando a intenção inteira,
+  // qualquer variação passaria lá dentro.
+  it('a frase aprovada passa', () => {
+    const r = inspecionaSaida(
+      'Quer que eu veja os horários disponíveis para você?',
+      { intencao: 'convite_horario' },
+    );
+    expect(r.achados.map((a) => a.regra)).not.toContain('frase_proibida');
+  });
+
+  it('variações continuam proibidas até dentro do convite', () => {
+    for (const t of [
+      'Quer que eu veja um horário disponível?',
+      'Posso verificar a agenda para você?',
+      'Quer que eu confira os horários?',
+    ]) {
+      expect(
+        inspecionaSaida(t, { intencao: 'convite_horario' }).achados.map(
+          (a) => a.regra,
+        ),
+        t,
+      ).toContain('frase_proibida');
+    }
+  });
+
   it('pega a lista de hospitais, e deixa passar um só', () => {
     // O texto que o `hospital_cirurgia` tinha até 17/10/2026.
     const lista = inspecionaSaida(

@@ -77,6 +77,22 @@ CASOS = [
     # anuncia automação. Acusar isso calaria a Lara na primeira mensagem de
     # toda conversa.
     ("anuncia_bot", "assistente da médica NÃO conta", ABERTURA, "oi", [], False),
+    # O convite leve ("Quer que eu veja os horários disponíveis para você?") é a
+    # ÚNICA frase de permissão aprovada, escolhida pelo Thiago em 19/10/2026.
+    # A razão da regra está na própria regra: "se você JÁ TEM o que precisa para
+    # consultar, consulte e mande o resultado". No convite leve a Lara não tem —
+    # quem só perguntou preço não deu nome nem nascimento nem cidade.
+    ("permissao", "o convite leve aprovado",
+     "Quer que eu veja os horários disponíveis para você?", "quanto custa?",
+     [], False),
+    # ⚠️ Qualquer OUTRA variação continua pega. Sem estes três, a exceção viraria
+    # licença para pedir permissão em qualquer lugar.
+    ("permissao", "variação: 'um horário'",
+     "Quer que eu veja um horário disponível?", "quanto custa?", [], True),
+    ("permissao", "variação: 'posso verificar'",
+     "Posso verificar os horários para você?", "quanto custa?", [], True),
+    ("permissao", "variação: 'quer que eu confira'",
+     "Quer que eu confira a agenda?", "quanto custa?", [], True),
 ]
 
 
