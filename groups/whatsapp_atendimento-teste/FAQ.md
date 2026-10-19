@@ -653,13 +653,13 @@ Afirmar cobertura faz o paciente contar com um dinheiro que pode não vir.
 Para **IASPI (IAPEP)** e **IPMT** há nome próprio do plano cirúrgico, e aí dá para ser
 específico:
 
-> No consultório, a consulta com a Dra. Marina é particular.
+> Não atendemos consultas pelo IASPI, então teria que ser particular.
 >
 > Mas os exames podem ser feitos pelo próprio IASPI, com exceção do Pentacam, que é
 > particular. E a cirurgia pode ser pelo PLAMTA, se houver indicação médica e o plano
 > autorizar.
 
-> No consultório, a consulta com a Dra. Marina é particular.
+> Não atendemos consultas pelo IPMT, então teria que ser particular.
 >
 > Mas os exames podem ser feitos pelo próprio IPMT, com exceção do Pentacam, que é
 > particular. E a cirurgia pode ser pelo PLANTE, se houver indicação médica e o plano
@@ -727,6 +727,15 @@ específico:
 > apontou como estranha, e era: a voz passiva e "pacientes do IASPI" soam a circular
 > interna. O que a frase tem de dizer é simples — **não atende consulta, atende exame e
 > cirurgia**.
+
+> ℹ️ A primeira linha é do Thiago, 19/10/2026, substituindo "No consultório, a consulta com
+> a Dra. Marina é particular." A dele NOMEIA o plano e emenda a alternativa na mesma frase,
+> em vez de declarar o que a consulta é e deixar o paciente deduzir que o plano dele não
+> serve.
+>
+> ⚠️ Registro a tensão, porque fui eu que tirei a negação daqui horas antes: o documento de
+> tom lista "repetir 'a gente não atende'" entre as coisas a evitar. A redação dele não é a
+> frase genérica de recusa — é específica ("pelo IASPI") e já traz a saída. Decisão dele.
 
 ⛔ **A condição do exame não pode ser dita ao paciente.** Nesses planos o exame **não é
 avulso**, e dizer o que o libera fere a regra do convênio.

@@ -256,7 +256,7 @@
       "acao": "responder",
       "fecho": false,
       "textos": [
-        "No consultório, a consulta com a Dra. Marina é particular.\n\nMas os exames podem ser feitos pelo próprio IASPI, com exceção do Pentacam, que é particular. E a cirurgia pode ser pelo PLAMTA, se houver indicação médica e o plano autorizar."
+        "Não atendemos consultas pelo IASPI, então teria que ser particular.\n\nMas os exames podem ser feitos pelo próprio IASPI, com exceção do Pentacam, que é particular. E a cirurgia pode ser pelo PLAMTA, se houver indicação médica e o plano autorizar."
       ],
       "emenda_triagem": true
     },
@@ -266,7 +266,7 @@
       "acao": "responder",
       "fecho": false,
       "textos": [
-        "No consultório, a consulta com a Dra. Marina é particular.\n\nMas os exames podem ser feitos pelo próprio IPMT, com exceção do Pentacam, que é particular. E a cirurgia pode ser pelo PLANTE, se houver indicação médica e o plano autorizar."
+        "Não atendemos consultas pelo IPMT, então teria que ser particular.\n\nMas os exames podem ser feitos pelo próprio IPMT, com exceção do Pentacam, que é particular. E a cirurgia pode ser pelo PLANTE, se houver indicação médica e o plano autorizar."
       ],
       "emenda_triagem": true
     },
