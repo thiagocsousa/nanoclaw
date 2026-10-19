@@ -369,6 +369,23 @@ def main():
             ctx = br.new_context()
             pg = ctx.new_page()
             pg.goto(f"{BASE}/", wait_until="domcontentloaded")
+            # ⚠️ Esperar o campo HABILITAR antes de digitar.
+            #
+            # O `fill` do Playwright já espera por "visible, enabled and
+            # editable", mas com um orçamento FIXO de 30 s — e 30 s não bastam.
+            # Medido em 19/10/2026 na VM: o campo leva ~2,5 s numa máquina
+            # folgada, e passa de 30 s sob carga, porque a página de login ainda
+            # soma um tracker cujo DNS não resolve
+            # (event.getblue.io, ERR_NAME_NOT_RESOLVED) e uma geolocalização que
+            # vai até o próprio timeout no headless.
+            #
+            # Quando estoura, o erro que chega é
+            # '<input disabled ... placeholder="Email de acesso">' com "element
+            # is not enabled" — que se lê como "o iClinic bloqueou a conta", e
+            # não é: é corrida perdida. Foi o que derrubou a busca por telefone
+            # em A07 e E08 na passada 25.
+            pg.wait_for_selector(
+                'input[name="email"]:not([disabled])', timeout=90000)
             pg.fill('input[name="email"]', EMAIL)
             pg.fill('input[name="password"]', SENHA)
             with pg.expect_navigation(wait_until="domcontentloaded", timeout=25000):
