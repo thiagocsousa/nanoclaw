@@ -150,9 +150,13 @@
     {
       "id": "A07",
       "categoria": "abertura",
-      "sobre": "⏳ MENU DA BRUNA (semana de observação): o paciente responde só o número da resposta automática do WhatsApp Business. O host traduz em necessidade e manda para a triagem.",
+      "sobre": "⏳ MENU DA BRUNA (semana de observação): o paciente responde só o número. O host traduz em necessidade e manda para a triagem.",
       "escalou": false,
       "turnos": [
+        {
+          "paciente": "oi",
+          "esperado": ["posso ajudar"]
+        },
         {
           "paciente": "1",
           "exige": ["nome completo|data de nascimento"],
@@ -160,7 +164,7 @@
             "S[óo] um instante",
             "cirurgia ou uma consulta de rotina"
           ],
-          "nota": "\"1\" é \"Avaliação para Cirurgia Refrativa\". ⛔ Não pergunta de novo o que o menu já respondeu, e não escala. Sai quando o menu sair."
+          "nota": "⚠️ O número vai no SEGUNDO turno de propósito: a suíte prefixa a primeira mensagem com \"--- NOVO PACIENTE ---\", então o \"1\" nunca chegaria sozinho e o tradutor (que exige a mensagem ser só o número) não casaria. Em produção o paciente manda \"1\" puro, e esse caso está no unitário (`convenio.test.ts`). O arranhador não consegue produzi-lo."
         }
       ]
     },
@@ -171,10 +175,14 @@
       "escalou": false,
       "turnos": [
         {
+          "paciente": "oi",
+          "esperado": ["posso ajudar"]
+        },
+        {
           "paciente": "4",
           "exige": ["explicar|precisando"],
           "proibido": ["S[óo] um instante", "nome completo"],
-          "nota": "Escalada não gera material para observar. ⛔ E não pede cadastro: ainda não se sabe do que se trata."
+          "nota": "⛔ Não pede cadastro: ainda não se sabe do que se trata. Mesma razão do A07 para o número ir no segundo turno."
         }
       ]
     },
@@ -1613,6 +1621,32 @@
             "Sexta"
           ],
           "nota": "Diz só que não encaixa, e oferece o que existe."
+        }
+      ]
+    },
+    {
+      "id": "E07c",
+      "categoria": "agenda_bloqueada",
+      "sobre": "Pergunta por PERÍODO num dia que não tem aquele período. ⛔ Responde sem dizer que o dia é de outro turno: a grade não se deduz (Marina, 19/10/2026).",
+      "turnos": [
+        {
+          "paciente": "oi",
+          "esperado": ["posso ajudar"]
+        },
+        {
+          "paciente": "consulta de rotina, particular. Clara, 20/07/1975, Teresina"
+        },
+        {
+          "paciente": "ela atende na quarta pela manhã?",
+          "proibido": [
+            "[àa] tarde",
+            "de manh[ãa]",
+            "n[ãa]o atende",
+            "Segunda",
+            "Quarta, [àa]",
+            "Sexta"
+          ],
+          "nota": "A JULGAR À MÃO: ou oferece horário, ou diz que não encaixa e oferece outro. Nunca explica que a quarta é de tarde."
         }
       ]
     },
