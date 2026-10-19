@@ -262,3 +262,49 @@ describe('mensagensDe: a resposta pode virar mais de uma mensagem', () => {
     expect(mensagensDe(`${SEPARA_MENSAGEM}A.`)).toEqual(['A.']);
   });
 });
+
+describe('duas vagas no MESMO dia não repetem o dia (Thiago, 19/10/2026)', () => {
+  // "quarta, às 17:40, ou quarta, às 18:00" — o dia duas vezes na mesma frase.
+  // E mesmo dia é o caso COMUM: o iclinic_vagas.py esgota as posições de um dia
+  // antes de ir para o próximo, então eu tinha tratado o comum como exceção.
+  const tabela = {
+    intencoes: {
+      oferta: {
+        acao: 'responder' as const,
+        slots_obrigatorios: ['dia', 'hora'],
+        textos: ['Tenho {dia} às {hora}.'],
+        textos_dois: ['Tenho {dia} às {hora}, ou {dia_b} às {hora_b}.'],
+        textos_dois_mesmo_dia: ['Tenho {dia} às {hora} ou às {hora_b}.'],
+      },
+    },
+  };
+
+  it('mesmo dia usa o texto sem repetir', () => {
+    const r = renderiza(tabela, 'oferta', {
+      confianca: 1,
+      slots: {
+        dia: 'quarta',
+        hora: '17:40',
+        dia_b: 'quarta',
+        hora_b: '18:00',
+      },
+    });
+    expect(r.texto).toBe('Tenho quarta às 17:40 ou às 18:00.');
+  });
+
+  it('dias diferentes usam o texto com os dois dias', () => {
+    const r = renderiza(tabela, 'oferta', {
+      confianca: 1,
+      slots: { dia: 'quarta', hora: '17:40', dia_b: 'sexta', hora_b: '09:00' },
+    });
+    expect(r.texto).toBe('Tenho quarta às 17:40, ou sexta às 09:00.');
+  });
+
+  it('uma vaga só continua no texto de uma', () => {
+    const r = renderiza(tabela, 'oferta', {
+      confianca: 1,
+      slots: { dia: 'quarta', hora: '17:40' },
+    });
+    expect(r.texto).toBe('Tenho quarta às 17:40.');
+  });
+});

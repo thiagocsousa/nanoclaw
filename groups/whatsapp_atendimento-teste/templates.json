@@ -304,6 +304,9 @@
       ],
       "textos_dois": [
         "Tenho {dia}, dia {data}, às {hora}, ou {dia_b}, dia {data_b}, às {hora_b}.\n\nQual fica melhor para você?"
+      ],
+      "textos_dois_mesmo_dia": [
+        "Tenho {dia}, dia {data}, às {hora} ou às {hora_b}.\n\nQual fica melhor para você?"
       ]
     },
     "qual_horario": {
@@ -318,7 +321,10 @@
         "hora_b"
       ],
       "textos": [
-        "Só para eu não errar: {dia}, às {hora}, ou {dia_b}, às {hora_b}?"
+        "Só para confirmar: {dia}, às {hora}, ou {dia_b}, às {hora_b}?"
+      ],
+      "textos_dois_mesmo_dia": [
+        "Só para confirmar: {dia}, dia {data}, às {hora} ou às {hora_b}?"
       ]
     },
     "horario_pedido_convenio": {
@@ -335,6 +341,9 @@
       ],
       "textos_dois": [
         "Pelo convênio os horários seguem a disponibilidade da agenda, então não consigo reservar um horário específico.\n\nTenho {dia}, dia {data}, às {hora}, ou {dia_b}, dia {data_b}, às {hora_b}. Qual fica melhor para você?"
+      ],
+      "textos_dois_mesmo_dia": [
+        "Pelo convênio os horários seguem a disponibilidade da agenda, então não consigo reservar um horário específico.\n\nTenho {dia}, dia {data}, às {hora} ou às {hora_b}. Qual fica melhor para você?"
       ]
     },
     "horario_pedido_indisponivel": {
@@ -351,6 +360,9 @@
       ],
       "textos_dois": [
         "Nesse horário eu não consigo encaixar, mas tenho {dia}, dia {data}, às {hora}, ou {dia_b}, dia {data_b}, às {hora_b}. Qual fica melhor?"
+      ],
+      "textos_dois_mesmo_dia": [
+        "Nesse horário eu não consigo encaixar, mas tenho {dia}, dia {data}, às {hora} ou às {hora_b}. Qual fica melhor?"
       ]
     },
     "pergunta_dia": {

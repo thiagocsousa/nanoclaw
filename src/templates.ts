@@ -78,6 +78,16 @@ export interface Intencao {
    */
   textos_dois?: string[];
   /**
+   * Texto para duas vagas NO MESMO DIA.
+   *
+   * É o caso comum, e eu tinha tratado como se não existisse: o
+   * `iclinic_vagas.py` devolve as posições de um mesmo dia antes de passar
+   * para o próximo, então duas opções quase sempre são do mesmo dia. Sem este
+   * campo saía "quarta, às 17:40, ou quarta, às 18:00" — o dia repetido duas
+   * vezes na mesma frase. Apontado pelo Thiago em 19/10/2026.
+   */
+  textos_dois_mesmo_dia?: string[];
+  /**
    * Pendurar o pedido dos dados que faltam depois do texto, em vez de deixar o
    * texto convidar sozinho.
    *
@@ -305,11 +315,18 @@ export function renderiza(
   // opções é o certo. Sem ele, o de uma. Não é variante de estilo: depende do
   // que a agenda deu.
   const temSegunda = !!slots.dia_b?.trim() && !!slots.hora_b?.trim();
+  // Mesmo dia é o caso COMUM: a agenda esgota as posições de um dia antes de
+  // ir para o próximo.
+  const mesmoDia = temSegunda && slots.dia?.trim() === slots.dia_b?.trim();
+  const duas =
+    (mesmoDia && def.textos_dois_mesmo_dia?.length
+      ? def.textos_dois_mesmo_dia
+      : def.textos_dois) ?? [];
   const opcoes =
     (semSlot
       ? def.textos_sem_slot
-      : temSegunda && def.textos_dois?.length
-        ? def.textos_dois
+      : temSegunda && duas.length
+        ? duas
         : def.textos) ?? [];
   if (opcoes.length === 0) {
     return {
