@@ -256,7 +256,7 @@
       "acao": "responder",
       "fecho": false,
       "textos": [
-        "No consultório, a consulta com a Dra. Marina é particular, R$ {valor_consulta}.\n\nMas os exames podem ser feitos pelo próprio IASPI, com exceção do Pentacam, que é particular. E a cirurgia pode ser pelo PLAMTA, se houver indicação médica e o plano autorizar."
+        "No consultório, a consulta com a Dra. Marina é particular.\n\nMas os exames podem ser feitos pelo próprio IASPI, com exceção do Pentacam, que é particular. E a cirurgia pode ser pelo PLAMTA, se houver indicação médica e o plano autorizar."
       ],
       "emenda_triagem": true
     },
@@ -266,7 +266,7 @@
       "acao": "responder",
       "fecho": false,
       "textos": [
-        "No consultório, a consulta com a Dra. Marina é particular, R$ {valor_consulta}.\n\nMas os exames podem ser feitos pelo próprio IPMT, com exceção do Pentacam, que é particular. E a cirurgia pode ser pelo PLANTE, se houver indicação médica e o plano autorizar."
+        "No consultório, a consulta com a Dra. Marina é particular.\n\nMas os exames podem ser feitos pelo próprio IPMT, com exceção do Pentacam, que é particular. E a cirurgia pode ser pelo PLANTE, se houver indicação médica e o plano autorizar."
       ],
       "emenda_triagem": true
     },
@@ -558,7 +558,7 @@
     },
     "sem_telefone": {
       "bloco": "F00d",
-      "quando": "PERGUNTA qual é o telefone da clínica para TER o contato, sem querer falar por voz: 'qual o número de vocês?', 'tem telefone fixo?'. A clínica não recebe ligação e NÃO existe número a informar, então a resposta basta e ele costuma fechar com um obrigado.\n\n⛔ Pedir o número PARA LIGAR é quer_ligar, e não sem_telefone. O que distingue é a intenção de usar a VOZ, não a forma da frase: 'me passa um número pra eu ligar' e 'prefiro falar por telefone' são quer_ligar, mesmo pedindo o número. Saiu na passada 16, no M04, e a diferença importa porque quer_ligar ESCALA — não há número a dar, e alguém tem de decidir como falar com essa pessoa.\n\nQuem quer o contato pessoal da médica, ou falar com ela ou com alguém específico, é quer_humano.",
+      "quando": "PERGUNTA qual é o telefone da clínica para TER o contato, sem querer falar por voz: 'qual o número de vocês?', 'tem telefone fixo?'. O atendimento é por mensagem e a Lara NÃO informa número — um número na resposta pode ser de outro paciente. A resposta basta, e ele costuma fechar com um obrigado.\n\n⛔ Pedir o número PARA LIGAR é quer_ligar, e não sem_telefone. O que distingue é a intenção de usar a VOZ, não a forma da frase: 'me passa um número pra eu ligar' e 'prefiro falar por telefone' são quer_ligar, mesmo pedindo o número. Saiu na passada 16, no M04, e a diferença importa porque quer_ligar ESCALA — não há número a dar, e alguém tem de decidir como falar com essa pessoa.\n\nQuem quer o contato pessoal da médica, ou falar com ela ou com alguém específico, é quer_humano.",
       "acao": "responder",
       "fecho": false,
       "textos": [
@@ -567,13 +567,13 @@
     },
     "quer_ligar": {
       "bloco": "F00d",
-      "quando": "quer falar por VOZ: insiste em ligar, pede o número PARA LIGAR, pede que a clínica ligue para ele, diz que prefere telefone a mensagem, ou volta ao assunto depois de já ouvir que o atendimento é por mensagem. Qualquer frase em que a ligação é o OBJETIVO cai aqui, inclusive quando ela pede o número. sem_telefone é só quem quer o número para ter o contato, sem querer falar.",
+      "quando": "quer falar por VOZ: insiste em ligar, pede o número PARA LIGAR, pede que a clínica ligue para ele, diz que prefere telefone a mensagem, ou volta ao assunto depois de já ouvir que o atendimento é por mensagem. Qualquer frase em que a ligação é o OBJETIVO cai aqui, inclusive quando ela pede o número. A ligação NÃO é impossível — a secretária fica com o celular — mas não é o canal preferido e a Lara não passa número, então a decisão é de quem atende (Thiago, 19/10/2026). sem_telefone é só quem quer o número para ter o contato, sem querer falar.",
       "acao": "escalar",
       "urgente": false,
       "fecho": false,
-      "motivo_escalada": "quer ser atendido por telefone e a clínica não recebe ligação. Não há número a dar, então quem resolve é alguém decidindo como falar com esta pessoa (ligar de um particular, ou convencê-la a escrever).",
+      "motivo_escalada": "quer ser atendido por voz. A Lara não passa número, então quem resolve é alguém decidindo como falar com esta pessoa — ligar do celular da secretária, ou convencê-la a escrever.",
       "textos": [
-        "O atendimento é por aqui mesmo, por mensagem. A clínica não recebe ligação.\n\nSó um instante."
+        "O atendimento é por aqui mesmo, por mensagem.\n\nSó um instante."
       ]
     },
     "audio_escala": {

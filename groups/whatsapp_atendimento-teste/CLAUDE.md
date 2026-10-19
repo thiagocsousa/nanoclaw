@@ -285,7 +285,7 @@ Abaixo, só o que não cabe num campo `quando`:
   histórico tem sintoma ou dor, o áudio é `clinico`, pela precedência acima: o
   conteúdo do áudio você não conhece, mas o contexto você já leu.
 - **sem_telefone** quando ele pede número para ligar ou quer falar por voz. A
-  clínica não recebe ligação, só mensagem e áudio, e **não existe número a
+  atendimento é por mensagem e áudio, e **a Lara não informa número a
   informar**. Se ele insistir depois dessa resposta, aí é `quer_humano`.
 - **endereco_hospital_\***: só quando ele **nomeia** o hospital. Pergunta genérica
   ("onde vai ser a cirurgia?") é `hospital_cirurgia`, que lista os cinco e diz

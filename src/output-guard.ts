@@ -561,7 +561,9 @@ const RX_CPF = /\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/;
  * Até 04/10/2026 havia uma exceção para "o telefone da clínica", (86) 3226-1619.
  * O Thiago apontou que esse número **não existe**: eu o inventei e o escrevi no
  * FAQ como fato. A verificação no corpus de 482 conversas confirmou zero
- * ocorrências. A atendente também não recebe ligação, só mensagem e áudio, então
+ * ocorrências. E a Lara não informa número — a ligação não é impossível (a
+ * secretária fica com o celular, Thiago 19/10/2026), mas não é o canal
+ * preferido, e um número na saída pode ser de outro paciente. Então
  * não há telefone legítimo a informar e a exceção some.
  */
 const RX_TELEFONE = /\(?\b(?:0?\d{2})\)?\s?9?\d{4}[-\s]?\d{4}\b/g;
@@ -649,7 +651,7 @@ export function inspecionaSaida(
       regra: 'telefone',
       nivel: 'block',
       motivo:
-        'telefone na resposta; a clínica não tem telefone a informar (a atendente não recebe ligação) e um número qualquer pode ser de outro paciente',
+        'telefone na resposta; a Lara não informa número, e um número qualquer pode ser de outro paciente',
       trecho: '(omitido)',
     });
   }

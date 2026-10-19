@@ -230,14 +230,14 @@ const TABELA = {
       acao: 'responder',
       emenda_triagem: true,
       textos: [
-        'No consultório, a consulta é particular, R$ {valor_consulta}. Exame sai pelo IASPI, menos o Pentacam, e a cirurgia pelo PLAMTA.',
+        'No consultório, a consulta é particular. Exame sai pelo IASPI, menos o Pentacam, e a cirurgia pelo PLAMTA.',
       ],
     },
     convenio_ipmt: {
       acao: 'responder',
       emenda_triagem: true,
       textos: [
-        'No consultório, a consulta é particular, R$ {valor_consulta}. Exame sai pelo IPMT, menos o Pentacam, e a cirurgia pelo PLANTE.',
+        'No consultório, a consulta é particular. Exame sai pelo IPMT, menos o Pentacam, e a cirurgia pelo PLANTE.',
       ],
     },
     pentacam_cobertura: {
@@ -1276,33 +1276,50 @@ describe('exame por IASPI/IPMT: texto do plano (Thiago, 19/10/2026)', () => {
     },
   );
 
-  // O texto do plano passou a citar {valor_consulta} em 19/10/2026 (ideia do
-  // Thiago: quem pergunta "atende IASPI?" quer saber quanto custa). Isso o
-  // colocou sob o `comValorDaAvaliacao`, que troca o valor pelo do desconto em
-  // texto que cita só esse slot — e aqui a troca é CERTA: IASPI não é atendido
-  // para consulta, então quem tem IASPI e quer cirurgia é exatamente o caso do
-  // desconto. O acoplamento não era óbvio, e é por isso que está travado.
-  it('com intenção cirúrgica, o valor citado é o do desconto', async () => {
-    const { esqueceSlots } = await import('./memoria-conversa.js');
-    esqueceSlots(PASTA, JID);
-    const r = await rodar(
-      '{"intencao":"convenio_iaspi","confianca":0.95,"slots":{"convenio":"IASPI","necessidade":"cirurgia refrativa"}}',
-      'atende IASPI? queria operar',
-    );
-    expect(r?.texto).toContain('R$ 300,00');
-    expect(r?.texto).not.toContain('R$ 430,00');
-  });
+  // ⛔ O texto do plano NÃO cita valor, e esta é a trava de que não volta a
+  // citar.
+  //
+  // Citou por algumas horas em 19/10/2026 — ideia do Thiago, e boa: quem
+  // pergunta "atende IASPI?" quer saber quanto custa. Só que isso o colocou sob
+  // o `comValorDaAvaliacao`, que troca o valor pelo do desconto em texto que
+  // cita só esse slot. E aí dois pacientes perguntando a MESMA coisa recebiam
+  // valores diferentes, medido na passada 17:
+  //
+  //   "voces fazem cirurgia pelo PLAMTA?"            → R$ 430,00
+  //   "voces atendem IPMT pra cirurgia de catarata?" → R$ 300,00
+  //
+  // A diferença é só o modelo ter preenchido `necessidade` ou não, e nenhum
+  // paciente entende isso. Inconsistência de preço é reclamação no balcão.
+  //
+  // Decisão do Thiago: o texto do plano sai de cima do assunto preço. O valor
+  // passa a vir de um lugar só (`preco_consulta` / `desconto`), quando ele
+  // perguntar — que é onde a regra do desconto já mora e já é testada.
+  it.each(['convenio_iaspi', 'convenio_ipmt'])(
+    '%s não cita valor nenhum',
+    async (intencao) => {
+      const { esqueceSlots } = await import('./memoria-conversa.js');
+      esqueceSlots(PASTA, JID);
+      for (const necessidade of ['rotina', 'cirurgia refrativa', 'catarata']) {
+        esqueceSlots(PASTA, JID);
+        const r = await rodar(
+          `{"intencao":"${intencao}","confianca":0.95,"slots":{"convenio":"IASPI","necessidade":"${necessidade}"}}`,
+          'atende?',
+        );
+        expect(r?.texto, necessidade).not.toMatch(/R\$|\d{3},\d{2}|reais/);
+      }
+    },
+  );
 
-  // ⚠️ E rotina continua no valor cheio: o desconto é da intenção cirúrgica.
-  // Sem este par, afrouxar o desconto até sair sempre ficaria invisível.
-  it('sem intenção cirúrgica, o valor é o cheio', async () => {
+  // ⚠️ E o desconto continua funcionando onde ele mora. Sem este par, tirar o
+  // valor do texto do plano poderia ter matado o desconto sem ninguém notar.
+  it('o desconto continua saindo em preco_consulta', async () => {
     const { esqueceSlots } = await import('./memoria-conversa.js');
     esqueceSlots(PASTA, JID);
     const r = await rodar(
-      '{"intencao":"convenio_iaspi","confianca":0.95,"slots":{"convenio":"IASPI","necessidade":"rotina"}}',
-      'atende IASPI?',
+      '{"intencao":"preco_consulta","confianca":0.95,"slots":{"convenio":"IASPI","necessidade":"cirurgia refrativa"}}',
+      'quanto custa?',
     );
-    expect(r?.texto).toContain('R$ 430,00');
+    expect(r?.texto).toContain('300,00');
   });
 
   it('pergunta de PREÇO de exame também cai no texto do plano', async () => {

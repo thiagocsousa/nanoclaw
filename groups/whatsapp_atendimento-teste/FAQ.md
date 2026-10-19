@@ -305,7 +305,9 @@ cheio". Ver **F05**: negar um benefício conta que ele existe.
 
 ### A clínica não tem telefone para informar
 
-A atendente **não recebe ligação**: trabalha por mensagem e áudio. Não existe número a
+A atendente trabalha **por mensagem e áudio**, e a Lara **não informa número**. A
+ligação não é impossível — a secretária humana fica com o celular (Thiago, 19/10/2026) —
+mas não é o canal preferido, e um número na resposta pode ser de outro paciente. Não há número a
 passar.
 
 > O atendimento da clínica é por aqui mesmo, por mensagem. Qualquer coisa você me escreve
@@ -545,27 +547,47 @@ Afirmar cobertura faz o paciente contar com um dinheiro que pode não vir.
 Para **IASPI (IAPEP)** e **IPMT** há nome próprio do plano cirúrgico, e aí dá para ser
 específico:
 
-> No consultório, a consulta com a Dra. Marina é particular, R$ {valor_consulta}.
+> No consultório, a consulta com a Dra. Marina é particular.
 >
-> Mas o exame você faz pelo próprio IASPI, com exceção do Pentacam, que é particular. E a
-> cirurgia pode ser pelo PLAMTA, se houver indicação médica e o plano autorizar.
+> Mas os exames podem ser feitos pelo próprio IASPI, com exceção do Pentacam, que é
+> particular. E a cirurgia pode ser pelo PLAMTA, se houver indicação médica e o plano
+> autorizar.
 
-> No consultório, a consulta com a Dra. Marina é particular, R$ {valor_consulta}.
+> No consultório, a consulta com a Dra. Marina é particular.
 >
-> Mas o exame você faz pelo próprio IPMT, com exceção do Pentacam, que é particular. E a
-> cirurgia pode ser pelo PLANTE, se houver indicação médica e o plano autorizar.
+> Mas os exames podem ser feitos pelo próprio IPMT, com exceção do Pentacam, que é
+> particular. E a cirurgia pode ser pelo PLANTE, se houver indicação médica e o plano
+> autorizar.
 
-> ⚠️ **O `{valor_consulta}` aqui está sob o desconto.** O texto cita só esse slot, então o
-> `comValorDaAvaliacao` troca o valor pelo de desconto quando a intenção é cirúrgica — e
-> aqui a troca é CERTA: IASPI e IPMT não são atendidos para consulta, logo quem tem um
-> deles e quer operar é exatamente o caso do desconto. *"atende IASPI? queria operar"* sai
-> com R$ 300,00; *"atende IASPI?"* para rotina sai com R$ 430,00. Travado em
-> `executor.test.ts`, com o par rotina/cirurgia — o acoplamento não era óbvio quando o
-> preço entrou no texto.
+> ⛔ **O texto do plano NÃO cita valor, e é decisão deliberada.**
+>
+> Citou por algumas horas em 19/10/2026 — ideia do Thiago, e boa: quem pergunta "atende
+> IASPI?" quer saber quanto custa. Só que citar `{valor_consulta}` sozinho o colocou sob o
+> `comValorDaAvaliacao`, que troca o valor pelo de desconto quando a intenção é cirúrgica.
+> E aí dois pacientes perguntando a MESMA coisa recebiam valores diferentes. Medido na
+> passada 17:
+>
+> | o paciente disse | saiu |
+> |---|---|
+> | "voces fazem cirurgia pelo PLAMTA?" | R$ 430,00 |
+> | "voces atendem IPMT pra cirurgia de catarata?" | R$ 300,00 |
+>
+> A diferença é só o modelo ter preenchido `necessidade` ou não, e nenhum paciente entende
+> isso. Inconsistência de preço é reclamação no balcão.
+>
+> Decisão do Thiago no mesmo dia: o texto do plano sai de cima do assunto preço. O valor
+> vem de um lugar só — `preco_consulta` e `desconto` — quando ele perguntar, que é onde a
+> regra do desconto mora e já é testada. Travado nos dois sentidos em `executor.test.ts`: o
+> texto do plano não casa `R$` com nenhuma necessidade, e o desconto continua saindo em
+> `preco_consulta`.
+>
+> ⚠️ O que se perde, e é o preço da decisão: quem pergunta "atende IASPI?" sai sem saber
+> quanto custa. Ele recebe a emenda de triagem em seguida, e o valor vem se perguntar.
 
-> ℹ️ QUINTA versão, mesmo dia: o Thiago trouxe uma redação própria, e o ganho dela é o
-> **preço na primeira linha** — quem pergunta "atende IASPI?" quer saber quanto vai custar,
-> e antes tinha de perguntar de novo. Também dele: "com exceção do Pentacam, que é
+> ℹ️ QUINTA versão, mesmo dia: o Thiago trouxe uma redação própria, e o ganho dela era o
+> **preço na primeira linha** — quem pergunta "atende IASPI?" quer saber quanto vai custar.
+> O preço saiu de novo algumas horas depois, pelo motivo do bloco acima; o resto da redação
+> dele ficou. Também dele: "com exceção do Pentacam, que é
 > particular", mais limpo que "não sai por plano nenhum"; e "No consultório", que distingue
 > do Vilar.
 >

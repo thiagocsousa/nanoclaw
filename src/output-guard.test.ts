@@ -111,7 +111,7 @@ describe('bloqueia o que machuca', () => {
       inspecionaSaida('Liga para o Vilar: (86) 99945-7661').bloqueado,
     ).toBe(true);
     // O "telefone da clínica" era inventado por mim e não existe: não há
-    // exceção. A atendente não recebe ligação, só mensagem e áudio.
+    // exceção. A Lara não informa número: pode ser de outro paciente.
     expect(
       inspecionaSaida('O telefone da clínica é (86) 3226-1619.').bloqueado,
     ).toBe(true);
