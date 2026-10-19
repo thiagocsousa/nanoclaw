@@ -678,3 +678,34 @@ describe('a guarda contra a tabela de templates aprovados', () => {
     }
   });
 });
+
+describe('anunciar-se como automática (19/10/2026)', () => {
+  // O manual que o Thiago trouxe de outra IA propunha "assistente de
+  // atendimento POR inteligência artificial". A regra antiga só casava em "sou
+  // uma inteligência artificial", e a frase passava limpa. Medido antes de
+  // mexer.
+  it.each([
+    'Sou a Lara, assistente de atendimento por inteligência artificial.',
+    'Este é um atendimento automatizado.',
+    'Sou um chatbot do consultório.',
+    'Sou uma IA.',
+    'Este é um atendimento automático.',
+  ])('pega %s', (t) => {
+    expect(inspecionaSaida(t).achados.map((a) => a.regra)).toContain(
+      'anuncia_bot',
+    );
+  });
+
+  // O outro lado: a abertura diz que é "assistente da Dra. Marina", que é
+  // verdade e não anuncia automação. Acusar isso calaria a Lara na primeira
+  // mensagem de toda conversa.
+  it.each([
+    'Olá, tudo bem? Sou a Lara, assistente da Dra. Marina Costa.',
+    'Só um instante.',
+    'A avaliação com a Dra. Marina é R$ 430,00.',
+  ])('deixa passar %s', (t) => {
+    expect(inspecionaSaida(t).achados.map((a) => a.regra)).not.toContain(
+      'anuncia_bot',
+    );
+  });
+});

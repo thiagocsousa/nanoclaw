@@ -124,6 +124,34 @@
       ],
       "emenda_triagem": true
     },
+    "consulta_o_que_inclui": {
+      "bloco": "F01b",
+      "quando": "pergunta o que a médica FAZ na consulta, o que está incluído, como é o atendimento. Diferente de preco_consulta, que pergunta quanto custa.",
+      "acao": "responder",
+      "fecho": false,
+      "emenda_triagem": true,
+      "textos": [
+        "Na consulta a Dra. Marina avalia o grau, mede a pressão dos olhos e examina o fundo do olho, conforme a necessidade.\n\nÉ uma avaliação da visão e também da saúde dos olhos.\n\nO retorno está incluído em até 30 dias, quando for necessário para continuar a avaliação."
+      ]
+    },
+    "retorno_incluso": {
+      "bloco": "F01c",
+      "quando": "pergunta se tem retorno, se o retorno é cobrado, em quanto tempo pode voltar. NÃO serve para quem quer MARCAR um retorno (isso é retorno e a Lara não agenda).",
+      "acao": "responder",
+      "fecho": false,
+      "textos": [
+        "Sim. O retorno está incluído em até 30 dias, quando for necessário para dar continuidade à avaliação."
+      ]
+    },
+    "acha_caro": {
+      "bloco": "F01d",
+      "quando": "diz que achou CARO, que está fora do orçamento, que é muito dinheiro. ⛔ Não insistir, não justificar o preço em excesso, não oferecer desconto.",
+      "acao": "responder",
+      "fecho": false,
+      "textos": [
+        "Entendo. Na consulta a Dra. Marina avalia o grau, mede a pressão dos olhos e examina o fundo do olho, e o retorno está incluído em até 30 dias quando necessário.\n\nSe tiver qualquer dúvida sobre o atendimento, me pergunte que eu explico."
+      ]
+    },
     "preco_cirurgia": {
       "bloco": "F03",
       "quando": "quanto custa a cirurgia, me dá uma média, é 5 mil?",
@@ -142,6 +170,36 @@
       "emenda_triagem": true,
       "textos": [
         "A cirurgia refrativa pode ser uma boa possibilidade para quem deseja diminuir a dependência dos óculos.\n\nO valor depende da técnica indicada e do planejamento necessário para cada paciente.\n\nPor isso o primeiro passo é a avaliação com a Dra. Marina, que custa R$ {valor_consulta}. Nela a doutora verifica as condições dos seus olhos e investiga se existe indicação para a cirurgia."
+      ]
+    },
+    "catarata_avaliacao": {
+      "bloco": "F02b",
+      "quando": "quer saber como é a avaliação ou o tratamento da CATARATA, o que a médica verifica, se precisa operar, sobre as lentes intraoculares. NÃO serve para preço (preco_cirurgia) nem para cobertura (convenio_cirurgia).",
+      "acao": "responder",
+      "fecho": false,
+      "emenda_triagem": true,
+      "textos": [
+        "Na avaliação a Dra. Marina verifica as condições dos olhos, o quanto a catarata está afetando a sua visão, e conversa com você sobre as opções de tratamento.\n\nExistem tecnologias diferentes de lente intraocular, e a escolha depende do seu caso e do que a doutora indicar na consulta."
+      ]
+    },
+    "medo_cirurgia": {
+      "bloco": "F05b",
+      "quando": "demonstra MEDO ou receio da cirurgia, ainda que queira fazer: 'tenho medo', 'morro de medo de mexer no olho', 'e se der errado?'. Diferente de criterios_cobertura_refrativa e de preco_cirurgia.",
+      "acao": "responder",
+      "fecho": false,
+      "emenda_triagem": true,
+      "textos": [
+        "É natural ter receio de uma cirurgia nos olhos.\n\nNa avaliação a Dra. Marina explica como funciona o procedimento, os cuidados, os riscos e o que dá para esperar no seu caso. Assim você decide com as suas dúvidas esclarecidas."
+      ]
+    },
+    "tecnica_cirurgica": {
+      "bloco": "F05c",
+      "quando": "pergunta a diferença entre PRK e LASIK, ou qual técnica é melhor. ⛔ A resposta NÃO escolhe uma: diz que a escolha depende da avaliação.",
+      "acao": "responder",
+      "fecho": false,
+      "emenda_triagem": true,
+      "textos": [
+        "As duas técnicas corrigem o grau, mas têm diferenças na indicação e no tempo de recuperação.\n\nQual delas cabe no seu caso depende das condições dos seus olhos, e é isso que a Dra. Marina avalia na consulta."
       ]
     },
     "desconto": {
@@ -199,7 +257,7 @@
       "acao": "responder",
       "fecho": false,
       "textos": [
-        "A consulta com a Dra. Marina é realizada de forma particular para pacientes do IASPI.\n\nJá para a cirurgia, existe a possibilidade de atendimento pelo PLAMTA, conforme a indicação médica e os critérios de cobertura do plano."
+        "A consulta com a Dra. Marina é realizada de forma particular para pacientes do IASPI.\n\nOs exames saem pelo IASPI, com exceção do Pentacam, que nenhum plano cobre.\n\nJá para a cirurgia, existe a possibilidade de atendimento pelo PLAMTA, conforme a indicação médica e os critérios de cobertura do plano."
       ],
       "emenda_triagem": true
     },
@@ -209,7 +267,7 @@
       "acao": "responder",
       "fecho": false,
       "textos": [
-        "A consulta com a Dra. Marina é realizada de forma particular para pacientes do IPMT.\n\nPara a cirurgia, existe a possibilidade de atendimento pelo PLANTE, conforme a indicação médica e os critérios de cobertura do plano."
+        "A consulta com a Dra. Marina é realizada de forma particular para pacientes do IPMT.\n\nOs exames saem pelo IPMT, com exceção do Pentacam, que nenhum plano cobre.\n\nPara a cirurgia, existe a possibilidade de atendimento pelo PLANTE, conforme a indicação médica e os critérios de cobertura do plano."
       ],
       "emenda_triagem": true
     },
@@ -272,13 +330,23 @@
       ],
       "emenda_triagem": true
     },
+    "exames_convenio": {
+      "bloco": "F08b",
+      "quando": "pergunta se os EXAMES são cobertos pelo convênio, se faz exame pelo plano. Diferente de exames_preco (quanto custam) e de convenio_cirurgia (cobertura da cirurgia).",
+      "acao": "responder",
+      "fecho": false,
+      "emenda_triagem": true,
+      "textos": [
+        "Aqui no consultório os exames são particulares: pela Unimed a Dra. Marina atende consulta e cirurgia, mas os exames não saem pelo convênio.\n\nSe forem necessários, a doutora faz o pedido na consulta e você usa as regras do seu plano para realizá-los."
+      ]
+    },
     "pentacam_cobertura": {
       "bloco": "F08",
       "quando": "o plano cobre o Pentacam",
       "acao": "responder",
       "fecho": false,
       "textos": [
-        "O Pentacam é realizado de forma particular e, atualmente, não fazemos esse exame dentro do consultório.\n\nQuando necessário, podemos orientar sobre o local de realização e como organizar essa etapa da avaliação."
+        "O Pentacam é particular, nenhum plano cobre, e ele não é feito aqui no consultório."
       ]
     },
     "hospital_cirurgia": {

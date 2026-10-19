@@ -2285,6 +2285,170 @@
           "nota": "O outro lado da regra: convidar quem só quer saber onde fica é o que faz soar a vendedor."
         }
       ]
+    },
+    {
+      "id": "T01",
+      "categoria": "conteudo",
+      "sobre": "O que a médica faz na consulta: justifica o valor sem defender o valor.",
+      "escalou": false,
+      "turnos": [
+        {
+          "paciente": "o que a doutora faz na consulta?",
+          "esperado": [
+            "press[ãa]o",
+            "fundo do olho"
+          ],
+          "proibido": [
+            "S[óo] um instante"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "T02",
+      "categoria": "conteudo",
+      "sobre": "Tem retorno? Pergunta própria, hoje só existia dentro do preço.",
+      "escalou": false,
+      "turnos": [
+        {
+          "paciente": "tem retorno depois da consulta?",
+          "esperado": [
+            "30 dias"
+          ],
+          "proibido": [
+            "S[óo] um instante"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "T03",
+      "categoria": "conteudo",
+      "sobre": "Achou caro: reconhece, explica o que inclui, e NÃO insiste nem nega desconto.",
+      "escalou": false,
+      "turnos": [
+        {
+          "paciente": "achei a consulta um pouco cara",
+          "esperado": [
+            "Entendo"
+          ],
+          "proibido": [
+            "S[óo] um instante",
+            "@nega_desconto",
+            "poderia me informar"
+          ],
+          "nota": "Não convida: quem reclamou do preço não é hora de pedir dados."
+        }
+      ]
+    },
+    {
+      "id": "T04",
+      "categoria": "conteudo",
+      "sobre": "Catarata: como é a avaliação e as lentes intraoculares. Era lacuna registrada.",
+      "escalou": false,
+      "turnos": [
+        {
+          "paciente": "como é o tratamento de catarata?",
+          "esperado": [
+            "intraocular"
+          ],
+          "proibido": [
+            "S[óo] um instante"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "T05",
+      "categoria": "conteudo",
+      "sobre": "Medo de operar: acolhe o receio sem minimizar o risco.",
+      "escalou": false,
+      "turnos": [
+        {
+          "paciente": "tenho muita vontade mas morro de medo de mexer no olho",
+          "esperado": [
+            "receio|natural"
+          ],
+          "proibido": [
+            "S[óo] um instante"
+          ],
+          "nota": "A JULGAR À MÃO: o tom precisa acolher sem prometer que é seguro."
+        }
+      ]
+    },
+    {
+      "id": "T06",
+      "categoria": "conteudo",
+      "sobre": "PRK ou LASIK: explica que depende da avaliação, sem escolher uma.",
+      "escalou": false,
+      "turnos": [
+        {
+          "paciente": "qual é melhor, PRK ou LASIK?",
+          "esperado": [
+            "depende|condi[çc][õo]es"
+          ],
+          "proibido": [
+            "recomendo",
+            "o melhor [ée]",
+            "indico o"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "T07",
+      "categoria": "exames",
+      "sobre": "Exames pelo convênio: pela Unimed não sai exame no consultório.",
+      "escalou": false,
+      "turnos": [
+        {
+          "paciente": "faço os exames pela Unimed aqui mesmo?",
+          "esperado": [
+            "exame"
+          ],
+          "proibido": [
+            "S[óo] um instante"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "T08",
+      "categoria": "convenio",
+      "sobre": "IASPI cobre exames, menos Pentacam (correção do Thiago, 19/10).",
+      "escalou": false,
+      "turnos": [
+        {
+          "paciente": "sou do IASPI, os exames saem pelo plano?",
+          "esperado": [
+            "IASPI",
+            "Pentacam"
+          ],
+          "proibido": [
+            "S[óo] um instante"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "T09",
+      "categoria": "exames",
+      "sobre": "Pentacam: particular, nenhum plano cobre, não é feito aqui. E a Lara NÃO oferece organizar o agendamento dele.",
+      "escalou": false,
+      "turnos": [
+        {
+          "paciente": "o Pentacam sai pelo meu plano?",
+          "esperado": [
+            "nenhum plano|particular"
+          ],
+          "proibido": [
+            "@valor_pentacam",
+            "organiz",
+            "agendar o Pentacam"
+          ],
+          "nota": "Decisão do Thiago em 19/10: não falar sobre organizar o agendamento do Pentacam."
+        }
+      ]
     }
   ]
 }

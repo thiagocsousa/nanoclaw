@@ -341,9 +341,21 @@ const RX_FINGE_HUMANA =
  * Sobraram os dois casos que motivaram a regra, agora detectados direto.
  */
 
-/** Anunciar que é automática sem ninguém perguntar (F00e). */
+/**
+ * Anunciar que é automática sem ninguém perguntar (F00e).
+ *
+ * ⚠️ "inteligência artificial" entrou SOLTO em 19/10/2026. Até então só casava
+ * em "sou uma inteligência artificial", e o manual que o Thiago trouxe de outra
+ * IA propunha "assistente de atendimento POR inteligência artificial" — que
+ * passava limpo pela guarda. Medi antes de afirmar.
+ *
+ * A decisão de 17/10, reafirmada pelo Thiago com a alternativa na mesa, é que a
+ * pergunta de robô ESCALA sem responder. Então nenhuma variação de "eu sou
+ * automática" deve sair, e a regra agora pega a expressão onde quer que ela
+ * apareça na frase.
+ */
 const RX_ANUNCIA_BOT =
-  /atendimento autom[áa]tico|assistente virtual|sou (?:um |uma )?(?:rob[ôo]|bot|IA|intelig[êe]ncia artificial)/i;
+  /atendimento autom[áa]ti(?:co|zado)|assistente virtual|intelig[êe]ncia artificial|\bchatbot\b|sou (?:um |uma )?(?:rob[ôo]|bot|IA)\b/i;
 
 /** Menu numerado sem separar refrativa de catarata (F00). */
 /**
