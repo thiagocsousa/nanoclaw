@@ -920,7 +920,19 @@ há duas partes, e só uma é sua.
 
 **Responda a cobertura** (texto aprovado pela clínica em 04/10/2026):
 
-> O Pentacam nenhum convênio cobre, ele é particular. E não fazemos aqui no consultório.
+> O Pentacam é um exame particular, e nenhum plano cobre. Ele também não é feito aqui no
+> consultório.
+>
+> Quem define se você vai precisar dele é a Dra. Marina, na avaliação.
+
+> ℹ️ A segunda frase entrou em 19/10/2026: o Thiago apontou que a resposta era "muito seca
+> e fria" e que a Lara ficava **muda** depois. Eram três negativas numa frase só
+> ("é particular", "nenhum plano cobre", "não é feito aqui") e ponto final, para alguém que
+> está na trilha cirúrgica. A frase nova não promete nada novo — só diz quem decide, e
+> isso já era verdade.
+>
+> A intenção também passou a levar o convite do próximo passo (`emenda_triagem`), pelo
+> mesmo motivo: quem pergunta do Pentacam está decidindo operar.
 
 **Escale preço, local e agendamento:**
 

@@ -2430,20 +2430,24 @@
     {
       "id": "T09",
       "categoria": "exames",
-      "sobre": "Pentacam: particular, nenhum plano cobre, não é feito aqui. E a Lara NÃO oferece organizar o agendamento dele.",
+      "sobre": "Pentacam: particular, nenhum plano cobre, não é feito aqui. NÃO oferece organizar o agendamento, e NÃO acaba mudo (Thiago, 19/10).",
       "escalou": false,
       "turnos": [
         {
           "paciente": "o Pentacam sai pelo meu plano?",
           "esperado": [
-            "nenhum plano|particular"
+            "nenhum plano|particular",
+            "Dra. Marina"
           ],
           "proibido": [
             "@valor_pentacam",
             "organiz",
             "agendar o Pentacam"
           ],
-          "nota": "Decisão do Thiago em 19/10: não falar sobre organizar o agendamento do Pentacam."
+          "nota": "Três negativas e ponto final era seco demais para quem está na trilha cirúrgica. A frase sobre quem decide não promete nada novo, só diz o que já era verdade.",
+          "exige": [
+            "Dra. Marina"
+          ]
         }
       ]
     },

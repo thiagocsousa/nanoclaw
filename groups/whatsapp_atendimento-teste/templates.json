@@ -423,8 +423,9 @@
       "acao": "responder",
       "fecho": false,
       "textos": [
-        "O Pentacam é particular, nenhum plano cobre, e ele não é feito aqui no consultório."
-      ]
+        "O Pentacam é um exame particular, e nenhum plano cobre. Ele também não é feito aqui no consultório.\n\nQuem define se você vai precisar dele é a Dra. Marina, na avaliação."
+      ],
+      "emenda_triagem": true
     },
     "hospital_cirurgia": {
       "bloco": "F17",
