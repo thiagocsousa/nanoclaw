@@ -2315,3 +2315,58 @@ describe('aceite do horário chega à marcação', () => {
     expect(ofertaFalsa).toBeUndefined();
   });
 });
+
+/**
+ * `sem_resposta` não pode depender de QUAL saída a `executa` usa.
+ *
+ * O flag era honrado só na saída de baixo, e nove escaladas retornam antes dela
+ * — todas pela `escalaComo`, que renderiza `DESCONHECIDO`. Então "você é um
+ * robô?" rotulado com confiança 0,70 escalava por lá e o paciente recebia "Só um
+ * instante.", a frase que o Thiago mandou não dizer nesse caso justamente porque
+ * ali ela soa a confissão.
+ *
+ * Achado pela revisão de altitude do /simplify (19/10/2026).
+ */
+describe('escalada calada independe da saída (19/10/2026)', () => {
+  it.each(['pergunta_se_e_bot', 'quer_humano'])(
+    '%s com confiança ABAIXO do limiar escala sem texto',
+    async (intencao) => {
+      const { esqueceSlots } = await import('./memoria-conversa.js');
+      esqueceSlots(PASTA, JID);
+      const r = await rodar(
+        `{"intencao":"${intencao}","confianca":0.7,"slots":{}}`,
+        'você é um robô?',
+      );
+      expect(r?.acao).toBe('escalar');
+      expect(r?.texto).toBe('');
+      // O caso abre de todo jeito: calar é com o paciente, não com a recepção.
+      expect(r?.codigo).toBeTruthy();
+    },
+  );
+
+  // ⚠️ E o caminho de confiança baixa continua FALANDO para todo o resto: a
+  // escalada ali existe porque o host não confia no rótulo, e ficar mudo com
+  // quem perguntou um preço é deixar a pessoa sem nada.
+  it('outra intenção abaixo do limiar continua recebendo texto', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    const r = await rodar(
+      '{"intencao":"preco_consulta","confianca":0.4,"slots":{}}',
+      'quanto custa?',
+    );
+    expect(r?.acao).toBe('escalar');
+    expect(r?.texto).toBe('Só um instante.');
+  });
+
+  // E a saída de baixo, que já funcionava, continua funcionando.
+  it('com confiança ALTA também cala', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    const r = await rodar(
+      '{"intencao":"pergunta_se_e_bot","confianca":0.95,"slots":{}}',
+      'você é um robô?',
+    );
+    expect(r?.acao).toBe('escalar');
+    expect(r?.texto).toBe('');
+  });
+});

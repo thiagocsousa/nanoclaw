@@ -40,6 +40,7 @@ ABERTURA = _I["abertura"]["textos"][0]
 # regra libera "uma frase que eu digitei em 19/10", e não a frase que o paciente
 # recebe. Edite o template e a checagem segue verde sobre texto que saiu de uso.
 CONVITE = _I["convite_horario"]["textos"][0]
+GRADE = _I["grade_atendimento"]["textos"][0]
 
 # (regra, descrição, resposta, mensagem atual, mensagens anteriores, deve_bater)
 CASOS = [
@@ -99,6 +100,20 @@ CASOS = [
      "Quer que eu confira a agenda?", "quanto custa?", [], True),
     ("permissao", "variação: 'quer que eu procure'",
      "Quer que eu procure um horário para você?", "quanto custa?", [], True),
+    # A grade recitada é a resposta CERTA a quem pergunta que dias a médica
+    # atende (F06), e existe intenção aprovada para isso. A passada 15 acusou
+    # falha dura nesse acerto, no S02.
+    ("recita_grade", "pediu a grade: 'que dias atende'", GRADE,
+     "que dias a Dra. Marina atende?", [], False),
+    ("recita_grade", "pediu de outro jeito", GRADE,
+     "quais os dias de atendimento?", [], False),
+    ("recita_grade", "pediu o horário de atendimento", GRADE,
+     "qual o horário de atendimento?", [], False),
+    # ⚠️ Os dois que seguram a regra: a grade NO LUGAR da oferta de horário é
+    # o vício que ela nasceu para pegar, e continua pego.
+    ("recita_grade", "grade sem ninguém pedir", GRADE, "tem horário?", [], True),
+    ("recita_grade", "grade no lugar da oferta", GRADE,
+     "quero marcar para sexta", [], True),
 ]
 
 

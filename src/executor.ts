@@ -376,13 +376,44 @@ async function escalaComo(
   motivo: string,
   pergunta: string,
   deps: EscalationSlaDeps,
+  /**
+   * O rótulo que o modelo deu, quando existe. Serve só para decidir o SILÊNCIO:
+   * se aquela intenção é `sem_resposta`, o paciente não recebe nada.
+   *
+   * O texto continua sendo o de `DESCONHECIDO` nos outros casos, de propósito —
+   * aqui a escalada acontece porque o host NÃO confia no rótulo (confiança
+   * abaixo do limiar, agenda que não respondeu, marcação que não saiu), então
+   * responder pela intenção suspeita seria pior.
+   */
+  rotuloSuspeito?: string,
 ): Promise<SaidaDoExecutor> {
   const r = renderiza(tabela, 'DESCONHECIDO', { confianca: 1, slots: {} });
   const codigo = await escala(
     { folder: groupFolder, motivo, pergunta, urgente: false },
     deps,
   );
-  return { texto: r.texto, intencao: 'DESCONHECIDO', acao: 'escalar', codigo };
+  // ⚠️ `sem_resposta` era honrado só na saída de baixo da `executa`, e havia
+  // nove escaladas que retornam antes dela. Então "você é um robô?" rotulado com
+  // confiança 0,70 escalava por AQUI e o paciente recebia "Só um instante." —
+  // exatamente a frase que o Thiago mandou não dizer nesse caso, porque ali ela
+  // soa a confissão. O flag virou incondicional em vez de depender da posição.
+  //
+  // Achado pela revisão de altitude do /simplify em 19/10/2026; o conserto é
+  // decisão do Thiago no mesmo dia.
+  const calado =
+    !!rotuloSuspeito && tabela.intencoes[rotuloSuspeito]?.sem_resposta === true;
+  if (calado) {
+    logger.info(
+      { groupFolder, rotulo: rotuloSuspeito, codigo },
+      'executor: escalada calada, o rótulo suspeito é sem_resposta',
+    );
+  }
+  return {
+    texto: calado ? '' : r.texto,
+    intencao: 'DESCONHECIDO',
+    acao: 'escalar',
+    codigo,
+  };
 }
 
 export interface SaidaDoExecutor {
@@ -463,6 +494,7 @@ export async function executa(
         `abaixo do limiar ${limiar}; veja o que o paciente quer`,
       perguntaDoPaciente,
       deps,
+      c.intencao,
     );
   }
 
@@ -699,6 +731,7 @@ export async function executa(
         `pedido de ${perfil.startsWith('retorno') ? 'RETORNO' : 'EXAME'}: a Lara não agenda esses dois; veja o que foi solicitado na consulta anterior e responda ao paciente`,
         perguntaDoPaciente,
         deps,
+        c.intencao,
       );
     }
     if (!perfil) {
@@ -871,6 +904,7 @@ export async function executa(
       `aceitou um horário de ${oferta.perfil}, que a Lara não marca; confirme com o paciente`,
       perguntaDoPaciente,
       deps,
+      c.intencao,
     );
   }
   // Qual das vagas ele aceitou?
@@ -1001,6 +1035,7 @@ export async function executa(
           'preparo de outro contexto é orientação clínica',
         perguntaDoPaciente,
         deps,
+        c.intencao,
       );
     }
   }
@@ -1056,6 +1091,7 @@ export async function executa(
           'então queixa nova é consulta',
         perguntaDoPaciente,
         deps,
+        c.intencao,
       );
     }
   }
@@ -1169,6 +1205,7 @@ export async function executa(
           'triagem sem nada a perguntar: os quatro dados e a necessidade já vieram; veja o que o paciente quer',
           perguntaDoPaciente,
           deps,
+          c.intencao,
         );
       }
       texto = pedido;
@@ -1198,6 +1235,7 @@ export async function executa(
         'aceitou um horário, mas não há oferta registrada ou ela venceu; confirme com o paciente',
         perguntaDoPaciente,
         deps,
+        c.intencao,
       );
     }
     const res = await marca(groupFolder, {
@@ -1224,6 +1262,7 @@ export async function executa(
         `${r.motivoEscalada ?? 'marcação não saiu'} | ${res.motivo}: ${res.detalhe}`,
         perguntaDoPaciente,
         deps,
+        c.intencao,
       );
     }
     // Some com a oferta: um "sim" repetido não deve marcar de novo. A
@@ -1272,6 +1311,7 @@ export async function executa(
           `continua no mesmo assunto; a resposta pronta não está resolvendo`,
         perguntaDoPaciente,
         deps,
+        c.intencao,
       );
     }
   }
