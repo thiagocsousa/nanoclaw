@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  necessidadeDoMenu,
-  necessidadeMencionada,
-  temPlano,
-} from './convenio.js';
+import { respostaDoMenu, necessidadeMencionada, temPlano } from './convenio.js';
 
 /**
  * A regra de ORDEM, nos dois sentidos.
@@ -185,18 +181,21 @@ describe('necessidadeDoMenu', () => {
     ['1)', 'cirurgia refrativa'],
     ['2 -', 'catarata'],
   ])('%s -> %s', (msg, esperado) => {
-    expect(necessidadeDoMenu(msg), msg).toBe(esperado);
+    expect(respostaDoMenu(msg)?.necessidade, msg).toBe(esperado);
   });
 
-  // ⛔ "4 - Outros" significa "nenhuma das três". Adivinhar é pior que perguntar.
-  it('4 (Outros) NÃO vira necessidade', () => {
-    expect(necessidadeDoMenu('4')).toBeUndefined();
+  // ⛔ "4 - Outros" significa "nenhuma das três": sem necessidade, e a Lara
+  // PERGUNTA em vez de escalar (Thiago, 19/10/2026).
+  it('4 (Outros) não vira necessidade, e pede esclarecimento', () => {
+    const r = respostaDoMenu('4');
+    expect(r?.necessidade).toBeUndefined();
+    expect(r?.intencao).toBe('pedir_esclarecimento');
   });
 
   // ⛔ Número fora do menu não vira nada: escala, como o resto do que ela não
   // entendeu.
   it.each(['5', '7', '9', '0'])('%s não existe no menu', (msg) => {
-    expect(necessidadeDoMenu(msg)).toBeUndefined();
+    expect(respostaDoMenu(msg)?.necessidade).toBeUndefined();
   });
 
   // ⚠️ O par que segura: número DENTRO de frase não é escolha de menu. Sem
@@ -212,6 +211,6 @@ describe('necessidadeDoMenu', () => {
     '',
     '   ',
   ])('NÃO é menu: %s', (msg) => {
-    expect(necessidadeDoMenu(msg), msg).toBeUndefined();
+    expect(respostaDoMenu(msg)?.necessidade, msg).toBeUndefined();
   });
 });

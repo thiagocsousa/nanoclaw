@@ -45,7 +45,7 @@ import {
 } from './memoria-conversa.js';
 import { pacientesComTelefone, primeiroNome } from './paciente.js';
 import { interpreta } from './classify.js';
-import { necessidadeDoMenu, necessidadeMencionada } from './convenio.js';
+import { necessidadeMencionada, respostaDoMenu } from './convenio.js';
 import {
   SEPARA_MENSAGEM,
   VALORES,
@@ -573,18 +573,29 @@ export async function executa(
   //
   // O host preenche a necessidade e manda para a triagem, que é o passo certo:
   // o paciente já disse o que quer e falta o cadastro.
-  const doMenu = necessidadeDoMenu(perguntaDoPaciente);
-  if (doMenu && tabela.intencoes.quer_horario) {
-    const jaSabe = comLembrados(groupFolder, chatJid, c.slots).necessidade;
-    logger.info(
-      { groupFolder, opcao: perguntaDoPaciente.trim(), necessidade: doMenu },
-      'menu: número traduzido em necessidade',
-    );
-    // ⚠️ Não atropela o que a conversa já estabeleceu: num "1" mandado no meio
-    // de uma conversa que já falava de catarata, o que vale é a catarata.
-    c.slots = { ...c.slots, necessidade: jaSabe?.trim() || doMenu };
-    c.intencao = 'quer_horario';
-    c.confianca = 1;
+  const doMenu = respostaDoMenu(perguntaDoPaciente);
+  if (doMenu) {
+    // "4 - Outros": o menu não disse o que ele quer, então a Lara PERGUNTA em
+    // vez de escalar (Thiago, 19/10/2026) — escalada não gera material para
+    // observar, e o texto aprovado existe.
+    const alvo = doMenu.intencao ?? 'quer_horario';
+    if (tabela.intencoes[alvo]) {
+      const jaSabe = comLembrados(groupFolder, chatJid, c.slots).necessidade;
+      logger.info(
+        { groupFolder, opcao: perguntaDoPaciente.trim(), alvo },
+        'menu: número traduzido',
+      );
+      // ⚠️ Não atropela o que a conversa já estabeleceu: num "1" mandado no
+      // meio de uma conversa que já falava de catarata, o que vale é a catarata.
+      if (doMenu.necessidade) {
+        c.slots = {
+          ...c.slots,
+          necessidade: jaSabe?.trim() || doMenu.necessidade,
+        };
+      }
+      c.intencao = alvo;
+      c.confianca = 1;
+    }
   }
 
   // Lê a memória, não só o slot do turno: senão uma menção nova a cirurgia

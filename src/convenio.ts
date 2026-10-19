@@ -192,22 +192,34 @@ export function necessidadeMencionada(
  * comentário em `index.ts` já avisava disso para o menu antigo.
  *
  * ⛔ O "4 - Outros" NÃO vira necessidade. Significa "nenhuma das três", e
- * adivinhar qual é pior que perguntar.
+ * adivinhar qual é pior que perguntar — então a Lara PERGUNTA.
  */
-const MENU_DA_BRUNA: Record<string, string> = {
-  '1': 'cirurgia refrativa',
-  '2': 'catarata',
-  '3': 'rotina',
+export interface OpcaoDoMenu {
+  /** O que ele quer, quando o menu diz. */
+  necessidade?: string;
+  /** A intenção, quando o menu não diz o que ele quer. */
+  intencao?: string;
+}
+
+const MENU_DA_BRUNA: Record<string, OpcaoDoMenu> = {
+  '1': { necessidade: 'cirurgia refrativa' },
+  '2': { necessidade: 'catarata' },
+  '3': { necessidade: 'rotina' },
+  // "Outros" não é necessidade — é "nenhuma das três". Pergunta, em vez de
+  // escalar: escalada não gera material para observar, e existe texto aprovado
+  // para isso ("Pode me explicar o que você está precisando?"). Decisão do
+  // Thiago em 19/10/2026.
+  '4': { intencao: 'pedir_esclarecimento' },
 };
 
 /**
- * A necessidade que o número do menu significa, e nada mais.
+ * O que o número do menu significa, e nada mais.
  *
  * ⚠️ SÓ mensagem que é o número sozinho — é o que o menu produz. "tenho 2
  * filhos" e "nasci em 1980" não contam, e um número fora do menu ("7") não vira
  * nada: escala, como qualquer coisa que a Lara não entendeu.
  */
-export function necessidadeDoMenu(mensagem: string): string | undefined {
+export function respostaDoMenu(mensagem: string): OpcaoDoMenu | undefined {
   const m = mensagem.trim().match(/^([1-9])[\s.)-]*$/);
   return m ? MENU_DA_BRUNA[m[1]] : undefined;
 }
