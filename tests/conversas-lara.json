@@ -3108,6 +3108,44 @@
           ]
         }
       ]
+    },
+    {
+      "id": "O08",
+      "categoria": "ruido",
+      "sobre": "Áudio TRANSCRITO: responde o que foi dito, não pede para repetir. O gatilho do `audio` dizia só 'mensagem de áudio' e pegava os dois casos (defeito ao ligar o STT, 18/10).",
+      "escalou": false,
+      "turnos": [
+        {
+          "paciente": "[áudio transcrito, 9s] quanto custa a consulta?",
+          "esperado": [
+            "430"
+          ],
+          "proibido": [
+            "n[ãa]o consegui acessar",
+            "por escrito",
+            "repetir"
+          ],
+          "nota": "Pedir para repetir o que a gente entendeu é o pior desfecho: a transcrição funcionou."
+        }
+      ]
+    },
+    {
+      "id": "O09",
+      "categoria": "ruido",
+      "sobre": "Áudio transcrito com DOR: trata como clínico, não como áudio.",
+      "escalou": true,
+      "turnos": [
+        {
+          "paciente": "[áudio transcrito, 12s] operei ontem e tá doendo muito",
+          "esperado": [
+            "S[óo] um instante"
+          ],
+          "proibido": [
+            "por escrito",
+            "n[ãa]o consegui acessar"
+          ]
+        }
+      ]
     }
   ]
 }

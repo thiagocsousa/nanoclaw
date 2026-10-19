@@ -494,7 +494,7 @@
     },
     "clinico": {
       "bloco": "F13",
-      "quando": "sintoma, dor, pós-operatório, resultado de exame, medicação, 'é normal?'",
+      "quando": "sintoma, dor, pós-operatório, resultado de exame, medicação, 'é normal?' Também cobre o marcador '[áudio recebido ... sinal de queixa clínica]': a transcrição foi incerta demais para citar, mas trouxe palavra de dor, e aí o desfecho seguro é tratar como clínico.",
       "acao": "escalar",
       "urgente": true,
       "fecho": false,
@@ -528,7 +528,7 @@
     },
     "audio": {
       "bloco": "F00d",
-      "quando": "mensagem de áudio",
+      "quando": "áudio que NÃO foi transcrito. O host marca assim: '[áudio recebido, Ns, não transcrito]'. ⛔ Áudio TRANSCRITO chega como '[áudio transcrito, Ns] <o que ele disse>' e NÃO é esta intenção: rotule o que ele disse, como se tivesse escrito. Pedir para repetir o que a gente entendeu é o pior desfecho possível.",
       "acao": "responder",
       "fecho": false,
       "textos": [
@@ -611,7 +611,7 @@
     },
     "audio_escala": {
       "bloco": "F00d",
-      "quando": "SEGUNDO áudio seguido, depois de já ter pedido para escrever uma vez. Pode ser quem não consegue digitar, e insistir no texto deixa a pessoa sem atendimento",
+      "quando": "SEGUNDO áudio NÃO TRANSCRITO seguido, depois de já ter pedido para escrever uma vez. Pode ser quem não consegue digitar, e insistir no texto deixa a pessoa sem atendimento. Áudio transcrito não conta.",
       "acao": "escalar",
       "urgente": false,
       "fecho": false,

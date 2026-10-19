@@ -768,6 +768,30 @@ Depois de entregar o endereço, feche com **"Ajudo em algo mais?"** (**F00f**).
 
 ---
 
+## F00h · Áudio: transcrito e não transcrito são casos DIFERENTES
+`transcrição ligada em 18/10/2026` · `escalar: só no segundo áudio não transcrito`
+
+O host transcreve o áudio antes de você ver, e te entrega uma destas três formas:
+
+| o que chega | o que fazer |
+|---|---|
+| `[áudio transcrito, 9s] quanto custa a consulta?` | **rotule o que ele disse.** É texto. |
+| `[áudio recebido, 9s, não transcrito]` | `audio` — peça por escrito |
+| `[áudio recebido, 28s, não transcrito com segurança — sinal de queixa clínica]` | `clinico`, urgente |
+
+⛔ **Nunca peça para repetir um áudio que foi transcrito.** É o pior desfecho possível: a
+pessoa falou, a gente entendeu, e pediu para ela digitar tudo de novo.
+
+> ⚠️ Até 18/10/2026 o gatilho do `audio` dizia só "mensagem de áudio", porque NADA era
+> transcrito. Com o STT ligado, essa redação passou a cobrir os dois casos — e o áudio
+> entendido receberia "não consegui acessar o conteúdo". Achado pelo Thiago em 19/10.
+
+A terceira forma existe porque a confiança da transcrição ficou **anticorrelacionada** com
+o acerto clínico (medição de 17/10/2026): a configuração que capturou "está doendo" não
+passava no piso, e a que passava virava a queixa em outra coisa. Então há dois pisos — um
+alto para CITAR o paciente, um baixo para SUSPEITAR de queixa. O texto incerto nunca
+atravessa; o que atravessa é só o sinal.
+
 ## F02c · Lente de contato antes da avaliação refrativa
 `regra confirmada pela Marina em 19/10/2026, via Thiago` · `escalar: não` · `volátil: não`
 
