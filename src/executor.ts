@@ -45,7 +45,7 @@ import {
 } from './memoria-conversa.js';
 import { pacientesComTelefone, primeiroNome } from './paciente.js';
 import { interpreta } from './classify.js';
-import { necessidadeMencionada } from './convenio.js';
+import { necessidadeDoMenu, necessidadeMencionada } from './convenio.js';
 import {
   SEPARA_MENSAGEM,
   VALORES,
@@ -565,6 +565,28 @@ export async function executa(
   // catarata?" saía R$ 300 — a mesma pergunta, dois preços, com a regra do
   // desconto certa nos dois casos. Ver `necessidadeMencionada`, em
   // `convenio.ts`. Decisão do Thiago em 19/10/2026.
+  // ⏳ O MENU DA BRUNA, temporário da semana de observação (ver
+  // `necessidadeDoMenu`, em convenio.ts). Um "1" sozinho é a escolha de
+  // "Avaliação para Cirurgia Refrativa" na resposta automática do WhatsApp
+  // Business — e sem esta tradução o modelo vê um número órfão e `DESCONHECIDO`
+  // é a classificação certa para o que ELE viu.
+  //
+  // O host preenche a necessidade e manda para a triagem, que é o passo certo:
+  // o paciente já disse o que quer e falta o cadastro.
+  const doMenu = necessidadeDoMenu(perguntaDoPaciente);
+  if (doMenu && tabela.intencoes.quer_horario) {
+    const jaSabe = comLembrados(groupFolder, chatJid, c.slots).necessidade;
+    logger.info(
+      { groupFolder, opcao: perguntaDoPaciente.trim(), necessidade: doMenu },
+      'menu: número traduzido em necessidade',
+    );
+    // ⚠️ Não atropela o que a conversa já estabeleceu: num "1" mandado no meio
+    // de uma conversa que já falava de catarata, o que vale é a catarata.
+    c.slots = { ...c.slots, necessidade: jaSabe?.trim() || doMenu };
+    c.intencao = 'quer_horario';
+    c.confianca = 1;
+  }
+
   // Lê a memória, não só o slot do turno: senão uma menção nova a cirurgia
   // atropela o "cirurgia refrativa" ou o "retorno" que a conversa já
   // estabeleceu. Achado do Codex em 19/10/2026.

@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { necessidadeMencionada, temPlano } from './convenio.js';
+import {
+  necessidadeDoMenu,
+  necessidadeMencionada,
+  temPlano,
+} from './convenio.js';
 
 /**
  * A regra de ORDEM, nos dois sentidos.
@@ -160,4 +164,54 @@ describe('Codex: o fallback preserva a especificidade', () => {
       );
     },
   );
+});
+
+/**
+ * ⏳ O MENU DA BRUNA — temporário da semana de observação de 20/10/2026.
+ *
+ * Quando o menu sair ("depois vamos eliminar esse menu", Thiago), este describe
+ * deve sair com ele. Deixei os dois primeiros casos dependendo do mapa para que
+ * quem apagar o `MENU_DA_BRUNA` e esquecer o resto veja o teste reprovar.
+ */
+describe('necessidadeDoMenu', () => {
+  it.each([
+    ['1', 'cirurgia refrativa'],
+    ['2', 'catarata'],
+    ['3', 'rotina'],
+    // Como o paciente de verdade digita.
+    ['1 ', 'cirurgia refrativa'],
+    [' 2', 'catarata'],
+    ['3.', 'rotina'],
+    ['1)', 'cirurgia refrativa'],
+    ['2 -', 'catarata'],
+  ])('%s -> %s', (msg, esperado) => {
+    expect(necessidadeDoMenu(msg), msg).toBe(esperado);
+  });
+
+  // ⛔ "4 - Outros" significa "nenhuma das três". Adivinhar é pior que perguntar.
+  it('4 (Outros) NÃO vira necessidade', () => {
+    expect(necessidadeDoMenu('4')).toBeUndefined();
+  });
+
+  // ⛔ Número fora do menu não vira nada: escala, como o resto do que ela não
+  // entendeu.
+  it.each(['5', '7', '9', '0'])('%s não existe no menu', (msg) => {
+    expect(necessidadeDoMenu(msg)).toBeUndefined();
+  });
+
+  // ⚠️ O par que segura: número DENTRO de frase não é escolha de menu. Sem
+  // isto, "tenho 2 filhos" marcaria catarata e "nasci em 1980" marcaria
+  // refrativa — e o paciente receberia triagem de uma cirurgia que não pediu.
+  it.each([
+    'tenho 2 filhos',
+    'nasci em 1980',
+    'quanto custa 1 consulta?',
+    'sou o 3 da fila',
+    '1 pergunta: atende Unimed?',
+    'meu grau é 3',
+    '',
+    '   ',
+  ])('NÃO é menu: %s', (msg) => {
+    expect(necessidadeDoMenu(msg), msg).toBeUndefined();
+  });
 });

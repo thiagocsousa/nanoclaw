@@ -166,3 +166,48 @@ export function necessidadeMencionada(
   if (necessidade?.trim()) return necessidade;
   return MENCOES.find(([rx]) => rx.test(mensagem))?.[1];
 }
+
+/**
+ * O MENU DA BRUNA: a resposta automática do WhatsApp Business.
+ *
+ * ⏳ TEMPORÁRIO — semana de observação de 20/10/2026. O Thiago disse, no dia em
+ * que me contou do menu: "vai ser assim apenas nessa semana de observação,
+ * depois vamos eliminar esse menu". Quando o menu sair, ISTO SAI com ele, e os
+ * dois testes em `convenio.test.ts` passam a reprovar de propósito para quem
+ * esquecer.
+ *
+ * O menu que o paciente recebe ANTES de a Lara dizer qualquer coisa:
+ *
+ *   Olá, tudo bem? Sou a Bruna, assistente da Dra Marina Costa. Para
+ *   agilizarmos o seu atendimento escolha a opção (…)
+ *   1 - Avaliação para Cirurgia Refrativa
+ *   2 - Avaliação para Cirurgia de Catarata
+ *   3 - Consulta Oftalmológica de Rotina
+ *   4 - Outros
+ *
+ * Sem esta tradução, a primeira mensagem de quase todo paciente da semana é um
+ * número órfão: a `abertura` da Lara não tem mais menu (o Thiago tirou em
+ * 17/10), e `DESCONHECIDO` passa a ser a classificação CORRETA para o que o
+ * modelo viu — a observação encheria de escalada que não é culpa dela. O
+ * comentário em `index.ts` já avisava disso para o menu antigo.
+ *
+ * ⛔ O "4 - Outros" NÃO vira necessidade. Significa "nenhuma das três", e
+ * adivinhar qual é pior que perguntar.
+ */
+const MENU_DA_BRUNA: Record<string, string> = {
+  '1': 'cirurgia refrativa',
+  '2': 'catarata',
+  '3': 'rotina',
+};
+
+/**
+ * A necessidade que o número do menu significa, e nada mais.
+ *
+ * ⚠️ SÓ mensagem que é o número sozinho — é o que o menu produz. "tenho 2
+ * filhos" e "nasci em 1980" não contam, e um número fora do menu ("7") não vira
+ * nada: escala, como qualquer coisa que a Lara não entendeu.
+ */
+export function necessidadeDoMenu(mensagem: string): string | undefined {
+  const m = mensagem.trim().match(/^([1-9])[\s.)-]*$/);
+  return m ? MENU_DA_BRUNA[m[1]] : undefined;
+}
