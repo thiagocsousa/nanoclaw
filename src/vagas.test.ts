@@ -187,6 +187,54 @@ describe('vagaEscolhida: duas opções exigem saber qual (19/10/2026)', () => {
     expect(vagaEscolhida([A, B], texto as string)).toBe(esperada);
   });
 
+  // ⚠️ ORDINAL x DIA DA SEMANA: "segunda" é as duas coisas, e a primeira
+  // versão casava o ordinal primeiro. Reproduzido pelo review adversarial do
+  // Codex em 19/10/2026: "pode ser segunda", com segunda e quarta oferecidas,
+  // marcava QUARTA. Meu teste original usava terça e quinta, que não colidem.
+  const SEG = {
+    data: '2026-10-19',
+    dia_semana: 'segunda',
+    inicio: '09:00',
+    fim: '09:30',
+  };
+  const QUA = {
+    data: '2026-10-21',
+    dia_semana: 'quarta',
+    inicio: '10:00',
+    fim: '10:30',
+  };
+
+  it.each([
+    ['pode ser segunda', SEG],
+    ['segunda-feira fica melhor', SEG],
+    ['na segunda', SEG],
+    ['pode ser quarta', QUA],
+    // Ordinal EXPLÍCITO vence o dia: "opção" marca, o masculino não é dia.
+    ['prefiro a segunda opção', QUA],
+    ['o segundo', QUA],
+    ['2ª opção', QUA],
+  ])('%s com segunda+quarta na mesa', (texto, esperada) => {
+    expect(vagaEscolhida([SEG, QUA], texto as string)).toBe(esperada);
+  });
+
+  // Ordinal NU só vale quando nenhuma vaga é daquele dia.
+  it('"a segunda" é ordinal quando não há segunda-feira oferecida', () => {
+    expect(vagaEscolhida([A, B], 'a segunda')).toBe(B);
+  });
+
+  it('"a segunda" é o DIA quando há segunda-feira oferecida', () => {
+    expect(vagaEscolhida([SEG, QUA], 'a segunda')).toBe(SEG);
+  });
+
+  // Negação: "a primeira não, pode ser a segunda" marcava a PRIMEIRA.
+  it.each([
+    'a primeira não, pode ser a segunda',
+    'nenhuma das duas',
+    'essa não, tem outra?',
+  ])('%s é ambíguo, não escolhe', (texto) => {
+    expect(vagaEscolhida([SEG, QUA], texto)).toBeUndefined();
+  });
+
   // ⚠️ O caso que importa: "pode ser" com DUAS na mesa não diz qual. Devolver
   // a primeira mandaria a pessoa à clínica no dia errado.
   it.each(['pode ser', 'ok', 'tá bom', 'confirma', 'qualquer um'])(

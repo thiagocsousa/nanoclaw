@@ -66,6 +66,7 @@ import {
 import { CAMPOS, faltamNaTriagem, fraseDeTriagem } from './triagem.js';
 import { resolveDiaPedido } from './dia-pedido.js';
 import { contextoDoRetorno } from './retorno-contexto.js';
+import { dataLocal } from './expediente.js';
 import {
   VOCABULARIO_REFRATIVO,
   ehParticular,
@@ -267,6 +268,32 @@ function comEnquadramentoRefrativo(
  */
 const DIAS_SEM_LENTE = 3;
 
+/**
+ * "sim" | "nao" | undefined. Undefined é resposta AMBÍGUA, e não libera nada.
+ *
+ * O slot vinha do modelo como string livre e era gravado literalmente: "às
+ * vezes" ou "SIM" passavam pelo teste de presença e falhavam na comparação com
+ * 'sim', então a agenda rodava sem prazo nenhum. Achado do Codex, 19/10/2026.
+ */
+export function normalizaLente(v?: string): 'sim' | 'nao' | undefined {
+  const t = (v ?? '').toLowerCase().trim();
+  if (!t) return undefined;
+  if (/^(n[ãa]o|nao|nunca|jamais|n)\b/.test(t)) return 'nao';
+  if (/^(sim|uso|s|positivo|isso|aham|claro)\b/.test(t)) return 'sim';
+  if (/\bn[ãa]o\s+uso\b/.test(t)) return 'nao';
+  if (/\buso\b/.test(t) && !/\bn[ãa]o\b/.test(t)) return 'sim';
+  return undefined;
+}
+
+/** A data é cedo demais para quem precisa de 3 dias sem lente? */
+function cedoDemaisSemLente(dataIso: string): boolean {
+  const [ano, mes, dia] = dataLocal();
+  const limite = Date.UTC(ano, mes - 1, dia + DIAS_SEM_LENTE);
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(dataIso || '');
+  if (!m) return false;
+  return Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])) < limite;
+}
+
 /** `1980-06-01` -> `01/06/1980`. O iClinic devolve ISO; o resto do fluxo usa BR. */
 function isoParaBr(iso: string): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || '');
@@ -368,6 +395,41 @@ export async function executa(
       perguntaDoPaciente,
       deps,
     );
+  }
+
+  // Lente de contato: grava ANTES de qualquer decisão que leia a memória.
+  //
+  // ⚠️ A primeira versão gravava depois do gate que pergunta da lente, e o
+  // resultado era laço: o paciente respondia "não uso lente", o gate consultava
+  // a memória ainda vazia e devolvia a MESMA pergunta. Para sempre. Reproduzido
+  // pelo review adversarial do Codex em 19/10/2026; meu teste não pegou porque
+  // respondia antes de a triagem completar, e aí o gate nem rodava.
+  //
+  // `normalizaLente` devolve undefined para resposta ambígua ("às vezes", "de
+  // vez em quando"): estado desconhecido NÃO libera a agenda, porque liberar
+  // sem prazo é mandar a pessoa fazer um exame que não vai prestar.
+  const lenteDoTurno =
+    c.intencao === 'usa_lente'
+      ? 'sim'
+      : c.intencao === 'nao_usa_lente'
+        ? 'nao'
+        : normalizaLente(c.slots.usa_lente);
+  if (lenteDoTurno) {
+    const antes = lenteLembrada(groupFolder, chatJid);
+    lembraLente(groupFolder, chatJid, lenteDoTurno);
+    // Mudou para "usa" com oferta viva: a oferta pode ser de amanhã, e os 3
+    // dias só valiam para buscas NOVAS. Sem isto, um "pode ser" seguinte marca
+    // a vaga que a orientação acabou de proibir.
+    if (lenteDoTurno === 'sim' && antes !== 'sim') {
+      const o = ultimaOferta(groupFolder, chatJid);
+      if (o && cedoDemaisSemLente(o.vaga.data)) {
+        logger.info(
+          { groupFolder, data: o.vaga.data },
+          'executor: passou a usar lente, oferta incompatível descartada',
+        );
+        esqueceOferta(groupFolder, chatJid);
+      }
+    }
   }
 
   // `dia` e `hora` não vêm do modelo, por proibição do parser. Então quando a
@@ -613,8 +675,16 @@ export async function executa(
       // 3 dias sem lente antes da avaliação (Marina, 19/10/2026). Vai para o
       // script, que é a fonte única da aritmética de agenda, em vez de filtrar
       // aqui: assim a busca já nasce no primeiro dia possível.
+      // ⚠️ Só na refrativa. O "sim" fica na memória da conversa, e sem este
+      // recorte ele atrasaria também as buscas de catarata e de rotina, onde o
+      // preparo não existe. Achado do Codex, 19/10/2026.
       const antecedencia =
-        lenteLembrada(groupFolder, chatJid) === 'sim' ? DIAS_SEM_LENTE : 0;
+        lenteLembrada(groupFolder, chatJid) === 'sim' &&
+        VOCABULARIO_REFRATIVO.test(
+          comLembrados(groupFolder, chatJid, c.slots).necessidade ?? '',
+        )
+          ? DIAS_SEM_LENTE
+          : 0;
       let vagas = await buscaVagas(groupFolder, perfil, {
         dia: diaAlvo,
         ...(filtraPelaHora ? { hora: horaAlvo } : {}),
@@ -635,10 +705,10 @@ export async function executa(
       // "nesse horário não dá, mas tenho X" em vez de calar.
       let horaNegada = false;
       if (filtraPelaHora && vagas.length === 0) {
-          vagas = await buscaVagas(groupFolder, perfil, {
-        dia: diaAlvo,
-        ...(antecedencia ? { antecedencia } : {}),
-      });
+        vagas = await buscaVagas(groupFolder, perfil, {
+          dia: diaAlvo,
+          ...(antecedencia ? { antecedencia } : {}),
+        });
         horaNegada = vagas.length > 0;
       }
 
@@ -848,12 +918,27 @@ export async function executa(
   // jeito mais rápido de parecer máquina.
   let texto = r.texto;
 
-  // Lente de contato: a resposta vale pela conversa inteira, não pelo turno.
-  if (c.slots.usa_lente?.trim()) {
-    lembraLente(groupFolder, chatJid, c.slots.usa_lente.trim());
+  // ⚠️ A orientação dos 3 dias é EXCEÇÃO à regra de não dar preparo clínico, e
+  // a exceção é da avaliação REFRATIVA. "Minha consulta é de rotina, uso lente,
+  // preciso parar?" não está coberto: quem responde é a recepção.
+  //
+  // O rótulo `usa_lente` cobre qualquer menção a lente, então o recorte tem de
+  // estar aqui, no host, e não na redação do `quando`. Achado do Codex,
+  // 19/10/2026.
+  if (c.intencao === 'usa_lente') {
+    const n = comLembrados(groupFolder, chatJid, c.slots).necessidade ?? '';
+    if (!VOCABULARIO_REFRATIVO.test(n)) {
+      return await escalaComo(
+        groupFolder,
+        tabela,
+        'pergunta de preparo com lente de contato FORA da avaliação ' +
+          'refrativa; os 3 dias são a exceção aprovada para a refrativa, e ' +
+          'preparo de outro contexto é orientação clínica',
+        perguntaDoPaciente,
+        deps,
+      );
+    }
   }
-  if (c.intencao === 'usa_lente') lembraLente(groupFolder, chatJid, 'sim');
-  if (c.intencao === 'nao_usa_lente') lembraLente(groupFolder, chatJid, 'nao');
 
   // Retorno e exame a Lara não agenda, e a regra vale antes de QUALQUER
   // pergunta — inclusive a de identidade logo abaixo.

@@ -91,6 +91,40 @@ describe('fila de aprovação', () => {
   });
 });
 
+describe('a resposta não some entre aprovar e entregar (Codex, 19/10/2026)', () => {
+  // A primeira versão removia da fila ANTES do envio. Reinício ou falha de rede
+  // no meio apagava a única cópia: repetir "ok CODIGO" não recuperava nada, e o
+  // paciente ficava sem a confirmação de uma consulta já marcada.
+  it('aprovar NÃO remove: só `concluiEnvio` remove', () => {
+    const p = mod.registraParaRevisao(PASTA, pendente());
+    expect(mod.aprova(PASTA, p.codigo)).toBeDefined();
+    expect(mod.lePendentes(PASTA)).toHaveLength(1);
+    mod.concluiEnvio(PASTA, p.codigo);
+    expect(mod.lePendentes(PASTA)).toHaveLength(0);
+  });
+
+  it('aprovar duas vezes não manda duas vezes', () => {
+    const p = mod.registraParaRevisao(PASTA, pendente());
+    expect(mod.aprova(PASTA, p.codigo)).toBeDefined();
+    expect(mod.aprova(PASTA, p.codigo)).toBeUndefined();
+  });
+
+  it('envio que falha volta à fila e pode ser reaprovado', () => {
+    const p = mod.registraParaRevisao(PASTA, pendente());
+    mod.aprova(PASTA, p.codigo);
+    mod.devolveAFila(PASTA, p.codigo);
+    expect(mod.aprova(PASTA, p.codigo)).toBeDefined();
+  });
+
+  it('sobrevive a reinício mesmo depois de aprovada', async () => {
+    const p = mod.registraParaRevisao(PASTA, pendente());
+    mod.aprova(PASTA, p.codigo);
+    vi.resetModules();
+    const outro = await import('./revisao-humana.js');
+    expect(outro.lePendentes(PASTA).map((x) => x.codigo)).toEqual([p.codigo]);
+  });
+});
+
 describe('a escada de cobrança', () => {
   const deps = () => {
     const enviadas: string[] = [];
@@ -132,6 +166,39 @@ describe('a escada de cobrança', () => {
 
   // Marcação já feita é urgente: esquecer deixa alguém com consulta na agenda
   // e sem saber. O alarme do escalonamento só toca em urgente.
+  // ⚠️ `tocaAlarme` é await. Durante ele uma aprovação pode tirar A da fila e
+  // uma resposta nova pode inserir B. Gravar o snapshot antigo ressuscitava A
+  // (reenviando) ou apagava B (deixando outro paciente sem resposta).
+  it('o que entra DURANTE o alarme não é apagado', async () => {
+    const a = mod.registraParaRevisao(PASTA, { ...pendente(), jaMarcou: true });
+    const d = deps();
+    let b: string | undefined;
+    const comInsercao = {
+      ...d,
+      tocaAlarme: () => {
+        b = mod.registraParaRevisao(PASTA, pendente()).codigo;
+      },
+    };
+    await mod.tickRevisaoSla(comInsercao, Date.now() + 6 * 60_000);
+    const fila = mod.lePendentes(PASTA).map((x) => x.codigo);
+    expect(fila).toContain(a.codigo);
+    expect(fila).toContain(b);
+  });
+
+  it('o que SAI durante o alarme não ressuscita', async () => {
+    const a = mod.registraParaRevisao(PASTA, { ...pendente(), jaMarcou: true });
+    const d = deps();
+    const comRemocao = {
+      ...d,
+      tocaAlarme: () => {
+        mod.aprova(PASTA, a.codigo);
+        mod.concluiEnvio(PASTA, a.codigo);
+      },
+    };
+    await mod.tickRevisaoSla(comRemocao, Date.now() + 6 * 60_000);
+    expect(mod.lePendentes(PASTA)).toHaveLength(0);
+  });
+
   it('resposta com marcação feita toca alarme', async () => {
     mod.registraParaRevisao(PASTA, { ...pendente(), jaMarcou: true });
     const d = deps();

@@ -96,7 +96,9 @@ import {
 import { abreConversa, conversaAbertaEm } from './memoria-conversa.js';
 import {
   aprovaEmQualquerPasta,
+  concluiEnvio,
   destinoDaRevisao,
+  devolveAFila,
   pastasComRevisao,
   tickRevisaoSla,
   podeAprovar,
@@ -832,6 +834,44 @@ function recoverPendingMessages(): void {
   }
 }
 
+/**
+ * Retoma as conversas que o expediente segurou.
+ *
+ * ⚠️ Sem isto, mensagem da noite NUNCA é respondida.
+ *
+ * O laço principal busca por um cursor GLOBAL (`lastTimestamp`) e o avança
+ * assim que lê, antes de despachar. O gate do expediente devolve sem avançar o
+ * cursor DA CONVERSA, que era o que eu tinha conferido — mas o global já passou
+ * por aquela mensagem. Resultado: às 8h o laço não busca nada, o handler do
+ * grupo nunca é chamado, e a conversa só volta se o paciente escrever de novo.
+ * Achado do review adversarial do Codex em 19/10/2026, e eu havia afirmado o
+ * contrário ao Thiago no mesmo dia.
+ *
+ * A varredura é a mesma do `recoverPendingMessages`, que já existia para o
+ * reinício: comparar o cursor da conversa e enfileirar. Só nas pastas com
+ * expediente, e só dentro do horário — fora dele enfileirar faria o gate
+ * devolver de novo, num laço de um minuto.
+ */
+function retomaConversasDoExpediente(): void {
+  if (!dentroDoExpediente()) return;
+  for (const [chatJid, group] of Object.entries(registeredGroups)) {
+    if (!wantsExpediente(group.folder)) continue;
+    const pendentes = getMessagesSince(
+      chatJid,
+      getOrRecoverCursor(chatJid),
+      ASSISTANT_NAME,
+      MAX_MESSAGES_PER_PROMPT,
+      wantsTemplates(group.folder),
+    );
+    if (pendentes.length === 0) continue;
+    logger.info(
+      { group: group.name, pendentes: pendentes.length },
+      'expediente: retomando conversa segurada fora do horário',
+    );
+    queue.enqueueMessageCheck(chatJid);
+  }
+}
+
 function ensureContainerSystemRunning(): void {
   ensureContainerRuntimeRunning();
   cleanupOrphans();
@@ -931,23 +971,38 @@ async function main(): Promise<void> {
           // VERBATIM: a guarda já inspecionou e a cadência já não se aplica —
           // o tempo de revisão foi a espera. Em sequência, para as duas partes
           // chegarem na ordem.
+          // ⚠️ A pendência só sai da fila DEPOIS da entrega, e o "enviado" só
+          // é dito depois também. Antes disso, um reinício ou uma falha de rede
+          // no meio apagava a única cópia da resposta — e deixava o paciente
+          // sem a confirmação de uma consulta já marcada na agenda. Achado do
+          // review adversarial do Codex em 19/10/2026.
           void (async () => {
             for (const parte of pendente.partes) {
               await canalPaciente?.sendMessage(pendente.chatJid, parte);
             }
-          })().catch((err) =>
+            concluiEnvio(achado.folder, pendente.codigo);
+            logger.info(
+              { codigo: pendente.codigo, partes: pendente.partes.length },
+              'revisão: aprovada e entregue ao paciente',
+            );
+            findChannel(channels, chatJid)
+              ?.sendMessage(
+                chatJid,
+                `✅ ${pendente.codigo} enviado ao paciente.`,
+              )
+              .catch((err) => logger.warn({ err }, 'revisão: ack falhou'));
+          })().catch((err) => {
+            // Volta para a fila: alguém tem de poder tentar de novo.
+            devolveAFila(achado.folder, pendente.codigo);
             logger.error(
               { err, codigo: pendente.codigo },
-              'revisão: envio falhou',
-            ),
-          );
-          logger.info(
-            { codigo: pendente.codigo, partes: pendente.partes.length },
-            'revisão: aprovada e enviada ao paciente',
-          );
-          findChannel(channels, chatJid)
-            ?.sendMessage(chatJid, `✅ ${pendente.codigo} enviado ao paciente.`)
-            .catch((err) => logger.warn({ err }, 'revisão: ack falhou'));
+              'revisão: envio falhou, pendência devolvida à fila',
+            );
+            findChannel(channels, chatJid)?.sendMessage(
+              chatJid,
+              `⚠️ ${pendente.codigo} NÃO foi entregue. Responda *ok ${pendente.codigo}* de novo.`,
+            );
+          });
           storeMessage(msg);
           return;
         }
@@ -1082,6 +1137,16 @@ async function main(): Promise<void> {
   // Mesma escada, mesmo relógio: uma resposta pronta e não aprovada é um
   // paciente esperando, e a cobrança é a única coisa que impede isso de virar
   // silêncio. Nada sai sem aprovação (decisão do Thiago, 17/10/2026).
+  // A cada minuto: dentro do expediente, o que ficou segurado volta à fila.
+  // Barato — um SELECT por pasta com expediente, e a maioria devolve vazio.
+  setInterval(() => {
+    try {
+      retomaConversasDoExpediente();
+    } catch (err) {
+      logger.warn({ err }, 'expediente: varredura de retomada falhou');
+    }
+  }, 60_000);
+
   if (pastasComRevisao().length > 0) {
     const enviaRevisao = (jid: string, text: string, groupFolder?: string) => {
       const channel =

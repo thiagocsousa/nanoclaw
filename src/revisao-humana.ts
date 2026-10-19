@@ -117,6 +117,8 @@ export interface RespostaPendente {
   jaMarcou?: boolean;
   cobrado?: boolean;
   alarmado?: boolean;
+  /** Aprovada e em voo. Só sai da fila quando a entrega confirma. */
+  enviando?: boolean;
 }
 
 const ARQUIVO = 'respostas_pendentes.json';
@@ -192,19 +194,48 @@ export function textoDaRevisao(p: RespostaPendente): string {
   );
 }
 
-/** Tira a pendência da fila e devolve o que enviar. Idempotente. */
+/**
+ * Marca a pendência como aprovada e devolve o que enviar. Idempotente.
+ *
+ * ⚠️ NÃO remove. A primeira versão tirava da fila e gravava ANTES do envio, e
+ * aí um reinício ou uma falha de rede no meio apagava a única cópia: repetir
+ * "ok CODIGO" não recuperava nada, e o paciente ficava sem a confirmação de
+ * uma consulta que já estava marcada na agenda. Achado do review adversarial
+ * do Codex em 19/10/2026.
+ *
+ * Quem envia chama `concluiEnvio` depois de a entrega ter acontecido.
+ */
 export function aprova(
   folder: string,
   codigo: string,
 ): RespostaPendente | undefined {
   const itens = lePendentes(folder);
-  const i = itens.findIndex(
-    (x) => x.codigo.toUpperCase() === codigo.toUpperCase(),
-  );
-  if (i < 0) return undefined;
-  const [p] = itens.splice(i, 1);
+  const p = itens.find((x) => x.codigo.toUpperCase() === codigo.toUpperCase());
+  if (!p) return undefined;
+  if (p.enviando) {
+    // Já aprovada e em voo: não manda duas vezes.
+    return undefined;
+  }
+  p.enviando = true;
   grava(folder, itens);
   return p;
+}
+
+/** Tira da fila, depois de a resposta ter chegado ao paciente. */
+export function concluiEnvio(folder: string, codigo: string): void {
+  const itens = lePendentes(folder).filter(
+    (x) => x.codigo.toUpperCase() !== codigo.toUpperCase(),
+  );
+  grava(folder, itens);
+}
+
+/** Devolve à fila: o envio falhou e alguém precisa tentar de novo. */
+export function devolveAFila(folder: string, codigo: string): void {
+  const itens = lePendentes(folder);
+  const p = itens.find((x) => x.codigo.toUpperCase() === codigo.toUpperCase());
+  if (!p) return;
+  p.enviando = false;
+  grava(folder, itens);
 }
 
 /** Procura o código em todas as pastas com revisão ligada. */
@@ -257,6 +288,8 @@ export async function tickRevisaoSla(
     const itens = lePendentes(folder);
     if (itens.length === 0) continue;
     let mudou = false;
+    const cobrados: string[] = [];
+    const alarmados: string[] = [];
     for (const p of itens) {
       // `proximoDegrau` lê `quando`, `cobrado`, `alarmado` e `urgente`. Uma
       // resposta com a marcação já feita é urgente: esquecer dela deixa alguém
@@ -268,8 +301,8 @@ export async function tickRevisaoSla(
       if (degrau === 'nada') continue;
       const minutos = Math.floor((agora - p.quando) / 60_000);
       if (degrau === 'cobrar') {
-        p.cobrado = true;
         mudou = true;
+        cobrados.push(p.codigo);
         deps.sendMessage(
           alvo.jid,
           `⏰ *${p.codigo}* esperando aprovação há ${minutos} min\n\n` +
@@ -281,13 +314,28 @@ export async function tickRevisaoSla(
         );
         logger.info({ folder, codigo: p.codigo }, 'revisão: cobrado');
       } else {
-        p.alarmado = true;
-        p.cobrado = true;
-        mudou = true;
         await deps.tocaAlarme();
         logger.warn({ folder, codigo: p.codigo }, 'revisão: alarme');
+        alarmados.push(p.codigo);
       }
     }
-    if (mudou) grava(folder, itens);
+    // ⚠️ Relê ANTES de gravar, e só mexe nos códigos que ainda existem.
+    //
+    // `tocaAlarme` é await: durante ele uma aprovação pode tirar A da fila e
+    // uma resposta nova pode inserir B. Gravar o snapshot antigo ressuscitava A
+    // (que então seria enviada de novo) ou apagava B (deixando outro paciente
+    // sem resposta). Achado do Codex, 19/10/2026 — e é corrida de verdade,
+    // diferente das operações síncronas da memória de conversa.
+    if (mudou || alarmados.length > 0) {
+      const agora2 = lePendentes(folder);
+      for (const p of agora2) {
+        if (cobrados.includes(p.codigo)) p.cobrado = true;
+        if (alarmados.includes(p.codigo)) {
+          p.alarmado = true;
+          p.cobrado = true;
+        }
+      }
+      grava(folder, agora2);
+    }
   }
 }

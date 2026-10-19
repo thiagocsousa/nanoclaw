@@ -362,40 +362,80 @@ export async function buscaVagas(
  *
  * Com uma vaga só, qualquer aceite serve: não há o que confundir.
  */
+/** Minúsculas e sem acento, para comparar o que a pessoa escreveu. */
+export function semAcento(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
+}
+
 export function vagaEscolhida(vagas: Vaga[], texto: string): Vaga | undefined {
   if (vagas.length === 0) return undefined;
   if (vagas.length === 1) return vagas[0];
-  const t = texto
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '');
+  const t = semAcento(texto);
 
-  // Ordinal explícito: "a primeira", "o segundo".
-  if (/\b(primeir|1[ao°º]?\b)/.test(t)) return vagas[0];
-  if (/\b(segund|2[ao°º]?\b)/.test(t)) return vagas[1];
+  // ⚠️ Negação primeiro: "a primeira não, pode ser a segunda" casava com
+  // "primeir" e marcava a PRIMEIRA. Reproduzido pelo review adversarial do
+  // Codex em 19/10/2026. Com negação na frase, o host pergunta — é uma
+  // mensagem a mais contra marcar o dia errado.
+  if (/\b(nao|nem|nenhum|outra|outro)\b/.test(t)) return undefined;
 
-  // Dia da semana, data ou hora que só UMA das vagas tem. Se duas casam, o
-  // texto não desambiguou.
-  const casam = vagas.filter((v) => {
-    const dia = (v.dia_semana || '')
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '');
-    const [, mes, d] = v.data.split('-');
-    const hora = v.inicio;
-    // A hora é escrita de muitos jeitos: "09:00", "09h", "9h", "9:00", "as 9h".
-    // Exigir `h` ou `:` grudado impede casar com o "9" de uma data.
-    const [hh, mm] = hora.split(':');
-    const rxHora = new RegExp(
-      `\\b0?${Number(hh)}\\s*(?:[h:]\\s*${mm}\\b|[h:](?!\\d)|h\\b)`,
-    );
-    return (
-      (!!dia && t.includes(dia)) ||
-      (!!d && !!mes && t.includes(`${d}/${mes}`)) ||
-      rxHora.test(t)
-    );
+  // ORDINAL EXPLÍCITO vence tudo: "a segunda OPÇÃO", "o segundo", "2ª".
+  //
+  // Essas formas não são dia da semana — "opção" e "alternativa" marcam, o
+  // masculino não existe em dia ("segundo" ≠ "segunda-feira"), e o ordinal
+  // numérico é inequívoco.
+  const masculino = /\b(?:o |no )?(primeiro|segundo)\b/.exec(t);
+  if (masculino) return masculino[1] === 'primeiro' ? vagas[0] : vagas[1];
+  const numerico = /\b([12])\s*[ªº°]/.exec(t);
+  if (numerico) return numerico[1] === '1' ? vagas[0] : vagas[1];
+  const marcado = /\b(primeir|segund)[ao]\b.{0,12}\b(opcao|alternativa|hora)/
+    .exec(t);
+  if (marcado) return marcado[1] === 'primeir' ? vagas[0] : vagas[1];
+
+  // DIA/DATA/HORA vêm ANTES do ordinal NU, e esta ordem é o conserto.
+  //
+  // "pode ser segunda", com segunda e quarta na mesa, marcava QUARTA: o regex
+  // de ordinal casava o prefixo "segund" antes de alguém olhar o dia da
+  // semana. "segunda-feira fica melhor" também. Dia da semana é o que o
+  // paciente quis dizer em quase todo caso; ordinal é o resto.
+  const porDia = vagas.filter((v) => casaDiaOuHora(v, t));
+  if (porDia.length === 1) return porDia[0];
+  if (porDia.length > 1) return undefined;
+
+  // Ordinal NU ("a segunda"), e só quando não é dia de nenhuma vaga oferecida.
+  // Se alguma vaga fosse de segunda-feira, o passo acima já teria resolvido.
+  const ordinal = /\b(primeir|segund)[ao]\b/.exec(t);
+  if (ordinal && !mencionaDiaDeAlgumaVaga(vagas, t)) {
+    return ordinal[1] === 'primeir' ? vagas[0] : vagas[1];
+  }
+  return undefined;
+}
+
+/** A vaga é identificada pelo dia da semana, pela data ou pela hora no texto? */
+function casaDiaOuHora(v: Vaga, t: string): boolean {
+  const dia = semAcento(v.dia_semana || '');
+  const [, mes, d] = v.data.split('-');
+  const [hh, mm] = v.inicio.split(':');
+  // Exige `h` ou `:` grudado: senão o "9" de uma data casaria com 09:00.
+  const rxHora = new RegExp(
+    `\\b0?${Number(hh)}\\s*(?:[h:]\\s*${mm}\\b|[h:](?!\\d)|h\\b)`,
+  );
+  return (
+    (!!dia && new RegExp(`\\b${dia}(?:[- ]?feira)?\\b`).test(t)) ||
+    (!!d && !!mes && t.includes(`${d}/${mes}`)) ||
+    rxHora.test(t)
+  );
+}
+
+/** Alguma das vagas é do dia da semana citado no texto? */
+function mencionaDiaDeAlgumaVaga(vagas: Vaga[], t: string): boolean {
+  return vagas.some((v) => {
+    const dia = semAcento(v.dia_semana || '');
+    return !!dia && new RegExp(`\\b${dia}\\b`).test(t);
   });
-  return casam.length === 1 ? casam[0] : undefined;
 }
 
 /**

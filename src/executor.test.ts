@@ -1251,7 +1251,12 @@ describe('preparo de lente de contato (Marina, 19/10/2026)', () => {
     const { esqueceSlots } = await import('./memoria-conversa.js');
     esqueceSlots(PASTA, JID);
     vagasFalsas = [
-      { data: '2026-10-20', dia_semana: 'terça', inicio: '09:00', fim: '09:30' },
+      {
+        data: '2026-10-20',
+        dia_semana: 'terça',
+        inicio: '09:00',
+        fim: '09:30',
+      },
     ];
     const r = await rodar(refrativa, 'tem horario?');
     expect(r?.texto).toContain('lente de contato');
@@ -1263,10 +1268,18 @@ describe('preparo de lente de contato (Marina, 19/10/2026)', () => {
     esqueceSlots(PASTA, JID);
     buscou.length = 0;
     vagasFalsas = [
-      { data: '2026-10-23', dia_semana: 'sexta', inicio: '09:00', fim: '09:30' },
+      {
+        data: '2026-10-23',
+        dia_semana: 'sexta',
+        inicio: '09:00',
+        fim: '09:30',
+      },
     ];
+    // A necessidade vem antes: a pergunta da lente só existe depois que a
+    // conversa já é de refrativa, e a orientação dos 3 dias é exceção DAQUELE
+    // contexto. Sem isso o host escala, que é o certo.
     const r1 = await rodar(
-      '{"intencao":"usa_lente","confianca":0.95,"slots":{}}',
+      '{"intencao":"usa_lente","confianca":0.95,"slots":{"necessidade":"quero parar de usar óculos"}}',
       'uso lente sim',
     );
     expect(r1?.texto).toContain('3 dias');
@@ -1274,12 +1287,47 @@ describe('preparo de lente de contato (Marina, 19/10/2026)', () => {
     expect(buscou.pop()?.antecedencia).toBe(3);
   });
 
+  // ⚠️ Fora da refrativa, os 3 dias NÃO saem: a exceção aprovada é da avaliação
+  // refrativa, e preparo de outro contexto é orientação clínica.
+  it('uso de lente em consulta de ROTINA escala, não orienta', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    const r = await rodar(
+      '{"intencao":"usa_lente","confianca":0.95,"slots":{"necessidade":"consulta de rotina"}}',
+      'minha consulta é de rotina, uso lente, preciso parar?',
+    );
+    expect(r?.acao).toBe('escalar');
+    expect(r?.texto).not.toContain('3 dias');
+  });
+
+  // O "sim" fica na memória da conversa; sem recorte ele atrasaria também as
+  // buscas de catarata, onde o preparo não existe.
+  it('lente não atrasa a agenda de CATARATA', async () => {
+    const { esqueceSlots, lembraLente } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    lembraLente(PASTA, JID, 'sim');
+    buscou.length = 0;
+    vagasFalsas = [
+      { data: '2026-10-20', dia_semana: 'terça', inicio: '09:00', fim: '09:30' },
+    ];
+    await rodar(
+      '{"intencao":"horario_oferta","confianca":0.95,"slots":{"necessidade":"catarata","convenio":"particular"}}',
+      'tem horario?',
+    );
+    expect(buscou.pop()?.antecedencia).toBeUndefined();
+  });
+
   it('quem NÃO usa lente não espera nada', async () => {
     const { esqueceSlots } = await import('./memoria-conversa.js');
     esqueceSlots(PASTA, JID);
     buscou.length = 0;
     vagasFalsas = [
-      { data: '2026-10-20', dia_semana: 'terça', inicio: '09:00', fim: '09:30' },
+      {
+        data: '2026-10-20',
+        dia_semana: 'terça',
+        inicio: '09:00',
+        fim: '09:30',
+      },
     ];
     await rodar(
       '{"intencao":"nao_usa_lente","confianca":0.95,"slots":{"necessidade":"quero parar de usar óculos"}}',
@@ -1296,7 +1344,12 @@ describe('preparo de lente de contato (Marina, 19/10/2026)', () => {
     const { esqueceSlots } = await import('./memoria-conversa.js');
     esqueceSlots(PASTA, JID);
     vagasFalsas = [
-      { data: '2026-10-20', dia_semana: 'terça', inicio: '09:00', fim: '09:30' },
+      {
+        data: '2026-10-20',
+        dia_semana: 'terça',
+        inicio: '09:00',
+        fim: '09:30',
+      },
     ];
     const r = await rodar(
       '{"intencao":"horario_oferta","confianca":0.95,"slots":{"necessidade":"catarata","convenio":"particular"}}',
@@ -1306,11 +1359,71 @@ describe('preparo de lente de contato (Marina, 19/10/2026)', () => {
     expect(r?.texto).toContain('09:00');
   });
 
-  it('a pergunta sai UMA vez: respondida, não volta', async () => {
+  // ⚠️ O laço que o Codex reproduziu: triagem COMPLETA, pergunta da lente,
+  // paciente responde "não uso" — e recebia a mesma pergunta, para sempre. O
+  // gate lia a memória antes de a resposta ser gravada.
+  it('responder "não uso" DEPOIS da triagem completa não vira laço', async () => {
     const { esqueceSlots } = await import('./memoria-conversa.js');
     esqueceSlots(PASTA, JID);
     vagasFalsas = [
       { data: '2026-10-20', dia_semana: 'terça', inicio: '09:00', fim: '09:30' },
+    ];
+    const t1 = await rodarDe(
+      '{"intencao":"triagem_dados","confianca":0.95,"slots":{"necessidade":"quero parar de usar óculos","nome":"Paulo","nascimento":"12/12/1992","cidade":"Teresina","convenio":"particular"}}',
+      'Paulo, 12/12/1992, Teresina, particular',
+    );
+    expect(t1?.texto).toContain('lente de contato');
+    const t2 = await rodar(
+      '{"intencao":"nao_usa_lente","confianca":0.95,"slots":{}}',
+      'não uso lente',
+    );
+    expect(t2?.texto).not.toContain('lente de contato');
+    expect(t2?.texto).toContain('09:00');
+  });
+
+  // Resposta ambígua NÃO libera a agenda: liberar sem prazo manda a pessoa
+  // fazer um exame que não vai prestar.
+  it('"às vezes" não conta como resposta', async () => {
+    const { esqueceSlots, lenteLembrada } = await import(
+      './memoria-conversa.js'
+    );
+    esqueceSlots(PASTA, JID);
+    await rodar(
+      '{"intencao":"triagem_dados","confianca":0.95,"slots":{"necessidade":"quero parar de usar óculos","usa_lente":"às vezes"}}',
+      'às vezes uso',
+    );
+    expect(lenteLembrada(PASTA, JID)).toBeUndefined();
+  });
+
+  // Mudou de ideia com oferta viva: a oferta pode ser de amanhã, e os 3 dias
+  // só valiam para buscas novas.
+  it('passar a usar lente descarta oferta cedo demais', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    const { ultimaOferta, registraOferta } = await import('./agendamento.js');
+    esqueceSlots(PASTA, JID);
+    const amanha = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    registraOferta(PASTA, JID, {
+      vaga: { data: amanha, inicio: '09:00', fim: '09:30' },
+      perfil: 'particular-cirurgia',
+      nome: 'Paulo',
+    } as never);
+    await rodar(
+      '{"intencao":"usa_lente","confianca":0.95,"slots":{"necessidade":"quero parar de usar óculos"}}',
+      'na verdade uso lente sim',
+    );
+    expect(ultimaOferta(PASTA, JID)).toBeUndefined();
+  });
+
+  it('a pergunta sai UMA vez: respondida, não volta', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    vagasFalsas = [
+      {
+        data: '2026-10-20',
+        dia_semana: 'terça',
+        inicio: '09:00',
+        fim: '09:30',
+      },
     ];
     await rodar(refrativa, 'tem horario?');
     await rodar(
