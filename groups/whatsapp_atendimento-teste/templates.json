@@ -256,7 +256,7 @@
       "acao": "responder",
       "fecho": false,
       "textos": [
-        "No consultório, a consulta com a Dra. Marina é particular, R$ {valor_consulta}.\n\nMas o exame você faz pelo próprio IASPI, com exceção do Pentacam, que é particular. E a cirurgia pode ser pelo PLAMTA, se houver indicação médica e o plano autorizar."
+        "No consultório, a consulta com a Dra. Marina é particular, R$ {valor_consulta}.\n\nMas os exames podem ser feitos pelo próprio IASPI, com exceção do Pentacam, que é particular. E a cirurgia pode ser pelo PLAMTA, se houver indicação médica e o plano autorizar."
       ],
       "emenda_triagem": true
     },
@@ -266,13 +266,13 @@
       "acao": "responder",
       "fecho": false,
       "textos": [
-        "No consultório, a consulta com a Dra. Marina é particular, R$ {valor_consulta}.\n\nMas o exame você faz pelo próprio IPMT, com exceção do Pentacam, que é particular. E a cirurgia pode ser pelo PLANTE, se houver indicação médica e o plano autorizar."
+        "No consultório, a consulta com a Dra. Marina é particular, R$ {valor_consulta}.\n\nMas os exames podem ser feitos pelo próprio IPMT, com exceção do Pentacam, que é particular. E a cirurgia pode ser pelo PLANTE, se houver indicação médica e o plano autorizar."
       ],
       "emenda_triagem": true
     },
     "horario_oferta": {
       "bloco": "F12",
-      "quando": "tem vaga, quero marcar, e os quatro dados estão completos",
+      "quando": "tem vaga, quero marcar, e os quatro dados estão completos. ⚠️ CITAR um convênio não tira o pedido daqui: 'quero marcar o mapeamento pelo IASPI' é marcação com o convênio no slot, não pergunta sobre o plano. Ver a exceção no CLAUDE.md.",
       "acao": "responder",
       "fecho": false,
       "slots_obrigatorios": ["dia", "hora"],
@@ -501,7 +501,7 @@
       "acao": "responder",
       "fecho": false,
       "textos": [
-        "Recebi seu áudio, mas não consegui acessar o conteúdo por aqui.\n\nVocê poderia me enviar a mensagem por escrito, por favor? Assim consigo te ajudar melhor."
+        "Não consigo escutar seu áudio no momento.\n\nVocê poderia me enviar a mensagem por escrito, por favor? Assim consigo te ajudar melhor."
       ]
     },
     "DESCONHECIDO": {
@@ -558,7 +558,7 @@
     },
     "sem_telefone": {
       "bloco": "F00d",
-      "quando": "PERGUNTA qual é o telefone da clínica, sem insistir em falar por voz. A clínica não recebe ligação e NÃO existe número a informar, então a resposta basta e ele costuma fechar com um obrigado. Quem insiste em ligar, ou pede que a clínica ligue, é quer_ligar. Quem quer o contato pessoal da médica, ou falar com ela ou com alguém específico, é quer_humano.",
+      "quando": "PERGUNTA qual é o telefone da clínica para TER o contato, sem querer falar por voz: 'qual o número de vocês?', 'tem telefone fixo?'. A clínica não recebe ligação e NÃO existe número a informar, então a resposta basta e ele costuma fechar com um obrigado.\n\n⛔ Pedir o número PARA LIGAR é quer_ligar, e não sem_telefone. O que distingue é a intenção de usar a VOZ, não a forma da frase: 'me passa um número pra eu ligar' e 'prefiro falar por telefone' são quer_ligar, mesmo pedindo o número. Saiu na passada 16, no M04, e a diferença importa porque quer_ligar ESCALA — não há número a dar, e alguém tem de decidir como falar com essa pessoa.\n\nQuem quer o contato pessoal da médica, ou falar com ela ou com alguém específico, é quer_humano.",
       "acao": "responder",
       "fecho": false,
       "textos": [
@@ -567,7 +567,7 @@
     },
     "quer_ligar": {
       "bloco": "F00d",
-      "quando": "quer falar por VOZ: insiste em ligar, pede que a clínica ligue para ele, diz que prefere telefone a mensagem, ou volta ao assunto depois de já ouvir que o atendimento é por mensagem. Diferente de sem_telefone, que só pergunta o número.",
+      "quando": "quer falar por VOZ: insiste em ligar, pede o número PARA LIGAR, pede que a clínica ligue para ele, diz que prefere telefone a mensagem, ou volta ao assunto depois de já ouvir que o atendimento é por mensagem. Qualquer frase em que a ligação é o OBJETIVO cai aqui, inclusive quando ela pede o número. sem_telefone é só quem quer o número para ter o contato, sem querer falar.",
       "acao": "escalar",
       "urgente": false,
       "fecho": false,

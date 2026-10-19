@@ -814,6 +814,31 @@ export async function executa(
         horaNegada = vagas.length > 0;
       }
 
+      // Terceira busca: o DIA inteiro não serve, não só a hora.
+      //
+      // O W03 saiu assim na passada 16: Unimed pedindo "sexta às 10h", e a
+      // sexta estava dentro dos 7 dias de antecedência do convênio. As duas
+      // buscas acima voltaram vazias — a primeira com dia+hora, a segunda com o
+      // dia — e o host escalou, mandando "Só um instante." a quem nomeou dia e
+      // hora, o paciente mais decidido da fila.
+      //
+      // `horario_pedido_indisponivel` já existe e diz exatamente isto: "nesse
+      // horário eu não consigo encaixar, mas tenho {dia} às {hora}". Faltava
+      // procurar o que oferecer. Mesmo raciocínio da segunda busca, um degrau
+      // acima: solta o dia também.
+      if (diaAlvo && vagas.length === 0) {
+        vagas = await buscaVagas(groupFolder, perfil, {
+          ...(antecedencia ? { antecedencia } : {}),
+        });
+        if (vagas.length > 0) {
+          horaNegada = true;
+          logger.info(
+            { groupFolder, dia: diaAlvo, perfil },
+            'executor: dia pedido não serve, oferecendo o próximo que serve',
+          );
+        }
+      }
+
       // Pediu hora e a oferta NÃO é a hora pedida: aí há o que explicar.
       //
       // A condição antiga não comparava nada, e o convênio que pedia 10h e

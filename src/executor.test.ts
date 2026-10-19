@@ -2420,3 +2420,70 @@ describe('a lente: responde sem contexto, escala no contexto errado', () => {
     },
   );
 });
+
+/**
+ * Terceira busca: o DIA inteiro não serve, não só a hora.
+ *
+ * Saiu na passada 16, no W03: Unimed pedindo "sexta às 10h", e a sexta caía
+ * dentro dos 7 dias de antecedência do convênio. A busca com dia+hora voltou
+ * vazia, a busca com o dia também, e o host escalou — "Só um instante." para
+ * quem nomeou dia e hora, o paciente mais decidido da fila.
+ *
+ * `horario_pedido_indisponivel` já dizia exatamente a frase certa. Faltava
+ * procurar o que oferecer.
+ */
+describe('dia pedido que não serve oferece o próximo (passada 16)', () => {
+  it('solta o dia na terceira busca e oferece alternativa', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    // As duas primeiras buscas voltam vazias; a terceira, sem `dia`, acha.
+    buscouHook = () => {
+      const ultima = buscou[buscou.length - 1];
+      vagasFalsas = ultima?.dia
+        ? []
+        : [
+            {
+              data: '2026-10-30',
+              dia_semana: 'sexta',
+              inicio: '09:20',
+              fim: '09:40',
+            },
+          ];
+    };
+    const r = await rodar(
+      '{"intencao":"horario_oferta","confianca":0.95,"slots":{"nome":"Clara Souza","nascimento":"1975-07-20","cidade":"Teresina","convenio":"Unimed","necessidade":"rotina","dia_pedido":"sexta","hora_pedida":"10:00"}}',
+      'consigo sexta às 10h?',
+    );
+    buscouHook = undefined;
+    expect(r?.acao).not.toBe('escalar');
+    expect(r?.texto).not.toBe('Só um instante.');
+    expect(r?.texto).toContain('09:20');
+    // A ÚLTIMA busca é a que soltou o dia. O número de buscas varia: no
+    // convênio a hora nem vai ao script (`filtraPelaHora` é falso), então a
+    // primeira já sai só com o dia e são duas, não três.
+    expect(buscou.length).toBeGreaterThan(1);
+    expect(buscou[buscou.length - 1].dia).toBeFalsy();
+    expect(buscou[0].dia).toBe('2026-10-23');
+  });
+
+  // ⚠️ Com o dia disponível, a terceira busca NÃO roda: soltar o dia quando o
+  // pedido cabe seria oferecer outro dia a quem já tinha o seu.
+  it('dia que serve não dispara a terceira busca', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    vagasFalsas = [
+      {
+        data: '2026-10-23',
+        dia_semana: 'sexta',
+        inicio: '10:00',
+        fim: '10:20',
+      },
+    ];
+    const r = await rodar(
+      '{"intencao":"horario_oferta","confianca":0.95,"slots":{"nome":"Clara Souza","nascimento":"1975-07-20","cidade":"Teresina","convenio":"Unimed","necessidade":"rotina","dia_pedido":"sexta","hora_pedida":"10:00"}}',
+      'consigo sexta às 10h?',
+    );
+    expect(r?.texto).toContain('10:00');
+    expect(buscou.length).toBe(1);
+  });
+});

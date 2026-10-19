@@ -140,6 +140,27 @@ Abaixo, só o que não cabe num campo `quando`:
   está pensando no PLANTE, e o texto dessas intenções já responde as duas
   metades: a consulta não é coberta, a cirurgia vai pelo plano cirúrgico. Não use
   `convenio_cirurgia` para esses quatro nomes.
+  - ⛔ **Mas "em qualquer contexto" NÃO inclui pedido de MARCAÇÃO.** "Quero
+    marcar o mapeamento de retina pelo IASPI, me chamo X, nasci em Y, sou de
+    Z" é `horario_oferta` com `convenio: IASPI` e `necessidade: exame`. O plano
+    é SLOT ali, não assunto.
+
+    Saiu na passada 16, no T08b: a frase acima recebeu o texto do plano
+    (consulta, exame e cirurgia) em vez de ir para quem marca. Marcar exame
+    avulso tem de escalar, e o gate que faz isso (`PERFIS_SO_HUMANO`, em
+    `vagas.ts`) só roda no caminho de agendamento — rotulando convênio, ele
+    nunca é alcançado, e o paciente fica com resposta de preço para um pedido
+    de marcação.
+
+    O que distingue é o verbo: **perguntar** sobre o plano é a intenção do
+    plano; **pedir para marcar** é agendamento, mesmo citando o plano no meio.
+  - **Cidade fora de Teresina + intenção de cirurgia é `paciente_de_fora`**,
+    e isso VENCE o fato de ele ter acabado de mandar dados de cadastro. "Marcos,
+    moro em Parnaíba, particular" depois de "queria fazer a cirurgia pra parar
+    de usar óculos" é `paciente_de_fora`: ele precisa saber que dá para fazer
+    exames e consulta no mesmo dia ANTES de combinar a viagem. Pedir o
+    nascimento primeiro não está errado, mas gasta o turno em que a informação
+    útil cabia. Saiu na passada 16, no I01.
   - **Pergunta de EXAME nesses planos continua sendo `exames_convenio`**, com o
     plano no slot `convenio`. Quem troca para o texto do plano é o host, porque
     pela Unimed o exame não sai e por esses sai — o inverso. Você rotula o que
