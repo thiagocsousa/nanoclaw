@@ -41,9 +41,7 @@ describe('nomeiaContainer', () => {
 
   it('cabe na validação de nome de container', () => {
     for (const rotulo of ['vagas', 'paciente', 'marcar']) {
-      expect(nomeiaContainer(rotulo)).toMatch(
-        /^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/,
-      );
+      expect(nomeiaContainer(rotulo)).toMatch(/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/);
     }
   });
 });
@@ -53,8 +51,17 @@ describe('LIMITES_DE_RECURSO', () => {
     // A ausência de `--memory` é decisão, não esquecimento: teto baixo faz o
     // OOM killer derrubar o chromium no meio da navegação e o erro que chega é
     // outro igualmente enganoso. Ver o comentário em script-container.ts.
-    expect(LIMITES_DE_RECURSO).toEqual(['--cpus', '1']);
+    expect(LIMITES_DE_RECURSO).toEqual(['--cpus', '1', '--shm-size=1g']);
     expect(LIMITES_DE_RECURSO).not.toContain('--memory');
+  });
+
+  it('carrega o /dev/shm que o chromium precisa', () => {
+    // ⚠️ Com os 64 MB padrão do Docker o chromium não falha, PENDURA: medido em
+    // 19/10/2026, `Page.goto` estourando 30 s em app.iclinic.com.br enquanto um
+    // curl da mesma imagem e da mesma rede respondia 200 em 2 s. Um flag de
+    // diferença fez o goto completar. Se alguém tirar isto, o sintoma volta
+    // disfarçado de "iClinic fora do ar".
+    expect(LIMITES_DE_RECURSO).toContain('--shm-size=1g');
   });
 });
 

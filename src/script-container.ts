@@ -45,7 +45,21 @@ export function nomeiaContainer(rotulo: string): string {
 }
 
 /**
- * Teto de CPU dos containers de script.
+ * Limites e ajustes dos containers de script.
+ *
+ * ⚠️ `--shm-size=1g` não é otimização, é requisito. O Docker dá 64 MB de
+ * /dev/shm por padrão, e o chromium usa /dev/shm para a memória compartilhada
+ * entre seus processos. Com 64 MB ele não derruba com erro: ele PENDURA.
+ *
+ * Medido na VM em 19/10/2026: o mesmo `iclinic_paciente_por_telefone.py`, com
+ * a carga da máquina já normalizada em 1.70, falhava em
+ * `Page.goto: Timeout 30000ms exceeded` em app.iclinic.com.br enquanto um curl
+ * da MESMA imagem e da MESMA rede respondia 200 em 2 s. Trocando um único
+ * flag — `--shm-size=1g` — o `goto` passou a completar.
+ *
+ * Isso também é a resposta para o diagnóstico errado que eu defendi antes: o
+ * container órfão de uma hora era real e o vazamento era real, mas a carga
+ * alta era CONSEQUÊNCIA, não causa. Com load 1.70 o sintoma continuava.
  *
  * ⚠️ Só CPU, de propósito. `--memory` num chromium é troca de sintoma: o
  * limite baixo faz o OOM killer derrubar o navegador no meio da navegação, e
@@ -56,7 +70,7 @@ export function nomeiaContainer(rotulo: string): string {
  * `--cpus 1` num host de 2 CPUs garante que um script desgovernado deixe um
  * núcleo para o host: é o que faltava quando o load bateu 6,85.
  */
-export const LIMITES_DE_RECURSO = ['--cpus', '1'];
+export const LIMITES_DE_RECURSO = ['--cpus', '1', '--shm-size=1g'];
 
 /**
  * Mata e remove o container, se ele ainda estiver de pé.
