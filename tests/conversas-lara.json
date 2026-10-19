@@ -148,6 +148,37 @@
       ]
     },
     {
+      "id": "A07",
+      "categoria": "abertura",
+      "sobre": "⏳ MENU DA BRUNA (semana de observação): o paciente responde só o número da resposta automática do WhatsApp Business. O host traduz em necessidade e manda para a triagem.",
+      "escalou": false,
+      "turnos": [
+        {
+          "paciente": "1",
+          "exige": ["nome completo|data de nascimento"],
+          "proibido": [
+            "S[óo] um instante",
+            "cirurgia ou uma consulta de rotina"
+          ],
+          "nota": "\"1\" é \"Avaliação para Cirurgia Refrativa\". ⛔ Não pergunta de novo o que o menu já respondeu, e não escala. Sai quando o menu sair."
+        }
+      ]
+    },
+    {
+      "id": "A08",
+      "categoria": "abertura",
+      "sobre": "⏳ MENU DA BRUNA: \"4 - Outros\" não diz o que ele quer, então a Lara PERGUNTA em vez de escalar (Thiago, 19/10).",
+      "escalou": false,
+      "turnos": [
+        {
+          "paciente": "4",
+          "exige": ["explicar|precisando"],
+          "proibido": ["S[óo] um instante", "nome completo"],
+          "nota": "Escalada não gera material para observar. ⛔ E não pede cadastro: ainda não se sabe do que se trata."
+        }
+      ]
+    },
+    {
       "id": "B01",
       "categoria": "preco_cirurgia",
       "sobre": "Pergunta direta pelo preço da cirurgia. Regra dura 1b.",
