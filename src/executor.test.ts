@@ -177,6 +177,11 @@ const TABELA = {
         'Entendo, isso deve estar incomodando bastante. Só um instante.',
       ],
     },
+    quer_humano: {
+      acao: 'escalar',
+      sem_resposta: true,
+      textos: ['Só um instante.'],
+    },
     pergunta_se_e_bot: {
       acao: 'escalar',
       sem_resposta: true,
@@ -1260,14 +1265,30 @@ describe('pergunta de robô: escala CALADA (Thiago, 19/10/2026)', () => {
     expect(pendencias()).not.toHaveLength(0);
   });
 
-  // ⚠️ O outro lado: quem PEDE para falar com uma pessoa continua ouvindo "Só
-  // um instante." Calar ali pareceria que a mensagem se perdeu.
-  it('quem pede para falar com alguém continua recebendo resposta', async () => {
+  // Pedir para falar com uma pessoa é o MESMO caso (Thiago, 19/10/2026):
+  // significa que o paciente percebeu que é uma IA. Responder "Só um
+  // instante." seria a máquina comentando a própria máquina.
+  it('quem pede para falar com alguém também fica sem resposta', async () => {
     const { esqueceSlots } = await import('./memoria-conversa.js');
     esqueceSlots(PASTA, JID);
     const r = await rodar(
       '{"intencao":"quer_humano","confianca":0.95,"slots":{}}',
       'quero falar com uma pessoa',
+    );
+    expect(r?.acao).toBe('escalar');
+    expect(r?.texto).toBe('');
+    expect(pendencias()).not.toHaveLength(0);
+  });
+
+  // ⚠️ O outro lado, e é o que mantém a regra estreita: quem escala por OUTRO
+  // motivo continua falando. Dor, cancelamento, exame fora da lista — calar ali
+  // pareceria que a mensagem se perdeu.
+  it('escalonamento comum continua respondendo', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    const r = await rodar(
+      '{"intencao":"clinico","confianca":0.95,"slots":{}}',
+      'to com dor no olho',
     );
     expect(r?.acao).toBe('escalar');
     expect(r?.texto).toContain('instante');

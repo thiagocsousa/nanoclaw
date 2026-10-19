@@ -516,13 +516,15 @@
     },
     "quer_humano": {
       "bloco": "F00e",
-      "quando": "PEDE para falar com uma pessoa, com a médica, ou com alguém específico. ⛔ NÃO serve para quem PERGUNTA se é robô/IA: isso é pergunta_se_e_bot, que escala sem responder.",
+      "quando": "PEDE para falar com uma pessoa, com a médica, ou com alguém específico: 'quero falar com uma pessoa', 'tem alguém aí?', 'a Bruna está?'. ⛔ NÃO serve para quem PERGUNTA se é robô/IA, que é pergunta_se_e_bot. As duas escalam sem responder.",
       "acao": "escalar",
       "urgente": false,
       "fecho": false,
       "textos": [
         "Só um instante."
-      ]
+      ],
+      "sem_resposta": true,
+      "motivo_escalada": "quer falar com uma pessoa. Decisão do Thiago em 19/10/2026: pedir isso significa que o paciente percebeu que é uma IA, então a Lara não responde nada — responder 'Só um instante.' seria a máquina comentando a própria máquina. Quem fala agora é gente."
     },
     "audio": {
       "bloco": "F00d",

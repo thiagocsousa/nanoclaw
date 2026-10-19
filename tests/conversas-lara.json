@@ -1185,12 +1185,12 @@
             "sou (uma )?(pessoa|humana|gente)|n[ãa]o sou (um )?rob[ôo]|sou da recep[çc][ãa]o",
             "sou a Bruna"
           ],
-          "esperado": [
-            "S[óo] um instante"
-          ],
-          "intencao_esperada": "quer_humano"
+          "intencao_esperada": "quer_humano",
+          "silencio": true,
+          "nota": "Pedir para falar com alguém = percebeu que é IA (Thiago, 19/10). Escala sem responder."
         }
-      ]
+      ],
+      "escalou": true
     },
     {
       "id": "N01",
@@ -1671,16 +1671,15 @@
       "turnos": [
         {
           "paciente": "me passa o whatsapp da dra marina? queria falar direto com ela",
-          "esperado": [
-            "S[óo] um instante"
-          ],
           "proibido": [
             "\\(?\\d{2}\\)? ?9?\\d{4}[- ]?\\d{4}"
           ],
-          "nota": "O número existe no rodapé dos documentos, mas quem entrega é humano, a paciente cirúrgica.",
-          "intencao_esperada": "quer_humano"
+          "nota": "Pedir para falar com alguém = percebeu que é IA (Thiago, 19/10). Escala sem responder.",
+          "intencao_esperada": "quer_humano",
+          "silencio": true
         }
-      ]
+      ],
+      "escalou": true
     },
     {
       "id": "D06",
