@@ -895,6 +895,35 @@ atravessa; o que atravessa é só o sinal.
 > abaixo continua valendo e é o que vale se alguém perguntar por tipo de lente — o texto
 > apenas não antecipa mais a pergunta.
 
+### F09b — "vou parar de usar óculos?"
+
+**Variantes:** paro de usar óculos de vez, fico livre do óculos, o resultado é definitivo,
+nunca mais vou precisar de óculos.
+
+> A cirurgia refrativa diminui bastante a dependência dos óculos, e muita gente passa a não
+> usar no dia a dia.
+
+⛔ **Uma frase, e para.** Não explique grau, técnica, prazo, nem o que acontece com o tempo.
+
+> ℹ️ Decisão do Thiago em 19/10/2026: *"não é um tira-dúvidas, tem que passar na avaliação
+> pra Marina explicar tudo"*. Eu havia proposto acrescentar que para leitura o óculos
+> costuma voltar com a idade — verdade, e a decepção mais comum de pós-operatório — mas é
+> informação clínica e **a Marina não liberou**. As duas exceções que existem (os 3 dias da
+> lente, os critérios da ANS) foram liberadas por ela, uma a uma. Esta não foi.
+>
+> Se ele insistir pedindo detalhe clínico, é `clinico` e escala. Cenário Y08b.
+
+⚠️ **A guarda agora bloqueia promessa de resultado** (`promete_resultado`), e isso é novo:
+eu havia afirmado ao Thiago que ela já bloqueava. Não bloqueava — "garant", "nunca mais" e
+"com certeza" viviam só no `proibido` do cenário Y08, que roda numa passada de duas horas.
+A guarda roda em TODA mensagem e não tinha nada. Descobri porque passei a frase de controle
+*"Sim, você para de usar óculos de vez. Garantimos o resultado."* pela guarda antes de
+propor o texto: zero achados.
+>
+> A regra pega o ABSOLUTO, não o estatístico, e é por frase: *"garantindo o desconto"* do
+> F05 é legítimo e continua passando. Bloquear o texto de maior conversão da clínica foi o
+> primeiro resultado do meu regex ingênuo.
+
 ⚠️ **Esta é uma EXCEÇÃO à regra dura 2** ("nada clínico, sempre escalar"). Orientação de
 preparo é clínica, e a Marina liberou este texto especificamente — do mesmo jeito que
 liberou os critérios da ANS no F09. Nenhuma outra orientação de preparo está liberada.

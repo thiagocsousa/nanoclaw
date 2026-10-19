@@ -808,3 +808,40 @@ describe('plano parcial: os cinco nomes, e o trecho literal (19/10/2026)', () =>
     expect(a?.trecho).not.toContain('Dra Marina');
   });
 });
+
+/**
+ * Promessa de resultado cirúrgico: a regra que eu disse existir e não existia.
+ *
+ * Em 19/10/2026 eu afirmei ao Thiago que a guarda bloqueava "garant", "nunca
+ * mais vai" e "com certeza". Elas estavam no `proibido` do cenário Y08 — suíte,
+ * não guarda. Descobri passando a frase de controle pela guarda antes de propor
+ * o texto novo: zero achados.
+ */
+describe('promete_resultado (19/10/2026)', () => {
+  it.each([
+    'Sim, você para de usar óculos de vez. Garantimos o resultado.',
+    'Com certeza você não vai mais precisar de óculos.',
+    'O resultado é definitivo.',
+    'Você fica livre dos óculos para sempre.',
+    'A cirurgia resolve 100% dos casos.',
+    'Nunca mais vai usar óculos.',
+    'Posso assegurar que o grau não volta.',
+  ])('BLOQUEIA: %s', (frase) => {
+    const v = inspecionaSaida(frase, { intencao: 'oculos_depois_cirurgia' });
+    expect(v.achados.map((a) => a.regra)).toContain('promete_resultado');
+    expect(v.bloqueado).toBe(true);
+  });
+
+  // ⚠️ O hedge APROVADO tem de passar. Guarda que bloqueia o texto da própria
+  // clínica é desligada numa semana — é o que o cabeçalho deste arquivo diz, e
+  // foi o que aconteceu com a abertura em 17/10.
+  it.each([
+    'A cirurgia refrativa diminui bastante a dependência dos óculos, e muita gente passa a não usar no dia a dia.',
+    'A maioria dos convênios cobre a cirurgia.',
+    'Quem autoriza é o seu plano, e cada um tem os próprios critérios.',
+    'Na avaliação a Dra. Marina conversa com você sobre as opções.',
+  ])('PASSA: %s', (frase) => {
+    const v = inspecionaSaida(frase, { intencao: 'oculos_depois_cirurgia' });
+    expect(v.achados.map((a) => a.regra)).not.toContain('promete_resultado');
+  });
+});

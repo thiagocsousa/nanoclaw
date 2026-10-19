@@ -106,6 +106,16 @@ Abaixo, só o que não cabe num campo `quando`:
   o que ele menciona: dor, sintoma e resultado de exame são `clinico` porque é
   disso que ele quer saber. (Decisão do Thiago em 04/10/2026.)
 
+  ⚠️ **"Vou parar de usar óculos?" é `oculos_depois_cirurgia`**, não `clinico`
+  nem `DESCONHECIDO`. É a pergunta mais comum de quem procura refrativa, e
+  escalava por não ter intenção (passada 16, Y08).
+
+  ⛔ **A resposta é UMA frase e para.** Não explica grau, técnica, prazo, nem o
+  que acontece com o tempo. Decisão do Thiago em 19/10/2026: *"não é um
+  tira-dúvidas, tem que passar na avaliação pra Marina explicar tudo"* — a
+  Marina não liberou nada além disso. Se ele insistir pedindo detalhe clínico,
+  aí sim é `clinico` e escala.
+
   ⚠️ **E escolha de lente intraocular NÃO é `clinico`.** "Qual lente é melhor
   pra mim, a multifocal?" é `catarata_avaliacao`, cujo `quando` já cita "sobre
   as lentes intraoculares" — a resposta diz que a médica conversa sobre as

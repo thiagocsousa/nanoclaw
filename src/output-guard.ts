@@ -331,6 +331,77 @@ export function excluiConsulta(texto: string): boolean {
 const RX_COMPLETUDE =
   /\b(?:s[ãa]o|[ée])\s+(?:apenas\s+|s[óo]\s+)?dois\s+exames?\b|\bexames?[^.!?\n]{0,40}\b(?:s[ãa]o|[ée])\s+(?:apenas\s+|s[óo]\s+)?dois\b|\bs[óo]\s+esses\s+dois\b|\bs[ãa]o\s+apenas\s+esses\b|\b[ée]\s+s[óo]\s+isso\s+que\s+precisa\b/i;
 
+/**
+ * Promessa de RESULTADO cirúrgico (regra dura 2, lado do resultado).
+ *
+ * Eu afirmei ao Thiago em 19/10/2026 que a guarda já bloqueava isto. Não
+ * bloqueava: as proibições de "garant", "nunca mais vai" e "com certeza" vivem
+ * no `proibido` do cenário Y08, que roda numa passada de duas horas. A guarda,
+ * que roda em TODA mensagem, não tinha nada — e eu só descobri porque passei a
+ * frase de controle "Sim, você para de usar óculos de vez. Garantimos o
+ * resultado." pela guarda antes de propor o texto. Zero achados.
+ *
+ * O dano é o mesmo da regra 1b: o paciente decide operar contando com um
+ * resultado que ninguém pode prometer. Por isso é `block`, não `flag`.
+ *
+ * ⚠️ Pega o ABSOLUTO, não o estatístico. O texto aprovado de
+ * `oculos_depois_cirurgia` diz "diminui bastante a dependência dos óculos, e
+ * muita gente passa a não usar no dia a dia" — hedge, e tem de passar. Guarda
+ * que bloqueia o texto da própria clínica é desligada numa semana (ver o
+ * cabeçalho deste arquivo).
+ */
+/**
+ * Frases que SÓ existem para prometer resultado: o absoluto já é a promessa.
+ *
+ * ⚠️ Sem `\b` antes de "óculos". Em JavaScript a borda de palavra é ASCII, e
+ * "ó" não é caractere de palavra — então `\b[óo]culos` exige que a letra
+ * ANTERIOR seja palavra, e "usar óculos" (espaço antes do ó) nunca casa.
+ * "Nunca mais vai usar óculos." passou limpo até o controle negativo cobrar.
+ * Mesma família do ponto de "Dra.": suposição ASCII sobre texto português.
+ */
+const RX_ABSOLUTO_DO_RESULTADO = [
+  /\bnunca mais\b[^.!?\n]{0,40}[óo]culos\b/i,
+  /[óo]culos\b[^.!?\n]{0,40}\bnunca mais\b/i,
+  /\bn[ãa]o\s+(?:vai|vais|precisa)\s+(?:mais\s+)?(?:precisar\s+)?(?:de\s+|dos?\s+)?[óo]culos\b/i,
+  /\bfic\w+\s+(?:livre|sem)\s+(?:d[oe]s?\s+)?[óo]culos\b/i,
+  /\bresultado\b[^.!?\n]{0,25}\b(?:definitiv|garantid|cert[oa]|permanent)\w*/i,
+  /\b(?:definitiv|permanent)\w*[^.!?\n]{0,25}\bresultado\b/i,
+  /\b100\s*%/i,
+  /\b(?:para|pra)\s+sempre\b/i,
+];
+
+/** A palavra de promessa. Legítima fora do resultado: desconto, horário, nota. */
+const RX_PALAVRA_DE_PROMESSA = /\bgarant\w*|\bassegur\w*|\bcom certeza\b/i;
+/** Do que a frase fala. Só vale como promessa se for do RESULTADO. */
+const RX_ASSUNTO_RESULTADO =
+  /\bresultado|\bvis[ãa]o\b|\bgrau\b|[óo]culos\b|\benxerg\w+/i;
+/**
+ * ...e não do que a clínica PODE garantir. O F05 diz "Podemos fazer seu
+ * agendamento garantindo o desconto?" — garantir desconto é legítimo, e
+ * bloquear o texto de maior conversão da clínica foi o primeiro resultado do
+ * meu regex ingênuo, pego pelo controle negativo deste arquivo.
+ */
+const RX_ASSUNTO_LEGITIMO =
+  /\bdesconto|\bvalor|\bpre[çc]o|\bagendamento|\bhor[áa]rio|\bnota\b|\bvaga\b/i;
+
+function achaPromessaDeResultado(texto: string): string | undefined {
+  const limpo = semAbreviacoes(texto);
+  for (const rx of RX_ABSOLUTO_DO_RESULTADO) {
+    const m = rx.exec(limpo);
+    if (m) return m[0];
+  }
+  // A palavra de promessa vale por FRASE, não pela mensagem inteira: "a
+  // avaliação garante o desconto" e "a cirurgia resolve" podem conviver.
+  for (const frase of limpo.split(/[.!?\n]+/)) {
+    const m = RX_PALAVRA_DE_PROMESSA.exec(frase);
+    if (!m) continue;
+    if (!RX_ASSUNTO_RESULTADO.test(frase)) continue;
+    if (RX_ASSUNTO_LEGITIMO.test(frase)) continue;
+    return m[0];
+  }
+  return undefined;
+}
+
 // --- caixa alta -------------------------------------------------------------
 
 /** Três letras ou mais, tudo maiúsculo. Acentos entram: NÃO, JOÃO. */
@@ -671,6 +742,18 @@ export function inspecionaSaida(
       motivo:
         'afirma que os exames pré-operatórios são só esses; a Dra. Marina pede outros conforme o caso, parte fora da clínica (F08)',
       trecho: texto.substr(compl.index, compl[0].length),
+    });
+  }
+
+  // 10b. block: prometeu resultado de cirurgia
+  const promessa = achaPromessaDeResultado(texto);
+  if (promessa) {
+    achados.push({
+      regra: 'promete_resultado',
+      nivel: 'block',
+      motivo:
+        'promete resultado de cirurgia em termos absolutos; quem explica o que esperar é a Dra. Marina na avaliação, e prometer faz o paciente decidir operar contando com o que ninguém garante (regra dura 2)',
+      trecho: promessa.slice(0, 60),
     });
   }
 

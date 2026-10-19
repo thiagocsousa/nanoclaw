@@ -594,6 +594,16 @@
       ],
       "emenda_triagem": true
     },
+    "oculos_depois_cirurgia": {
+      "bloco": "F09b",
+      "quando": "pergunta se vai parar de usar óculos depois da cirurgia refrativa, se fica livre do óculos, se o resultado é definitivo. Responde UMA vez e para.\n\n⛔ NÃO é tira-dúvidas. A resposta não explica grau, técnica, prazo, presbiopia nem \"vista cansada\", e não entra em o que acontece com o tempo: quem explica tudo isso é a Dra. Marina na avaliação (Thiago, 19/10/2026). Se ele insistir pedindo detalhe clínico, é clinico e escala.",
+      "acao": "responder",
+      "emenda_triagem": true,
+      "fecho": false,
+      "textos": [
+        "A cirurgia refrativa diminui bastante a dependência dos óculos, e muita gente passa a não usar no dia a dia."
+      ]
+    },
     "pergunta_lente": {
       "bloco": "F02c",
       "quando": "NUNCA rotular isto: quem pergunta é o host, antes de oferecer horário para avaliação REFRATIVA, quando ainda não se sabe se a pessoa usa lente de contato.",
