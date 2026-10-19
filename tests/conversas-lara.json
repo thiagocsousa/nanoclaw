@@ -11,7 +11,7 @@
     "varejo": "me conta\\b",
     "confirmou_agendamento": "est[áa] (marcad|agendad|confirmad|reservad)|j[áa] (marquei|agendei|confirmei|reservei)",
     "empurra_trabalho": "como posso (te )?ajudar|o que posso fazer por voc|em que posso (te )?ajudar",
-    "exames_inclusos": "inclu\\w+ (o |os |todos os )?exames?\\b",
+    "exames_inclusos": "inclu\\w+ (o |os |todos os )?exames?\\b(?![\\s\\S]*(fundoscopia|tonometria|dois olhos|ambos os olhos))",
     "orcamento_na_consulta": "na consulta.{0,30}(or[çc]amento|passa o valor)",
     "nega_desconto": "sem desconto|n[ãa]o (tem|temos|h[áa]|oferecemos) desconto|valor cheio",
     "aponta_menu": "escolh[ae]r? (uma )?(das )?op[çc][õo]es|escolh[ae]r? (um )?n[úu]mero|op[çc][õo]es que (eu )?enviei",
@@ -1205,9 +1205,9 @@
         {
           "paciente": "obrigado, era só isso",
           "proibido": ["S[óo] um instante"],
-          "intencao_esperada": "DESCONHECIDO",
+          "intencao_esperada": "agradece_fecha",
           "esperado": ["agrade[çc]|Imagina|me chamar"],
-          "nota": "Agradecer e encerrar é o desfecho mais comum de conversa resolvida. Escalava (passada 13)."
+          "nota": "O gabarito dizia DESCONHECIDO, que escala e manda \"Só um instante.\" — exatamente o que este turno proíbe. Fechar agradecimento é agradece_fecha."
         }
       ],
       "escalou": false
@@ -1296,9 +1296,9 @@
             "S[óo] um instante"
           ],
           "esperado": ["outra atendente"],
-          "intencao_esperada": "sem_telefone",
+          "intencao_esperada": "quer_ligar",
           "exige": ["esse mesmo n[úu]mero"],
-          "nota": "⛔ Sem escrever os dígitos (ele já tem o número) e sem convidar a ligar: a ligação é alternativa, não a preferência. A proibição de telefone na resposta continua — número digitado pode ser de outro paciente."
+          "nota": "⛔ Sem escrever os dígitos (ele já tem o número) e sem convidar a ligar: a ligação é alternativa, não a preferência. A proibição de telefone na resposta continua — número digitado pode ser de outro paciente. ⚠️ O gabarito apontava sem_telefone, que é quem só PERGUNTA o número — \"me passa um numero pra eu ligar\" é quer_ligar pelo próprio quando. O avaliar-classificador.py pontua contra o gabarito, então ele penalizava a resposta certa."
         }
       ],
       "escalou": false

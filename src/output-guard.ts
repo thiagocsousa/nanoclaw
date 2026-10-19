@@ -39,6 +39,8 @@
  */
 import { readEnvFile } from './env.js';
 
+import { RX_CITA_PLANO } from './convenio.js';
+
 const envConfig = readEnvFile(['OUTPUT_GUARD_FOLDERS']);
 
 const FOLDERS = new Set(
@@ -70,7 +72,16 @@ export interface Veredito {
 
 // --- dinheiro e assuntos de preço -------------------------------------------
 
-const RX_DINHEIRO = /R\$\s?\d[\d.,]*|\b\d{3,4}\s?reais\b/gi;
+/**
+ * ⚠️ `8 mil` conta como dinheiro, e faltava aqui.
+ *
+ * A cópia em Python (`scripts/testar-lara.py`) tinha `\b\d{1,2}\s?mil\b`
+ * desde sempre; esta, que é a que roda em PRODUÇÃO, não. Então "A cirurgia
+ * refrativa custa 8 mil reais" passava limpo por uma regra de nível `block`,
+ * e só a cópia que nunca roda para paciente pegava. Medido pelo /simplify em
+ * 19/10/2026. É assim que preço se escreve em português falado.
+ */
+const RX_DINHEIRO = /R\$\s?\d[\d.,]*|\b\d{1,2}\s?mil\b|\b\d{3,4}\s?reais\b/gi;
 const CIRURGIA =
   /cirurgi|facectomia|refrativ|catarata|pterígio|pterigio|lasik|prk|yag|capsulotomia|intraocular/i;
 /** Assuntos cujo preço a Lara PODE dizer. */
@@ -262,8 +273,8 @@ const NOMEIA_INCLUSO = /fundoscopia|tonometria|dois olhos|ambos os olhos/i;
  * para quem não disse nada passa limpo.
  */
 const RX_FORM_CONVENIO = /conv[êe]nio\s*\(ou particular\)\s*:/i;
-const RX_CITA_PLANO =
-  /\b(?:IASPI|IAPEP|IPMT|Unimed|Hapvida|Humana|Intermed|Bradesco|Amil|SulAm[ée]rica)\b/i;
+// A lista de nomes mora em `convenio.ts`: era a quarta cópia do mesmo
+// vocabulário quando o /simplify cobrou, em 19/10/2026.
 
 // --- coletar dados de CNPJ --------------------------------------------------
 
@@ -561,10 +572,17 @@ const RX_CPF = /\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/;
  * Até 04/10/2026 havia uma exceção para "o telefone da clínica", (86) 3226-1619.
  * O Thiago apontou que esse número **não existe**: eu o inventei e o escrevi no
  * FAQ como fato. A verificação no corpus de 482 conversas confirmou zero
- * ocorrências. E a Lara não informa número — a ligação não é impossível (a
- * secretária fica com o celular, Thiago 19/10/2026), mas não é o canal
- * preferido, e um número na saída pode ser de outro paciente. Então
- * não há telefone legítimo a informar e a exceção some.
+ * ocorrências.
+ *
+ * A regra NÃO depende mais daquele fato. O número do atendimento é o da
+ * secretária (Thiago, 19/10/2026), então existe número — e a exceção continua
+ * fora por outra razão, que é a única que importa aqui: **um número digitado na
+ * saída pode ser o de outro paciente**, e a Lara não precisa escrever nenhum,
+ * porque quem está conversando já está no número certo.
+ *
+ * Eu tinha pendurado a regra na premissa falsa e, ao corrigi-la, deixei a
+ * conclusão antiga duas linhas abaixo. Justificativa falsa é a que alguém
+ * apaga quando descobre que é falsa — levando a regra com ela.
  */
 const RX_TELEFONE = /\(?\b(?:0?\d{2})\)?\s?9?\d{4}[-\s]?\d{4}\b/g;
 

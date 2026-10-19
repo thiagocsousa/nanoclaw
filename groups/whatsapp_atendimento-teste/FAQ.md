@@ -301,9 +301,9 @@ cheio". Ver **F05**: negar um benefício conta que ele existe.
 ---
 
 ## F00d · Telefone e áudio
-`regra definida pela clínica em 04/10/2026` · `escalar: se insistir`
+`regra definida pela clínica em 04/10/2026` · `revisto em 19/10/2026` · `escalar: não`
 
-### A clínica não tem telefone para informar
+### O telefone é este mesmo número
 
 O número da Lara no WhatsApp é **o mesmo da secretária** (Thiago, 19/10/2026): não há outro
 número a passar, porque o paciente já está nele. A resposta é dizer isso, e avisar que no
@@ -312,14 +312,17 @@ telefone quem atende é **outra atendente** — assim ele sabe que vai recomeça
 A ligação é possível e não é proibida; só não é o canal preferido, então a mensagem vem
 como alternativa e nunca como convite.
 
-⛔ **A resposta não escreve os dígitos.** Ele já tem o número, e um número digitado
-passar.
+⛔ **A resposta não escreve os dígitos.** Ele já tem o número, e um número digitado pode
+ser o de outro paciente.
 
-> O atendimento da clínica é por aqui mesmo, por mensagem. Qualquer coisa você me escreve
-> e eu te respondo.
+**As respostas aprovadas estão em `templates.json`** — `sem_telefone` e `quer_ligar`. Não
+as transcreva aqui: este bloco já citou uma resposta que a tabela não manda mais.
 
 ⛔ **Nunca escreva um telefone**, nem o da clínica, nem o de outro serviço, nem aproximado.
-Se o paciente insistir em querer falar por voz, escale.
+
+ℹ️ **Insistir em falar por voz NÃO escala** desde 19/10/2026. A escalada existia para
+alguém decidir como alcançar quem não era alcançável, e a pessoa sempre foi: o número é o
+mesmo. Quem quer o contato PESSOAL da médica continua sendo `quer_humano`, que escala.
 
 > ⚠️ **Isto corrige um erro meu, não dela.** Até 04/10/2026 o FAQ e a persona traziam
 > "(86) 3226-1619" como telefone da clínica, inclusive num exemplo marcado ✅ para paciente
@@ -529,10 +532,20 @@ Virou "plano não aceito" e a Lara ofereceu R$ 300,00 a quem paga R$ 430,00 — 
 do desconto, que abre dizendo *"esse convênio não é atendido"* a quem acabou de dizer que
 não tem convênio.
 
-A lista está em `RX_SEM_PLANO`, em `vagas.ts`, e é uma só de propósito: quem decide
-dinheiro é `temDescontoDeConsulta`, e uma segunda lista em outro lugar seria o começo de
-duas respostas de preço para o mesmo paciente. Travada com o par: nenhuma das formas de
-"não tenho" dá desconto, e plano de verdade continua dando.
+⚠️ **E alargar a lista criou o bug inverso**, achado pelo /simplify no mesmo dia: "não
+tenho certeza, acho que é Bradesco", "nao tenho o cartao aqui, mas é Amil", "Hapvida, mas
+pago por fora o que ele não cobre" e "Bradesco Saúde particular" passaram a NEGAR o
+desconto a quem tem plano. Enumerar não converge em nenhuma das duas direções.
+
+**A ordem converge:** se o paciente NOMEOU um plano, ele tem plano, não importa o que mais
+escreveu na frase. Está em `temPlano`, em `src/convenio.ts` — módulo criado para isso,
+porque o vocabulário de convênio já vivia em quatro lugares (desconto em `vagas.ts`, plano
+parcial em `executor.ts`, formulário na guarda, e a lista nova). Travado nos dois sentidos
+em `convenio.test.ts`, e verificado por sabotagem: sem a regra de ordem, os casos de "tem
+plano" reprovam.
+
+ℹ️ Um nome de plano fora da lista cai no padrão `true`, de propósito: negar o desconto a
+quem tem plano é o erro caro, e o padrão protege contra ele.
 
 ### Consulta: só particular e Unimed
 

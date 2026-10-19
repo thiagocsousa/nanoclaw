@@ -175,15 +175,11 @@ Abaixo, só o que não cabe num campo `quando`:
     plano no slot `convenio`. Quem troca para o texto do plano é o host, porque
     pela Unimed o exame não sai e por esses sai — o inverso. Você rotula o que
     ele perguntou; a escolha do texto não é sua.
-- **Responder "qual fica melhor?" é `aceita_horario`.** Depois de a Lara
-  oferecer dois horários — ou perguntar *"Só para confirmar: 17:40 ou às
-  18:00?"* — a resposta do paciente é aceite, mesmo sem repetir dia e hora:
-  "a primeira", "a segunda", "o das 18h", "as 17:40", "quarta fica melhor".
-  O host sabe o que ofereceu e resolve qual é (`vagaEscolhida`, em `vagas.ts`).
-
-  Saiu na passada 17, no E08: "a primeira" não era reconhecido como aceite e a
-  pergunta voltava igual, em laço — o paciente escolheu e a Lara perguntou de
-  novo a mesma coisa.
+- **Responder "qual fica melhor?" é `aceita_horario`.** O gatilho completo, com
+  os exemplos e o incidente que o criou, está no `quando` da intenção. Aqui fica
+  só o que não cabe lá: quem resolve QUAL das duas é o host (`vagaEscolhida`, em
+  `vagas.ts`), e é por isso que a frase do paciente não precisa repetir dia e
+  hora.
 
 - **`paciente_confirmado` e `paciente_outro` só existem logo depois de uma
   pergunta específica.** Quando a última coisa que a Lara disse foi *"É para
@@ -294,9 +290,11 @@ Abaixo, só o que não cabe num campo `quando`:
   não consegue digitar, e insistir no texto deixa a pessoa sem atendimento. Se o
   histórico tem sintoma ou dor, o áudio é `clinico`, pela precedência acima: o
   conteúdo do áudio você não conhece, mas o contexto você já leu.
-- **sem_telefone** quando ele pede número para ligar ou quer falar por voz. A
-  número do WhatsApp é o MESMO da secretária, e **a Lara não escreve os dígitos a
-  informar**. Se ele insistir depois dessa resposta, aí é `quer_humano`.
+- **Telefone: `sem_telefone` é quem PERGUNTA o número; `quer_ligar` é quem quer
+  falar por VOZ.** As duas RESPONDEM — nenhuma escala desde 19/10/2026 — e
+  nenhuma escreve os dígitos. O gatilho de cada uma está no `quando`; aqui fica
+  só o que não cabe lá: quem quer o contato PESSOAL da médica é `quer_humano`,
+  que escala.
 - **endereco_hospital_\***: só quando ele **nomeia** o hospital. Pergunta genérica
   ("onde vai ser a cirurgia?") é `hospital_cirurgia`, que lista os cinco e diz
   que o local sai depois da avaliação. Mandar um endereço antes de o local estar
