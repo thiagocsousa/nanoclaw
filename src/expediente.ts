@@ -1,7 +1,8 @@
 /**
  * Horário de atendimento da Lara.
  *
- * Regra do Thiago em 17/10/2026: **8h às 18h, de segunda a sexta.** E a parte
+ * Regra do Thiago, 17/10/2026 e estendida em 19/10: **7h30 às 18h30, de
+ * segunda a sexta.** E a parte
  * que não é óbvia: *"se o paciente iniciou a conversa antes de 18 horas,
  * continua até encerrar ou escalar"*.
  *
@@ -42,9 +43,25 @@ const FOLDERS = new Set(
     .filter(Boolean),
 );
 
-/** Hora de abrir e de fechar, em hora cheia local. */
-const INICIO = parseInt(env('EXPEDIENTE_INICIO', '8'), 10);
-const FIM = parseInt(env('EXPEDIENTE_FIM', '18'), 10);
+/**
+ * Abertura e fechamento, em minutos desde a meia-noite local.
+ *
+ * Aceita "7:30" e "7": hora cheia foi o formato até 19/10/2026, quando o
+ * horário era 8h-18h. O Thiago estendeu para **7h30 às 18h30** no mesmo dia,
+ * depois de eu apontar que a janela de consultório da QUARTA vai até 18:30 e a
+ * Lara calava às 18h — a clínica aberta e ela muda.
+ */
+function emMinutos(valor: string, padrao: number): number {
+  const m = /^(\d{1,2})(?:[:h](\d{2}))?$/.exec(valor.trim());
+  if (!m) return padrao;
+  const h = Number(m[1]);
+  const min = m[2] ? Number(m[2]) : 0;
+  if (h > 23 || min > 59) return padrao;
+  return h * 60 + min;
+}
+
+const INICIO = emMinutos(env('EXPEDIENTE_INICIO', '7:30'), 7 * 60 + 30);
+const FIM = emMinutos(env('EXPEDIENTE_FIM', '18:30'), 18 * 60 + 30);
 /** Teresina. Sem horário de verão desde 2019, mas o IANA cuida disso. */
 const TZ = env('EXPEDIENTE_TZ', 'America/Fortaleza');
 
@@ -113,12 +130,19 @@ export function dataLocal(agora: Date = new Date()): [number, number, number] {
   return [Number(p.year), Number(p.month), Number(p.day)];
 }
 
-/** Segunda a sexta, das 8h às 18h. Às 18h00 em ponto já está fechado. */
+/**
+ * Segunda a sexta, das 7h30 às 18h30. No minuto do fechamento já está fechado.
+ *
+ * O fim é exclusivo de propósito: às 18:30 a última consulta da quarta começou
+ * às 18:00 e está em andamento, e abrir uma conversa nova ali deixaria alguém
+ * esperando resposta que não vem.
+ */
 export function dentroDoExpediente(agora: Date | number = new Date()): boolean {
   const d = typeof agora === 'number' ? new Date(agora) : agora;
-  const { diaSemana, hora } = horaLocal(d);
+  const { diaSemana, hora, minuto } = horaLocal(d);
   if (diaSemana < 1 || diaSemana > 5) return false;
-  return hora >= INICIO && hora < FIM;
+  const agoraMin = hora * 60 + minuto;
+  return agoraMin >= INICIO && agoraMin < FIM;
 }
 
 /**
@@ -136,6 +160,12 @@ export function podeResponder(
   return abertaEm !== undefined && dentroDoExpediente(abertaEm);
 }
 
+function comoHora(min: number): string {
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return m === 0 ? `${h}h` : `${h}h${String(m).padStart(2, '0')}`;
+}
+
 export function textoDoExpediente(): string {
-  return `${INICIO}h às ${FIM}h, de segunda a sexta`;
+  return `${comoHora(INICIO)} às ${comoHora(FIM)}, de segunda a sexta`;
 }
