@@ -254,6 +254,9 @@ describe('modo observação', () => {
     vi.resetModules();
     const m = await import('./revisao-humana.js');
     expect(m.emObservacao(PASTA_OBS)).toBe(true);
+    // DM observa; o chat do GRUPO, na mesma pasta, não.
+    expect(m.emObservacao(PASTA_OBS, '5586999@s.whatsapp.net')).toBe(true);
+    expect(m.emObservacao(PASTA_OBS, '120363@g.us')).toBe(false);
     const p = m.registraParaRevisao(PASTA_OBS, {
       chatJid: '5586999@s.whatsapp.net',
       partes: ['A avaliação é R$ 430,00.'],
@@ -318,6 +321,53 @@ describe('modo observação', () => {
     );
     expect(enviadas.length).toBe(0);
     expect(alarmes).toBe(0);
+  });
+
+  // ⚠️ O PAR QUE IMPORTA MAIS: na MESMA pasta, o chat de GRUPO continua
+  // respondendo. É o que a suíte precisa — pôr a pasta inteira em observação
+  // calaria a passada, e foi por isso que a trava virou por chat.
+  it('o chat de grupo na mesma pasta continua aprovando', async () => {
+    vi.resetModules();
+    const m = await import('./revisao-humana.js');
+    const p = m.registraParaRevisao(PASTA_OBS, {
+      chatJid: '120363275085162068@g.us',
+      partes: ['Tenho quarta às 17:40.'],
+      intencao: 'horario_oferta',
+      pergunta: 'tem horario?',
+      jaMarcou: false,
+    });
+    expect(m.emObservacao(PASTA_OBS, p.chatJid)).toBe(false);
+    expect(m.aprova(PASTA_OBS, p.codigo)?.codigo).toBe(p.codigo);
+  });
+
+  // E o SLA cobra o grupo e cala a DM, na mesma pasta e no mesmo tick.
+  it('o SLA cobra o grupo e cala a DM', async () => {
+    vi.resetModules();
+    const m = await import('./revisao-humana.js');
+    for (const chatJid of ['5586999@s.whatsapp.net', '120363999@g.us']) {
+      m.registraParaRevisao(PASTA_OBS, {
+        chatJid,
+        partes: ['teste'],
+        intencao: 'preco_consulta',
+        pergunta: 'quanto custa?',
+        jaMarcou: true,
+      });
+    }
+    const enviadas: string[] = [];
+    let alarmes = 0;
+    await m.tickRevisaoSla(
+      {
+        sendMessage: (_j: string, t: string) => {
+          enviadas.push(t);
+        },
+        tocaAlarme: async () => {
+          alarmes += 1;
+        },
+      } as never,
+      Date.now() + 60 * 60 * 1000,
+    );
+    // Exatamente um alarme: o do grupo. A DM não gerou nada.
+    expect(alarmes).toBe(1);
   });
 
   // ⚠️ O par que segura: pasta FORA da observação continua aprovando. Uma trava

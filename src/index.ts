@@ -517,7 +517,7 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
                 'revisão: nenhum canal para o destino, resposta NÃO foi revisada',
               );
             }
-            const observando = emObservacao(group.folder);
+            const observando = emObservacao(group.folder, chatJid);
             await canalRevisao?.sendMessage(
               alvo.jid,
               textoDaRevisao(pendente, observando),
@@ -982,12 +982,12 @@ async function main(): Promise<void> {
         // aprovou. Mesmo raciocínio do comentário do `REVISAO_JID`.
         const pendenteEmObservacao =
           codigo &&
-          pastasComRevisao().some(
-            (f) =>
-              emObservacao(f) &&
-              lePendentes(f).some(
-                (x) => x.codigo.toUpperCase() === codigo.toUpperCase(),
-              ),
+          pastasComRevisao().some((f) =>
+            lePendentes(f).some(
+              (x) =>
+                x.codigo.toUpperCase() === codigo.toUpperCase() &&
+                emObservacao(f, x.chatJid),
+            ),
           );
         if (pendenteEmObservacao) {
           logger.warn(

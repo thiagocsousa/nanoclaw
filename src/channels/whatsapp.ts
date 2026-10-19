@@ -483,7 +483,8 @@ export class WhatsAppChannel implements Channel {
   /**
    * As DMs de paciente deste número viram turno de agente, em observação.
    *
-   * Registra o chat na pasta de observação (uma vez, por chat) e entrega ao
+   * Registra o chat na MESMA pasta do grupo de teste (uma vez, por chat) e
+   * entrega ao
    * `onMessage`, que é o caminho normal. Daí para frente nada é especial: o
    * executor classifica, a guarda inspeciona, e a resposta vai para o destino
    * da revisão em vez do paciente.

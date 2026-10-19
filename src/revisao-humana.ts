@@ -93,8 +93,33 @@ const OBSERVACAO = new Set(
     .filter(Boolean),
 );
 
-export function emObservacao(groupFolder?: string): boolean {
-  return !!groupFolder && OBSERVACAO.has(groupFolder);
+/** Um chat de GRUPO. DM é o que não é. */
+function ehGrupo(chatJid?: string): boolean {
+  return !!chatJid && chatJid.endsWith('@g.us');
+}
+
+/**
+ * Observação vale por CHAT, não pela pasta inteira.
+ *
+ * Primeira versão era por pasta, e isso forçava uma pasta nova só para as DMs —
+ * que exigiria duplicar `templates.json`, `CLAUDE.md`, o FAQ e os scripts,
+ * porque o container monta SÓ a própria pasta do grupo (`container-runner.ts`) e
+ * um symlink para a pasta vizinha fica pendurado lá dentro. Duas tabelas
+ * divergindo é o defeito que mais custou neste projeto.
+ *
+ * Com a trava por chat, as DMs de paciente moram na MESMA pasta do grupo de
+ * teste: tabela única, CLAUDE.md único, scripts únicos. A memória de conversa já
+ * é por `chatJid`, então as conversas não se misturam.
+ *
+ * ⚠️ E o chat do GRUPO continua respondendo normalmente — é o que a suíte
+ * precisa. Pôr a pasta inteira em observação calaria a passada.
+ */
+export function emObservacao(groupFolder?: string, chatJid?: string): boolean {
+  if (!groupFolder || !OBSERVACAO.has(groupFolder)) return false;
+  // Sem chat, a pergunta é "esta pasta tem observação ligada?" — usada pela
+  // validação de configuração no startup.
+  if (chatJid === undefined) return true;
+  return !ehGrupo(chatJid);
 }
 
 /**
@@ -282,17 +307,19 @@ export function aprova(
   folder: string,
   codigo: string,
 ): RespostaPendente | undefined {
-  // ⚠️ A TRAVA. Em observação nada sai ao paciente, nem com `ok CODIGO`.
-  if (emObservacao(folder)) {
-    logger.warn(
-      { folder, codigo },
-      'revisão: aprovação RECUSADA, pasta em modo observação',
-    );
-    return undefined;
-  }
   const itens = lePendentes(folder);
   const p = itens.find((x) => x.codigo.toUpperCase() === codigo.toUpperCase());
   if (!p) return undefined;
+  // ⚠️ A TRAVA. Em observação nada sai ao paciente, nem com `ok CODIGO`.
+  // Decide pelo CHAT da pendência: na mesma pasta, o grupo de teste responde e
+  // a DM de paciente não.
+  if (emObservacao(folder, p.chatJid)) {
+    logger.warn(
+      { folder, codigo, chatJid: p.chatJid },
+      'revisão: aprovação RECUSADA, chat em modo observação',
+    );
+    return undefined;
+  }
   if (p.enviando) {
     // Já aprovada e em voo: não manda duas vezes.
     return undefined;
@@ -366,15 +393,16 @@ export async function tickRevisaoSla(
 ): Promise<void> {
   const alvo = destino();
   for (const folder of FOLDERS) {
-    // Em observação a fila é só registro para leitura humana: ninguém vai
-    // aprovar, então cobrar e alarmar seria ruído em cada conversa da semana.
-    if (emObservacao(folder)) continue;
     const itens = lePendentes(folder);
     if (itens.length === 0) continue;
     let mudou = false;
     const cobrados: string[] = [];
     const alarmados: string[] = [];
     for (const p of itens) {
+      // Em observação a pendência é só registro para leitura humana: ninguém vai
+      // aprovar, então cobrar e alarmar seria ruído em cada conversa da semana.
+      // Por CHAT: a pendência do grupo de teste continua sendo cobrada.
+      if (emObservacao(folder, p.chatJid)) continue;
       // `proximoDegrau` lê `quando`, `cobrado`, `alarmado` e `urgente`. Uma
       // resposta com a marcação já feita é urgente: esquecer dela deixa alguém
       // com consulta na agenda e sem saber.
