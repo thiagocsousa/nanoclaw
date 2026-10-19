@@ -654,7 +654,7 @@
     },
     "aceita_horario": {
       "bloco": "F12",
-      "quando": "aceita o horário que acabou de ser oferecido: 'pode ser', 'isso mesmo', 'confirma', 'tá bom', 'perfeito'. SÓ quando houve uma oferta de horário na conversa — sem oferta, um 'pode ser' solto não é aceite de nada",
+      "quando": "aceita o horário que acabou de ser oferecido: 'pode ser', 'isso mesmo', 'confirma', 'tá bom', 'perfeito'.\n\n⚠️ ESCOLHER entre as duas opções também é aceite, e é o caso mais comum: 'a primeira', 'a segunda', 'o das 18h', 'as 17:40', 'quinta fica melhor', 'prefiro a de quarta'. A frase não precisa repetir dia e hora — o host sabe o que ofereceu e resolve qual é.\n\nSaiu na passada 17, no E08: depois de 'Só para confirmar: 17:40 ou às 18:00?' o paciente respondeu 'a primeira' e a pergunta voltou igual, em laço, porque este gatilho só listava aceites genéricos.\n\nSÓ quando houve uma oferta de horário na conversa — sem oferta, um 'pode ser' solto não é aceite de nada.",
       "acao": "marcar",
       "fecho": false,
       "motivo_escalada": "aceitou o horário mas a marcação não saiu (ver motivo); confira a agenda e responda ao paciente",

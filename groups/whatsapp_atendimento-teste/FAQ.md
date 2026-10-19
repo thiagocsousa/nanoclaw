@@ -517,6 +517,23 @@ texto de exame não serve para os dois: pela Unimed o exame **não** sai e a con
 pelo IASPI o exame **sai** e a consulta não. O host troca a intenção (`comPlanoParcial`,
 em `executor.ts`) para que cada um ouça a sua verdade.
 
+### Quem NÃO tem desconto: quem não tem plano
+
+O desconto da consulta existe para quem **paga um plano** que a clínica não atende para
+consulta. Particular paga cheio.
+
+⚠️ **E as formas de dizer "não tenho plano" são muitas.** Saiu na passada 17, no C01: o
+paciente escreveu *"Carlos, Teresina, particular, nao tenho plano"*, o modelo gravou
+`convenio: "não tenho plano"`, e a lista curta (`particular|sem plano|nenhum`) não casava.
+Virou "plano não aceito" e a Lara ofereceu R$ 300,00 a quem paga R$ 430,00 — com o texto
+do desconto, que abre dizendo *"esse convênio não é atendido"* a quem acabou de dizer que
+não tem convênio.
+
+A lista está em `RX_SEM_PLANO`, em `vagas.ts`, e é uma só de propósito: quem decide
+dinheiro é `temDescontoDeConsulta`, e uma segunda lista em outro lugar seria o começo de
+duas respostas de preço para o mesmo paciente. Travada com o par: nenhuma das formas de
+"não tenho" dá desconto, e plano de verdade continua dando.
+
 ### Consulta: só particular e Unimed
 
 > Para consulta a gente atende particular e Unimed.

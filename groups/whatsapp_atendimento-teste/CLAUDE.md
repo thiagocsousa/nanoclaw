@@ -175,6 +175,16 @@ Abaixo, só o que não cabe num campo `quando`:
     plano no slot `convenio`. Quem troca para o texto do plano é o host, porque
     pela Unimed o exame não sai e por esses sai — o inverso. Você rotula o que
     ele perguntou; a escolha do texto não é sua.
+- **Responder "qual fica melhor?" é `aceita_horario`.** Depois de a Lara
+  oferecer dois horários — ou perguntar *"Só para confirmar: 17:40 ou às
+  18:00?"* — a resposta do paciente é aceite, mesmo sem repetir dia e hora:
+  "a primeira", "a segunda", "o das 18h", "as 17:40", "quarta fica melhor".
+  O host sabe o que ofereceu e resolve qual é (`vagaEscolhida`, em `vagas.ts`).
+
+  Saiu na passada 17, no E08: "a primeira" não era reconhecido como aceite e a
+  pergunta voltava igual, em laço — o paciente escolheu e a Lara perguntou de
+  novo a mesma coisa.
+
 - **`paciente_confirmado` e `paciente_outro` só existem logo depois de uma
   pergunta específica.** Quando a última coisa que a Lara disse foi *"É para
   você, Fulano, ou para outra pessoa?"*, a resposta do paciente é uma das duas:

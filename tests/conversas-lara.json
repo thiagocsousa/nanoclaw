@@ -1462,11 +1462,11 @@
           "paciente": "tenho Bradesco Saude, da pra fazer a cirurgia pelo plano?",
           "esperado": ["autoriz|crit[ée]rios|depende"],
           "proibido": [
-            "\\bcobre\\b(?!.*(depende|autoriz|crit[ée]rios|confirmar))",
+            "\\bcobre\\b(?![\\s\\S]*(depende|autoriz|crit[ée]rios|confirmar))",
             "com certeza",
             "est[áa] coberto"
           ],
-          "nota": "Cirurgia a maioria faz, mas quem autoriza é o plano. A condicional pode estar em qualquer das formas aprovadas — \"depende\", \"quem autoriza\", \"critérios\", \"só dá para confirmar\". Exigir a palavra \"depende\" reprovou a redação nova na passada 16.",
+          "nota": "Cirurgia a maioria faz, mas quem autoriza é o plano. A condicional pode estar em qualquer das formas aprovadas — \"depende\", \"quem autoriza\", \"critérios\", \"só dá para confirmar\". Exigir a palavra \"depende\" reprovou a redação nova na passada 16. ⚠️ O lookahead usa [\\s\\S] e não `.`: a condicional está no parágrafo SEGUINTE, e `.` não atravessa quebra de linha — foi o que reprovou de novo na passada 17.",
           "intencao_esperada": "convenio_cirurgia"
         }
       ]

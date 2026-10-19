@@ -56,6 +56,46 @@ describe('uma só definição de intenção cirúrgica (Codex, 17/10/2026)', () 
     }
   });
 
+  // ⚠️ "Não tenho plano" custou R$ 130 na passada 17 (C01). O paciente escreveu
+  // "Carlos, Teresina, particular, nao tenho plano", o modelo gravou `convenio:
+  // "não tenho plano"`, e a lista curta — `particular|sem plano|nenhum` — não
+  // casava. Virou "plano não aceito", e a Lara ofereceu R$ 300,00 a quem paga
+  // R$ 430,00, com um texto que abre dizendo "esse convênio não é atendido" a
+  // quem acabou de dizer que não tem convênio.
+  it.each([
+    'particular',
+    'Particular',
+    'não tenho plano',
+    'nao tenho plano',
+    'particular, nao tenho plano',
+    'não tenho convênio',
+    'nao possuo plano',
+    'sem plano',
+    'sem convênio',
+    'sem seguro',
+    'nenhum',
+    'privado',
+    'pago do meu bolso',
+    'por fora',
+  ])('"%s" NÃO dá desconto, mesmo querendo operar', (convenio) => {
+    expect(
+      temDescontoDeConsulta('quero parar de usar óculos', convenio),
+      convenio,
+    ).toBe(false);
+  });
+
+  // ⚠️ E o par que segura a regra: plano de verdade continua dando desconto.
+  // Afrouxar a lista até ninguém receber é tão errado quanto a lista curta.
+  it.each(['Bradesco Saúde', 'Amil', 'SulAmérica', 'Hapvida', 'IASPI'])(
+    '"%s" continua dando desconto',
+    (convenio) => {
+      expect(
+        temDescontoDeConsulta('quero parar de usar óculos', convenio),
+        convenio,
+      ).toBe(true);
+    },
+  );
+
   it('rotina continua sem desconto e sem perfil cirúrgico', () => {
     expect(temDescontoDeConsulta('consulta de rotina', 'Bradesco')).toBe(false);
     expect(perfilDe('consulta de rotina', 'Bradesco')).not.toContain(

@@ -149,6 +149,16 @@ function ehCirurgico(n: string): boolean {
  * regra de duas condições é exatamente a aposta que esta arquitetura existe
  * para não fazer.
  */
+/**
+ * As formas de dizer "não tenho plano", no slot `convenio`.
+ *
+ * Uma definição só: `temDescontoDeConsulta` é quem decide dinheiro, e uma
+ * segunda lista em outro lugar seria o começo de duas respostas de preço para o
+ * mesmo paciente.
+ */
+const RX_SEM_PLANO =
+  /particular|privad|sem\s+(?:plano|conv[êe]nio|seguro)|nenhum|n[ãa]o\s+(?:tenho|possuo|uso)\b|pago\s+(?:do\s+)?(?:meu\s+)?bolso|por\s+fora/i;
+
 export function temDescontoDeConsulta(
   necessidade?: string,
   convenio?: string,
@@ -157,7 +167,15 @@ export function temDescontoDeConsulta(
   if (!ehCirurgico(necessidade.toLowerCase())) return false;
   const c = convenio.toLowerCase().trim();
   // Sem plano nenhum não há desconto: particular paga a consulta cheia.
-  if (!c || /particular|sem\s+(plano|conv[êe]nio)|nenhum/.test(c)) return false;
+  //
+  // ⚠️ As formas de dizer "não tenho plano" são muitas, e a lista curta custou
+  // dinheiro. Saiu na passada 17, no C01: o paciente escreveu "Carlos,
+  // Teresina, particular, nao tenho plano", o modelo gravou `convenio: "não
+  // tenho plano"`, e isso não casava `sem plano` nem `nenhum` — então virou
+  // "plano não aceito" e a Lara ofereceu R$ 300,00 a quem paga R$ 430,00. Pior
+  // ainda, com o texto do desconto, que abre dizendo "esse convênio não é
+  // atendido" a quem acabou de dizer que não tem convênio.
+  if (!c || RX_SEM_PLANO.test(c)) return false;
   // Unimed a clínica atende; qualquer outro plano é "não aceito".
   //
   // Isso INCLUI os bloqueados (Intermed, Hapvida, Humana), que o
