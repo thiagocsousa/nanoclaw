@@ -272,9 +272,13 @@ describe('duas vagas no MESMO dia não repetem o dia (Thiago, 19/10/2026)', () =
       oferta: {
         acao: 'responder' as const,
         slots_obrigatorios: ['dia', 'hora'],
-        textos: ['Tenho {dia} às {hora}.'],
-        textos_dois: ['Tenho {dia} às {hora}, ou {dia_b} às {hora_b}.'],
-        textos_dois_mesmo_dia: ['Tenho {dia} às {hora} ou às {hora_b}.'],
+        textos: ['Tenho {dia}, dia {data}, às {hora}.'],
+        textos_dois: [
+          'Tenho {dia}, dia {data}, às {hora}, ou {dia_b}, dia {data_b}, às {hora_b}.',
+        ],
+        textos_dois_mesmo_dia: [
+          'Tenho {dia}, dia {data}, às {hora} ou às {hora_b}.',
+        ],
       },
     },
   };
@@ -284,27 +288,88 @@ describe('duas vagas no MESMO dia não repetem o dia (Thiago, 19/10/2026)', () =
       confianca: 1,
       slots: {
         dia: 'quarta',
+        data: '21/10',
         hora: '17:40',
         dia_b: 'quarta',
+        data_b: '21/10',
         hora_b: '18:00',
       },
     });
-    expect(r.texto).toBe('Tenho quarta às 17:40 ou às 18:00.');
+    expect(r.texto).toBe('Tenho quarta, dia 21/10, às 17:40 ou às 18:00.');
   });
 
   it('dias diferentes usam o texto com os dois dias', () => {
     const r = renderiza(tabela, 'oferta', {
       confianca: 1,
-      slots: { dia: 'quarta', hora: '17:40', dia_b: 'sexta', hora_b: '09:00' },
+      slots: {
+        dia: 'quarta',
+        data: '21/10',
+        hora: '17:40',
+        dia_b: 'sexta',
+        data_b: '23/10',
+        hora_b: '09:00',
+      },
     });
-    expect(r.texto).toBe('Tenho quarta às 17:40, ou sexta às 09:00.');
+    expect(r.texto).toBe(
+      'Tenho quarta, dia 21/10, às 17:40, ou sexta, dia 23/10, às 09:00.',
+    );
+  });
+
+  // ⚠️ DUAS QUARTAS DE SEMANAS DIFERENTES. Achado pelo review de reuso em
+  // 19/10/2026, e é a quarta vez nesta sessão que um teste meu passou por
+  // fixture incompleto: eu tinha escrito os dois casos acima SEM `data`, que a
+  // produção sempre manda (`slotsDasVagas`, em vagas.ts). Sem `data` no slot, a
+  // comparação por nome do dia parecia certa.
+  //
+  // O custo era real: `textos_dois_mesmo_dia` não cita `{data_b}` — é a razão de
+  // ele existir. Então a segunda vaga saía com a data da PRIMEIRA, e o paciente
+  // marcava uma semana antes do horário que ele escolheu. Em `qual_horario` é
+  // pior ainda: a confirmação mostra a data errada e o `vagaEscolhida` casa a
+  // resposta pela HORA, então a marcação sai na semana que o paciente não viu.
+  it('duas quartas de semanas diferentes NÃO são o mesmo dia', () => {
+    const r = renderiza(tabela, 'oferta', {
+      confianca: 1,
+      slots: {
+        dia: 'quarta',
+        data: '21/10',
+        hora: '09:00',
+        dia_b: 'quarta',
+        data_b: '28/10',
+        hora_b: '10:00',
+      },
+    });
+    expect(r.texto).toContain('28/10');
+    expect(r.texto).toBe(
+      'Tenho quarta, dia 21/10, às 09:00, ou quarta, dia 28/10, às 10:00.',
+    );
+  });
+
+  // Sem `data` nenhuma, decide pelo nome do dia: é o único dado que existe, e
+  // é o que os textos vão citar.
+  it('sem data nos slots, cai na comparação pelo nome do dia', () => {
+    const semData = {
+      intencoes: {
+        oferta: {
+          acao: 'responder' as const,
+          slots_obrigatorios: ['dia', 'hora'],
+          textos: ['Tenho {dia} às {hora}.'],
+          textos_dois: ['Tenho {dia} às {hora}, ou {dia_b} às {hora_b}.'],
+          textos_dois_mesmo_dia: ['Tenho {dia} às {hora} ou às {hora_b}.'],
+        },
+      },
+    };
+    const r = renderiza(semData, 'oferta', {
+      confianca: 1,
+      slots: { dia: 'quarta', hora: '17:40', dia_b: 'quarta', hora_b: '18:00' },
+    });
+    expect(r.texto).toBe('Tenho quarta às 17:40 ou às 18:00.');
   });
 
   it('uma vaga só continua no texto de uma', () => {
     const r = renderiza(tabela, 'oferta', {
       confianca: 1,
-      slots: { dia: 'quarta', hora: '17:40' },
+      slots: { dia: 'quarta', data: '21/10', hora: '17:40' },
     });
-    expect(r.texto).toBe('Tenho quarta às 17:40.');
+    expect(r.texto).toBe('Tenho quarta, dia 21/10, às 17:40.');
   });
 });

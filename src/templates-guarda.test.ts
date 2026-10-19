@@ -168,10 +168,9 @@ describe('a tabela de templates passa pela guarda', () => {
   // e a exceção é da FRASE, não da intenção: isentando a intenção inteira,
   // qualquer variação passaria lá dentro.
   it('a frase aprovada passa', () => {
-    const r = inspecionaSaida(
-      'Quer que eu veja os horários disponíveis para você?',
-      { intencao: 'convite_horario' },
-    );
+    const r = inspecionaSaida(TABELA.intencoes.convite_horario.textos![0], {
+      intencao: 'convite_horario',
+    });
     expect(r.achados.map((a) => a.regra)).not.toContain('frase_proibida');
   });
 

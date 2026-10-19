@@ -51,17 +51,29 @@ const FOLDERS = new Set(
  * depois de eu apontar que a janela de consultório da QUARTA vai até 18:30 e a
  * Lara calava às 18h — a clínica aberta e ela muda.
  */
-function emMinutos(valor: string, padrao: number): number {
+function emMinutos(valor: string): number | undefined {
   const m = /^(\d{1,2})(?:[:h](\d{2}))?$/.exec(valor.trim());
-  if (!m) return padrao;
+  if (!m) return undefined;
   const h = Number(m[1]);
   const min = m[2] ? Number(m[2]) : 0;
-  if (h > 23 || min > 59) return padrao;
+  if (h > 23 || min > 59) return undefined;
   return h * 60 + min;
 }
 
-const INICIO = emMinutos(env('EXPEDIENTE_INICIO', '7:30'), 7 * 60 + 30);
-const FIM = emMinutos(env('EXPEDIENTE_FIM', '18:30'), 18 * 60 + 30);
+/**
+ * Cada limite escrito UMA vez.
+ *
+ * Antes cada um aparecia duas vezes e em duas codificações — `'7:30'` para o env
+ * ausente e `7 * 60 + 30` para o env malformado. Mudar o horário pedia quatro
+ * edições, e meia edição era silenciosa: o ramo da aritmética só roda com `.env`
+ * inválido, que nenhum teste do caminho normal exercita.
+ */
+function minutosDe(chave: string, padrao: string): number {
+  return emMinutos(env(chave, padrao)) ?? emMinutos(padrao)!;
+}
+
+const INICIO = minutosDe('EXPEDIENTE_INICIO', '7:30');
+const FIM = minutosDe('EXPEDIENTE_FIM', '18:30');
 /** Teresina. Sem horário de verão desde 2019, mas o IANA cuida disso. */
 const TZ = env('EXPEDIENTE_TZ', 'America/Fortaleza');
 

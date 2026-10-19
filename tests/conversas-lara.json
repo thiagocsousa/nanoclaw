@@ -7,7 +7,7 @@
     "script": "\\w+\\.py\\b",
     "sistema": "cadastrad[oa]|no nosso sistema|na nossa base",
     "protocolo": "Prezad[oa]|Informamos que|estamos [àa] disposi[çc][ãa]o",
-    "permissao": "quer que eu (?!veja os hor[áa]rios dispon[íi]veis para voc[êe]\\?)(veja|confira|busque)[^.!?]{0,30}\\?|posso (verificar|conferir|checar)[^.!?]{0,30}\\?",
+    "permissao": "quer que eu (?!veja os hor[áa]rios dispon[íi]veis para voc[êe]\\?)(veja|confira|busque|procure)[^!?\\n]{0,30}\\?|posso (verificar|conferir|checar)[^!?\\n]{0,30}\\?",
     "varejo": "me conta\\b",
     "confirmou_agendamento": "est[áa] (marcad|agendad|confirmad|reservad)|j[áa] (marquei|agendei|confirmei|reservei)",
     "empurra_trabalho": "como posso (te )?ajudar|o que posso fazer por voc|em que posso (te )?ajudar",
@@ -18,15 +18,15 @@
     "telefone": "(?<!\\d)\\(?\\d{2}\\)? ?\\d{4,5}[- ]?\\d{4}(?!\\d)",
     "anuncia_bot": "atendimento autom[áa]ti(co|zado)|intelig[êe]ncia artificial|chatbot|sou (um )?(rob[ôo]|bot|IA)\\b",
     "finge_humana": "sou (uma )?(pessoa|humana|gente)|n[ãa]o sou (um )?rob[ôo]|sou da recep[çc][ãa]o",
-    "completude_exames": "(s[ãa]o|[ée]) (apenas |s[óo] )?dois exames|exames[^.!?]{0,40}(s[ãa]o|[ée]) (apenas |s[óo] )?dois",
+    "completude_exames": "(s[ãa]o|[ée]) (apenas |s[óo] )?dois exames|exames[^!?\\n]{0,40}(s[ãa]o|[ée]) (apenas |s[óo] )?dois",
     "escolhe_hospital": "(vai ser|ser[áa]|normalmente [ée]|geralmente [ée]) no (Vilar|Hospital do Olho|Namir|T[ée]rcio|COE)",
     "recita_orientacao": "\\b(8|6|2) horas antes|aguarde 5 minutos|dormir do lado operado",
-    "valor_pentacam": "[Pp]entacam[^.!?]{0,40}R\\$|R\\$[^.!?]{0,40}[Pp]entacam",
+    "valor_pentacam": "[Pp]entacam[^!?\\n]{0,40}R\\$|R\\$[^!?\\n]{0,40}[Pp]entacam",
     "duas_justificativas": "desejam realizar a cirurgia|e desejam operar",
     "imperativo_seco": "\\bme (passa|manda|envia)\\b|preciso que (voc[êe] )?(envie|mande|passe)",
-    "recita_grade": "[Ss]egunda,? de manh[ãa][^.!?]{0,40}[Qq]uarta[^.!?]{0,20}tarde",
+    "recita_grade": "[Ss]egunda,? de manh[ãa][^!?\\n]{0,40}[Qq]uarta[^!?\\n]{0,20}tarde",
     "pede_dado_repetido": "@pede_dado_repetido",
-    "lista_hospitais": "(Vilar|Hospital do Olho|Namir|T[ée]rcio|COE)[^.!?]{0,80}(Vilar|Hospital do Olho|Namir|T[ée]rcio|COE)"
+    "lista_hospitais": "(Vilar|Hospital do Olho|Namir|T[ée]rcio|COE)[^!?\\n]{0,80}(Vilar|Hospital do Olho|Namir|T[ée]rcio|COE)"
   },
   "cenarios": [
     {

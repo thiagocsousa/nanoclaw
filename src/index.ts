@@ -284,7 +284,9 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
 
   if (missedMessages.length === 0) return true;
 
-  // Expediente: 8h às 18h, segunda a sexta (regra do Thiago, 17/10/2026).
+  // Expediente: 7h30 às 18h30, segunda a sexta (Thiago, 17 e 19/10/2026).
+  // A janela de verdade está em `expediente.ts`, e é configurável por env;
+  // este comentário já ficou um dia desatualizado por ser uma quarta cópia.
   //
   // Fora disso a Lara fica CALADA, porque quem responde é a mensagem de
   // ausência do WhatsApp Business, que é nativa. Duas respostas automáticas

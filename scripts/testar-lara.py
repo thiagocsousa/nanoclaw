@@ -153,9 +153,19 @@ def injeta(texto, chat=None, sender=None):
     return ts
 
 
-def espera_resposta(desde):
-    """Coleta as mensagens da Lara posteriores a `desde`. Lista vazia = silêncio."""
-    limite = time.time() + TIMEOUT_TURNO
+TIMEOUT_SILENCIO = 45
+
+
+def espera_resposta(desde, limite_s=None):
+    """Coleta as mensagens da Lara posteriores a `desde`. Lista vazia = silêncio.
+
+    `limite_s` existe para o turno de `silencio: true`, onde a ausência é o
+    comportamento certo: confirmar que não veio nada não precisa do pior caso,
+    só de tempo suficiente para uma resposta plausível chegar. Com o timeout
+    cheio, cada turno silencioso queimava 240s em 120 consultas vazias — os 5
+    turnos de silêncio custavam ~20min numa passada que o estimador orçava em 3.
+    """
+    limite = time.time() + (TIMEOUT_TURNO if limite_s is None else limite_s)
     achou_em = None
     while time.time() < limite:
         with conn() as c:
@@ -433,8 +443,14 @@ def roda_cenario(cen, globais):
         injeta(texto)
         # Com revisão ligada, a resposta espera aprovação antes de ir ao
         # paciente. O harness aprova, senão todo cenário daria timeout.
-        aprovados = espera_e_aprova(marco)
-        partes = espera_resposta(marco)
+        #
+        # No turno de `silencio: true` nada pode entrar na fila — não há resposta
+        # para aprovar — então a espera da fila é pura perda de relógio.
+        calado = bool(turno.get("silencio"))
+        aprovados = [] if calado else espera_e_aprova(marco)
+        partes = espera_resposta(
+            marco, TIMEOUT_SILENCIO if calado else None
+        )
         resposta = "\n".join(partes)
         bloqueios = avisos_da_guarda(marco)
 
@@ -446,7 +462,7 @@ def roda_cenario(cen, globais):
         # escala sem dizer nada, porque "Só um instante." ali soa a confissão.
         # Sem isto, o cenário certo apareceria como "SEM RESPOSTA", que é falha
         # dura — e o único jeito de passar seria a Lara responder.
-        if turno.get("silencio"):
+        if calado:
             if partes:
                 duras.append("RESPONDEU onde devia calar: %r"
                              % resposta.replace("\n", " / ")[:60])
@@ -585,7 +601,14 @@ def main():
         RAIZ / "tests" / ("relatorio-lara-%s.md" % datetime.now().strftime("%Y%m%d-%H%M")))
 
     turnos = sum(len(c["turnos"]) for c in cenarios)
-    estimado = (turnos * 35 + len(cenarios) * args.pausa) / 60
+    calados = sum(
+        1 for c in cenarios for t in c.get("turnos", []) if t.get("silencio")
+    )
+    estimado = (
+        (turnos - calados) * 35
+        + calados * TIMEOUT_SILENCIO
+        + len(cenarios) * args.pausa
+    ) / 60
     print("rodando %d cenários (%d turnos), pausa de %ds entre cenários"
           % (len(cenarios), turnos, args.pausa), flush=True)
     print("estimativa: ~%d min" % estimado, flush=True)

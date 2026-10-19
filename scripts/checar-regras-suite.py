@@ -34,7 +34,12 @@ with open(
     os.path.join(RAIZ, "groups", "whatsapp_atendimento-teste", "templates.json"),
     encoding="utf-8",
 ) as f:
-    ABERTURA = json.load(f)["intencoes"]["abertura"]["textos"][0]
+    _I = json.load(f)["intencoes"]
+ABERTURA = _I["abertura"]["textos"][0]
+# Lido da tabela, nunca transcrito: com um literal aqui, o caso provaria que a
+# regra libera "uma frase que eu digitei em 19/10", e não a frase que o paciente
+# recebe. Edite o template e a checagem segue verde sobre texto que saiu de uso.
+CONVITE = _I["convite_horario"]["textos"][0]
 
 # (regra, descrição, resposta, mensagem atual, mensagens anteriores, deve_bater)
 CASOS = [
@@ -82,8 +87,7 @@ CASOS = [
     # A razão da regra está na própria regra: "se você JÁ TEM o que precisa para
     # consultar, consulte e mande o resultado". No convite leve a Lara não tem —
     # quem só perguntou preço não deu nome nem nascimento nem cidade.
-    ("permissao", "o convite leve aprovado",
-     "Quer que eu veja os horários disponíveis para você?", "quanto custa?",
+    ("permissao", "o convite leve aprovado", CONVITE, "quanto custa?",
      [], False),
     # ⚠️ Qualquer OUTRA variação continua pega. Sem estes três, a exceção viraria
     # licença para pedir permissão em qualquer lugar.
@@ -93,6 +97,8 @@ CASOS = [
      "Posso verificar os horários para você?", "quanto custa?", [], True),
     ("permissao", "variação: 'quer que eu confira'",
      "Quer que eu confira a agenda?", "quanto custa?", [], True),
+    ("permissao", "variação: 'quer que eu procure'",
+     "Quer que eu procure um horário para você?", "quanto custa?", [], True),
 ]
 
 

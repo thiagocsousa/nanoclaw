@@ -259,6 +259,44 @@ function comEnquadramentoRefrativo(
 }
 
 /**
+ * As trocas de intenção que o host faz antes de renderizar, NA ORDEM.
+ *
+ * As três têm a mesma assinatura e compõem num só ponto. Estavam aninhadas, o
+ * que lia ao contrário da ordem de execução e ganhava um nível por troca nova.
+ * Como lista, a ordem é o que se lê, e a quarta é uma linha.
+ *
+ * ⚠️ Funciona porque os conjuntos de entrada são DISJUNTOS: `comDesconto` olha
+ * `preco_consulta`/`convenio_nao_atendido`, `comPlanoParcial` olha
+ * `exames_convenio`/`exames_preco`, `comEnquadramentoRefrativo` olha
+ * `preco_cirurgia`. Uma troca nova que pegue a saída de outra passa a depender
+ * da posição aqui.
+ *
+ * `comOfertaDeHorario` e `comValorDaAvaliacao` NÃO entram: o primeiro roda antes
+ * do bloco da agenda, e o segundo devolve slots, não intenção.
+ */
+const TROCAS = [comDesconto, comPlanoParcial, comEnquadramentoRefrativo];
+
+/**
+ * Planos parciais e a intenção que responde cada um.
+ *
+ * Os cinco nomes, e qual texto cada um recebe, são UM fato — antes eram dois
+ * regexes complementares (a pertinência com os cinco nomes, e o desempate
+ * `/IPMT|PLANTE/` escrito como positivo), então o ramo do IASPI significava "um
+ * dos nomes que listei acima e não repeti aqui". Acrescentar um sexto plano ao
+ * primeiro regex o mandava calado para `convenio_iaspi`.
+ *
+ * ⚠️ A guarda tem a própria noção disso (`RX_PLANO_PARCIAL_TEXTO`, em
+ * `output-guard.ts`), porque lá o que casa é o TEXTO que sai, não o slot
+ * `convenio`. São jobs diferentes de propósito; o que elas não podem é discordar
+ * sobre QUAIS planos são parciais. Mexendo aqui, olhe lá.
+ */
+const PLANOS_PARCIAIS: Array<[RegExp, string]> = [
+  // IPMT primeiro: um texto com os dois nomes cai em IPMT, como antes.
+  [/\b(?:IPMT|PLANTE)\b/i, 'convenio_ipmt'],
+  [/\b(?:IASPI|IAPEP|PLAMTA)\b/i, 'convenio_iaspi'],
+];
+
+/**
  * Pergunta de EXAME por IASPI/IAPEP/IPMT: responde com o texto do plano.
  *
  * `exames_convenio` fala da Unimed — "os exames não saem pelo convênio" — que
@@ -284,8 +322,8 @@ function comPlanoParcial(
     return intencao;
   }
   const conv = slots.convenio ?? '';
-  if (!RX_PLANO_PARCIAL.test(conv)) return intencao;
-  const alvo = /IPMT|PLANTE/i.test(conv) ? 'convenio_ipmt' : 'convenio_iaspi';
+  const alvo = PLANOS_PARCIAIS.find(([rx]) => rx.test(conv))?.[1];
+  if (!alvo) return intencao;
   return tabela.intencoes[alvo] ? alvo : intencao;
 }
 
@@ -297,9 +335,6 @@ function comPlanoParcial(
  * o formato da córnea e a medida sai errada; é o único número clínico que a
  * Lara pode dizer, por exceção aprovada no mesmo dia.
  */
-/** IASPI, IAPEP e IPMT: planos em que o exame não é avulso. */
-const RX_PLANO_PARCIAL = /\b(IASPI|IAPEP|IPMT|PLAMTA|PLANTE)\b/i;
-
 const DIAS_SEM_LENTE = 3;
 
 /**
@@ -606,17 +641,17 @@ export async function executa(
   // E o motivo clínico, do Thiago em 19/10/2026, que vale mesmo se um dia a
   // Lara passar a agendar retorno: **quem volta de cirurgia refrativa não usa
   // mais lente**. A pergunta não é só inoportuna ali, é sem sentido.
-  const perfilParaLente = perfilDe(
-    comLembrados(groupFolder, chatJid, c.slots).necessidade,
-    comLembrados(groupFolder, chatJid, c.slots).convenio,
-  );
+  // Uma leitura para as três perguntas: `comLembrados` vai ao disco
+  // (`slots_conversa.json`), e não há escrita entre elas — as três devolviam o
+  // mesmo objeto por três leituras. Reler é certo DEPOIS de um `lembraSlots`,
+  // que é o motivo de os outros pontos da função relerem; aqui não é o caso.
+  const paraLente = comLembrados(groupFolder, chatJid, c.slots);
+  const perfilParaLente = perfilDe(paraLente.necessidade, paraLente.convenio);
   if (
     exigeHorario &&
     !!perfilParaLente &&
     !soHumano(perfilParaLente) &&
-    VOCABULARIO_REFRATIVO.test(
-      comLembrados(groupFolder, chatJid, c.slots).necessidade ?? '',
-    ) &&
+    VOCABULARIO_REFRATIVO.test(paraLente.necessidade ?? '') &&
     !lenteLembrada(groupFolder, chatJid) &&
     tabela.intencoes.pergunta_lente
   ) {
@@ -877,15 +912,7 @@ export async function executa(
   const lembrados = comLembrados(groupFolder, chatJid, slots);
   const intencaoFinal = intencaoDaAgenda
     ? intencaoDaAgenda
-    : comEnquadramentoRefrativo(
-        comPlanoParcial(
-          comDesconto(c.intencao, lembrados, tabela),
-          lembrados,
-          tabela,
-        ),
-        lembrados,
-        tabela,
-      );
+    : TROCAS.reduce((i, troca) => troca(i, lembrados, tabela), c.intencao);
   const r = renderiza(tabela, intencaoFinal, {
     confianca: c.confianca,
     slots: comValorDaAvaliacao(intencaoFinal, slots, lembrados, tabela),

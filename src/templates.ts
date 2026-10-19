@@ -314,20 +314,39 @@ export function renderiza(
   // Com `dia_b` preenchido, a agenda devolveu duas vagas e o texto de duas
   // opções é o certo. Sem ele, o de uma. Não é variante de estilo: depende do
   // que a agenda deu.
-  const temSegunda = !!slots.dia_b?.trim() && !!slots.hora_b?.trim();
+  const diaB = slots.dia_b?.trim();
+  const temSegunda = !!diaB && !!slots.hora_b?.trim();
+
   // Mesmo dia é o caso COMUM: a agenda esgota as posições de um dia antes de
   // ir para o próximo.
-  const mesmoDia = temSegunda && slots.dia?.trim() === slots.dia_b?.trim();
-  const duas =
-    (mesmoDia && def.textos_dois_mesmo_dia?.length
-      ? def.textos_dois_mesmo_dia
-      : def.textos_dois) ?? [];
+  //
+  // ⚠️ Compara a DATA, não o nome do dia. Duas quartas de semanas diferentes
+  // são dias diferentes, e `textos_dois_mesmo_dia` não cita `{data_b}` — é a
+  // razão de ele existir. Comparando pelo nome, a segunda vaga saía com a data
+  // da primeira e o paciente vinha uma semana antes do horário que escolheu.
+  // Em `qual_horario` é pior: a confirmação mostra a data errada e o
+  // `vagaEscolhida` casa a resposta pela HORA, então a marcação sai na semana
+  // que o paciente nunca viu.
+  //
+  // Achado pelo /simplify de 19/10/2026, por três dos quatro revisores. Meu
+  // teste original passava porque o fixture não tinha `data` — a produção
+  // sempre manda (`slotsDasVagas`, em vagas.ts). Sem data nenhuma, cai no nome
+  // do dia, que aí é o único dado que os textos têm para citar.
+  const data = slots.data?.trim();
+  const dataB = slots.data_b?.trim();
+  const mesmoDia =
+    temSegunda && (data || dataB ? data === dataB : slots.dia?.trim() === diaB);
+
+  // Primeiro não-vazio vence, que é o que o comentário acima descreve em prosa.
+  // `semSlot` com `textos_sem_slot` vazio é impossível: tem saída antecipada
+  // logo acima.
   const opcoes =
-    (semSlot
-      ? def.textos_sem_slot
-      : temSegunda && duas.length
-        ? duas
-        : def.textos) ?? [];
+    [
+      semSlot && def.textos_sem_slot,
+      mesmoDia && def.textos_dois_mesmo_dia,
+      temSegunda && def.textos_dois,
+      def.textos,
+    ].find((a): a is string[] => Array.isArray(a) && a.length > 0) ?? [];
   if (opcoes.length === 0) {
     return {
       texto: '',

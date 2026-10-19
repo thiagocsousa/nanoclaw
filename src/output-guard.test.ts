@@ -770,3 +770,41 @@ describe('abreviação não corta a frase (19/10/2026)', () => {
     expect(r.texto).toContain('Dra. Marina');
   });
 });
+
+describe('plano parcial: os cinco nomes, e o trecho literal (19/10/2026)', () => {
+  // Até o /simplify, esta regra tinha três nomes e a do executor cinco, com o
+  // mesmo nome de constante. PLAMTA e PLANTE passavam limpos.
+  it.each(['IASPI', 'IAPEP', 'IPMT', 'PLAMTA', 'PLANTE'])(
+    '"atende sim" pelo %s, sem dizer da consulta, é marcado',
+    (plano) => {
+      const r = inspecionaSaida(`Atende sim pelo ${plano}.`, {
+        intencao: 'convenio_iaspi',
+      });
+      expect(r.achados.map((a) => a.regra)).toContain('plano_parcial');
+    },
+  );
+
+  // ⚠️ E dizendo da consulta, os cinco passam: alargar a lista não podia
+  // transformar a resposta certa em ressalva.
+  it.each(['IASPI', 'PLAMTA', 'PLANTE'])(
+    '%s com a consulta dita passa',
+    (p) => {
+      const r = inspecionaSaida(
+        `Atende sim pelo ${p}, mas a consulta com a Dra. Marina é particular.`,
+        { intencao: 'convenio_iaspi' },
+      );
+      expect(r.achados.map((a) => a.regra)).not.toContain('plano_parcial');
+    },
+  );
+
+  // O `trecho` vai para o humano que lê a ressalva. Ele tem de ser o recorte da
+  // mensagem que FOI julgada, com o ponto da abreviação no lugar.
+  it('o trecho citado é literal, com o ponto da abreviação', () => {
+    const r = inspecionaSaida('O Pentacam, com a Dra. Marina, custa R$ 500.', {
+      intencao: 'pentacam_cobertura',
+    });
+    const a = r.achados.find((x) => x.regra === 'valor_pentacam');
+    expect(a?.trecho).toContain('Dra. Marina');
+    expect(a?.trecho).not.toContain('Dra Marina');
+  });
+});

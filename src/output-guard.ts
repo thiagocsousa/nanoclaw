@@ -92,11 +92,18 @@ const PRECIFICAVEL =
  *
  * Não é normalização geral de texto — desfaz só o que o PONTO da abreviação faz
  * com a noção de frase.
+ *
+ * ⚠️ O ponto vira ESPAÇO, não desaparece: o comprimento é preservado, então o
+ * índice de um match na cópia vale no texto original, e o `trecho` que vai ao
+ * humano sai literal. A primeira versão removia o caractere, e aí duas das dez
+ * regras citavam "Dra Marina" numa mensagem que dizia "Dra. Marina" — o revisor
+ * lia um recorte de uma string diferente da que foi julgada e enviada. Achado
+ * pelo /simplify de 19/10/2026.
  */
 const RX_ABREVIACAO = /\b(Dra?|Sra?|Av|Exm[ao])\./gi;
 
 function semAbreviacoes(texto: string): string {
-  return texto.replace(RX_ABREVIACAO, '$1');
+  return texto.replace(RX_ABREVIACAO, '$1 ');
 }
 
 /**
@@ -279,8 +286,20 @@ const RX_PEDE_CNPJ =
  * Saiu na suíte em 04/10/2026: "Atende sim, o IASPI cobre cirurgia pelo PLAMTA."
  * Mesmo vício do "inclui o exame completo": compressão que cria expectativa
  * errada sobre dinheiro.
+ *
+ * ⚠️ Casa o TEXTO que sai, não o slot `convenio` — por isso o nome tem o
+ * sufixo. O executor tem a própria noção (`PLANOS_PARCIAIS`), que além de
+ * pertinência decide QUAL intenção responde. Jobs diferentes de propósito; o que
+ * elas não podem é discordar sobre quais planos são parciais.
+ *
+ * E discordavam: até 19/10/2026 esta lista tinha três nomes e a do executor
+ * cinco, com o MESMO nome de constante. PLAMTA e PLANTE — justamente os nomes
+ * do lado cirúrgico — recebiam o texto do plano e não eram vistos por esta
+ * regra, então "atende sim pelo PLANTE" sem dizer da consulta passava limpo.
+ * Os cinco nomes caem na mesma resposta (ver FAQ.md), logo os cinco carregam o
+ * mesmo risco. Achado pelo /simplify, por dois revisores independentes.
  */
-const RX_PLANO_PARCIAL = /\b(?:IASPI|IAPEP|IPMT)\b/i;
+const RX_PLANO_PARCIAL_TEXTO = /\b(?:IASPI|IAPEP|IPMT|PLAMTA|PLANTE)\b/i;
 const RX_ATENDE_SIM =
   /\batende(?:mos)?\s+sim\b|\bsim,?\s+atende(?:mos)?\b|\bcobre\s+(?:sim|tudo)\b/i;
 /**
@@ -577,14 +596,14 @@ export function inspecionaSaida(
   }
 
   // 7. flag: citou valor do Pentacam, que varia por hospital
-  const pent = semAbreviacoes(texto).match(RX_PENTACAM_VALOR);
+  const pent = RX_PENTACAM_VALOR.exec(semAbreviacoes(texto));
   if (pent) {
     achados.push({
       regra: 'valor_pentacam',
       nivel: 'flag',
       motivo:
         'cita valor do Pentacam; muda por hospital (R$ 500 no Hospital do Olho, R$ 600 no Vilar), quem informa é a recepção (F08)',
-      trecho: pent[0].slice(0, 60),
+      trecho: texto.substr(pent.index, pent[0].length).slice(0, 60),
     });
   }
 
@@ -630,7 +649,7 @@ export function inspecionaSaida(
 
   // 9. flag: disse que atende plano que só cobre cirurgia
   if (
-    RX_PLANO_PARCIAL.test(texto) &&
+    RX_PLANO_PARCIAL_TEXTO.test(texto) &&
     RX_ATENDE_SIM.test(texto) &&
     !excluiConsulta(texto)
   ) {
@@ -644,14 +663,14 @@ export function inspecionaSaida(
   }
 
   // 10. flag: afirmou que a lista de exames está completa
-  const compl = semAbreviacoes(texto).match(RX_COMPLETUDE);
+  const compl = RX_COMPLETUDE.exec(semAbreviacoes(texto));
   if (compl) {
     achados.push({
       regra: 'completude_falsa',
       nivel: 'flag',
       motivo:
         'afirma que os exames pré-operatórios são só esses; a Dra. Marina pede outros conforme o caso, parte fora da clínica (F08)',
-      trecho: compl[0],
+      trecho: texto.substr(compl.index, compl[0].length),
     });
   }
 
