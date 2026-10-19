@@ -558,22 +558,20 @@
     },
     "sem_telefone": {
       "bloco": "F00d",
-      "quando": "PERGUNTA qual é o telefone da clínica para TER o contato, sem querer falar por voz: 'qual o número de vocês?', 'tem telefone fixo?'. O atendimento é por mensagem e a Lara NÃO informa número — um número na resposta pode ser de outro paciente. A resposta basta, e ele costuma fechar com um obrigado.\n\n⛔ Pedir o número PARA LIGAR é quer_ligar, e não sem_telefone. O que distingue é a intenção de usar a VOZ, não a forma da frase: 'me passa um número pra eu ligar' e 'prefiro falar por telefone' são quer_ligar, mesmo pedindo o número. Saiu na passada 16, no M04, e a diferença importa porque quer_ligar ESCALA — não há número a dar, e alguém tem de decidir como falar com essa pessoa.\n\nQuem quer o contato pessoal da médica, ou falar com ela ou com alguém específico, é quer_humano.",
+      "quando": "PERGUNTA qual é o telefone da clínica: 'qual o número de vocês?', 'tem telefone?'. O número da Lara no WhatsApp é o MESMO da secretária (Thiago, 19/10/2026), então não há número a passar — ele já está nele, e a resposta é dizer isso.\n\n⛔ A resposta NÃO escreve os dígitos. Ele já tem o número, e número digitado na saída pode ser de outro paciente — é a regra da guarda.\n\nQuem quer o contato pessoal da médica, ou falar com ela ou com alguém específico, é quer_humano.",
       "acao": "responder",
       "fecho": false,
       "textos": [
-        "O atendimento é por aqui mesmo, por mensagem. Pode me escrever o que você precisa, que eu te oriento."
+        "É esse mesmo número que você está usando aqui. Se ligar, vai falar com outra atendente; por mensagem eu te respondo na hora."
       ]
     },
     "quer_ligar": {
       "bloco": "F00d",
-      "quando": "quer falar por VOZ: insiste em ligar, pede o número PARA LIGAR, pede que a clínica ligue para ele, diz que prefere telefone a mensagem, ou volta ao assunto depois de já ouvir que o atendimento é por mensagem. Qualquer frase em que a ligação é o OBJETIVO cai aqui, inclusive quando ela pede o número. A ligação NÃO é impossível — a secretária fica com o celular — mas não é o canal preferido e a Lara não passa número, então a decisão é de quem atende (Thiago, 19/10/2026). sem_telefone é só quem quer o número para ter o contato, sem querer falar.",
-      "acao": "escalar",
-      "urgente": false,
+      "quando": "quer falar por VOZ: insiste em ligar, pede o número para ligar, pede que a clínica ligue para ele, diz que prefere telefone a mensagem.\n\nDEIXOU de escalar em 19/10/2026. A escalada existia para alguém decidir como falar com a pessoa, e a premissa era falsa: o número da Lara é o MESMO da secretária, então ligar é possível e não há nada a decidir. A resposta ficou completa.\n\n⛔ Não escreve os dígitos, e não convida a ligar — a ligação é alternativa, não a preferência da clínica. sem_telefone é quem só pergunta o número.",
+      "acao": "responder",
       "fecho": false,
-      "motivo_escalada": "quer ser atendido por voz. A Lara não passa número, então quem resolve é alguém decidindo como falar com esta pessoa — ligar do celular da secretária, ou convencê-la a escrever.",
       "textos": [
-        "O atendimento é por aqui mesmo, por mensagem.\n\nSó um instante."
+        "É esse mesmo número, pode ligar aqui. Se ligar, vai falar com outra atendente; por mensagem eu já continuo com você agora."
       ]
     },
     "audio_escala": {

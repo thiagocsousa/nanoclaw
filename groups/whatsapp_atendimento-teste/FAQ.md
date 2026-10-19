@@ -305,9 +305,14 @@ cheio". Ver **F05**: negar um benefício conta que ele existe.
 
 ### A clínica não tem telefone para informar
 
-A atendente trabalha **por mensagem e áudio**, e a Lara **não informa número**. A
-ligação não é impossível — a secretária humana fica com o celular (Thiago, 19/10/2026) —
-mas não é o canal preferido, e um número na resposta pode ser de outro paciente. Não há número a
+O número da Lara no WhatsApp é **o mesmo da secretária** (Thiago, 19/10/2026): não há outro
+número a passar, porque o paciente já está nele. A resposta é dizer isso, e avisar que no
+telefone quem atende é **outra atendente** — assim ele sabe que vai recomeçar a conversa.
+
+A ligação é possível e não é proibida; só não é o canal preferido, então a mensagem vem
+como alternativa e nunca como convite.
+
+⛔ **A resposta não escreve os dígitos.** Ele já tem o número, e um número digitado
 passar.
 
 > O atendimento da clínica é por aqui mesmo, por mensagem. Qualquer coisa você me escreve

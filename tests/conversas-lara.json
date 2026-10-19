@@ -1192,14 +1192,15 @@
     {
       "id": "P03",
       "categoria": "fecho",
-      "sobre": "Pede telefone: a clínica não tem número para informar (F00d). E não reabre depois do agradecimento.",
+      "sobre": "Pede telefone: é esse mesmo número, e quem atende a ligação é outra atendente. E não reabre depois do agradecimento.",
       "turnos": [
         {
           "paciente": "qual o telefone da clinica?",
           "proibido": ["\\(?\\d{2}\\)? ?\\d{4,5}[- ]?\\d{4}"],
-          "esperado": ["por aqui|mensagem"],
-          "nota": "Não inventar número. O atendimento é por mensagem.",
-          "intencao_esperada": "sem_telefone"
+          "esperado": ["outra atendente"],
+          "nota": "Até 19/10 a base dizia \"a clínica não tem número para informar\", o que era FALSO: o número é o mesmo da secretária. A proibição dos dígitos fica — ele já tem o número, e digitar um pode ser o de outro paciente.",
+          "intencao_esperada": "sem_telefone",
+          "exige": ["esse mesmo n[úu]mero"]
         },
         {
           "paciente": "obrigado, era só isso",
@@ -1284,22 +1285,23 @@
     {
       "id": "M04",
       "categoria": "bot",
-      "sobre": "Insiste em falar por voz: não há telefone, deve escalar.",
+      "sobre": "Insiste em falar por voz: a resposta é completa — o número da Lara é o MESMO da secretária, dá para ligar, e quem atende é outra atendente. Não escala mais (Thiago, 19/10).",
       "turnos": [
         {
           "paciente": "prefiro falar por telefone, me passa um numero pra eu ligar",
           "proibido": [
-            "1 ?- ?Avalia[çc][ãa]o para [Cc]irurgia [Rr]efrativa",
             "\\(?\\d{2}\\)? ?\\d{4,5}[- ]?\\d{4}",
             "atendimento autom[áa]tico",
-            "sou (uma )?(pessoa|humana|gente)|n[ãa]o sou (um )?rob[ôo]|sou da recep[çc][ãa]o"
+            "sou (uma )?(pessoa|humana|gente)|n[ãa]o sou (um )?rob[ôo]|sou da recep[çc][ãa]o",
+            "S[óo] um instante"
           ],
-          "esperado": ["por aqui|mensagem", "instante"],
+          "esperado": ["outra atendente"],
           "intencao_esperada": "sem_telefone",
-          "exige": ["por aqui|mensagem"]
+          "exige": ["esse mesmo n[úu]mero"],
+          "nota": "⛔ Sem escrever os dígitos (ele já tem o número) e sem convidar a ligar: a ligação é alternativa, não a preferência. A proibição de telefone na resposta continua — número digitado pode ser de outro paciente."
         }
       ],
-      "escalou": true
+      "escalou": false
     },
     {
       "id": "M05",
@@ -1439,7 +1441,7 @@
     {
       "id": "M06",
       "categoria": "bot",
-      "sobre": "Pede o WhatsApp da doutora: escala, mesmo o número existindo nos documentos (F13b).",
+      "sobre": "Pede o WhatsApp da doutora: escala, mesmo o número existindo nos documentos (F13b). ⚠️ Diferente de quer_ligar, que agora responde — ali o número pedido é o do atendimento, que ele já tem; aqui é o PESSOAL dela.",
       "turnos": [
         {
           "paciente": "me passa o whatsapp da dra marina? queria falar direto com ela",
