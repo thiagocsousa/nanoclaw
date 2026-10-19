@@ -4,7 +4,8 @@
     "acao": "responder = manda o texto | escalar = roda escalar.py e manda 'Só um instante.' | triagem = pede os dados que faltam | recusar_e_triagem = informa o não e emenda a triagem",
     "slots": "{dia} {hora} vêm do iclinic_vagas.py; {valor_consulta} é 430,00; {valor_desconto} é 300,00. Nunca preenchidos pelo modelo.",
     "fecho": "true = acrescenta 'Ajudo em algo mais?' (F00f). Nunca em escalonamento nem em dor.",
-    "variantes": "quando há mais de um texto, o host sorteia. Dá naturalidade sem geração."
+    "variantes": "quando há mais de um texto, o host sorteia. Dá naturalidade sem geração.",
+    "so_do_host": "true = SÓ o host chama esta intenção; se o modelo a rotular, o host veta. O texto dela pressupõe um estado que só o host conhece. Anda junto com \"NUNCA rotular isto\" no `quando`, e um teste exige que os dois concordem."
   },
   "_niveis_de_confianca": {
     "limiar": 0.75,
@@ -25,14 +26,16 @@
       "quando": "NUNCA rotular isto: quem pergunta é o host, quando precisa saber se é cirurgia ou rotina e a pessoa ainda não disse.",
       "acao": "responder",
       "fecho": false,
-      "textos": ["Você está procurando cirurgia, ou uma consulta de rotina?"]
+      "textos": ["Você está procurando cirurgia, ou uma consulta de rotina?"],
+      "so_do_host": true
     },
     "convite_horario": {
       "bloco": "F00g",
       "quando": "NUNCA rotular isto: quem decide é o host. É o convite LEVE, pendurado depois de uma resposta quando a conversa ainda não mostrou que a pessoa quer marcar.",
       "acao": "responder",
       "fecho": false,
-      "textos": ["Quer que eu veja os horários disponíveis para você?"]
+      "textos": ["Quer que eu veja os horários disponíveis para você?"],
+      "so_do_host": true
     },
     "quer_horario": {
       "bloco": "F00g",
@@ -76,7 +79,8 @@
       "acao": "responder",
       "fecho": false,
       "slots_obrigatorios": ["paciente"],
-      "textos": ["É para você, {paciente}, ou para outra pessoa?"]
+      "textos": ["É para você, {paciente}, ou para outra pessoa?"],
+      "so_do_host": true
     },
     "paciente_confirmado": {
       "bloco": "F00",
@@ -93,7 +97,8 @@
       "acao": "responder",
       "fecho": false,
       "slots_obrigatorios": ["convenio_cadastro"],
-      "textos": ["O convênio continua sendo {convenio_cadastro}?"]
+      "textos": ["O convênio continua sendo {convenio_cadastro}?"],
+      "so_do_host": true
     },
     "convenio_confirmado": {
       "bloco": "F12",
@@ -298,7 +303,8 @@
       ],
       "textos_dois_mesmo_dia": [
         "Só para confirmar: {dia}, dia {data}, às {hora} ou às {hora_b}?"
-      ]
+      ],
+      "so_do_host": true
     },
     "horario_pedido_convenio": {
       "bloco": "F11c",
@@ -314,7 +320,8 @@
       ],
       "textos_dois_mesmo_dia": [
         "Pelo convênio os horários seguem a disponibilidade da agenda, então não consigo reservar um horário específico.\n\nTenho {dia}, dia {data}, às {hora} ou às {hora_b}. Qual fica melhor para você?"
-      ]
+      ],
+      "so_do_host": true
     },
     "horario_pedido_indisponivel": {
       "bloco": "F11d",
@@ -330,14 +337,16 @@
       ],
       "textos_dois_mesmo_dia": [
         "Nesse horário eu não consigo encaixar, mas tenho {dia}, dia {data}, às {hora} ou às {hora_b}. Qual fica melhor?"
-      ]
+      ],
+      "so_do_host": true
     },
     "pergunta_dia": {
       "bloco": "F11e",
       "quando": "NUNCA rotular isto: quem pergunta é o host, quando a pessoa pediu um HORÁRIO mas não disse o dia.",
       "acao": "responder",
       "fecho": false,
-      "textos": ["Para qual dia você quer esse horário?"]
+      "textos": ["Para qual dia você quer esse horário?"],
+      "so_do_host": true
     },
     "dia_sem_atendimento": {
       "bloco": "F06",
@@ -607,7 +616,8 @@
       "quando": "NUNCA rotular isto: quem pergunta é o host, antes de oferecer horário para avaliação REFRATIVA, quando ainda não se sabe se a pessoa usa lente de contato.",
       "acao": "responder",
       "fecho": false,
-      "textos": ["Antes de eu ver os horários: você usa lente de contato?"]
+      "textos": ["Antes de eu ver os horários: você usa lente de contato?"],
+      "so_do_host": true
     },
     "usa_lente": {
       "bloco": "F02c",

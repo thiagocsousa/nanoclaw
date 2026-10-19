@@ -41,6 +41,8 @@ export type Acao =
 export interface Intencao {
   bloco?: string;
   quando?: string;
+  /** Só o host chama. Ver `soDoHost`. */
+  so_do_host?: boolean;
   acao: Acao;
   urgente?: boolean;
   fecho?: boolean;
@@ -167,6 +169,41 @@ export const FECHO = 'Ajudo em algo mais?';
 export const SEPARA_MENSAGEM = '\u001e';
 
 /** Divide a saída do executor nas mensagens a enviar, na ordem. */
+/**
+ * Intenção que SÓ o host decide, declarada na própria tabela.
+ *
+ * Nove intenções trazem "NUNCA rotular isto" no `quando` — `qual_horario`,
+ * `pergunta_lente`, `confirma_paciente`, `convite_horario`, e as outras. Elas
+ * existem para o host CHAMAR, nunca para o modelo rotular: o texto delas
+ * pressupõe um estado que só o host conhece.
+ *
+ * ⚠️ Lê a FLAG `so_do_host`, não a prosa do `quando`. Minha primeira versão
+ * casava /NUNCA rotular/ no texto — prosa dirigindo comportamento, que é o
+ * defeito que mais custou neste projeto: quem reescrevesse o `quando` desligaria
+ * o veto em silêncio. A prosa continua lá para o modelo ler, e um teste exige
+ * que as duas concordem.
+ *
+ * Mas nada impedia o modelo de emiti-las, e o host renderizava de boa fé. Saiu
+ * na passada 18, no E08, como laço de agendamento:
+ *
+ *   LARA: Só para confirmar: quarta, 17:40 ou 18:00?
+ *   PAC : a primeira
+ *   LARA: Só para confirmar: quarta, 17:40 ou 18:00?
+ *
+ * O modelo rotulou `qual_horario` — o que é compreensível, é literalmente o que
+ * está acontecendo na conversa — e o host renderizou a pergunta de novo. O
+ * `vagaEscolhida` nunca foi chamado, porque `vaiMarcar` exige `acao: 'marcar'`
+ * e `qual_horario` é `responder`. Eu havia tentado consertar isso duas vezes no
+ * `quando` do `aceita_horario`, e as duas vezes no lugar errado.
+ *
+ * É a mesma classe do veto do desconto, no mesmo dia: o RÓTULO sozinho decidindo
+ * o que só o host pode decidir. A lista é lida da tabela de propósito — uma
+ * cópia aqui seria a décima intenção a divergir.
+ */
+export function soDoHost(tabela: Tabela, intencao: string): boolean {
+  return tabela.intencoes[intencao]?.so_do_host === true;
+}
+
 export function mensagensDe(texto: string): string[] {
   return texto
     .split(SEPARA_MENSAGEM)

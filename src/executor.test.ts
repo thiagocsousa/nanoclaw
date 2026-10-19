@@ -93,11 +93,13 @@ const TABELA = {
       textos: ['Olá! Me conta o que você precisa que eu te ajudo.'],
     },
     pergunta_necessidade: {
+      so_do_host: true,
       acao: 'responder',
       textos: ['Você está procurando cirurgia, ou uma consulta de rotina?'],
     },
     // O convite LEVE: vai para quem ainda não se identificou.
     convite_horario: {
+      so_do_host: true,
       acao: 'responder',
       textos: ['Quer que eu veja os horários disponíveis para você?'],
     },
@@ -139,6 +141,7 @@ const TABELA = {
       ],
     },
     horario_pedido_indisponivel: {
+      so_do_host: true,
       acao: 'responder',
       slots_obrigatorios: ['dia', 'hora'],
       textos: [
@@ -146,6 +149,7 @@ const TABELA = {
       ],
     },
     pergunta_lente: {
+      so_do_host: true,
       acao: 'responder',
       textos: ['Antes de eu ver os horários: você usa lente de contato?'],
     },
@@ -155,10 +159,12 @@ const TABELA = {
     },
     nao_usa_lente: { acao: 'triagem', textos: ['Perfeito.'] },
     pergunta_dia: {
+      so_do_host: true,
       acao: 'responder',
       textos: ['Para qual dia você quer esse horário?'],
     },
     horario_pedido_convenio: {
+      so_do_host: true,
       acao: 'responder',
       slots_obrigatorios: ['dia', 'hora'],
       textos: [
@@ -166,6 +172,7 @@ const TABELA = {
       ],
     },
     qual_horario: {
+      so_do_host: true,
       acao: 'responder',
       slots_obrigatorios: ['dia', 'hora', 'dia_b', 'hora_b'],
       textos: [
@@ -195,6 +202,7 @@ const TABELA = {
       textos: ['Só um instante.'],
     },
     confirma_paciente: {
+      so_do_host: true,
       acao: 'responder',
       slots_obrigatorios: ['paciente'],
       textos: ['É para você, {paciente}, ou para outra pessoa?'],
@@ -2734,4 +2742,85 @@ describe('a segunda opção respeita o teto de 10 dias', () => {
     // E sem a pergunta de escolha, que só existe com duas na mesa.
     expect(r?.texto).not.toContain('Qual fica melhor');
   });
+});
+
+/**
+ * O VETO das intenções só do host, e o laço do E08.
+ *
+ * Passada 18:
+ *   LARA: Só para confirmar: quarta, 17:40 ou 18:00?
+ *   PAC : a primeira
+ *   LARA: Só para confirmar: quarta, 17:40 ou 18:00?
+ *
+ * O modelo rotulou `qual_horario` — compreensível, é o que está acontecendo na
+ * conversa — e `vaiMarcar` exige `acao: 'marcar'`, então o `vagaEscolhida` nunca
+ * foi chamado. Tentei consertar duas vezes no `quando` do `aceita_horario`, e as
+ * duas no lugar errado.
+ */
+describe('intenção só do host rotulada pelo modelo é vetada', () => {
+  const SLOTS =
+    '"nome":"Thiago Carvalho","nascimento":"1990-03-10","cidade":"Teresina","convenio":"particular","necessidade":"catarata"';
+
+  async function ofereceDuas() {
+    vagasFalsas = [
+      {
+        data: '2026-10-21',
+        dia_semana: 'quarta',
+        inicio: '17:40',
+        fim: '18:00',
+      },
+      {
+        data: '2026-10-23',
+        dia_semana: 'sexta',
+        inicio: '09:20',
+        fim: '09:40',
+      },
+    ];
+    return rodar(
+      `{"intencao":"horario_oferta","confianca":0.95,"slots":{${SLOTS}}}`,
+      'tem horario?',
+    );
+  }
+
+  it('com oferta na mesa, "a primeira" MARCA em vez de repetir a pergunta', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    const oferta = await ofereceDuas();
+    expect(oferta?.texto).toContain('17:40');
+    // O modelo rotula a intenção do HOST, como fez na passada 18.
+    const r = await rodar(
+      '{"intencao":"qual_horario","confianca":0.95,"slots":{}}',
+      'a primeira',
+    );
+    expect(r?.acao).toBe('marcar');
+    expect(r?.texto).not.toContain('Só para confirmar');
+  });
+
+  // ⚠️ E quando a frase NÃO resolve a oferta, vira DESCONHECIDO e escala — em
+  // vez de renderizar um texto do host que pressupõe um estado inexistente.
+  it('sem resolver a oferta, o veto manda para DESCONHECIDO', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    await ofereceDuas();
+    const r = await rodar(
+      '{"intencao":"qual_horario","confianca":0.95,"slots":{}}',
+      'tenho outra dúvida antes',
+    );
+    expect(r?.acao).toBe('escalar');
+  });
+
+  // ⚠️ E SEM oferta nenhuma, idem: o texto de `pergunta_lente` fora de contexto
+  // perguntaria da lente a quem nunca falou de cirurgia.
+  it.each(['pergunta_lente', 'confirma_paciente', 'convite_horario'])(
+    'veta %s vindo do modelo',
+    async (intencao) => {
+      const { esqueceSlots } = await import('./memoria-conversa.js');
+      esqueceSlots(PASTA, JID);
+      const r = await rodar(
+        `{"intencao":"${intencao}","confianca":0.95,"slots":{}}`,
+        'oi, tudo bem?',
+      );
+      expect(r?.acao).toBe('escalar');
+    },
+  );
 });

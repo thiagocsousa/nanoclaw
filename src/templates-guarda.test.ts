@@ -30,7 +30,13 @@ const TABELA = JSON.parse(
 ) as {
   intencoes: Record<
     string,
-    { acao: string; textos?: string[]; textos_sem_slot?: string[] }
+    {
+      acao: string;
+      textos?: string[];
+      textos_sem_slot?: string[];
+      quando?: string;
+      so_do_host?: boolean;
+    }
   >;
 };
 
@@ -269,5 +275,48 @@ describe('planos parciais: diz o que pode, cala a condição', () => {
     'Os exames do IASPI saem mediante consulta particular.',
   ])('a regra pega: %s', (frase) => {
     expect(frase).toMatch(RX_CONDICAO);
+  });
+});
+
+/**
+ * A flag `so_do_host` e a prosa do `quando` têm de concordar.
+ *
+ * ⚠️ A frase exata é "NUNCA rotular ISTO". Minha primeira versão casava só
+ * "NUNCA rotular", e isso pegava o `nao_usa_lente` — cujo `quando` diz "Nunca
+ * rotular em outro contexto", que é restrição de CONTEXTO e não intenção só do
+ * host. O teste reprovou na hora, e ele estava certo.
+ *
+ * O comportamento é dirigido pela FLAG, porque prosa dirigindo código é o
+ * defeito que mais custou aqui. Mas a prosa é o que o MODELO lê, então as duas
+ * precisam dizer a mesma coisa — e é este teste que garante.
+ *
+ * Sem ele, marcar a flag e esquecer o `quando` faria o modelo continuar
+ * rotulando a intenção (e o host vetando, em silêncio, toda vez); e escrever
+ * "NUNCA rotular" sem a flag deixaria o furo do E08 aberto de novo.
+ */
+describe('so_do_host concorda com o `quando`', () => {
+  const TODAS = Object.entries(TABELA.intencoes) as Array<
+    [string, { quando?: string; so_do_host?: boolean }]
+  >;
+
+  it('toda intenção com a flag diz "NUNCA rotular" no quando', () => {
+    for (const [nome, def] of TODAS) {
+      if (def.so_do_host !== true) continue;
+      expect(def.quando ?? '', nome).toMatch(/NUNCA rotular isto/i);
+    }
+  });
+
+  it('toda intenção que diz "NUNCA rotular" tem a flag', () => {
+    for (const [nome, def] of TODAS) {
+      if (!/NUNCA rotular isto/i.test(def.quando ?? '')) continue;
+      expect(def.so_do_host, nome).toBe(true);
+    }
+  });
+
+  // ⚠️ E existe pelo menos uma: um teste que passa com zero intenções marcadas
+  // não prova nada, e foi assim que o furo do E08 sobreviveu a duas tentativas.
+  it('há intenções só do host na tabela', () => {
+    const quantas = TODAS.filter(([, d]) => d.so_do_host === true).length;
+    expect(quantas).toBeGreaterThanOrEqual(9);
   });
 });

@@ -52,6 +52,7 @@ import {
   carregaTabela,
   limiarDeConfianca,
   renderiza,
+  soDoHost,
   type Resultado,
   type Tabela,
 } from './templates.js';
@@ -516,6 +517,42 @@ export async function executa(
       deps,
       c.intencao,
     );
+  }
+
+  // ⛔ VETO das intenções SÓ DO HOST.
+  //
+  // Nove intenções da tabela trazem "NUNCA rotular isto" no `quando`, porque o
+  // texto delas pressupõe um estado que só o host conhece. Nada impedia o modelo
+  // de emiti-las, e o host renderizava de boa fé — virou laço de agendamento no
+  // E08 da passada 18:
+  //
+  //   LARA: Só para confirmar: quarta, 17:40 ou 18:00?
+  //   PAC : a primeira
+  //   LARA: Só para confirmar: quarta, 17:40 ou 18:00?
+  //
+  // O modelo rotulou `qual_horario`, que é compreensível — é o que está
+  // acontecendo na conversa — e `vaiMarcar` exige `acao: 'marcar'`, então o
+  // `vagaEscolhida` nunca foi chamado. Tentei consertar duas vezes no `quando`
+  // do `aceita_horario`; as duas no lugar errado.
+  //
+  // Mesma classe do veto do desconto, no mesmo dia: o RÓTULO decidindo o que só
+  // o host pode decidir.
+  if (soDoHost(tabela, c.intencao)) {
+    // Se há oferta na mesa e a frase resolve UMA das vagas, isto é aceite — o
+    // host sabe disso melhor que o rótulo.
+    const pend = ultimaOferta(groupFolder, chatJid);
+    const resolve =
+      pend && vagaEscolhida(vagasDaOferta(pend), perguntaDoPaciente);
+    const alvo =
+      resolve && tabela.intencoes.aceita_horario
+        ? 'aceita_horario'
+        : 'DESCONHECIDO';
+    logger.warn(
+      { groupFolder, rotulo: c.intencao, alvo },
+      'executor: intenção só do host rotulada pelo modelo, vetada',
+    );
+    c.intencao = alvo;
+    c.confianca = 1;
   }
 
   // Lente de contato: grava ANTES de qualquer decisão que leia a memória.
