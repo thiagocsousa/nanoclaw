@@ -271,21 +271,21 @@
     },
     "convenio_iaspi": {
       "bloco": "F04",
-      "quando": "IASPI, IAPEP ou PLAMTA, em QUALQUER contexto. Quem pergunta por IASPI pensando em cirurgia está pensando no PLAMTA, e o texto já responde as duas metades. Nunca cai em convenio_cirurgia.",
+      "quando": "IASPI, IAPEP ou PLAMTA, em QUALQUER contexto. Quem pergunta por IASPI pensando em cirurgia está pensando no PLAMTA, e o texto já responde as duas metades. Nunca cai em convenio_cirurgia. ⛔ A resposta NÃO fala de exames. Quem perguntar de exame por este plano é exames_convenio, que escala.",
       "acao": "responder",
       "fecho": false,
       "textos": [
-        "A consulta com a Dra. Marina é realizada de forma particular para pacientes do IASPI.\n\nOs exames saem pelo IASPI, com exceção do Pentacam, que nenhum plano cobre.\n\nJá para a cirurgia, existe a possibilidade de atendimento pelo PLAMTA, conforme a indicação médica e os critérios de cobertura do plano."
+        "A consulta com a Dra. Marina é realizada de forma particular para pacientes do IASPI.\n\nJá para a cirurgia, existe a possibilidade de atendimento pelo PLAMTA, conforme a indicação médica e os critérios de cobertura do plano."
       ],
       "emenda_triagem": true
     },
     "convenio_ipmt": {
       "bloco": "F04",
-      "quando": "IPMT ou PLANTE, em QUALQUER contexto. Quem pergunta por IPMT pensando em cirurgia está pensando no PLANTE, e o texto já responde as duas metades. Nunca cai em convenio_cirurgia.",
+      "quando": "IPMT ou PLANTE, em QUALQUER contexto. Quem pergunta por IPMT pensando em cirurgia está pensando no PLANTE, e o texto já responde as duas metades. Nunca cai em convenio_cirurgia. ⛔ A resposta NÃO fala de exames. Quem perguntar de exame por este plano é exames_convenio, que escala.",
       "acao": "responder",
       "fecho": false,
       "textos": [
-        "A consulta com a Dra. Marina é realizada de forma particular para pacientes do IPMT.\n\nOs exames saem pelo IPMT, com exceção do Pentacam, que nenhum plano cobre.\n\nPara a cirurgia, existe a possibilidade de atendimento pelo PLANTE, conforme a indicação médica e os critérios de cobertura do plano."
+        "A consulta com a Dra. Marina é realizada de forma particular para pacientes do IPMT.\n\nPara a cirurgia, existe a possibilidade de atendimento pelo PLANTE, conforme a indicação médica e os critérios de cobertura do plano."
       ],
       "emenda_triagem": true
     },
@@ -427,6 +427,17 @@
       "emenda_triagem": true,
       "textos": [
         "Aqui no consultório os exames são particulares: pela Unimed a Dra. Marina atende consulta e cirurgia, mas os exames não saem pelo convênio.\n\nSe forem necessários, a doutora faz o pedido na consulta e você usa as regras do seu plano para realizá-los."
+      ]
+    },
+    "exames_plano_parcial": {
+      "bloco": "F08c",
+      "quando": "NUNCA rotular isto: quem decide é o host, quando a pergunta é sobre EXAME e o convênio da conversa é IASPI, IAPEP ou IPMT.",
+      "acao": "escalar",
+      "urgente": false,
+      "fecho": false,
+      "motivo_escalada": "pergunta sobre exames pelo IASPI/IAPEP/IPMT. A recepção resolve este caso por telefone ou pessoalmente.",
+      "textos": [
+        "Só um instante."
       ]
     },
     "pentacam_cobertura": {

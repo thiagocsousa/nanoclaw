@@ -123,6 +123,15 @@ const TABELA = {
     },
     // Responde e NÃO pede dia/hora: é a trava de que a regra de retorno/exame
     // não atinge resposta de preço.
+    exames_plano_parcial: {
+      acao: 'escalar',
+      motivo_escalada: 'pergunta sobre exames pelo IASPI/IAPEP/IPMT.',
+      textos: ['Só um instante.'],
+    },
+    exames_convenio: {
+      acao: 'responder',
+      textos: ['Aqui no consultório os exames são particulares.'],
+    },
     exames_preco: {
       acao: 'responder',
       fecho: true,
@@ -1247,6 +1256,57 @@ describe('dia e hora pedidos pelo paciente (Thiago, 19/10/2026)', () => {
       'tem horario?',
     );
     expect(r?.texto).not.toContain('seguem a agenda');
+  });
+});
+
+describe('exame por IASPI/IPMT escala (Thiago, 19/10/2026)', () => {
+  // Nesses planos o exame não é avulso, e a condição que o permite NÃO pode
+  // ser dita ao paciente. Uma recepcionista resolve por voz; a Lara escrevendo
+  // cria registro com data, hora e print.
+  it.each(['IASPI', 'IAPEP', 'IPMT'])('%s escala', async (plano) => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    const r = await rodar(
+      `{"intencao":"exames_convenio","confianca":0.95,"slots":{"convenio":"${plano}"}}`,
+      'os exames saem pelo plano?',
+    );
+    expect(r?.acao).toBe('escalar');
+  });
+
+  it('pergunta de PREÇO de exame também escala nesses planos', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    const r = await rodar(
+      '{"intencao":"exames_preco","confianca":0.95,"slots":{"convenio":"IASPI"}}',
+      'quanto custam os exames?',
+    );
+    expect(r?.acao).toBe('escalar');
+  });
+
+  // ⚠️ A Unimed fica como está (Thiago, 19/10): ali a negativa é simples e não
+  // tem condição escondida.
+  it('Unimed continua respondendo normalmente', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    const r = await rodar(
+      '{"intencao":"exames_convenio","confianca":0.95,"slots":{"convenio":"Unimed"}}',
+      'faço os exames pela Unimed?',
+    );
+    expect(r?.acao).not.toBe('escalar');
+    expect(r?.texto).toContain('particulares');
+  });
+
+  // E o texto do plano não fala mais de exames: dizer "os exames saem pelo
+  // IASPI" criava a expectativa que depois teria de ser desfeita.
+  it('o texto do IASPI não menciona exames', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    const r = await rodar(
+      '{"intencao":"convenio_iaspi","confianca":0.95,"slots":{"convenio":"IASPI"}}',
+      'atende IASPI?',
+    );
+    expect(r?.texto).toContain('PLAMTA');
+    expect(r?.texto.toLowerCase()).not.toContain('exame');
   });
 });
 

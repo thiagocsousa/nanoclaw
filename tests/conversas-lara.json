@@ -2412,18 +2412,18 @@
     {
       "id": "T08",
       "categoria": "convenio",
-      "sobre": "IASPI cobre exames, menos Pentacam (correção do Thiago, 19/10).",
-      "escalou": false,
+      "sobre": "Exame por IASPI: escala. Nesses planos o exame não é avulso, e a condição não pode ser dita ao paciente (Thiago, 19/10).",
+      "escalou": true,
       "turnos": [
         {
           "paciente": "sou do IASPI, os exames saem pelo plano?",
           "esperado": [
-            "IASPI",
-            "Pentacam"
+            "S[óo] um instante"
           ],
           "proibido": [
-            "S[óo] um instante"
-          ]
+            "saem pelo|cobre os exames|avulso|consulta antes"
+          ],
+          "nota": "A resposta não pode explicar POR QUE escala: explicar fere a regra do convênio, e WhatsApp é registro escrito."
         }
       ]
     },
@@ -2880,7 +2880,7 @@
     {
       "id": "Y11",
       "categoria": "exames",
-      "sobre": "NEGATIVO: insiste em fazer o Pentacam pelo plano depois de ouvir que nenhum cobre.",
+      "sobre": "Insiste no Pentacam pelo plano sendo IASPI: escala, e sem explicar a condição.",
       "turnos": [
         {
           "paciente": "o Pentacam sai pelo meu plano?",
@@ -2891,11 +2891,14 @@
         {
           "paciente": "mas o IASPI cobre os outros, não cobre esse não?",
           "proibido": [
-            "@valor_pentacam"
+            "@valor_pentacam",
+            "saem pelo",
+            "avulso"
           ],
           "nota": "A JULGAR À MÃO: IASPI cobre exames MENOS o Pentacam. A resposta tem de manter a exceção sem se contradizer."
         }
-      ]
+      ],
+      "escalou": true
     },
     {
       "id": "Y12",

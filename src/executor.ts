@@ -266,6 +266,9 @@ function comEnquadramentoRefrativo(
  * o formato da córnea e a medida sai errada; é o único número clínico que a
  * Lara pode dizer, por exceção aprovada no mesmo dia.
  */
+/** IASPI, IAPEP e IPMT: planos em que o exame não é avulso. */
+const RX_PLANO_PARCIAL = /\b(IASPI|IAPEP|IPMT|PLAMTA|PLANTE)\b/i;
+
 const DIAS_SEM_LENTE = 3;
 
 /**
@@ -917,6 +920,42 @@ export async function executa(
   // frase vira corrida. Pedir de novo o que a pessoa acabou de responder é o
   // jeito mais rápido de parecer máquina.
   let texto = r.texto;
+
+  // Exame por IASPI/IAPEP/IPMT: escala, e a Lara não explica por quê.
+  //
+  // Decisão do Thiago em 19/10/2026. Nesses planos o exame não é avulso, e a
+  // condição que o permite NÃO pode ser dita ao paciente — explicá-la fere a
+  // regra do convênio. Uma recepcionista resolve isso por voz; a Lara
+  // escrevendo cria registro com data, hora e print.
+  //
+  // Antes disso o texto do plano dizia "os exames saem pelo IASPI", verdade
+  // pela metade: quem lesse pediria só os exames, e aí não havia saída boa —
+  // revelar a condição, inventar, ou se contradizer.
+  //
+  // ⚠️ O motivo que vai à recepção também não descreve o arranjo: log é
+  // registro igual. Quem trabalha lá sabe o que fazer.
+  if (
+    tabela.intencoes.exames_plano_parcial &&
+    (c.intencao === 'exames_convenio' || c.intencao === 'exames_preco') &&
+    RX_PLANO_PARCIAL.test(
+      comLembrados(groupFolder, chatJid, c.slots).convenio ?? '',
+    )
+  ) {
+    const rx = renderiza(tabela, 'exames_plano_parcial', {
+      confianca: 1,
+      slots,
+    });
+    if (rx.intencao === 'exames_plano_parcial') {
+      return await escalaComo(
+        groupFolder,
+        tabela,
+        tabela.intencoes.exames_plano_parcial.motivo_escalada ??
+          'pergunta sobre exames por plano de cobertura parcial',
+        perguntaDoPaciente,
+        deps,
+      );
+    }
+  }
 
   // ⚠️ A orientação dos 3 dias é EXCEÇÃO à regra de não dar preparo clínico, e
   // a exceção é da avaliação REFRATIVA. "Minha consulta é de rotina, uso lente,

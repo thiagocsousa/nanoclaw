@@ -542,21 +542,30 @@ específico:
 
 > A consulta com a Dra. Marina é realizada de forma particular para pacientes do IASPI.
 >
-> Os exames saem pelo IASPI, com exceção do Pentacam, que nenhum plano cobre.
->
 > Já para a cirurgia, existe a possibilidade de atendimento pelo PLAMTA, conforme a
 > indicação médica e os critérios de cobertura do plano.
 
 > A consulta com a Dra. Marina é realizada de forma particular para pacientes do IPMT.
 >
-> Os exames saem pelo IPMT, com exceção do Pentacam, que nenhum plano cobre.
->
 > Para a cirurgia, existe a possibilidade de atendimento pelo PLANTE, conforme a indicação
 > médica e os critérios de cobertura do plano.
 
-> ⚠️ Estes dois estavam desatualizados aqui: traziam o "Infelizmente" que a revisão de tom
-> tirou em 17/10/2026, e não mencionavam que IASPI e IPMT **cobrem exames** (menos o
-> Pentacam), confirmado pelo Thiago em 19/10. A tabela é a fonte; este bloco é a cópia.
+⛔ **NÃO fale de exames ao responder IASPI ou IPMT.** Quem perguntar de exame nesses
+planos, a Lara **escala sem explicar por quê**.
+
+> ⚠️ Decisão do Thiago em 19/10/2026. Nesses planos o exame **não é avulso**, e a condição
+> que o permite não pode ser dita ao paciente: dizê-la fere a regra do convênio. Uma
+> recepcionista resolve isso por voz; a Lara escrevendo cria registro com data, hora e
+> print, 24h por dia, sem ninguém decidir caso a caso.
+>
+> Por algumas horas no mesmo dia o texto aqui dizia "os exames saem pelo IASPI". É verdade
+> pela metade, e pior que o silêncio: quem lesse pediria só os exames, e aí não havia saída
+> boa — revelar a condição, inventar, ou se contradizer.
+>
+> **O motivo que vai à recepção também não descreve o arranjo.** Log é registro igual.
+>
+> A Unimed fica como está: ali a negativa é simples ("os exames não saem pelo convênio") e
+> não tem condição escondida.
 
 ### Intermed, Hapvida e Humana: não, para nada
 
