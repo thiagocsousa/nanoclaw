@@ -347,3 +347,43 @@ describe('duasOpcoes', () => {
     expect(duasOpcoes([])).toEqual([]);
   });
 });
+
+describe('duasOpcoes: o teto de 10 dias (Thiago, 19/10/2026)', () => {
+  const v = (data: string, inicio: string) => ({
+    data,
+    dia_semana: 'quarta',
+    inicio,
+    fim: inicio,
+  });
+
+  it('dentro do teto, oferece as duas', () => {
+    const r = duasOpcoes([v('2026-10-21', '17:40'), v('2026-10-31', '09:00')]);
+    expect(r).toHaveLength(2);
+    expect(r[1].data).toBe('2026-10-31'); // exatamente 10 dias
+  });
+
+  // ⛔ Passando do teto: UMA opção. "Quarta 21/10 ou segunda 03/11" não é
+  // escolha, é ruído — e o paciente pode pedir outro dia, que o host trata.
+  it('além do teto, oferece só uma', () => {
+    const r = duasOpcoes([v('2026-10-21', '17:40'), v('2026-11-03', '09:00')]);
+    expect(r).toHaveLength(1);
+    expect(r[0].data).toBe('2026-10-21');
+  });
+
+  // ⚠️ E o fallback do mesmo dia continua vencendo o dia distante: duas no
+  // mesmo dia é escolha pior, mas é escolha.
+  it('mesmo dia vence o outro dia longe demais', () => {
+    const r = duasOpcoes([
+      v('2026-10-21', '17:40'),
+      v('2026-10-21', '18:00'),
+      v('2026-11-03', '09:00'),
+    ]);
+    expect(r).toHaveLength(2);
+    expect(r[1].data).toBe('2026-10-21');
+  });
+
+  it('data em formato inesperado não vira segunda opção', () => {
+    const r = duasOpcoes([v('2026-10-21', '17:40'), v('amanhã', '09:00')]);
+    expect(r).toHaveLength(1);
+  });
+});

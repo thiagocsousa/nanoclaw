@@ -2696,3 +2696,42 @@ describe('a oferta dupla vai em dias distintos', () => {
     expect(r?.texto).toContain('18:00');
   });
 });
+
+/**
+ * O teto de 10 dias da segunda opção (Thiago, 19/10/2026).
+ *
+ * Com a semana cheia, "quarta 21/10 ou segunda 03/11" não é escolha, é ruído.
+ * Passando do teto, oferece UMA e deixa o paciente pedir outro dia.
+ */
+describe('a segunda opção respeita o teto de 10 dias', () => {
+  const SLOTS =
+    '"nome":"Clara Souza","nascimento":"1975-07-20","cidade":"Teresina","convenio":"particular","necessidade":"rotina"';
+
+  it('além do teto, a oferta sai com UMA opção', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    vagasFalsas = [
+      {
+        data: '2026-10-21',
+        dia_semana: 'quarta',
+        inicio: '17:40',
+        fim: '18:00',
+      },
+      {
+        data: '2026-11-03',
+        dia_semana: 'terça',
+        inicio: '09:00',
+        fim: '09:20',
+      },
+    ];
+    const r = await rodar(
+      `{"intencao":"horario_oferta","confianca":0.95,"slots":{${SLOTS}}}`,
+      'tem horario?',
+    );
+    expect(r?.texto).toContain('17:40');
+    expect(r?.texto).not.toContain('09:00');
+    expect(r?.texto).not.toContain('03/11');
+    // E sem a pergunta de escolha, que só existe com duas na mesa.
+    expect(r?.texto).not.toContain('Qual fica melhor');
+  });
+});

@@ -481,16 +481,45 @@ export function ehParticular(perfil: string): boolean {
  * `textos_dois_mesmo_dia` continua existindo, agora como exceção e não como
  * caso comum.
  *
+ * ⚠️ TETO: a segunda tem de estar a no máximo 10 dias da primeira. Com a semana
+ * cheia, "quarta 21/10 ou segunda 03/11" não é escolha — é ruído. Passando do
+ * teto, oferece UMA e deixa o paciente pedir outro dia, que o host sabe tratar
+ * (`dia_pedido`). Decisão do Thiago em 19/10/2026.
+ *
  * A ORDEM de dentro do dia é preservada: a segunda é a melhor vaga do outro
  * dia, não a primeira que aparecer. O ranking do script é a fonte da aritmética
  * de agenda e não se reordena aqui.
  */
+const TETO_DA_SEGUNDA_EM_DIAS = 10;
+
+/** Dias entre duas datas ISO. Devolve undefined se alguma não for ISO. */
+function diasEntre(a: string, b: string): number | undefined {
+  const ta = Date.parse(`${a}T12:00:00Z`);
+  const tb = Date.parse(`${b}T12:00:00Z`);
+  if (!Number.isFinite(ta) || !Number.isFinite(tb)) return undefined;
+  return Math.round(Math.abs(tb - ta) / 86_400_000);
+}
+
 export function duasOpcoes(vagas: Vaga[]): Vaga[] {
   const [primeira] = vagas;
   if (!primeira) return [];
-  const deOutroDia = vagas.find((v) => v.data !== primeira.data);
+  const deOutroDia = vagas.find((v) => {
+    if (v.data === primeira.data) return false;
+    // ⚠️ TETO de 10 dias (Thiago, 19/10/2026): "limita a no máximo 10 dias
+    // depois, se não tiver, só oferece uma".
+    //
+    // Sem o teto, com a semana cheia a oferta sairia "quarta 21/10 ou segunda
+    // 03/11" — e a segunda opção vira ruído, não escolha. Melhor oferecer uma
+    // e deixar o paciente pedir outro dia.
+    const d = diasEntre(primeira.data, v.data);
+    return d !== undefined && d <= TETO_DA_SEGUNDA_EM_DIAS;
+  });
   if (deOutroDia) return [primeira, deOutroDia];
-  return vagas.slice(0, 2);
+  // Um dia só com vaga: duas no mesmo dia continua melhor que uma.
+  const mesmoDia = vagas.filter((v) => v.data === primeira.data);
+  if (mesmoDia.length > 1) return mesmoDia.slice(0, 2);
+  // Há outro dia, mas longe demais. Oferece só a primeira.
+  return [primeira];
 }
 
 /**
