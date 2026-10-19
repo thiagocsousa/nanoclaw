@@ -3152,6 +3152,56 @@
           ]
         }
       ]
+    },
+    {
+      "id": "D10",
+      "categoria": "convenio",
+      "sobre": "Pergunta GENÉRICA sobre convênio: a lista geral é a resposta certa.",
+      "escalou": false,
+      "turnos": [
+        {
+          "paciente": "vocês atendem plano de saúde?",
+          "esperado": [
+            "particular e Unimed",
+            "Quer que eu veja os hor[áa]rios"
+          ],
+          "nota": "Sem plano nomeado, a lista responde e o convite segue."
+        }
+      ]
+    },
+    {
+      "id": "D11",
+      "categoria": "convenio",
+      "sobre": "Plano NOMEADO que não é atendido: tem de ouvir o 'não' sobre o plano DELE, não a lista geral (Thiago, 19/10).",
+      "escalou": false,
+      "turnos": [
+        {
+          "paciente": "vocês atendem Bradesco Saúde para consulta?",
+          "esperado": [
+            "particular",
+            "430"
+          ],
+          "proibido": [
+            "^Para consulta a gente atende particular e Unimed\\.$"
+          ],
+          "nota": "A JULGAR À MÃO: 'atende particular e Unimed' faria ele deduzir sozinho que ficou de fora."
+        }
+      ]
+    },
+    {
+      "id": "D12",
+      "categoria": "convenio",
+      "sobre": "Amil, outro plano sem intenção própria: mesmo caminho do Bradesco.",
+      "escalou": false,
+      "turnos": [
+        {
+          "paciente": "tenho Amil, dá pra consultar?",
+          "esperado": [
+            "particular",
+            "430"
+          ]
+        }
+      ]
     }
   ]
 }

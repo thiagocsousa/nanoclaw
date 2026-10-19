@@ -232,7 +232,7 @@
     },
     "convenio_consulta": {
       "bloco": "F04",
-      "quando": "atende [plano] para consulta",
+      "quando": "pergunta sobre convênio para CONSULTA em dois casos: (a) genérica, sem nomear plano ('vocês atendem plano?', 'trabalham com convênio?'); (b) nomeando Unimed ou particular, que a clínica ATENDE, e aí o texto responde sim. ⛔ Plano nomeado que a clínica NÃO atende tem intenção própria: IASPI/IAPEP é convenio_iaspi, IPMT é convenio_ipmt, Intermed/Hapvida/Humana é convenio_bloqueado, e qualquer outro nome é convenio_nao_atendido. Responder a lista geral a quem nomeou o plano DELE faz a pessoa ter de deduzir sozinha que ficou de fora.",
       "acao": "responder",
       "fecho": false,
       "textos": [
@@ -242,7 +242,7 @@
     },
     "convenio_nao_atendido": {
       "bloco": "F04",
-      "quando": "plano fora de particular/Unimed, pergunta sobre consulta",
+      "quando": "pergunta sobre CONSULTA nomeando um plano que a clínica não atende e que não tem intenção própria. Ou seja: qualquer plano que NÃO seja Unimed, particular, IASPI, IAPEP, IPMT, Intermed, Hapvida ou Humana. Exemplos: Bradesco, Amil, SulAmérica, Cassi, Golden Cross. ⛔ NÃO serve para pergunta sem plano nomeado (convenio_consulta) nem para cobertura de CIRURGIA (convenio_cirurgia).",
       "acao": "recusar_e_triagem",
       "fecho": false,
       "textos": [
@@ -261,7 +261,7 @@
     },
     "convenio_bloqueado": {
       "bloco": "F04",
-      "quando": "Intermed, Hapvida ou Humana",
+      "quando": "nomeia Intermed, Hapvida ou Humana, em qualquer contexto. São os três que a clínica não atende nem para consulta nem para cirurgia. ⛔ Outros planos não atendidos são convenio_nao_atendido, que é recusa só da consulta.",
       "acao": "responder",
       "fecho": false,
       "textos": [
