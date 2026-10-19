@@ -204,6 +204,67 @@ def avisos_da_guarda(desde):
     ]
 
 
+# --- expediente: a suíte não mede nada fora do horário -----------------------
+#
+# ⚠️ O host NÃO responde fora do expediente quando a pasta está em
+# EXPEDIENTE_FOLDERS: as mensagens ficam pendentes, de propósito, e o log diz
+# "expediente: fora do horário, a Lara não responde". Para a suíte isso chega
+# como SEM RESPOSTA em TODOS os turnos — indistinguível de bot quebrado.
+#
+# Em 19/10/2026 isso me custou duas passadas inteiras e um diagnóstico falso:
+# li 8 "SEM RESPOSTA" às 22:4x e 23:4x UTC e atribuí à saturação da VM, que era
+# um problema real mas não era esse. ⚠️ O relógio da VM é UTC e o expediente é
+# em America/Fortaleza, então ele FECHA às 21:30 UTC — justamente a hora em que
+# dá vontade de rodar "só mais uma passada".
+#
+# Uma conversa aberta DENTRO do horário segue respondendo depois (ver
+# `podeResponder`), e é por isso que a passada das 18:4x locais passou: não dá
+# para confiar nisso, porque `isola_cenario()` e qualquer restart zeram o
+# `abertaEm`.
+
+def fora_do_expediente():
+    """Devolve a explicação se a passada não vai medir nada, ou None.
+
+    Lê os MESMOS nomes que `src/expediente.ts`, com os mesmos padrões, para não
+    criar uma segunda fonte de verdade sobre o horário.
+    """
+    folders = {
+        x.strip()
+        for x in (_env("EXPEDIENTE_FOLDERS") or "").split(",")
+        if x.strip()
+    }
+    if GRUPO_DIR.name not in folders:
+        return None
+    try:
+        from zoneinfo import ZoneInfo
+        tz = ZoneInfo(_env("EXPEDIENTE_TZ") or "America/Fortaleza")
+    except Exception:
+        return None
+
+    def minutos(chave, padrao):
+        m = re.match(r"^(\d{1,2})(?:[:h](\d{2}))?$",
+                     (_env(chave) or padrao).strip())
+        if not m:
+            return None
+        return int(m.group(1)) * 60 + int(m.group(2) or 0)
+
+    ini, fim = minutos("EXPEDIENTE_INICIO", "7:30"), minutos("EXPEDIENTE_FIM",
+                                                             "18:30")
+    if ini is None or fim is None:
+        return None
+    agora = datetime.now(tz)
+    atual = agora.hour * 60 + agora.minute
+    if agora.weekday() > 4:
+        return "hoje é %s, e o expediente é de segunda a sexta" % (
+            ["segunda", "terça", "quarta", "quinta", "sexta", "sábado",
+             "domingo"][agora.weekday()])
+    if ini <= atual < fim:
+        return None
+    return "agora são %02d:%02d em %s, e o expediente é %02d:%02d-%02d:%02d" % (
+        agora.hour, agora.minute, tz.key, ini // 60, ini % 60, fim // 60,
+        fim % 60)
+
+
 # --- checagens nomeadas: onde regex não dá conta -----------------------------
 #
 # "preço de cirurgia" não é expressável em regex. O caso que me derrubou três
@@ -620,7 +681,21 @@ def main():
     ap.add_argument("--saida", default="")
     ap.add_argument("--pausa", type=int, default=PAUSA_PADRAO,
                     help="segundos entre cenários (protege a sessão do Baileys)")
+    ap.add_argument("--fora-do-expediente", action="store_true",
+                    help="roda mesmo fora do horário (vai dar SEM RESPOSTA)")
     args = ap.parse_args()
+
+    motivo = fora_do_expediente()
+    if motivo and not args.listar and not args.fora_do_expediente:
+        print("ABORTADO: fora do expediente, a passada não mede nada.",
+              flush=True)
+        print("  %s." % motivo, flush=True)
+        print("  O host deixa as mensagens PENDENTES e a suíte lê isso como",
+              flush=True)
+        print("  SEM RESPOSTA em todos os turnos. Use --fora-do-expediente",
+              flush=True)
+        print("  se o que você quer medir é justamente o gate.", flush=True)
+        return 3
 
     suite = json.loads(SUITE.read_text(encoding="utf-8"))
     globais = suite["_proibido_global"]
