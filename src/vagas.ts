@@ -273,6 +273,16 @@ export interface OpcoesDeBusca {
    * instante da escrita: lista vazia significa que ela já foi tomada.
    */
   hora?: string;
+  /**
+   * Dias mínimos a partir de hoje. Soma-se à regra do perfil pelo MAIOR dos
+   * dois, não pela soma — quem é Unimed e usa lente espera o maior prazo.
+   *
+   * Existe para o preparo de lente de contato (19/10/2026): a lente deforma a
+   * córnea e a medida da avaliação refrativa sai errada. Sem isto a Lara
+   * oferecia amanhã a quem precisa de 3 dias sem usar, e o paciente viajava
+   * para um exame que não prestaria.
+   */
+  antecedencia?: number;
 }
 
 /** Busca vagas rodando o script na imagem do agente. Lista vazia = escalar. */
@@ -317,6 +327,9 @@ export async function buscaVagas(
       return [];
     }
     args.push('--hora', opts.hora);
+  }
+  if (opts.antecedencia && opts.antecedencia > 0) {
+    args.push('--antecedencia', String(Math.floor(opts.antecedencia)));
   }
 
   const t0 = Date.now();

@@ -615,6 +615,33 @@
       ],
       "emenda_triagem": true
     },
+    "pergunta_lente": {
+      "bloco": "F02c",
+      "quando": "NUNCA rotular isto: quem pergunta é o host, antes de oferecer horário para avaliação REFRATIVA, quando ainda não se sabe se a pessoa usa lente de contato.",
+      "acao": "responder",
+      "fecho": false,
+      "textos": [
+        "Antes de eu ver os horários: você usa lente de contato?"
+      ]
+    },
+    "usa_lente": {
+      "bloco": "F02c",
+      "quando": "diz que USA lente de contato, ou pergunta se precisa parar antes da consulta. Vale para qualquer tipo de lente.",
+      "acao": "responder",
+      "fecho": false,
+      "textos": [
+        "Sim, precisa parar antes. A lente muda o formato da córnea, e com ela a medida da avaliação sai errada.\n\nSão 3 dias sem usar a lente antes da consulta, de qualquer tipo. Por isso eu só ofereço horário a partir do terceiro dia."
+      ]
+    },
+    "nao_usa_lente": {
+      "bloco": "F02c",
+      "quando": "diz que NÃO usa lente de contato, respondendo à pergunta do host. Nunca rotular em outro contexto.",
+      "acao": "triagem",
+      "fecho": false,
+      "textos": [
+        "Perfeito."
+      ]
+    },
     "cobertura_no_hospital": {
       "bloco": "F17",
       "quando": "pergunta se o plano cobre NAQUELE hospital, ou se o hospital aceita o plano dele. A cobertura muda por hospital, é raro, e quando não aceita o caminho é particular, que envolve valor de cirurgia e portanto é humano. Nunca responder que não cobre.",

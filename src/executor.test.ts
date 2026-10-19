@@ -12,7 +12,12 @@ const PASTA = 'whatsapp_exec-teste';
 // O que se testa aqui é a decisão do executor: quando ele vai à agenda, e o que
 // faz com o resultado. O iClinic de verdade é testado à mão, contra a agenda
 // real, porque mock de Playwright não prova nada sobre o iClinic.
-const buscou: Array<{ perfil: string; dia?: string; hora?: string }> = [];
+const buscou: Array<{
+  perfil: string;
+  dia?: string;
+  hora?: string;
+  antecedencia?: number;
+}> = [];
 let vagasFalsas: Array<Record<string, string>> = [];
 let buscouHook: (() => void) | undefined;
 
@@ -61,9 +66,14 @@ vi.mock('./vagas.js', async (orig) => {
     buscaVagas: async (
       _f: string,
       perfil: string,
-      o: { dia?: string; hora?: string } = {},
+      o: { dia?: string; hora?: string; antecedencia?: number } = {},
     ) => {
-      buscou.push({ perfil, dia: o.dia, hora: o.hora });
+      buscou.push({
+        perfil,
+        dia: o.dia,
+        hora: o.hora,
+        antecedencia: o.antecedencia,
+      });
       buscouHook?.();
       return vagasFalsas;
     },
@@ -129,8 +139,19 @@ const TABELA = {
     horario_pedido_indisponivel: {
       acao: 'responder',
       slots_obrigatorios: ['dia', 'hora'],
-      textos: ['Nesse horário não consigo encaixar, mas tenho {dia} às {hora}.'],
+      textos: [
+        'Nesse horário não consigo encaixar, mas tenho {dia} às {hora}.',
+      ],
     },
+    pergunta_lente: {
+      acao: 'responder',
+      textos: ['Antes de eu ver os horários: você usa lente de contato?'],
+    },
+    usa_lente: {
+      acao: 'responder',
+      textos: ['São 3 dias sem usar a lente antes da consulta.'],
+    },
+    nao_usa_lente: { acao: 'triagem', textos: ['Perfeito.'] },
     pergunta_dia: {
       acao: 'responder',
       textos: ['Para qual dia você quer esse horário?'],
@@ -469,11 +490,28 @@ describe('oferta de horário: quem vai à agenda é o host', () => {
         fim: '09:50',
       },
     ];
+    // Desde 19/10/2026 a refrativa passa pela pergunta da lente antes de ir à
+    // agenda (Marina: 3 dias sem usar, qualquer tipo). O que este teste mede é
+    // o PERFIL cruzado, então responde a pergunta e segue.
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    await rodar(
+      '{"intencao":"nao_usa_lente","confianca":0.95,"slots":{"necessidade":"cirurgia refrativa","convenio":"particular"}}',
+      'não uso lente',
+    );
+    buscou.length = 0;
     const r = await rodar(
       '{"intencao":"horario_oferta","confianca":0.95,"slots":{"necessidade":"cirurgia refrativa","convenio":"particular"}}',
       'tem vaga?',
     );
-    expect(buscou).toEqual([{ perfil: 'particular-cirurgia', dia: undefined }]);
+    expect(buscou).toEqual([
+      {
+        perfil: 'particular-cirurgia',
+        dia: undefined,
+        hora: undefined,
+        antecedencia: undefined,
+      },
+    ]);
     expect(r?.acao).toBe('responder');
     expect(r?.texto).toBe('Tenho segunda às 09:20.');
   });
@@ -1053,7 +1091,11 @@ describe('retorno e exame não passam pelo formulário (Thiago, 19/10/2026)', ()
     const { esqueceSlots } = await import('./memoria-conversa.js');
     esqueceSlots(PASTA, JID);
     candidatosFalsos = [
-      { id: 47555744, nome: 'THIAGO CARVALHO DE SOUSA', nascimento: '1980-06-01' },
+      {
+        id: 47555744,
+        nome: 'THIAGO CARVALHO DE SOUSA',
+        nascimento: '1980-06-01',
+      },
     ];
     const r = await rodarDe(
       '{"intencao":"triagem_dados","confianca":0.95,"slots":{"necessidade":"retorno"}}',
@@ -1198,6 +1240,88 @@ describe('dia e hora pedidos pelo paciente (Thiago, 19/10/2026)', () => {
   });
 });
 
+describe('preparo de lente de contato (Marina, 19/10/2026)', () => {
+  const refrativa =
+    '{"intencao":"horario_oferta","confianca":0.95,"slots":{"necessidade":"quero parar de usar óculos","convenio":"particular"}}';
+
+  // Iniciativa: sem saber da lente, a Lara NÃO oferece horário para refrativa.
+  // Sem isso ela ofereceria amanhã a quem precisa de 3 dias sem usar, e a
+  // pessoa viajaria para um exame que não prestaria.
+  it('pergunta da lente antes de oferecer horário de refrativa', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    vagasFalsas = [
+      { data: '2026-10-20', dia_semana: 'terça', inicio: '09:00', fim: '09:30' },
+    ];
+    const r = await rodar(refrativa, 'tem horario?');
+    expect(r?.texto).toContain('lente de contato');
+    expect(r?.texto).not.toContain('09:00');
+  });
+
+  it('quem usa lente recebe os 3 dias e a agenda ganha antecedência', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    buscou.length = 0;
+    vagasFalsas = [
+      { data: '2026-10-23', dia_semana: 'sexta', inicio: '09:00', fim: '09:30' },
+    ];
+    const r1 = await rodar(
+      '{"intencao":"usa_lente","confianca":0.95,"slots":{}}',
+      'uso lente sim',
+    );
+    expect(r1?.texto).toContain('3 dias');
+    await rodar(refrativa, 'e os horarios?');
+    expect(buscou.pop()?.antecedencia).toBe(3);
+  });
+
+  it('quem NÃO usa lente não espera nada', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    buscou.length = 0;
+    vagasFalsas = [
+      { data: '2026-10-20', dia_semana: 'terça', inicio: '09:00', fim: '09:30' },
+    ];
+    await rodar(
+      '{"intencao":"nao_usa_lente","confianca":0.95,"slots":{"necessidade":"quero parar de usar óculos"}}',
+      'não uso',
+    );
+    const r = await rodar(refrativa, 'tem horario?');
+    expect(buscou.pop()?.antecedencia).toBeUndefined();
+    expect(r?.texto).toContain('09:00');
+  });
+
+  // ⚠️ Só na refrativa: catarata e rotina não dependem de lente, e perguntar
+  // ali seria um turno a mais sem motivo.
+  it('catarata NÃO é perguntada sobre lente', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    vagasFalsas = [
+      { data: '2026-10-20', dia_semana: 'terça', inicio: '09:00', fim: '09:30' },
+    ];
+    const r = await rodar(
+      '{"intencao":"horario_oferta","confianca":0.95,"slots":{"necessidade":"catarata","convenio":"particular"}}',
+      'tem horario?',
+    );
+    expect(r?.texto).not.toContain('lente de contato');
+    expect(r?.texto).toContain('09:00');
+  });
+
+  it('a pergunta sai UMA vez: respondida, não volta', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    vagasFalsas = [
+      { data: '2026-10-20', dia_semana: 'terça', inicio: '09:00', fim: '09:30' },
+    ];
+    await rodar(refrativa, 'tem horario?');
+    await rodar(
+      '{"intencao":"nao_usa_lente","confianca":0.95,"slots":{"necessidade":"quero parar de usar óculos"}}',
+      'não uso não',
+    );
+    const r = await rodar(refrativa, 'e entao?');
+    expect(r?.texto).not.toContain('lente de contato');
+  });
+});
+
 describe('hora pedida: os casos que a revisão achou (19/10/2026)', () => {
   // ⚠️ O filtro duro FABRICAVA escalonamento no paciente mais decidido: quem
   // pedia "sexta às 10h" com as 10h ocupadas ouvia "Só um instante", enquanto
@@ -1214,7 +1338,12 @@ describe('hora pedida: os casos que a revisão achou (19/10/2026)', () => {
         chamada === 1
           ? []
           : [
-              { data: '2026-10-23', dia_semana: 'sexta', inicio: '09:20', fim: '09:50' },
+              {
+                data: '2026-10-23',
+                dia_semana: 'sexta',
+                inicio: '09:20',
+                fim: '09:50',
+              },
             ];
     };
     const r = await rodar(
@@ -1234,7 +1363,12 @@ describe('hora pedida: os casos que a revisão achou (19/10/2026)', () => {
     const { esqueceSlots } = await import('./memoria-conversa.js');
     esqueceSlots(PASTA, JID);
     vagasFalsas = [
-      { data: '2026-10-23', dia_semana: 'sexta', inicio: '10:00', fim: '10:20' },
+      {
+        data: '2026-10-23',
+        dia_semana: 'sexta',
+        inicio: '10:00',
+        fim: '10:20',
+      },
     ];
     const r = await rodar(
       '{"intencao":"horario_oferta","confianca":0.95,"slots":{"necessidade":"rotina","convenio":"Unimed","dia_pedido":"sexta","hora_pedida":"10h"}}',
@@ -1248,7 +1382,12 @@ describe('hora pedida: os casos que a revisão achou (19/10/2026)', () => {
     const { esqueceSlots } = await import('./memoria-conversa.js');
     esqueceSlots(PASTA, JID);
     vagasFalsas = [
-      { data: '2026-10-21', dia_semana: 'quarta', inicio: '15:00', fim: '15:30' },
+      {
+        data: '2026-10-21',
+        dia_semana: 'quarta',
+        inicio: '15:00',
+        fim: '15:30',
+      },
     ];
     const r = await rodar(
       '{"intencao":"horario_oferta","confianca":0.95,"slots":{"necessidade":"catarata","convenio":"particular","hora_pedida":"10h"}}',

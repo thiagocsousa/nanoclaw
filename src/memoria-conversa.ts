@@ -104,6 +104,12 @@ export interface SlotsLembrados {
    * pessoa que volta no dia seguinte abre uma nova, e aí a regra vale de novo.
    */
   abertaEm?: number;
+  /**
+   * "sim"/"não" para lente de contato. Guardado porque muda a ANTECEDÊNCIA da
+   * agenda: a pergunta é feita uma vez e a resposta vale pelo resto da
+   * conversa, inclusive no turno em que o horário é de fato oferecido.
+   */
+  usaLente?: string;
   quando: number;
 }
 
@@ -334,6 +340,27 @@ export function esqueceQuemEra(folder: string, chatJid: string): void {
     quando: Date.now(),
   };
   grava(folder, todas);
+}
+
+/** Guarda a resposta sobre lente de contato. */
+export function lembraLente(
+  folder: string,
+  chatJid: string,
+  usaLente: string,
+): void {
+  const todas = le(folder);
+  todas[chatJid] = { ...todas[chatJid], usaLente, quando: Date.now() };
+  grava(folder, todas);
+}
+
+/** O que a conversa já disse sobre lente: "sim", "nao", ou undefined. */
+export function lenteLembrada(
+  folder: string,
+  chatJid: string,
+): string | undefined {
+  const m = le(folder)[chatJid];
+  if (!m || Date.now() - m.quando > VALIDO_MS) return undefined;
+  return m.usaLente;
 }
 
 /** Marca que o convite de agendamento já foi pendurado nesta conversa. */

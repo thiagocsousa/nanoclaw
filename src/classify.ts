@@ -42,6 +42,13 @@ const SLOTS_PERMITIDOS = new Set([
    * horário compactado de novo, e na terceira vez escalava por insistência.
    */
   'hora_pedida',
+  /**
+   * Se a pessoa usa lente de contato: "sim" / "não". Entra porque muda a
+   * ANTECEDÊNCIA da agenda, não o texto — a lente deforma a córnea e a medida
+   * da avaliação refrativa sai errada antes de 3 dias sem usar (Marina, via
+   * Thiago, 19/10/2026).
+   */
+  'usa_lente',
   'idade',
   // `necessidade` é CATEGORIA, não valor: "cirurgia refrativa", "catarata",
   // "rotina", "retorno", "exame". Entra na lista porque errá-la não produz uma

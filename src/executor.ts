@@ -31,6 +31,8 @@ import {
   candidatosLembrados,
   comLembrados,
   contaRepeticao,
+  lembraLente,
+  lenteLembrada,
   esqueceQuemEra,
   jaConvidou,
   jaPerguntouPaciente,
@@ -255,6 +257,16 @@ function comEnquadramentoRefrativo(
     : intencao;
 }
 
+/**
+ * Dias sem lente de contato antes da avaliação refrativa.
+ *
+ * Três, para QUALQUER tipo de lente — o manual trazido pelo Thiago separava
+ * gelatinosa comum das demais, e a Marina unificou em 19/10/2026. A lente muda
+ * o formato da córnea e a medida sai errada; é o único número clínico que a
+ * Lara pode dizer, por exceção aprovada no mesmo dia.
+ */
+const DIAS_SEM_LENTE = 3;
+
 /** `1980-06-01` -> `01/06/1980`. O iClinic devolve ISO; o resto do fluxo usa BR. */
 function isoParaBr(iso: string): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || '');
@@ -477,6 +489,52 @@ export async function executa(
     c.intencao = completa;
   }
 
+  // ⚠️ Iniciativa da Lara antes de oferecer horário para avaliação REFRATIVA.
+  //
+  // Decisão do Thiago em 19/10/2026, confirmada com a Marina: a lente de
+  // contato muda o formato da córnea e a medida da avaliação sai errada. São 3
+  // dias sem usar, de qualquer tipo.
+  //
+  // Perguntar por iniciativa custa um turno e evita a viagem perdida: sem
+  // isso, a Lara oferece amanhã, a pessoa vem de Picos, faz o exame e o exame
+  // não presta. Só na refrativa — catarata e rotina não dependem disso.
+  const exigeHorario = (
+    tabela.intencoes[c.intencao]?.slots_obrigatorios ?? []
+  ).some((x) => x === 'dia' || x === 'hora');
+  // ⚠️ Só para quem a Lara de fato agenda, e por DOIS motivos independentes.
+  //
+  // "Retorno da cirurgia refrativa" casa com o vocabulário refrativo, e um
+  // teste já existente pegou a pergunta da lente atrasando um escalonamento que
+  // tem de sair na hora.
+  //
+  // E o motivo clínico, do Thiago em 19/10/2026, que vale mesmo se um dia a
+  // Lara passar a agendar retorno: **quem volta de cirurgia refrativa não usa
+  // mais lente**. A pergunta não é só inoportuna ali, é sem sentido.
+  const perfilParaLente = perfilDe(
+    comLembrados(groupFolder, chatJid, c.slots).necessidade,
+    comLembrados(groupFolder, chatJid, c.slots).convenio,
+  );
+  if (
+    exigeHorario &&
+    !!perfilParaLente &&
+    !soHumano(perfilParaLente) &&
+    VOCABULARIO_REFRATIVO.test(
+      comLembrados(groupFolder, chatJid, c.slots).necessidade ?? '',
+    ) &&
+    !lenteLembrada(groupFolder, chatJid) &&
+    tabela.intencoes.pergunta_lente
+  ) {
+    const rl = renderiza(tabela, 'pergunta_lente', { confianca: 1, slots });
+    if (rl.texto && rl.intencao === 'pergunta_lente') {
+      logger.info({ groupFolder }, 'executor: refrativa, perguntando da lente');
+      return {
+        texto: rl.texto,
+        intencao: 'pergunta_lente',
+        acao: 'responder',
+      };
+    }
+  }
+
   let ofertaAOferecer: Omit<OfertaPendente, 'quando'> | undefined;
   // Quando a agenda decide trocar o texto (hoje só o caso do convênio com hora
   // pedida). Fica aqui porque o render acontece bem depois do bloco da agenda.
@@ -552,9 +610,15 @@ export async function executa(
       // No convênio a agenda manda, e o host EXPLICA em vez de ignorar.
       const horaAlvo = horaPedidaIso(c.slots.hora_pedida);
       const filtraPelaHora = !!horaAlvo && !!diaAlvo && ehParticular(perfil);
+      // 3 dias sem lente antes da avaliação (Marina, 19/10/2026). Vai para o
+      // script, que é a fonte única da aritmética de agenda, em vez de filtrar
+      // aqui: assim a busca já nasce no primeiro dia possível.
+      const antecedencia =
+        lenteLembrada(groupFolder, chatJid) === 'sim' ? DIAS_SEM_LENTE : 0;
       let vagas = await buscaVagas(groupFolder, perfil, {
         dia: diaAlvo,
         ...(filtraPelaHora ? { hora: horaAlvo } : {}),
+        ...(antecedencia ? { antecedencia } : {}),
       });
 
       // ⚠️ O filtro duro FABRICAVA escalonamento, e no pior paciente.
@@ -571,7 +635,10 @@ export async function executa(
       // "nesse horário não dá, mas tenho X" em vez de calar.
       let horaNegada = false;
       if (filtraPelaHora && vagas.length === 0) {
-        vagas = await buscaVagas(groupFolder, perfil, { dia: diaAlvo });
+          vagas = await buscaVagas(groupFolder, perfil, {
+        dia: diaAlvo,
+        ...(antecedencia ? { antecedencia } : {}),
+      });
         horaNegada = vagas.length > 0;
       }
 
@@ -617,7 +684,10 @@ export async function executa(
             'executor: hora pedida indisponível, oferecendo alternativa',
           );
           intencaoDaAgenda = 'horario_pedido_indisponivel';
-        } else if (explicaConvenio && tabela.intencoes.horario_pedido_convenio) {
+        } else if (
+          explicaConvenio &&
+          tabela.intencoes.horario_pedido_convenio
+        ) {
           logger.info(
             { groupFolder, perfil },
             'executor: hora pedida no convênio, explicando em vez de ignorar',
@@ -765,8 +835,7 @@ export async function executa(
   // mudaria o que a Lara PEDE sem mudar o gate que decide se ela pede — e o
   // sintoma seria o convite leve indo para quem já se identificou.
   const seIdentificou =
-    faltamNaTriagem(lembrados as Record<string, string>).length <
-    CAMPOS.length;
+    faltamNaTriagem(lembrados as Record<string, string>).length < CAMPOS.length;
   const conviteLeve =
     convidavel && !seIdentificou && !!tabela.intencoes.convite_horario;
   if (convidavel && !conviteLeve) {
@@ -778,6 +847,13 @@ export async function executa(
   // frase vira corrida. Pedir de novo o que a pessoa acabou de responder é o
   // jeito mais rápido de parecer máquina.
   let texto = r.texto;
+
+  // Lente de contato: a resposta vale pela conversa inteira, não pelo turno.
+  if (c.slots.usa_lente?.trim()) {
+    lembraLente(groupFolder, chatJid, c.slots.usa_lente.trim());
+  }
+  if (c.intencao === 'usa_lente') lembraLente(groupFolder, chatJid, 'sim');
+  if (c.intencao === 'nao_usa_lente') lembraLente(groupFolder, chatJid, 'nao');
 
   // Retorno e exame a Lara não agenda, e a regra vale antes de QUALQUER
   // pergunta — inclusive a de identidade logo abaixo.
@@ -880,7 +956,6 @@ export async function executa(
       }
     }
   }
-
 
   if (acao === 'triagem' || acao === 'recusar_e_triagem') {
     const formulario = tabela.intencoes.triagem_dados?.textos?.[0] ?? r.texto;

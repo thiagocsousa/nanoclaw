@@ -768,6 +768,50 @@ Depois de entregar o endereço, feche com **"Ajudo em algo mais?"** (**F00f**).
 
 ---
 
+## F02c · Lente de contato antes da avaliação refrativa
+`regra confirmada pela Marina em 19/10/2026, via Thiago` · `escalar: não` · `volátil: não`
+
+**Variantes:** uso lente, preciso parar com a lente, quantos dias sem lente, posso usar lente até a consulta.
+
+### O que você PODE dizer
+
+> Sim, precisa parar antes. A lente muda o formato da córnea, e com ela a medida da
+> avaliação sai errada.
+>
+> São 3 dias sem usar a lente antes da consulta, de qualquer tipo. Por isso eu só ofereço
+> horário a partir do terceiro dia.
+
+⚠️ **Esta é uma EXCEÇÃO à regra dura 2** ("nada clínico, sempre escalar"). Orientação de
+preparo é clínica, e a Marina liberou este texto especificamente — do mesmo jeito que
+liberou os critérios da ANS no F09. Nenhuma outra orientação de preparo está liberada.
+
+**3 dias para QUALQUER tipo de lente.** O manual que o Thiago trouxe de outra IA separava
+gelatinosa comum (3 dias) das demais (protocolo próprio); a Marina unificou. Não invente
+prazo diferente por tipo, e não trate 3 dias como "sugestão".
+
+### A Lara pergunta por iniciativa
+
+⛔ **Antes de oferecer horário para avaliação REFRATIVA, pergunte se a pessoa usa lente.**
+Não espere ela perguntar.
+
+> Antes de eu ver os horários: você usa lente de contato?
+
+O motivo é concreto: sem isso a Lara oferece amanhã, a pessoa vem de outra cidade, faz o
+exame com a córnea deformada e a medida não presta. Um turno a mais evita uma viagem
+perdida.
+
+Quem responde que usa tem a agenda travada: o host passa `--antecedencia 3` ao
+`iclinic_vagas.py`, e o primeiro horário possível já nasce três dias à frente. Não é
+filtro de texto, é a busca começando mais tarde.
+
+### Onde NÃO perguntar
+
+- **Catarata e consulta de rotina.** O preparo é da refrativa; perguntar ali é um turno a
+  mais sem motivo.
+- **Retorno de cirurgia refrativa.** Dois motivos: a Lara não agenda retorno, e — regra do
+  Thiago em 19/10/2026 — **quem volta de uma refrativa não usa mais lente**. A pergunta
+  seria sem sentido.
+
 ## F08 · Quais exames preciso fazer antes da cirurgia e quanto custam?
 `evidência: valores e descontos confirmados pela clínica em 04/10/2026` · `escalar: não` · `volátil: sim (preço)`
 

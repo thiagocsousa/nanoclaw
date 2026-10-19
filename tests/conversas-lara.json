@@ -2958,6 +2958,158 @@
           "nota": "A JULGAR À MÃO: os dois caminhos escalam; a mensagem deve tratar a idade, que é o impedimento real."
         }
       ]
+    },
+    {
+      "id": "Z01",
+      "categoria": "pre_operatorio",
+      "sobre": "Refrativa: a Lara pergunta da lente POR INICIATIVA antes de oferecer horário (Marina, 19/10).",
+      "escalou": false,
+      "turnos": [
+        {
+          "paciente": "oi"
+        },
+        {
+          "paciente": "queria fazer a cirurgia pra parar de usar óculos"
+        },
+        {
+          "paciente": "Paulo, 12/12/1992, Teresina, particular"
+        },
+        {
+          "paciente": "tem horario?",
+          "esperado": [
+            "lente de contato"
+          ],
+          "proibido": [
+            "[0-9]{2}:[0-9]{2}"
+          ],
+          "nota": "Sem saber da lente, não pode ofertar: ofertar amanhã a quem precisa de 3 dias é mandar viajar à toa."
+        }
+      ]
+    },
+    {
+      "id": "Z02",
+      "categoria": "pre_operatorio",
+      "sobre": "Usa lente: explica os 3 dias e o horário ofertado respeita o prazo.",
+      "escalou": false,
+      "turnos": [
+        {
+          "paciente": "oi"
+        },
+        {
+          "paciente": "queria fazer a cirurgia pra parar de usar óculos"
+        },
+        {
+          "paciente": "Rita, 03/03/1985, Teresina, particular"
+        },
+        {
+          "paciente": "tem horario?",
+          "esperado": [
+            "lente de contato"
+          ]
+        },
+        {
+          "paciente": "uso sim, lente gelatinosa",
+          "esperado": [
+            "3 dias"
+          ],
+          "nota": "A JULGAR À MÃO: o horário que vier depois tem de ser pelo menos 3 dias à frente."
+        }
+      ]
+    },
+    {
+      "id": "Z03",
+      "categoria": "pre_operatorio",
+      "sobre": "NÃO usa lente: segue direto para o horário, sem prazo extra.",
+      "escalou": false,
+      "turnos": [
+        {
+          "paciente": "oi"
+        },
+        {
+          "paciente": "queria fazer a cirurgia pra parar de usar óculos"
+        },
+        {
+          "paciente": "Caio, 07/07/1990, Teresina, particular"
+        },
+        {
+          "paciente": "tem horario?",
+          "esperado": [
+            "lente de contato"
+          ]
+        },
+        {
+          "paciente": "não uso lente",
+          "esperado": [
+            "[0-9]{2}:[0-9]{2}"
+          ],
+          "proibido": [
+            "3 dias"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "Z04",
+      "categoria": "pre_operatorio",
+      "sobre": "Catarata NÃO é perguntada sobre lente: o preparo é da refrativa.",
+      "escalou": false,
+      "turnos": [
+        {
+          "paciente": "oi"
+        },
+        {
+          "paciente": "é pra cirurgia de catarata"
+        },
+        {
+          "paciente": "Ana, 02/02/1960, Teresina, particular"
+        },
+        {
+          "paciente": "tem horario?",
+          "esperado": [
+            "[0-9]{2}:[0-9]{2}"
+          ],
+          "proibido": [
+            "lente de contato"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "Z05",
+      "categoria": "pre_operatorio",
+      "sobre": "Pergunta do preparo por iniciativa DELE, sem ter sido perguntado.",
+      "escalou": false,
+      "turnos": [
+        {
+          "paciente": "uso lente de contato, preciso parar antes da consulta?",
+          "esperado": [
+            "3 dias"
+          ],
+          "proibido": [
+            "S[óo] um instante"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "Z06",
+      "categoria": "agenda_bloqueada",
+      "sobre": "Retorno de cirurgia refrativa: escala, e NÃO pergunta da lente — quem volta de refrativa não usa mais lente (Thiago, 19/10).",
+      "escalou": true,
+      "turnos": [
+        {
+          "paciente": "oi"
+        },
+        {
+          "paciente": "queria marcar o retorno da minha cirurgia refrativa",
+          "esperado": [
+            "S[óo] um instante"
+          ],
+          "proibido": [
+            "lente de contato"
+          ]
+        }
+      ]
     }
   ]
 }

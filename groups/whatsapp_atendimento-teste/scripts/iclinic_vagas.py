@@ -285,6 +285,8 @@ def main():
     ap.add_argument("--dia", help="checar uma data específica (YYYY-MM-DD)")
     ap.add_argument("--hora", help="checar um horário específico (HH:MM); exige --dia")
     ap.add_argument("--dias", type=int, default=14, help="horizonte de busca")
+    ap.add_argument("--antecedencia", type=int, default=0,
+                    help="dias mínimos a partir de hoje; soma-se à regra do perfil")
     ap.add_argument("--todas", action="store_true",
                     help="listar todas as vagas do dia; exige --dia")
     a = ap.parse_args()
@@ -318,14 +320,25 @@ def main():
     tipo, conta_cota = PERFIS[a.perfil]
     dur = DURACOES[tipo]
     pista = "exame" if tipo == "exame" else "consulta"
-    antec = ANTECEDENCIA_UNIMED if conta_cota else 0
+    # A antecedência do PERFIL (cota Unimed) e a do PREPARO (--antecedencia) são
+    # independentes e as duas valem: quem é Unimed e usa lente de contato espera
+    # o maior dos dois prazos, não a soma nem o menor.
+    #
+    # `--antecedencia` entrou em 19/10/2026 para o preparo de lente de contato:
+    # a lente deforma a córnea e a medida da avaliação refrativa sai errada, e
+    # sem isto a Lara podia oferecer amanhã para quem precisa de 3 dias sem usar
+    # — o paciente viaja, faz o exame, e o exame não presta.
+    antec = max(ANTECEDENCIA_UNIMED if conta_cota else 0, max(0, a.antecedencia))
     hoje = datetime.now(TZ).date()
     minimo = hoje + timedelta(days=antec)
 
     # Hoje só entra para quem pode encaixar no mesmo dia. Para os demais o
     # primeiro dia possível é amanhã, e dizer isso aqui evita calcular vagas que
     # seriam descartadas depois.
-    primeiro = hoje if tipo in TIPOS_COM_ENCAIXE_HOJE else hoje + timedelta(days=1)
+    primeiro = max(
+        hoje if tipo in TIPOS_COM_ENCAIXE_HOJE else hoje + timedelta(days=1),
+        minimo,
+    )
 
     alvos = ([dia_pedido] if dia_pedido
              else [hoje + timedelta(days=i) for i in range(a.dias + 1)])
@@ -372,7 +385,9 @@ def main():
             for d in alvos:
                 ds = d.isoformat()
                 # cota e antecedência não dependem da agenda do dia: barre antes de buscar
-                if conta_cota and d < minimo:
+                # Vale para TODO perfil agora, não só para quem conta cota: o
+                # preparo de lente não tem nada a ver com convênio.
+                if d < minimo:
                     recusas.append((ds, f"antecedência mínima de {antec} dias"))
                     continue
                 agora = datetime.now(TZ)
