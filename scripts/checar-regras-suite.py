@@ -106,6 +106,19 @@ CASOS = [
      "Quer que eu confira a agenda?", "quanto custa?", [], True),
     ("permissao", "variação: 'quer que eu procure'",
      "Quer que eu procure um horário para você?", "quanto custa?", [], True),
+    # ⛔ `confirmou_agendamento` proíbe afirmar que está marcado — e a guarda de
+    # produção sabe a diferença porque recebe `jaMarcou`. A cópia da suíte não,
+    # e acusava falha dura no único turno do dia em que o agendamento funcionou
+    # de ponta a ponta (E08, passada 23). A dispensa é declarativa: o cenário
+    # que EXIGE "agendad" é o que teve marcação.
+    ("confirmou_agendamento", "marcou de verdade",
+     "Pronto, Thiago, está agendado para quarta, dia 21/10, às 17:40.",
+     "a primeira", [], False),
+    # ⚠️ E sem a exigência, continua pego: é a afirmação sem marcação que
+    # deixa o paciente contando com uma consulta que não existe.
+    ("confirmou_agendamento", "afirmou sem ter marcado",
+     "Pronto, está agendado para quarta às 17:40.",
+     "pode ser esse horario", [], True),
     # ⛔ A grade NÃO se informa mais, decisão da Marina em 19/10/2026 — então a
     # regra voltou a ser ABSOLUTA. Até essa decisão havia uma dispensa automática
     # para quem perguntava os dias (`perguntou_a_grade`), construída na mesma
@@ -155,7 +168,12 @@ def lara_constante():
 def main():
     falhas = 0
     for regra, desc, resposta, msg, anteriores, deve_bater in CASOS:
-        duras, _ = tl.checa(resposta, {"paciente": msg}, GLOBAIS, anteriores)
+        # `confirmou_agendamento` só é dispensada quando o turno EXIGE a
+        # confirmação: é assim que a suíte sabe que a marcação aconteceu.
+        turno = {"paciente": msg}
+        if regra == "confirmou_agendamento" and not deve_bater:
+            turno["exige"] = ["agendad"]
+        duras, _ = tl.checa(resposta, turno, GLOBAIS, anteriores)
         bateu = any("global/%s" % regra in d for d in duras)
         ok = bateu == deve_bater
         falhas += not ok

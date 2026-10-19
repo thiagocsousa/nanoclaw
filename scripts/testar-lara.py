@@ -308,6 +308,27 @@ def sem_abreviacoes(texto):
     return RX_ABREVIACAO.sub(lambda m: m.group(1) + " ", texto)
 
 
+def marcacao_esperada(turno):
+    """O turno EXIGE a confirmação de agendamento?
+
+    `confirmou_agendamento` proíbe afirmar que está marcado, e a razão é boa: a
+    Lara dizendo "está agendado" sem ter marcado deixa o paciente contando com
+    uma consulta que não existe.
+
+    Mas quando a marcação ACONTECEU, dizer isso é a resposta certa — e a guarda
+    de produção sabe a diferença, porque recebe `jaMarcou`. A cópia da suíte não
+    recebia nada, então acusava falha dura no único turno do dia em que o
+    agendamento funcionou de ponta a ponta (E08, passada 23).
+
+    A dispensa é declarativa: vale quando o próprio cenário EXIGE "agendad". Um
+    cenário que não espera marcação continua protegido.
+    """
+    for rx in turno.get("exige") or []:
+        if "agendad" in rx or "marcad" in rx:
+            return True
+    return False
+
+
 def ainda_sem_pedido(turno, anteriores):
     """A conversa até aqui não disse o que o paciente quer?
 
@@ -354,6 +375,8 @@ def checa(resposta, turno, globais, anteriores=()):
     permitido = set(turno.get("permitido") or [])
     if ainda_sem_pedido(turno, anteriores):
         permitido.add("empurra_trabalho")
+    if marcacao_esperada(turno):
+        permitido.add("confirmou_agendamento")
     limpo = sem_abreviacoes(resposta)
     for nome, rx in globais.items():
         if nome in permitido:
