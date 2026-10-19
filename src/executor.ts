@@ -1106,8 +1106,16 @@ export async function executa(
       slots: { ...slots, ...slotsDasVagas(oferecidas) },
     });
     if (rq.texto && rq.intencao === 'qual_horario') {
+      // ⚠️ Loga o TEXTO e as vagas. Sem isso, um laço aqui é indepurável: eu
+      // perdi duas tentativas de conserto no E08 raciocinando sobre o que
+      // DEVIA estar chegando, enquanto o log só dizia que a decisão aconteceu.
       logger.info(
-        { groupFolder, opcoes: oferecidas.length },
+        {
+          groupFolder,
+          opcoes: oferecidas.length,
+          texto: perguntaDoPaciente.slice(0, 120),
+          vagas: oferecidas.map((v) => `${v.data} ${v.inicio}`),
+        },
         'executor: aceite não disse qual horário, perguntando',
       );
       return { texto: rq.texto, intencao: 'qual_horario', acao: 'responder' };
