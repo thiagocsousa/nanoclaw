@@ -77,6 +77,29 @@ const CIRURGIA =
 const PRECIFICAVEL =
   /avalia[çc][ãa]o|consulta|retorno|exame|mapeamento|topografi|ceratoscopi/i;
 /**
+ * O mesmo texto, com o ponto das abreviações removido.
+ *
+ * Três regras aqui delimitam a frase com `[^.!?\n]`, para não casar palavras que
+ * estão em frases diferentes. Mas "Dra." tem ponto, e aparece em 25 dos 71
+ * textos aprovados — então a delimitação cortava a frase no meio de um nome, e a
+ * regra ficava cega dali para frente.
+ *
+ * Como apareceu (19/10/2026): o texto do IASPI virou "a consulta com a Dra.
+ * Marina fica como particular", e a regra `plano_parcial` deixou de ver que a
+ * consulta estava excluída. Pior que o flag perdido é o vazamento na regra do
+ * Pentacam, que é `block`: "O Pentacam, com a Dra. Marina, custa R$ 500" passava
+ * inteiro.
+ *
+ * Não é normalização geral de texto — desfaz só o que o PONTO da abreviação faz
+ * com a noção de frase.
+ */
+const RX_ABREVIACAO = /\b(Dra?|Sra?|Av|Exm[ao])\./gi;
+
+function semAbreviacoes(texto: string): string {
+  return texto.replace(RX_ABREVIACAO, '$1');
+}
+
+/**
  * Pentacam saiu do precificável em 04/10/2026: o valor muda por hospital
  * (R$ 500 no Hospital do Olho, R$ 600 no Vilar), então a agente responde a
  * cobertura e escala o preço. Qualquer valor junto dele é erro.
@@ -260,9 +283,21 @@ const RX_PEDE_CNPJ =
 const RX_PLANO_PARCIAL = /\b(?:IASPI|IAPEP|IPMT)\b/i;
 const RX_ATENDE_SIM =
   /\batende(?:mos)?\s+sim\b|\bsim,?\s+atende(?:mos)?\b|\bcobre\s+(?:sim|tudo)\b/i;
-/** A exclusão da consulta tem que estar dita em algum lugar da mensagem. */
+/**
+ * A exclusão da consulta tem que estar dita em algum lugar da mensagem.
+ *
+ * `excluiConsulta` é exportada porque `templates-guarda.test.ts` precisa da
+ * MESMA noção para exigir que os textos de IASPI/IPMT digam isso. Com uma cópia
+ * lá, reescrever o texto do plano podia satisfazer o teste e falhar na guarda,
+ * ou o contrário — e em 19/10/2026 eu já tinha escrito a cópia antes de ver que
+ * ela existia aqui.
+ */
 const RX_EXCLUI_CONSULTA =
   /consulta[^.!?\n]{0,60}(?:n[ãa]o|particular)|(?:n[ãa]o|particular)[^.!?\n]{0,60}consulta/i;
+
+export function excluiConsulta(texto: string): boolean {
+  return RX_EXCLUI_CONSULTA.test(semAbreviacoes(texto));
+}
 
 // --- afirmar que a lista está completa --------------------------------------
 
@@ -542,7 +577,7 @@ export function inspecionaSaida(
   }
 
   // 7. flag: citou valor do Pentacam, que varia por hospital
-  const pent = texto.match(RX_PENTACAM_VALOR);
+  const pent = semAbreviacoes(texto).match(RX_PENTACAM_VALOR);
   if (pent) {
     achados.push({
       regra: 'valor_pentacam',
@@ -597,7 +632,7 @@ export function inspecionaSaida(
   if (
     RX_PLANO_PARCIAL.test(texto) &&
     RX_ATENDE_SIM.test(texto) &&
-    !RX_EXCLUI_CONSULTA.test(texto)
+    !excluiConsulta(texto)
   ) {
     achados.push({
       regra: 'plano_parcial',
@@ -609,7 +644,7 @@ export function inspecionaSaida(
   }
 
   // 10. flag: afirmou que a lista de exames está completa
-  const compl = texto.match(RX_COMPLETUDE);
+  const compl = semAbreviacoes(texto).match(RX_COMPLETUDE);
   if (compl) {
     achados.push({
       regra: 'completude_falsa',

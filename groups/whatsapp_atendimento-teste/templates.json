@@ -256,7 +256,7 @@
       "acao": "responder",
       "fecho": false,
       "textos": [
-        "Pelo IASPI a gente não atende consulta, então ela fica como particular.\n\nJá o exame sai pelo próprio IASPI, e a cirurgia pelo PLAMTA, se o plano autorizar.\n\nO Pentacam é a única exceção: esse é particular em qualquer plano."
+        "Pelo IASPI a consulta com a Dra. Marina fica como particular.\n\nMas o exame você faz pelo próprio IASPI, e a cirurgia pelo PLAMTA, se o plano autorizar. Só o Pentacam não sai por plano nenhum, esse é sempre particular."
       ],
       "emenda_triagem": true
     },
@@ -266,7 +266,7 @@
       "acao": "responder",
       "fecho": false,
       "textos": [
-        "Pelo IPMT a gente não atende consulta, então ela fica como particular.\n\nJá o exame sai pelo próprio IPMT, e a cirurgia pelo PLANTE, se o plano autorizar.\n\nO Pentacam é a única exceção: esse é particular em qualquer plano."
+        "Pelo IPMT a consulta com a Dra. Marina fica como particular.\n\nMas o exame você faz pelo próprio IPMT, e a cirurgia pelo PLANTE, se o plano autorizar. Só o Pentacam não sai por plano nenhum, esse é sempre particular."
       ],
       "emenda_triagem": true
     },

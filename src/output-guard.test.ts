@@ -709,3 +709,64 @@ describe('anunciar-se como automática (19/10/2026)', () => {
     );
   });
 });
+
+/**
+ * O ponto da abreviação cegava três regras (19/10/2026).
+ *
+ * As três delimitam a frase com `[^.!?\n]` para não casar palavras de frases
+ * diferentes, e "Dra." tem ponto. Como "Dra." está em 25 dos 71 textos
+ * aprovados, o ponto cego cobria boa parte da tabela — e eu só tropecei nele
+ * porque reescrevi o texto do IASPI e o teste dos templates reprovou.
+ *
+ * Cada caso aqui é um par: a frase COM a abreviação no meio, que antes passava,
+ * e a mesma frase sem ela, que já era pega. Sem o segundo membro, afrouxar a
+ * delimitação até o primeiro passar ficaria invisível.
+ */
+describe('abreviação não corta a frase (19/10/2026)', () => {
+  it('valor do Pentacam é pego com "Dra." no meio', () => {
+    const com = inspecionaSaida(
+      'O Pentacam, com a Dra. Marina, custa R$ 500.',
+      {
+        intencao: 'pentacam_cobertura',
+      },
+    );
+    expect(com.achados.map((a) => a.regra)).toContain('valor_pentacam');
+    const sem = inspecionaSaida('O Pentacam custa R$ 500.', {
+      intencao: 'pentacam_cobertura',
+    });
+    expect(sem.achados.map((a) => a.regra)).toContain('valor_pentacam');
+  });
+
+  it('completude falsa é pega com "Dra." no meio', () => {
+    const com = inspecionaSaida('Os exames que a Dra. Marina pede são dois.', {
+      intencao: 'exames_preco',
+    });
+    expect(com.achados.map((a) => a.regra)).toContain('completude_falsa');
+  });
+
+  // Aqui a abreviação fazia a guarda perder a DEFESA, não a violação: a
+  // exclusão da consulta estava dita e ela não via, então marcaria um texto
+  // correto. É o falso positivo que faz a equipe desligar a guarda.
+  it('a exclusão da consulta é vista mesmo com "Dra." entre as palavras', () => {
+    const r = inspecionaSaida(
+      'Atende sim pelo IASPI, mas a consulta com a Dra. Marina fica como particular.',
+      { intencao: 'convenio_iaspi' },
+    );
+    expect(r.achados.map((a) => a.regra)).not.toContain('plano_parcial');
+  });
+
+  // ⚠️ E continua pegando quem diz "atende sim" SEM dizer a exclusão.
+  it('sem a exclusão dita, "atende sim" continua marcado', () => {
+    const r = inspecionaSaida('Atende sim pelo IASPI, a Dra. Marina opera.', {
+      intencao: 'convenio_iaspi',
+    });
+    expect(r.achados.map((a) => a.regra)).toContain('plano_parcial');
+  });
+
+  it('não mexe no texto enviado, só na noção de frase', () => {
+    const r = inspecionaSaida('A avaliação com a Dra. Marina é R$ 430,00.', {
+      intencao: 'preco_consulta',
+    });
+    expect(r.texto).toContain('Dra. Marina');
+  });
+});

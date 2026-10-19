@@ -545,18 +545,27 @@ Afirmar cobertura faz o paciente contar com um dinheiro que pode não vir.
 Para **IASPI (IAPEP)** e **IPMT** há nome próprio do plano cirúrgico, e aí dá para ser
 específico:
 
-> Pelo IASPI a gente não atende consulta, então ela fica como particular.
+> Pelo IASPI a consulta com a Dra. Marina fica como particular.
 >
-> Já o exame sai pelo próprio IASPI, e a cirurgia pelo PLAMTA, se o plano autorizar.
->
-> O Pentacam é a única exceção: esse é particular em qualquer plano.
+> Mas o exame você faz pelo próprio IASPI, e a cirurgia pelo PLAMTA, se o plano autorizar.
+> Só o Pentacam não sai por plano nenhum, esse é sempre particular.
 
-> Pelo IPMT a gente não atende consulta, então ela fica como particular.
+> Pelo IPMT a consulta com a Dra. Marina fica como particular.
 >
-> Já o exame sai pelo próprio IPMT, e a cirurgia pelo PLANTE, se o plano autorizar.
->
-> O Pentacam é a única exceção: esse é particular em qualquer plano.
+> Mas o exame você faz pelo próprio IPMT, e a cirurgia pelo PLANTE, se o plano autorizar.
+> Só o Pentacam não sai por plano nenhum, esse é sempre particular.
 
+> ℹ️ E uma QUARTA vez, no mesmo dia: *"ficou muito organizado"*. Três parágrafos paralelos
+> e simétricos leem como documento, não como alguém digitando. O que humanizou foram três
+> coisas: **"você faz"** em vez de "o exame sai" (a frase passa a falar com a pessoa, não
+> sobre o assunto); o Pentacam **grudado** no mesmo parágrafo, como aparte, em vez de ter
+> linha própria; e a abertura deixou de ser *"a gente não atende consulta"*, que está na
+> lista de coisas a evitar do próprio documento de tom — agora diz o que a consulta **é**
+> (particular), não o que ela não é.
+>
+> ⚠️ E essa reescrita destravou um ponto cego da guarda: "Dra." tem ponto, e três regras
+> delimitavam a frase com `[^.!?\n]`. Ver `semAbreviacoes` em `output-guard.ts`.
+>
 > ℹ️ A segunda metade foi reescrita ainda uma terceira vez em 19/10/2026, e o defeito era
 > estrutural: *"Já os exames e a cirurgia dá para fazer pelo plano: os exames pelo próprio
 > IASPI, menos o Pentacam, (…), e a cirurgia pelo PLAMTA, (…)"* anunciava os dois e depois

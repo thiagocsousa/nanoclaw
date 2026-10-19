@@ -3,7 +3,7 @@ import path from 'path';
 
 import { describe, expect, it } from 'vitest';
 
-import { inspecionaSaida } from './output-guard.js';
+import { excluiConsulta, inspecionaSaida } from './output-guard.js';
 
 /**
  * Todo texto aprovado da tabela, passado pela guarda.
@@ -250,7 +250,9 @@ describe('planos parciais: diz o que pode, cala a condição', () => {
     it(`${nome} informa o exame`, () => {
       const t = (TABELA.intencoes[nome]?.textos ?? []).join('\n');
       expect(t, nome).toMatch(/exame/i);
-      expect(t, nome).toMatch(/não atende consulta|consulta.*particular/i);
+      // A MESMA noção da guarda (regra `plano_parcial`), não uma cópia: é ela
+      // que decide se a mensagem diz que a consulta está fora.
+      expect(excluiConsulta(t), nome).toBe(true);
     });
 
     it(`${nome} não diz a condição do exame avulso`, () => {
