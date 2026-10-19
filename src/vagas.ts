@@ -391,8 +391,8 @@ export function vagaEscolhida(vagas: Vaga[], texto: string): Vaga | undefined {
   if (masculino) return masculino[1] === 'primeiro' ? vagas[0] : vagas[1];
   const numerico = /\b([12])\s*[ªº°]/.exec(t);
   if (numerico) return numerico[1] === '1' ? vagas[0] : vagas[1];
-  const marcado = /\b(primeir|segund)[ao]\b.{0,12}\b(opcao|alternativa|hora)/
-    .exec(t);
+  const marcado =
+    /\b(primeir|segund)[ao]\b.{0,12}\b(opcao|alternativa|hora)/.exec(t);
   if (marcado) return marcado[1] === 'primeir' ? vagas[0] : vagas[1];
 
   // DIA/DATA/HORA vêm ANTES do ordinal NU, e esta ordem é o conserto.

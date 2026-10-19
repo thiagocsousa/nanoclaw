@@ -439,7 +439,18 @@ def roda_cenario(cen, globais):
         bloqueios = avisos_da_guarda(marco)
 
         duras, avisos = ([], [])
-        if not partes:
+        # `silencio: true` inverte a regra: a ausência de resposta é o
+        # comportamento CERTO, e responder é que é falha.
+        #
+        # Existe por causa da pergunta de robô (Thiago, 19/10/2026): a Lara
+        # escala sem dizer nada, porque "Só um instante." ali soa a confissão.
+        # Sem isto, o cenário certo apareceria como "SEM RESPOSTA", que é falha
+        # dura — e o único jeito de passar seria a Lara responder.
+        if turno.get("silencio"):
+            if partes:
+                duras.append("RESPONDEU onde devia calar: %r"
+                             % resposta.replace("\n", " / ")[:60])
+        elif not partes:
             duras.append("SEM RESPOSTA em %ds" % TIMEOUT_TURNO
                          + (" (guarda bloqueou)" if bloqueios else ""))
         else:

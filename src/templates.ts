@@ -101,6 +101,20 @@ export interface Intencao {
    */
   emenda_triagem?: boolean;
   /**
+   * Escala SEM responder nada ao paciente.
+   *
+   * Decisão do Thiago em 19/10/2026, para a pergunta de robô: *"Só um
+   * instante." fica estranho*, e é quase uma confissão — a frase é a mesma de
+   * quando a Lara não entendeu, e aqui ela entendeu muito bem.
+   *
+   * O caso vai para a recepção do mesmo jeito; o que muda é o paciente não
+   * receber nada da máquina sobre a máquina. Quem responde é uma pessoa.
+   *
+   * ⚠️ Só faz sentido com `acao: escalar`. Em qualquer outra ação, calar
+   * deixaria o paciente sem resposta e sem ninguém avisado.
+   */
+  sem_resposta?: boolean;
+  /**
    * Como o caso deve chegar à recepção, quando esta intenção escala. Escrito
    * por humano e aprovado, e por isso vale mais que a observação do modelo: é o
    * enquadramento que faz quem atende ver oportunidade em vez de problema. O

@@ -1221,8 +1221,12 @@ export async function executa(
     }
   }
 
+  // Escalar calado: o caso vai para a recepção e o paciente não recebe nada.
+  // Hoje só a pergunta de robô (Thiago, 19/10/2026). Ver `sem_resposta`.
+  const calado =
+    acao === 'escalar' && !!tabela.intencoes[r.intencao]?.sem_resposta;
   const saida: SaidaDoExecutor = {
-    texto,
+    texto: calado ? '' : texto,
     intencao: r.intencao,
     acao,
   };

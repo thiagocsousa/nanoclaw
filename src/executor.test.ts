@@ -177,6 +177,11 @@ const TABELA = {
         'Entendo, isso deve estar incomodando bastante. Só um instante.',
       ],
     },
+    pergunta_se_e_bot: {
+      acao: 'escalar',
+      sem_resposta: true,
+      textos: ['Só um instante.'],
+    },
     cobertura_no_hospital: {
       acao: 'escalar',
       motivo_escalada: 'cobertura naquele hospital (CASO DE CONVERSÃO)',
@@ -1240,6 +1245,45 @@ describe('dia e hora pedidos pelo paciente (Thiago, 19/10/2026)', () => {
   });
 });
 
+describe('pergunta de robô: escala CALADA (Thiago, 19/10/2026)', () => {
+  // "Só um instante." depois de "você é um robô?" é quase uma confissão: é a
+  // mesma frase de quando a Lara não entendeu, e aqui ela entendeu muito bem.
+  it('não responde nada, e abre o caso', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    const r = await rodar(
+      '{"intencao":"pergunta_se_e_bot","confianca":0.95,"slots":{}}',
+      'você é um robô?',
+    );
+    expect(r?.acao).toBe('escalar');
+    expect(r?.texto).toBe('');
+    expect(pendencias()).not.toHaveLength(0);
+  });
+
+  // ⚠️ O outro lado: quem PEDE para falar com uma pessoa continua ouvindo "Só
+  // um instante." Calar ali pareceria que a mensagem se perdeu.
+  it('quem pede para falar com alguém continua recebendo resposta', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    const r = await rodar(
+      '{"intencao":"quer_humano","confianca":0.95,"slots":{}}',
+      'quero falar com uma pessoa',
+    );
+    expect(r?.acao).toBe('escalar');
+    expect(r?.texto).toContain('instante');
+  });
+
+  it('sem_resposta NÃO cala quem não escala', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    const r = await rodar(
+      '{"intencao":"endereco","confianca":0.95,"slots":{}}',
+      'onde fica?',
+    );
+    expect(r?.texto).toContain('Elias João Tajra');
+  });
+});
+
 describe('preparo de lente de contato (Marina, 19/10/2026)', () => {
   const refrativa =
     '{"intencao":"horario_oferta","confianca":0.95,"slots":{"necessidade":"quero parar de usar óculos","convenio":"particular"}}';
@@ -1308,7 +1352,12 @@ describe('preparo de lente de contato (Marina, 19/10/2026)', () => {
     lembraLente(PASTA, JID, 'sim');
     buscou.length = 0;
     vagasFalsas = [
-      { data: '2026-10-20', dia_semana: 'terça', inicio: '09:00', fim: '09:30' },
+      {
+        data: '2026-10-20',
+        dia_semana: 'terça',
+        inicio: '09:00',
+        fim: '09:30',
+      },
     ];
     await rodar(
       '{"intencao":"horario_oferta","confianca":0.95,"slots":{"necessidade":"catarata","convenio":"particular"}}',
@@ -1366,7 +1415,12 @@ describe('preparo de lente de contato (Marina, 19/10/2026)', () => {
     const { esqueceSlots } = await import('./memoria-conversa.js');
     esqueceSlots(PASTA, JID);
     vagasFalsas = [
-      { data: '2026-10-20', dia_semana: 'terça', inicio: '09:00', fim: '09:30' },
+      {
+        data: '2026-10-20',
+        dia_semana: 'terça',
+        inicio: '09:00',
+        fim: '09:30',
+      },
     ];
     const t1 = await rodarDe(
       '{"intencao":"triagem_dados","confianca":0.95,"slots":{"necessidade":"quero parar de usar óculos","nome":"Paulo","nascimento":"12/12/1992","cidade":"Teresina","convenio":"particular"}}',
@@ -1384,9 +1438,8 @@ describe('preparo de lente de contato (Marina, 19/10/2026)', () => {
   // Resposta ambígua NÃO libera a agenda: liberar sem prazo manda a pessoa
   // fazer um exame que não vai prestar.
   it('"às vezes" não conta como resposta', async () => {
-    const { esqueceSlots, lenteLembrada } = await import(
-      './memoria-conversa.js'
-    );
+    const { esqueceSlots, lenteLembrada } =
+      await import('./memoria-conversa.js');
     esqueceSlots(PASTA, JID);
     await rodar(
       '{"intencao":"triagem_dados","confianca":0.95,"slots":{"necessidade":"quero parar de usar óculos","usa_lente":"às vezes"}}',

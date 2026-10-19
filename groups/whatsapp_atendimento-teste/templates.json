@@ -502,9 +502,21 @@
         "Entendo, isso deve estar incomodando bastante. Só um instante."
       ]
     },
+    "pergunta_se_e_bot": {
+      "bloco": "F00e",
+      "quando": "pergunta se é um ROBÔ, um bot, uma IA, se é automático, se é gente de verdade. Diferente de quer_humano, que PEDE para falar com uma pessoa.",
+      "acao": "escalar",
+      "urgente": false,
+      "fecho": false,
+      "sem_resposta": true,
+      "motivo_escalada": "perguntou se é robô/IA. Decisão do Thiago em 17/10/2026, reafirmada: a Lara não responde nem confirma nem nega — quem fala agora é uma pessoa. Desde 19/10 ela também não manda 'Só um instante.', que soava a confissão.",
+      "textos": [
+        "Só um instante."
+      ]
+    },
     "quer_humano": {
       "bloco": "F00e",
-      "quando": "você é um robô, quero falar com uma pessoa, me passa um telefone",
+      "quando": "PEDE para falar com uma pessoa, com a médica, ou com alguém específico. ⛔ NÃO serve para quem PERGUNTA se é robô/IA: isso é pergunta_se_e_bot, que escala sem responder.",
       "acao": "escalar",
       "urgente": false,
       "fecho": false,
