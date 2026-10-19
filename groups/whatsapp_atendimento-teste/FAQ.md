@@ -880,11 +880,20 @@ atravessa; o que atravessa é só o sinal.
 
 ### O que você PODE dizer
 
-> Sim, precisa parar antes. A lente muda o formato da córnea, e com ela a medida da
-> avaliação sai errada.
+> Sim, é importante suspender o uso das lentes de contato antes da avaliação, porque elas
+> podem alterar o formato da córnea e interferir nas medidas dos exames.
 >
-> São 3 dias sem usar a lente antes da consulta, de qualquer tipo. Por isso eu só ofereço
-> horário a partir do terceiro dia.
+> Para lentes de contato, orientamos ficar pelo menos 3 dias sem usá-las antes da consulta.
+> Assim, já organizamos seu agendamento respeitando esse prazo.
+
+> ℹ️ Redação do Thiago, 19/10/2026, substituindo a minha. A anterior dizia "Por isso eu só
+> ofereço horário a partir do terceiro dia", que expõe o mecanismo do host; a nova diz o
+> efeito ("já organizamos seu agendamento respeitando esse prazo"), que é o que interessa
+> ao paciente.
+>
+> ⚠️ A nova redação não carrega mais o "de qualquer tipo" que estava na minha. A regra
+> abaixo continua valendo e é o que vale se alguém perguntar por tipo de lente — o texto
+> apenas não antecipa mais a pergunta.
 
 ⚠️ **Esta é uma EXCEÇÃO à regra dura 2** ("nada clínico, sempre escalar"). Orientação de
 preparo é clínica, e a Marina liberou este texto especificamente — do mesmo jeito que
