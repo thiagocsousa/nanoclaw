@@ -175,7 +175,7 @@
     },
     "catarata_avaliacao": {
       "bloco": "F02b",
-      "quando": "quer saber como é a avaliação ou o tratamento da CATARATA, o que a médica verifica, se precisa operar, sobre as lentes intraoculares. NÃO serve para preço (preco_cirurgia) nem para cobertura (convenio_cirurgia).",
+      "quando": "quer saber como é a avaliação ou o tratamento da CATARATA, o que a médica verifica, se precisa operar, sobre as lentes intraoculares. NÃO serve para preço (preco_cirurgia) nem para cobertura (convenio_cirurgia). Inclui \"qual lente é melhor pra mim?\" e \"vale a pena a multifocal?\": a resposta informa que a médica conversa sobre as opções, sem indicar nenhuma. NÃO é clinico — ele não está falando de sintoma.",
       "acao": "responder",
       "fecho": false,
       "emenda_triagem": true,

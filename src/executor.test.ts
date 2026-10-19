@@ -2370,3 +2370,53 @@ describe('escalada calada independe da saída (19/10/2026)', () => {
     expect(r?.texto).toBe('');
   });
 });
+
+/**
+ * As duas metades da regra da lente, que vêm de instruções diferentes.
+ *
+ * O Codex apontou que "minha consulta é de rotina, uso lente, preciso parar?"
+ * não está coberto pela exceção — verdade, os 3 dias são da avaliação
+ * REFRATIVA. Eu então exigi contexto refrativo, e passei a escalar QUALQUER
+ * pergunta direta sobre lente. Isso contradizia a regra 2 do Thiago no mesmo
+ * dia ("Lara pode dizer, é exceção") e a própria tabela, cujo `quando` de
+ * `usa_lente` cita "ou pergunta se precisa parar antes da consulta" com ação
+ * `responder`. Saiu na passada 15, no Z05.
+ */
+describe('a lente: responde sem contexto, escala no contexto errado', () => {
+  it('necessidade DESCONHECIDA responde: a pessoa perguntou', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    const r = await rodar(
+      '{"intencao":"usa_lente","confianca":0.95,"slots":{}}',
+      'uso lente de contato, preciso parar antes da consulta?',
+    );
+    expect(r?.acao).not.toBe('escalar');
+    expect(r?.texto).toContain('3 dias');
+  });
+
+  it('necessidade REFRATIVA responde', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    const r = await rodar(
+      '{"intencao":"usa_lente","confianca":0.95,"slots":{"necessidade":"cirurgia refrativa"}}',
+      'uso lente, preciso parar?',
+    );
+    expect(r?.texto).toContain('3 dias');
+  });
+
+  // ⚠️ A metade que o Codex protegia, e que continua de pé: com a necessidade
+  // sabidamente OUTRA, os 3 dias saem do que é aprovado.
+  it.each(['consulta de rotina', 'catarata', 'retorno'])(
+    'necessidade "%s" escala',
+    async (necessidade) => {
+      const { esqueceSlots } = await import('./memoria-conversa.js');
+      esqueceSlots(PASTA, JID);
+      const r = await rodar(
+        `{"intencao":"usa_lente","confianca":0.95,"slots":{"necessidade":"${necessidade}"}}`,
+        'uso lente, preciso parar antes?',
+      );
+      expect(r?.acao).toBe('escalar');
+      expect(r?.texto).not.toContain('3 dias');
+    },
+  );
+});

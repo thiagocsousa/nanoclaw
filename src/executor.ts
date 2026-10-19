@@ -1017,16 +1017,24 @@ export async function executa(
   // jeito mais rápido de parecer máquina.
   let texto = r.texto;
 
-  // ⚠️ A orientação dos 3 dias é EXCEÇÃO à regra de não dar preparo clínico, e
-  // a exceção é da avaliação REFRATIVA. "Minha consulta é de rotina, uso lente,
-  // preciso parar?" não está coberto: quem responde é a recepção.
+  // ⚠️ A orientação dos 3 dias é EXCEÇÃO à regra de não dar preparo clínico.
+  // Escala só quando se SABE que o contexto não é refrativo.
   //
-  // O rótulo `usa_lente` cobre qualquer menção a lente, então o recorte tem de
-  // estar aqui, no host, e não na redação do `quando`. Achado do Codex,
-  // 19/10/2026.
+  // As duas metades vêm de instruções diferentes e eu tinha obedecido só uma.
+  // O Codex apontou que "minha consulta é de rotina, uso lente, preciso parar?"
+  // não está coberto pela exceção — verdade. Eu então exigi contexto refrativo,
+  // e isso passou a escalar QUALQUER pergunta direta sobre lente, o que
+  // contradiz a regra 2 do Thiago no mesmo dia: "Lara pode dizer, é exceção".
+  // Também contradizia a própria tabela, cujo `quando` de `usa_lente` diz "ou
+  // pergunta se precisa parar antes da consulta" com ação `responder` — prosa
+  // discordando do código, outra vez.
+  //
+  // O recorte que honra as duas: necessidade REFRATIVA responde, necessidade
+  // desconhecida responde (a pessoa perguntou, e a informação é aprovada),
+  // necessidade sabidamente OUTRA escala. Saiu na passada 15, no Z05.
   if (c.intencao === 'usa_lente') {
     const n = comLembrados(groupFolder, chatJid, c.slots).necessidade ?? '';
-    if (!VOCABULARIO_REFRATIVO.test(n)) {
+    if (n.trim() && !VOCABULARIO_REFRATIVO.test(n)) {
       return await escalaComo(
         groupFolder,
         tabela,

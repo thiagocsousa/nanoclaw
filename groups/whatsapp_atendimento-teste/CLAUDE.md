@@ -106,6 +106,17 @@ Abaixo, só o que não cabe num campo `quando`:
   o que ele menciona: dor, sintoma e resultado de exame são `clinico` porque é
   disso que ele quer saber. (Decisão do Thiago em 04/10/2026.)
 
+  ⚠️ **E escolha de lente intraocular NÃO é `clinico`.** "Qual lente é melhor
+  pra mim, a multifocal?" é `catarata_avaliacao`, cujo `quando` já cita "sobre
+  as lentes intraoculares" — a resposta diz que a médica conversa sobre as
+  opções na avaliação, que é exatamente o certo: informa sem indicar.
+
+  Rotular `clinico` ali manda "Entendo, isso deve estar incomodando bastante"
+  para quem não relatou incômodo nenhum — a frase de acolhimento de SINTOMA numa
+  pergunta que não é de sintoma. Saiu na passada 15, no Y07. O que distingue
+  continua sendo o de sempre: `clinico` é quando ele quer saber do QUADRO DELE.
+  Qual lente existe, e quem escolhe, é informação sobre o tratamento.
+
   **Vale igual para diagnóstico de passagem.** "Meu pai tem catarata nos dois
   olhos, queria marcar" é pedido de agendamento, não consulta clínica: ele não
   pergunta nada sobre a catarata, ele pergunta sobre horário. "Tenho glaucoma, e

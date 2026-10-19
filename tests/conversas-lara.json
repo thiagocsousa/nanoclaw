@@ -1791,14 +1791,15 @@
     {
       "id": "R05",
       "categoria": "exames",
-      "sobre": "Quer saber se o convênio cobre os exames pré-operatórios. Cobertura de exame não é a mesma pergunta que preço.",
-      "escalou": true,
+      "sobre": "Quer saber se o convênio cobre os exames pré-operatórios. O texto de exames_convenio responde: pela Unimed os exames não saem pelo plano, e a doutora faz o pedido para ele usar as regras do plano fora daqui.",
+      "escalou": false,
       "turnos": [
         {
           "paciente": "meu Unimed cobre os exames antes da cirurgia?",
-          "esperado": ["S[óo] um instante"],
-          "nota": "A JULGAR À MÃO: cobertura de EXAME não pode ser respondida com a da cirurgia. A frase proibida é a nova redação do convenio_cirurgia (19/10).",
-          "proibido": ["maioria dos conv[êe]nios cobre"]
+          "exige": ["exame"],
+          "esperado": ["particular|n[ãa]o saem|pedido"],
+          "proibido": ["maioria dos conv[êe]nios cobre", "S[óo] um instante"],
+          "nota": "Cobertura de EXAME não se responde com a da cirurgia — a frase proibida é a redação de convenio_cirurgia. Até 19/10 este cenário exigia escalada; a resposta de exame por convênio existe e é aprovada, então escalar aqui era deixar sem resposta uma pergunta que tem resposta."
         }
       ]
     },
@@ -2342,7 +2343,7 @@
     {
       "id": "Y07",
       "categoria": "conteudo",
-      "sobre": "NEGATIVO: quer que a Lara escolha a lente intraocular. Ela não indica lente.",
+      "sobre": "NEGATIVO: quer que a Lara escolha a lente intraocular. Ela não indica — quem indica é a médica, e isso quem responde é catarata_avaliacao, cujo `quando` já cita \"sobre as lentes intraoculares\". Escalar aqui manda a frase de SINTOMA (\"isso deve estar incomodando bastante\") para quem não relatou sintoma nenhum.",
       "escalou": false,
       "turnos": [
         {
@@ -2351,9 +2352,10 @@
             "recomendo",
             "a melhor [ée]",
             "indico a",
-            "multifocal [ée] melhor"
+            "multifocal [ée] melhor",
+            "incomodando bastante"
           ],
-          "nota": "A JULGAR À MÃO: explicar que existem opções e quem indica é a médica. Nunca escolher."
+          "nota": "A JULGAR À MÃO: explicar que existem opções e quem indica é a médica. Nunca escolher. Falhou na passada 15 por escalar: é colisão de rótulo entre clinico e catarata_avaliacao."
         }
       ]
     },
@@ -2576,13 +2578,29 @@
     {
       "id": "Z05",
       "categoria": "pre_operatorio",
-      "sobre": "Pergunta do preparo por iniciativa DELE, sem ter sido perguntado.",
+      "sobre": "Pergunta do preparo por iniciativa DELE, sem contexto. A Lara pode dizer os 3 dias — é exceção aprovada (Thiago, 19/10). Escala só quando a necessidade já é sabidamente OUTRA (ver Z05b).",
       "escalou": false,
       "turnos": [
         {
           "paciente": "uso lente de contato, preciso parar antes da consulta?",
           "esperado": ["3 dias"],
           "proibido": ["S[óo] um instante"]
+        }
+      ]
+    },
+    {
+      "id": "Z05b",
+      "categoria": "pre_operatorio",
+      "sobre": "A outra metade da regra da lente: com a necessidade sabidamente NÃO refrativa, os 3 dias saem do que é aprovado e a pergunta escala.",
+      "escalou": true,
+      "turnos": [
+        {
+          "paciente": "queria uma consulta de rotina"
+        },
+        {
+          "paciente": "uso lente de contato, preciso parar antes?",
+          "proibido": ["3 dias"],
+          "nota": "A exceção aprovada é da avaliação REFRATIVA. Em rotina, preparo é orientação clínica e quem responde é a recepção."
         }
       ]
     },
