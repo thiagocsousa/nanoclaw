@@ -40,6 +40,11 @@ import { CONTAINER_IMAGE, GROUPS_DIR } from './config.js';
 import { CONTAINER_RUNTIME_BIN } from './container-runtime.js';
 import { logger } from './logger.js';
 import {
+  LIMITES_DE_RECURSO,
+  colheContainer,
+  nomeiaContainer,
+} from './script-container.js';
+import {
   buscaVagas,
   CREDENCIAIS,
   garanteCredenciais,
@@ -339,7 +344,16 @@ export async function escreveNoIclinic(
     throw new Error(`iclinic_marcar.py não existe em ${folder}`);
   }
   garanteCredenciais();
-  const args = ['run', '--rm', '--network', 'bridge'];
+  const nome = nomeiaContainer('marcar');
+  const args = [
+    'run',
+    '--rm',
+    '--name',
+    nome,
+    ...LIMITES_DE_RECURSO,
+    '--network',
+    'bridge',
+  ];
   for (const k of CREDENCIAIS) {
     if (process.env[k]) args.push('-e', k);
   }
@@ -379,6 +393,8 @@ export async function escreveNoIclinic(
       { timeout: TIMEOUT_MS, maxBuffer: 2 * 1024 * 1024 },
       (err, stdout, stderr) => {
         if (!err) return resolve(stdout);
+        // O timeout do `execFile` mata o cliente, não o container.
+        colheContainer(nome);
         // `err.message` é só "Command failed: docker run ...", que repete o que
         // já se sabe e esconde o que importa. O script diz POR QUE recusou na
         // própria saída — e sem isto a escalada chega à recepção com a linha de

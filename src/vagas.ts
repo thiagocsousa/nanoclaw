@@ -37,6 +37,11 @@ import { CONTAINER_IMAGE, GROUPS_DIR } from './config.js';
 import { readEnvFile } from './env.js';
 import { CONTAINER_RUNTIME_BIN } from './container-runtime.js';
 import { logger } from './logger.js';
+import {
+  LIMITES_DE_RECURSO,
+  colheContainer,
+  nomeiaContainer,
+} from './script-container.js';
 
 /** Mesmo teto do pre-check do agent-runner: Playwright no iClinic leva ~87s. */
 const TIMEOUT_MS = Number(process.env.VAGAS_TIMEOUT_MS) || 180_000;
@@ -237,8 +242,12 @@ function executa(args: string[]): Promise<string | undefined> {
           logger.debug({ stderr: stderr.slice(0, 400) }, 'vagas: stderr');
         }
         if (err) {
+          // O timeout do `execFile` mata o cliente, não o container: foi
+          // assim que um `iclinic_vagas.py` ficou uma hora no ar.
+          const nome = args[args.indexOf('--name') + 1];
+          if (nome) colheContainer(nome);
           logger.warn(
-            { err: err.message },
+            { err: err.message, container: nome },
             'vagas: script falhou ou estourou o tempo',
           );
           return resolve(undefined);
@@ -303,7 +312,16 @@ export async function buscaVagas(
   }
 
   garanteCredenciais();
-  const args = ['run', '--rm', '--network', 'bridge'];
+  const nome = nomeiaContainer('vagas');
+  const args = [
+    'run',
+    '--rm',
+    '--name',
+    nome,
+    ...LIMITES_DE_RECURSO,
+    '--network',
+    'bridge',
+  ];
   // `-e NOME` herda o valor do ambiente do host: a senha não aparece em `ps`.
   for (const k of CREDENCIAIS) {
     if (process.env[k]) args.push('-e', k);

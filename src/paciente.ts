@@ -6,6 +6,11 @@ import { CONTAINER_IMAGE, GROUPS_DIR } from './config.js';
 import { CONTAINER_RUNTIME_BIN } from './container-runtime.js';
 import { logger } from './logger.js';
 import { CREDENCIAIS, garanteCredenciais } from './vagas.js';
+import {
+  LIMITES_DE_RECURSO,
+  colheContainer,
+  nomeiaContainer,
+} from './script-container.js';
 
 /** Um cadastro do iClinic que tem este telefone. */
 export interface Candidato {
@@ -52,7 +57,16 @@ export async function pacientesComTelefone(
   if (!fs.existsSync(script)) return [];
 
   garanteCredenciais();
-  const args = ['run', '--rm', '--network', 'bridge'];
+  const nome = nomeiaContainer('paciente');
+  const args = [
+    'run',
+    '--rm',
+    '--name',
+    nome,
+    ...LIMITES_DE_RECURSO,
+    '--network',
+    'bridge',
+  ];
   for (const k of CREDENCIAIS) {
     if (process.env[k]) args.push('-e', k);
   }
@@ -86,6 +100,8 @@ export async function pacientesComTelefone(
       { timeout: TIMEOUT_MS, maxBuffer: 1024 * 1024 },
       (err, stdout, stderr) => {
         if (!err) return resolve({ saida: stdout });
+        // O timeout do `execFile` mata o cliente, não o container.
+        colheContainer(nome);
         const sinal = (err as { signal?: string | null }).signal;
         resolve({
           erro: [
