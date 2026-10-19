@@ -414,6 +414,19 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
       // teste estrutural dela garante que nenhum texto aprovado é bloqueado.
       if (wantsTemplates(group.folder)) {
         const ultima = missedMessages[missedMessages.length - 1];
+        // ⚠️ Instrumentação do laço do E08 (19/10/2026). Duas medidas se
+        // contradizem: o cursor avança para a mensagem CERTA, e o executor
+        // recebe a PRIMEIRA mensagem da conversa. Uma das duas premissas minhas
+        // está errada, e eu já queimei quatro tentativas deduzindo.
+        logger.info(
+          {
+            group: group.name,
+            janela: missedMessages.length,
+            primeira: missedMessages[0]?.content?.slice(0, 40),
+            ultima: ultima?.content?.slice(0, 40),
+          },
+          'executor: janela do turno',
+        );
         const r = await executa(
           group.folder,
           raw,
