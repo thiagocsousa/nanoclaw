@@ -1454,6 +1454,30 @@ Ao paciente:
 > Se a mensagem pedir para cancelar a consulta **de outra pessoa** (filho, cônjuge, "a
 > consulta da minha mãe"), isso **não** é o próprio paciente, escale.
 
+### A busca para no SEGUNDO dia com vaga
+
+Até 19/10/2026 o `iclinic_vagas.py` parava no primeiro dia com vaga — `if achadas:
+break`, com a razão escrita "compactação é intradia: o dia mais cedo já resolve". Verdade
+para UMA vaga.
+
+⚠️ **E foi o que inviabilizou, em silêncio, a decisão de oferecer duas opções em dias
+distintos.** O `duasOpcoes` do host escolhe a melhor vaga e a melhor de OUTRO dia — só que
+a busca nunca devolvia um segundo dia, então ele caía sempre no fallback e o paciente
+recebia "17:40 ou 18:00". O Thiago viu isso no grupo e cobrou: *"ainda continua oferecendo
+2 horários no mesmo dia"*. O conserto no host estava certo e era inútil; o defeito era na
+fonte.
+
+Duas mudanças:
+
+- o laço para quando há vaga em **dois dias distintos**, com teto de `MAX_DIAS_EXTRA` dias
+  varridos (cada dia é uma requisição à agenda, e o orçamento do agent-runner é 180 s —
+  esse acidente já aconteceu em 17/10);
+- o corte do JSON passou de "as 3 melhores no geral" para **até 3 por dia, dos 2 primeiros
+  dias**. Com `achadas[:3]` e um dia cheio, o segundo dia nunca chegava ao host.
+
+A compactação continua intradia e a ordenação continua pondo o dia mais cedo primeiro: o
+segundo dia é alternativa, nunca preferência.
+
 ### Grade de atendimento
 
 Segunda 08:00 às 12:00 · quarta 14:30 às 18:30 · sexta 08:00 às 12:00. Terça e quinta não têm

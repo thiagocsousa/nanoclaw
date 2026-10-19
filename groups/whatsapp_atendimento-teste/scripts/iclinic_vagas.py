@@ -72,6 +72,11 @@ PERFIS = {
 TIPOS_COM_ENCAIXE_HOJE = {"particular"}
 ANTECEDENCIA_MINIMA_MIN = 120
 
+# Dias extras varridos à procura de um SEGUNDO dia com vaga, depois de já ter
+# achado o primeiro. Teto por causa do orçamento de 180 s: cada dia é uma
+# requisição à agenda.
+MAX_DIAS_EXTRA = 8
+
 COTA_UNIMED_DIA = 5
 ANTECEDENCIA_UNIMED = 7          # dias
 
@@ -382,6 +387,7 @@ def main():
             csrf = next((c["value"] for c in ctx.cookies() if c["name"] == "csrftoken"), "")
             agenda = Agenda(pg, {"X-Requested-With": "XMLHttpRequest", "X-CSRFToken": csrf})
 
+            extras = 0
             for d in alvos:
                 ds = d.isoformat()
                 # cota e antecedência não dependem da agenda do dia: barre antes de buscar
@@ -408,8 +414,31 @@ def main():
                 if motivo:
                     recusas.append((f"{ds} {a.hora}", motivo))
                 achadas.extend(vs)
-                if achadas and not a.todas:
-                    break        # compactação é intradia: o dia mais cedo já resolve
+                # Para no SEGUNDO dia com vaga, não no primeiro.
+                #
+                # Antes era `if achadas: break`, com a razão escrita "compactação
+                # é intradia: o dia mais cedo já resolve". Verdade para UMA vaga
+                # — e foi o que inviabilizou a decisão do Thiago de 19/10/2026,
+                # de oferecer duas opções em dias DISTINTOS: `achadas` nunca
+                # tinha mais de um dia, então o host caía sempre no fallback do
+                # mesmo dia e o paciente recebia "17:40 ou 18:00".
+                #
+                # A compactação continua intradia e o `sort` abaixo continua
+                # pondo o dia mais cedo primeiro: o segundo dia é alternativa,
+                # nunca preferência.
+                #
+                # ⚠️ TETO de dias extras. Sem ele, uma agenda com um único dia
+                # livre varreria os 30 alvos, uma requisição cada, e estouraria
+                # o orçamento de 180 s do agent-runner — que é o acidente que
+                # este arquivo já teve em 17/10 e está documentado no topo.
+                if not a.todas:
+                    dias_com_vaga = {v["data"] for v in achadas}
+                    if len(dias_com_vaga) >= 2:
+                        break
+                    if achadas:
+                        extras += 1
+                        if extras >= MAX_DIAS_EXTRA:
+                            break
         finally:
             br.close()
 
@@ -417,7 +446,22 @@ def main():
     # desempata DENTRO do dia — é por isso que o break acima, no dia mais cedo que
     # tem vaga, não descarta nada melhor.
     achadas.sort(key=lambda v: (v["data"], v["buraco_resultante"], v["inicio"]))
-    top = achadas if (a.todas or a.dia) else achadas[:3]
+    # Até 3 por dia, dos 2 primeiros dias — e não as 3 melhores no geral.
+    #
+    # Com `achadas[:3]` e um dia com 3 vagas ou mais, o segundo dia NUNCA chegava
+    # ao JSON, e o `duasOpcoes` do host não tinha como oferecer dias distintos.
+    if a.todas or a.dia:
+        top = achadas
+    else:
+        top, por_dia = [], {}
+        for v in achadas:                      # já ordenado por (data, encaixe)
+            n = por_dia.get(v["data"], 0)
+            if len(por_dia) >= 2 and v["data"] not in por_dia:
+                break
+            if n >= 3:
+                continue
+            por_dia[v["data"]] = n + 1
+            top.append(v)
 
     if top:
         linhas = [""]
