@@ -547,16 +547,23 @@ específico:
 
 > Pelo IASPI a gente não atende consulta, então ela fica como particular.
 >
-> Já os exames e a cirurgia dá para fazer pelo plano: os exames pelo próprio IASPI, menos
-> o Pentacam, que nenhum plano cobre, e a cirurgia pelo PLAMTA, conforme a indicação médica
-> e os critérios de cobertura.
+> Já o exame sai pelo próprio IASPI, e a cirurgia pelo PLAMTA, se o plano autorizar.
+>
+> O Pentacam é a única exceção: esse é particular em qualquer plano.
 
 > Pelo IPMT a gente não atende consulta, então ela fica como particular.
 >
-> Já os exames e a cirurgia dá para fazer pelo plano: os exames pelo próprio IPMT, menos o
-> Pentacam, que nenhum plano cobre, e a cirurgia pelo PLANTE, conforme a indicação médica e
-> os critérios de cobertura.
+> Já o exame sai pelo próprio IPMT, e a cirurgia pelo PLANTE, se o plano autorizar.
+>
+> O Pentacam é a única exceção: esse é particular em qualquer plano.
 
+> ℹ️ A segunda metade foi reescrita ainda uma terceira vez em 19/10/2026, e o defeito era
+> estrutural: *"Já os exames e a cirurgia dá para fazer pelo plano: os exames pelo próprio
+> IASPI, menos o Pentacam, (…), e a cirurgia pelo PLAMTA, (…)"* anunciava os dois e depois
+> repetia os dois pelo nome, com a exceção do Pentacam entalada no meio — três ideias numa
+> frase, o mesmo defeito da frase de cobertura de cirurgia logo acima. Agora cada coisa é
+> nomeada uma vez e a exceção tem a sua própria linha.
+>
 > ℹ️ Reescrito em 19/10/2026, duas vezes no mesmo dia. A primeira versão dizia *"A consulta
 > com a Dra. Marina é realizada de forma particular para pacientes do IASPI"* — o Thiago
 > apontou como estranha, e era: a voz passiva e "pacientes do IASPI" soam a circular
