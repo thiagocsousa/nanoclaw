@@ -1097,8 +1097,17 @@ async function main(): Promise<void> {
     // Uma DM de paciente ganha pasta na primeira mensagem. Reusa o
     // `registerGroup`, que já valida a pasta, cria o diretório e grava no
     // banco — então o resto do pipeline não sabe que isto é uma DM.
-    registraDmEmObservacao: (chatJid: string, folder: string) => {
+    registraDmEmObservacao: (
+      chatJid: string,
+      folder: string,
+      desdeIso: string,
+    ) => {
       if (registeredGroups[chatJid]) return;
+      // ⛔ O cursor começa AQUI. `getOrRecoverCursor` devolve '' para chat
+      // desconhecido, e aí a primeira rodada varreria todo o histórico gravado
+      // daquele chat. "Só mensagens novas" (Thiago, 19/10/2026).
+      lastAgentTimestamp[chatJid] = desdeIso;
+      saveState();
       registerGroup(chatJid, {
         jid: chatJid,
         name: chatJid,

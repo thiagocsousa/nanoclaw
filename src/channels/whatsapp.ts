@@ -80,7 +80,11 @@ export interface WhatsAppChannelOpts {
   onChatMetadata: OnChatMetadata;
   registeredGroups: () => Record<string, RegisteredGroup>;
   /** Registra uma DM de paciente numa pasta de observação. Ver `dmObservacaoFolder`. */
-  registraDmEmObservacao?: (chatJid: string, folder: string) => void;
+  registraDmEmObservacao?: (
+    chatJid: string,
+    folder: string,
+    desdeIso: string,
+  ) => void;
   // Per-instance overrides (used for secondary connections)
   authSubDir?: string; // auth dir under STORE_DIR, defaults to 'auth'
   pairingNumber?: string; // phone number for pairing, defaults to PAIRING_NUMBER
@@ -102,7 +106,40 @@ export interface WhatsAppChannelOpts {
   dmObservacaoFolder?: string;
 }
 
+/**
+ * Esta mensagem vira turno de observação?
+ *
+ * Extraída da `processaDmsEmObservacao` para poder ser testada: a decisão é a
+ * parte que importa, e dentro da classe ela exigiria um socket do baileys.
+ *
+ * As quatro recusas, e por que cada uma existe:
+ *
+ * - `tipo !== 'notify'` — 'append' é sincronização de HISTÓRICO. Numa
+ *   reconexão, que acontece, a Lara classificaria conversa de semanas atrás.
+ * - `fromMe` — nessas DMs quem mais escreve é a SECRETÁRIA. Tratar a resposta
+ *   dela como turno do paciente faria a Lara classificar a própria clínica, e o
+ *   eco `fromMe` é justamente o que mede o SLA, então chega aqui sempre.
+ * - antes do PISO — mesmo em 'notify' o baileys entrega o que ficou offline
+ *   enquanto o processo estava fora. "Só mensagens novas" (Thiago, 19/10/2026).
+ * - `@g.us` — grupo neste número não é conversa de paciente.
+ */
+export function aceitaDmDeObservacao(m: {
+  tipo?: string;
+  fromMe?: boolean;
+  rawJid?: string | null;
+  timestampMs: number;
+  piso: number;
+}): boolean {
+  if (m.tipo && m.tipo !== 'notify') return false;
+  if (m.fromMe) return false;
+  if (!m.rawJid || m.rawJid === 'status@broadcast') return false;
+  if (m.rawJid.endsWith('@g.us')) return false;
+  if (!Number.isFinite(m.timestampMs) || m.timestampMs < m.piso) return false;
+  return true;
+}
+
 export class WhatsAppChannel implements Channel {
+  private readonly inicioDaObservacao: number;
   name: string;
 
   private sock!: WASocket;
@@ -135,6 +172,9 @@ export class WhatsAppChannel implements Channel {
 
   constructor(opts: WhatsAppChannelOpts) {
     this.opts = opts;
+    // O piso da observação: nada anterior a este instante vira turno. Ver
+    // `processaDmsEmObservacao`.
+    this.inicioDaObservacao = Date.now();
     this.name = opts.groupFolderOwner
       ? `whatsapp:${opts.groupFolderOwner}`
       : 'whatsapp';
@@ -312,7 +352,7 @@ export class WhatsAppChannel implements Channel {
 
     this.sock.ev.on('creds.update', saveCreds);
 
-    this.sock.ev.on('messages.upsert', async ({ messages }) => {
+    this.sock.ev.on('messages.upsert', async ({ messages, type }) => {
       if (this.opts.groupFolderOwner) {
         // Instância outbound-only (ex.: número do atendimento). NUNCA processa
         // inbound como turno de agente / resposta. Só captura passivamente as
@@ -326,7 +366,7 @@ export class WhatsAppChannel implements Channel {
         if (!this.opts.dmObservacaoFolder) return;
         // MODO OBSERVAÇÃO: as DMs passam a virar turno. O que volta ao paciente
         // é nada — a pasta está em `OBSERVACAO_FOLDERS` e o `aprova` recusa.
-        await this.processaDmsEmObservacao(messages);
+        await this.processaDmsEmObservacao(messages, type);
         return;
       }
       for (const msg of messages) {
@@ -498,15 +538,41 @@ export class WhatsAppChannel implements Channel {
    */
   private async processaDmsEmObservacao(
     messages: import('@whiskeysockets/baileys').WAMessage[],
+    tipo?: string,
   ): Promise<void> {
     const folder = this.opts.dmObservacaoFolder;
     if (!folder) return;
+    // ⛔ SÓ mensagem NOVA. "Só queria para mensagens novas, tanto de pacientes
+    // antigos quanto de novos" (Thiago, 19/10/2026).
+    //
+    // Duas portas, e as duas precisavam fechar:
+    //
+    // 1. `type`: o baileys manda 'notify' para o que chega ao vivo e 'append'
+    //    para sincronização de histórico. Numa reconexão — que acontece — o
+    //    histórico entraria como se fosse novo, e a Lara classificaria conversa
+    //    de semanas atrás.
+    // 2. O PISO de tempo: mesmo em 'notify', o baileys entrega o que ficou
+    //    offline enquanto o processo estava fora. O piso é o instante em que
+    //    esta instância subiu.
     for (const msg of messages) {
       try {
-        if (!msg.message || msg.key.fromMe) continue;
+        if (!msg.message) continue;
+        const quando = Number(msg.messageTimestamp) * 1000;
         const rawJid = msg.key.remoteJid;
-        if (!rawJid || rawJid === 'status@broadcast') continue;
-        if (rawJid.endsWith('@g.us')) continue;
+        if (
+          !aceitaDmDeObservacao({
+            tipo,
+            fromMe: !!msg.key.fromMe,
+            rawJid,
+            timestampMs: quando,
+            piso: this.inicioDaObservacao,
+          })
+        ) {
+          continue;
+        }
+        // `aceitaDmDeObservacao` já recusou rawJid vazio; o if abaixo é para o
+        // TypeScript, que não enxerga isso através da função.
+        if (!rawJid) continue;
         const normalized = normalizeMessageContent(msg.message);
         if (!normalized) continue;
         const chatJid = await this.translateJid(rawJid);
@@ -528,7 +594,14 @@ export class WhatsAppChannel implements Channel {
           false,
         );
         if (!this.opts.registeredGroups()[chatJid]) {
-          this.opts.registraDmEmObservacao?.(chatJid, folder);
+          // O cursor do chat começa 1ms ANTES desta mensagem: sem isso, a
+          // primeira rodada varreria tudo que já estiver gravado do chat,
+          // porque `getOrRecoverCursor` devolve '' para chat desconhecido.
+          this.opts.registraDmEmObservacao?.(
+            chatJid,
+            folder,
+            new Date(quando - 1).toISOString(),
+          );
           logger.info(
             { chatJid, folder },
             'observação: DM de paciente registrada para leitura',
