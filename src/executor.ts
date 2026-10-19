@@ -45,6 +45,7 @@ import {
 } from './memoria-conversa.js';
 import { pacientesComTelefone, primeiroNome } from './paciente.js';
 import { interpreta } from './classify.js';
+import { necessidadeMencionada } from './convenio.js';
 import {
   SEPARA_MENSAGEM,
   VALORES,
@@ -539,6 +540,24 @@ export async function executa(
   // possível, que era o estado da primeira versão deste arquivo.
   // Guarda o que este turno trouxe ANTES de qualquer decisão que leia a
   // memória: agenda e desconto consultam logo abaixo.
+  //
+  // ⚠️ Antes de gravar, o host preenche `necessidade` quando o paciente
+  // mencionou cirurgia e o modelo deixou o slot vazio. Sem isto, "voces fazem
+  // cirurgia pelo PLAMTA?" saía R$ 430 e "voces atendem IPMT pra cirurgia de
+  // catarata?" saía R$ 300 — a mesma pergunta, dois preços, com a regra do
+  // desconto certa nos dois casos. Ver `necessidadeMencionada`, em
+  // `convenio.ts`. Decisão do Thiago em 19/10/2026.
+  const necessidadeDita = necessidadeMencionada(
+    c.slots.necessidade,
+    perguntaDoPaciente,
+  );
+  if (necessidadeDita && necessidadeDita !== c.slots.necessidade) {
+    logger.info(
+      { groupFolder, necessidade: necessidadeDita },
+      'executor: necessidade cirúrgica dita pelo paciente, slot estava vazio',
+    );
+    c.slots = { ...c.slots, necessidade: necessidadeDita };
+  }
   lembraSlots(groupFolder, chatJid, c.slots);
 
   // A pessoa respondeu de quem é a consulta.

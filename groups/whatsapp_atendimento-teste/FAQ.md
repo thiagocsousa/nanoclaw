@@ -547,6 +547,30 @@ plano" reprovam.
 ℹ️ Um nome de plano fora da lista cai no padrão `true`, de propósito: negar o desconto a
 quem tem plano é o erro caro, e o padrão protege contra ele.
 
+### E a terceira condição: o host preenche a necessidade
+
+O desconto exige **três** coisas: intenção cirúrgica, ter plano, e o plano não ser Unimed.
+A primeira sai do slot `necessidade`, que o modelo preenche de forma instável quando
+"cirurgia" aparece sem diagnóstico junto. Medido na passada 17:
+
+| o paciente perguntou | `necessidade` gravada | saía |
+|---|---|---|
+| "voces fazem cirurgia pelo PLAMTA?" | *(vazia)* | R$ 430,00 |
+| "voces atendem IPMT pra cirurgia de catarata?" | catarata | R$ 300,00 |
+
+A mesma pergunta, dois preços — e a regra do desconto estava CERTA nos dois casos. E o
+lado pior: quem diz só "cirurgia" e nada mais é o paciente mais indeciso da fila, e era
+quem ouvia o valor mais alto, justo quem o desconto existe para converter.
+
+**Decisão do Thiago em 19/10/2026: o host preenche.** `necessidadeMencionada`, em
+`src/convenio.ts`, devolve o termo genérico `"cirurgia"` quando a mensagem menciona
+cirurgia e o slot está vazio.
+
+⛔ **Nunca sobrescreve o rótulo do modelo** — se ele disse catarata, é catarata; o host não
+adivinha procedimento. E só preenche quando o paciente MENCIONOU: preencher no chute daria
+desconto a todo mundo e mandaria quem quer rotina para a agenda cirúrgica, que tem duração
+e antecedência diferentes. Travado nos dois sentidos, e por sabotagem.
+
 ### Consulta: só particular e Unimed
 
 > Para consulta a gente atende particular e Unimed.

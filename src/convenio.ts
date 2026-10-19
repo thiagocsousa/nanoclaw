@@ -67,3 +67,44 @@ export function temPlano(convenio?: string): boolean {
 export function ehUnimed(convenio?: string): boolean {
   return !!convenio && /unimed/i.test(convenio);
 }
+
+/**
+ * A necessidade que o paciente mencionou, quando o modelo deixou o slot vazio.
+ *
+ * ## Por que existe
+ *
+ * O desconto da consulta tem três condições: intenção CIRÚRGICA, tem plano, e o
+ * plano não é Unimed. A primeira é lida do slot `necessidade`, que o modelo
+ * preenche de forma instável quando "cirurgia" aparece sem diagnóstico junto.
+ * Medido na passada 17:
+ *
+ *   "voces fazem cirurgia pelo PLAMTA?"             → necessidade vazia → R$ 430
+ *   "voces atendem IPMT pra cirurgia de catarata?"  → "catarata"        → R$ 300
+ *
+ * A mesma pergunta, dois preços, e a regra certa nos dois casos. O que variava
+ * era o slot. E o pior lado disso: quem diz só "cirurgia" e nada mais é o
+ * paciente MAIS indeciso da fila, e era quem ouvia o valor mais alto — justo
+ * quem o desconto existe para converter.
+ *
+ * Decisão do Thiago em 19/10/2026: o host preenche.
+ *
+ * ## O que ela NÃO faz
+ *
+ * Não adivinha o procedimento. Devolve o termo genérico "cirurgia", que é o que
+ * o paciente disse — `ehCirurgico` reconhece, e `perfilDe` manda para
+ * `particular-cirurgia`, que é a avaliação cirúrgica. Qual cirurgia é assunto da
+ * consulta, não do slot.
+ *
+ * ⚠️ Só roda com o slot VAZIO. Nunca sobrescreve o que o modelo rotulou: se ele
+ * disse "catarata", é catarata.
+ */
+const RX_MENCIONA_CIRURGIA =
+  /\bcirurgi\w*|\bcatarata\b|\boperar\b|\bopera[çc][ãa]o\b|\brefrativ\w*|\blasik\b|\bprk\b/i;
+
+export function necessidadeMencionada(
+  necessidade: string | undefined,
+  mensagem: string,
+): string | undefined {
+  if (necessidade?.trim()) return necessidade;
+  return RX_MENCIONA_CIRURGIA.test(mensagem) ? 'cirurgia' : undefined;
+}

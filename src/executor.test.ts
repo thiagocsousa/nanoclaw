@@ -2504,3 +2504,66 @@ describe('dia pedido que não serve oferece o próximo (passada 16)', () => {
     expect(buscou.length).toBe(1);
   });
 });
+
+/**
+ * A mesma pergunta não pode ter dois preços.
+ *
+ * Passada 17, medido nas duas conversas:
+ *
+ *   "voces fazem cirurgia pelo PLAMTA?"            → R$ 430,00
+ *   "voces atendem IPMT pra cirurgia de catarata?" → R$ 300,00
+ *
+ * A regra do desconto estava CERTA nos dois casos — o que variava era o slot
+ * `necessidade`, que o modelo preenche de forma instável quando "cirurgia"
+ * aparece sem diagnóstico. E o lado pior: quem diz só "cirurgia" é o paciente
+ * mais indeciso da fila, e era quem ouvia o valor mais alto.
+ *
+ * Decisão do Thiago em 19/10/2026: o host preenche.
+ */
+describe('o host preenche a necessidade cirúrgica (passada 17)', () => {
+  // O primeiro caso tem a necessidade VINDA DO MODELO; o segundo vem vazia e
+  // quem preenche é o host. Os dois têm de dar o mesmo preço — é a invariante.
+  //
+  // ⚠️ A primeira versão deste teste mandava o slot vazio nos DOIS, então não
+  // exercitava o caminho do modelo: a sabotagem reprovou os dois e mostrou isso.
+  it.each([
+    [
+      'necessidade do MODELO',
+      '"necessidade":"catarata",',
+      'queria operar a catarata',
+    ],
+    ['necessidade do HOST', '', 'voces fazem cirurgia?'],
+  ])('%s: o preço é o mesmo', async (_caso, slotExtra, pergunta) => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    const r = await rodar(
+      `{"intencao":"preco_consulta","confianca":0.95,"slots":{${slotExtra}"convenio":"Bradesco"}}`,
+      pergunta,
+    );
+    expect(r?.texto).toContain('300,00');
+  });
+
+  // ⚠️ E rotina continua no valor cheio: o host preenche só quando o paciente
+  // MENCIONOU cirurgia. Sem este par, preencher no chute daria desconto a todo
+  // mundo e mandaria quem quer rotina para a agenda cirúrgica.
+  it('sem menção a cirurgia, valor cheio', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    const r = await rodar(
+      '{"intencao":"preco_consulta","confianca":0.95,"slots":{"convenio":"Bradesco"}}',
+      'quanto custa a consulta?',
+    );
+    expect(r?.texto).toContain('430,00');
+    expect(r?.texto).not.toContain('300,00');
+  });
+
+  it('particular que menciona cirurgia continua pagando cheio', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    const r = await rodar(
+      '{"intencao":"preco_consulta","confianca":0.95,"slots":{"convenio":"particular"}}',
+      'voces fazem cirurgia? sou particular',
+    );
+    expect(r?.texto).toContain('430,00');
+  });
+});

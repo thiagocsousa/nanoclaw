@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { temPlano } from './convenio.js';
+import { necessidadeMencionada, temPlano } from './convenio.js';
 
 /**
  * A regra de ORDEM, nos dois sentidos.
@@ -52,5 +52,49 @@ describe('temPlano: nome de plano vence palavra de ausência', () => {
     expect(temPlano('')).toBe(false);
     expect(temPlano(undefined)).toBe(false);
     expect(temPlano('   ')).toBe(false);
+  });
+});
+
+/**
+ * `necessidadeMencionada`: o host preenche o que o modelo deixou vazio.
+ *
+ * Saiu na passada 17 — a mesma pergunta com dois preços, porque o slot
+ * `necessidade` vinha vazio quando "cirurgia" aparecia sem diagnóstico junto.
+ */
+describe('necessidadeMencionada', () => {
+  it.each([
+    'voces fazem cirurgia pelo PLAMTA?',
+    'queria operar a vista',
+    'quanto custa a cirurgia refrativa?',
+    'fazem lasik?',
+    'tenho catarata, queria marcar',
+    'quero fazer a operação',
+    'faz PRK?',
+  ])('preenche "cirurgia": %s', (msg) => {
+    expect(necessidadeMencionada(undefined, msg), msg).toBe('cirurgia');
+    expect(necessidadeMencionada('', msg), msg).toBe('cirurgia');
+  });
+
+  // ⚠️ NUNCA sobrescreve o que o modelo rotulou. Se ele disse catarata, é
+  // catarata — o host não adivinha o procedimento, só não deixa o slot vazio.
+  it.each(['catarata', 'cirurgia refrativa', 'rotina', 'retorno', 'exame'])(
+    'não sobrescreve necessidade="%s"',
+    (n) => {
+      expect(necessidadeMencionada(n, 'voces fazem cirurgia?')).toBe(n);
+    },
+  );
+
+  // ⚠️ E o par que segura: mensagem SEM menção a cirurgia não inventa nada.
+  // Preencher no chute mandaria quem quer rotina para a agenda cirúrgica, que
+  // tem duração e antecedência diferentes.
+  it.each([
+    'quanto custa a consulta?',
+    'que dias a Dra. Marina atende?',
+    'qual o endereço?',
+    'oi',
+    'preciso trocar o grau do óculos',
+    'uso lente de contato',
+  ])('não preenche: %s', (msg) => {
+    expect(necessidadeMencionada(undefined, msg), msg).toBeUndefined();
   });
 });
