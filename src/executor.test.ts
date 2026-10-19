@@ -2624,3 +2624,75 @@ describe('desconto: o rótulo do modelo não decide dinheiro (passada 18)', () =
     expect(r?.texto).toContain('430,00');
   });
 });
+
+/**
+ * As duas opções em DIAS DISTINTOS (Thiago, 19/10/2026).
+ *
+ * Antes era `vagas.slice(0, 2)`, e como o `iclinic_vagas.py` esgota as posições
+ * de um dia antes de ir para o próximo, as duas saíam coladas — foi o que ele
+ * viu na passada 18: "quarta, dia 21/10, às 17:40 ou às 18:00". Vinte minutos
+ * de diferença não é escolha.
+ */
+describe('a oferta dupla vai em dias distintos', () => {
+  const SLOTS =
+    '"nome":"Clara Souza","nascimento":"1975-07-20","cidade":"Teresina","convenio":"particular","necessidade":"rotina"';
+
+  it('com dois dias na agenda, oferece um de cada', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    vagasFalsas = [
+      {
+        data: '2026-10-21',
+        dia_semana: 'quarta',
+        inicio: '17:40',
+        fim: '18:00',
+      },
+      {
+        data: '2026-10-21',
+        dia_semana: 'quarta',
+        inicio: '18:00',
+        fim: '18:20',
+      },
+      {
+        data: '2026-10-23',
+        dia_semana: 'sexta',
+        inicio: '09:20',
+        fim: '09:40',
+      },
+    ];
+    const r = await rodar(
+      `{"intencao":"horario_oferta","confianca":0.95,"slots":{${SLOTS}}}`,
+      'tem horario?',
+    );
+    expect(r?.texto).toContain('17:40');
+    expect(r?.texto).toContain('09:20');
+    // ⛔ E NÃO oferece as duas do mesmo dia.
+    expect(r?.texto).not.toContain('18:00');
+  });
+
+  // ⚠️ FALLBACK: com um dia só, duas no mesmo dia continua melhor que uma.
+  it('com um dia só, volta a oferecer duas no mesmo dia', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    vagasFalsas = [
+      {
+        data: '2026-10-21',
+        dia_semana: 'quarta',
+        inicio: '17:40',
+        fim: '18:00',
+      },
+      {
+        data: '2026-10-21',
+        dia_semana: 'quarta',
+        inicio: '18:00',
+        fim: '18:20',
+      },
+    ];
+    const r = await rodar(
+      `{"intencao":"horario_oferta","confianca":0.95,"slots":{${SLOTS}}}`,
+      'tem horario?',
+    );
+    expect(r?.texto).toContain('17:40');
+    expect(r?.texto).toContain('18:00');
+  });
+});

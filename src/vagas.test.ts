@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  duasOpcoes,
   perfilDe,
   slotsDaVaga,
   temDescontoDeConsulta,
@@ -287,5 +288,62 @@ describe('vagaEscolhida: duas opções exigem saber qual (19/10/2026)', () => {
   it('texto que casa com as duas também é ambíguo', () => {
     const C = { ...B, inicio: '09:00' };
     expect(vagaEscolhida([A, C], 'as 09:00')).toBeUndefined();
+  });
+});
+
+/**
+ * As duas opções em DIAS DISTINTOS (Thiago, 19/10/2026).
+ *
+ * Antes era `vagas.slice(0, 2)`, e como o `iclinic_vagas.py` esgota as posições
+ * de um dia antes de ir para o próximo, as duas saíam coladas:
+ * "quarta, dia 21/10, às 17:40 ou às 18:00". Vinte minutos de diferença não é
+ * escolha.
+ */
+describe('duasOpcoes', () => {
+  const v = (data: string, inicio: string, dia_semana = 'quarta') => ({
+    data,
+    dia_semana,
+    inicio,
+    fim: inicio,
+  });
+
+  it('pula as vagas do mesmo dia e pega a melhor do dia seguinte', () => {
+    const r = duasOpcoes([
+      v('2026-10-21', '17:40'),
+      v('2026-10-21', '18:00'),
+      v('2026-10-23', '09:20', 'sexta'),
+      v('2026-10-23', '10:00', 'sexta'),
+    ]);
+    expect(r).toHaveLength(2);
+    expect(r[0].data).toBe('2026-10-21');
+    expect(r[0].inicio).toBe('17:40');
+    // A MELHOR do outro dia, não a primeira que aparecer depois.
+    expect(r[1].data).toBe('2026-10-23');
+    expect(r[1].inicio).toBe('09:20');
+  });
+
+  it('preserva a ordem do script: a primeira é sempre a melhor', () => {
+    const r = duasOpcoes([
+      v('2026-10-26', '08:00', 'segunda'),
+      v('2026-10-21', '17:40'),
+    ]);
+    expect(r[0].data).toBe('2026-10-26');
+    expect(r[1].data).toBe('2026-10-21');
+  });
+
+  // ⚠️ FALLBACK: com um dia só, duas no mesmo dia continua melhor que uma.
+  // É por isso que o `textos_dois_mesmo_dia` continua existindo.
+  it('só um dia disponível volta a oferecer duas no mesmo dia', () => {
+    const r = duasOpcoes([v('2026-10-21', '17:40'), v('2026-10-21', '18:00')]);
+    expect(r).toHaveLength(2);
+    expect(r[0].data).toBe(r[1].data);
+  });
+
+  it('uma vaga só devolve uma', () => {
+    expect(duasOpcoes([v('2026-10-21', '17:40')])).toHaveLength(1);
+  });
+
+  it('nenhuma vaga devolve nada', () => {
+    expect(duasOpcoes([])).toEqual([]);
   });
 });

@@ -69,6 +69,7 @@ import { resolveDiaPedido } from './dia-pedido.js';
 import { contextoDoRetorno } from './retorno-contexto.js';
 import { dataLocal } from './expediente.js';
 import {
+  duasOpcoes,
   VOCABULARIO_REFRATIVO,
   ehParticular,
   slotsDasVagas,
@@ -940,7 +941,10 @@ export async function executa(
       if (vagas.length > 0) {
         // Duas opções quando a agenda deu duas: poupa uma ida e volta se a
         // primeira não servir (manual trazido pelo Thiago, 19/10/2026).
-        const oferecidas = vagas.slice(0, 2);
+        // Duas opções em DIAS DISTINTOS (Thiago, 19/10/2026): "as duas opções
+        // disponíveis de horários deveriam ser em dias distintos". Ver
+        // `duasOpcoes`, em vagas.ts — o fallback para o mesmo dia está lá.
+        const oferecidas = duasOpcoes(vagas);
         slots = { ...slots, ...slotsDasVagas(oferecidas) };
         // Guardada para registrar DEPOIS, se o texto realmente for produzido.
         // Registrar aqui gravaria uma oferta que o paciente pode nunca ver —

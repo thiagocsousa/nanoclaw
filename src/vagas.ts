@@ -464,6 +464,36 @@ export function ehParticular(perfil: string): boolean {
 }
 
 /**
+ * As DUAS opções a oferecer: a melhor vaga, e a melhor de OUTRO DIA.
+ *
+ * Decisão do Thiago em 19/10/2026: "as duas opções disponíveis de horários
+ * deveriam ser em dias distintos". Antes era `vagas.slice(0, 2)`, e como o
+ * `iclinic_vagas.py` ranqueia por encaixe — ele esgota as posições de um dia
+ * antes de ir para o próximo — as duas caíam colada uma na outra:
+ *
+ *   "Tenho quarta, dia 21/10, às 17:40 ou às 18:00."
+ *
+ * Vinte minutos de diferença não é escolha, é a mesma coisa duas vezes. Dois
+ * dias é escolha de verdade, e dobra a chance de um servir.
+ *
+ * ⚠️ FALLBACK: quando só existe um dia com vaga, volta a oferecer duas no mesmo
+ * dia. Duas opções ruins é melhor que uma — e é por isso que o
+ * `textos_dois_mesmo_dia` continua existindo, agora como exceção e não como
+ * caso comum.
+ *
+ * A ORDEM de dentro do dia é preservada: a segunda é a melhor vaga do outro
+ * dia, não a primeira que aparecer. O ranking do script é a fonte da aritmética
+ * de agenda e não se reordena aqui.
+ */
+export function duasOpcoes(vagas: Vaga[]): Vaga[] {
+  const [primeira] = vagas;
+  if (!primeira) return [];
+  const deOutroDia = vagas.find((v) => v.data !== primeira.data);
+  if (deOutroDia) return [primeira, deOutroDia];
+  return vagas.slice(0, 2);
+}
+
+/**
  * Os slots de UMA ou DUAS vagas, com o sufixo `_b` na segunda.
  *
  * A trinca `dia_b`/`data_b`/`hora_b` era montada à mão em dois lugares do

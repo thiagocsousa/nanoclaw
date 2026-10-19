@@ -317,8 +317,14 @@ export function renderiza(
   const diaB = slots.dia_b?.trim();
   const temSegunda = !!diaB && !!slots.hora_b?.trim();
 
-  // Mesmo dia é o caso COMUM: a agenda esgota as posições de um dia antes de
-  // ir para o próximo.
+  // Mesmo dia passou a ser EXCEÇÃO em 19/10/2026: o host escolhe as duas opções
+  // em dias distintos (`duasOpcoes`, em vagas.ts), por decisão do Thiago — duas
+  // vagas separadas por 20 minutos não é escolha. Este ramo continua existindo
+  // para o fallback: quando só há um dia com vaga, duas no mesmo dia é melhor
+  // que uma.
+  //
+  // Era o caso COMUM antes, porque o `iclinic_vagas.py` esgota as posições de um
+  // dia antes de ir para o próximo.
   //
   // ⚠️ Compara a DATA, não o nome do dia. Duas quartas de semanas diferentes
   // são dias diferentes, e `textos_dois_mesmo_dia` não cita `{data_b}` — é a
