@@ -68,18 +68,44 @@ export async function pacientesComTelefone(
   );
 
   const t0 = Date.now();
-  const saida = await new Promise<string | undefined>((resolve) => {
+  // ⚠️ `err` e `stderr` vão para o log, não para o lixo.
+  //
+  // A versão anterior era `(err, stdout) => resolve(err ? undefined : stdout)`,
+  // e o warning saía com a pasta e mais nada. Em 19/10/2026 a busca falhou em
+  // A07 e E08 na mesma passada e passou em E05, e o log não dizia se tinha sido
+  // timeout, login do iClinic ou falta de credencial — as três exigem conserto
+  // diferente. `signal` separa timeout de erro do provedor, e `stderr` é a
+  // única cópia do que o iClinic respondeu.
+  const { saida, erro } = await new Promise<{
+    saida?: string;
+    erro?: string;
+  }>((resolve) => {
     execFile(
       CONTAINER_RUNTIME_BIN,
       args,
       { timeout: TIMEOUT_MS, maxBuffer: 1024 * 1024 },
-      (err, stdout) => resolve(err ? undefined : stdout),
+      (err, stdout, stderr) => {
+        if (!err) return resolve({ saida: stdout });
+        const sinal = (err as { signal?: string | null }).signal;
+        resolve({
+          erro: [
+            err.message,
+            sinal ? `signal=${sinal}` : '',
+            (stderr || '').trim().slice(-800),
+          ]
+            .filter(Boolean)
+            .join(' · '),
+        });
+      },
     );
   });
   if (!saida) {
     // Falha de busca NÃO é "não é paciente": é não saber. Quem chama cai na
     // triagem normal, que é o comportamento de sempre.
-    logger.warn({ groupFolder }, 'paciente: busca por telefone falhou');
+    logger.warn(
+      { groupFolder, ms: Date.now() - t0, err: erro },
+      'paciente: busca por telefone falhou',
+    );
     return [];
   }
 
