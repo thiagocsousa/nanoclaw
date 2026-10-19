@@ -121,13 +121,6 @@ const TABELA = {
         'Infelizmente a gente não atende o seu convênio.\n\nComo você já paga um plano, a avaliação sai por R$ {valor_desconto} em vez de R$ {valor_consulta}.',
       ],
     },
-    // Responde e NÃO pede dia/hora: é a trava de que a regra de retorno/exame
-    // não atinge resposta de preço.
-    exames_plano_parcial: {
-      acao: 'escalar',
-      motivo_escalada: 'pergunta sobre exames pelo IASPI/IAPEP/IPMT.',
-      textos: ['Só um instante.'],
-    },
     exames_convenio: {
       acao: 'responder',
       textos: ['Aqui no consultório os exames são particulares.'],
@@ -237,14 +230,14 @@ const TABELA = {
       acao: 'responder',
       emenda_triagem: true,
       textos: [
-        'A consulta pelo IASPI é particular. A cirurgia sai pelo PLAMTA.',
+        'Pelo IASPI não atende consulta, fica particular. Exame sai pelo plano, menos o Pentacam, e a cirurgia pelo PLAMTA.',
       ],
     },
     convenio_ipmt: {
       acao: 'responder',
       emenda_triagem: true,
       textos: [
-        'A consulta pelo IPMT é particular. A cirurgia sai pelo PLANTE.',
+        'Pelo IPMT não atende consulta, fica particular. Exame sai pelo plano, menos o Pentacam, e a cirurgia pelo PLANTE.',
       ],
     },
     pentacam_cobertura: {
@@ -1259,32 +1252,41 @@ describe('dia e hora pedidos pelo paciente (Thiago, 19/10/2026)', () => {
   });
 });
 
-describe('exame por IASPI/IPMT escala (Thiago, 19/10/2026)', () => {
-  // Nesses planos o exame não é avulso, e a condição que o permite NÃO pode
-  // ser dita ao paciente. Uma recepcionista resolve por voz; a Lara escrevendo
-  // cria registro com data, hora e print.
-  it.each(['IASPI', 'IAPEP', 'IPMT'])('%s escala', async (plano) => {
-    const { esqueceSlots } = await import('./memoria-conversa.js');
-    esqueceSlots(PASTA, JID);
-    const r = await rodar(
-      `{"intencao":"exames_convenio","confianca":0.95,"slots":{"convenio":"${plano}"}}`,
-      'os exames saem pelo plano?',
-    );
-    expect(r?.acao).toBe('escalar');
-  });
+describe('exame por IASPI/IPMT: texto do plano (Thiago, 19/10/2026)', () => {
+  // `exames_convenio` fala da Unimed — "os exames não saem pelo convênio" — e
+  // nesses três planos vale o INVERSO: o exame sai, a consulta é que não. Sem a
+  // troca, quem tem IASPI ouvia o contrário da verdade.
+  //
+  // Eu já tinha escrito isto como ESCALADA, e estava errado em dois sentidos:
+  // negava ao paciente uma informação que ele pode ter, e tratava a pergunta
+  // como se fosse a marcação. O Thiago corrigiu no mesmo dia: "a exceção foi
+  // apenas em relação à marcação de exames de forma avulsa".
+  it.each(['IASPI', 'IAPEP', 'IPMT'])(
+    '%s responde com o texto do plano',
+    async (plano) => {
+      const { esqueceSlots } = await import('./memoria-conversa.js');
+      esqueceSlots(PASTA, JID);
+      const r = await rodar(
+        `{"intencao":"exames_convenio","confianca":0.95,"slots":{"convenio":"${plano}"}}`,
+        'os exames saem pelo plano?',
+      );
+      expect(r?.acao).not.toBe('escalar');
+      expect(r?.texto.toLowerCase()).toContain('exame');
+      expect(r?.texto).toContain(plano === 'IPMT' ? 'PLANTE' : 'PLAMTA');
+    },
+  );
 
-  it('pergunta de PREÇO de exame também escala nesses planos', async () => {
+  it('pergunta de PREÇO de exame também cai no texto do plano', async () => {
     const { esqueceSlots } = await import('./memoria-conversa.js');
     esqueceSlots(PASTA, JID);
     const r = await rodar(
       '{"intencao":"exames_preco","confianca":0.95,"slots":{"convenio":"IASPI"}}',
       'quanto custam os exames?',
     );
-    expect(r?.acao).toBe('escalar');
+    expect(r?.texto).toContain('PLAMTA');
   });
 
-  // ⚠️ A Unimed fica como está (Thiago, 19/10): ali a negativa é simples e não
-  // tem condição escondida.
+  // ⚠️ A Unimed fica como está (Thiago, 19/10): ali a negativa é simples.
   it('Unimed continua respondendo normalmente', async () => {
     const { esqueceSlots } = await import('./memoria-conversa.js');
     esqueceSlots(PASTA, JID);
@@ -1292,21 +1294,36 @@ describe('exame por IASPI/IPMT escala (Thiago, 19/10/2026)', () => {
       '{"intencao":"exames_convenio","confianca":0.95,"slots":{"convenio":"Unimed"}}',
       'faço os exames pela Unimed?',
     );
-    expect(r?.acao).not.toBe('escalar');
     expect(r?.texto).toContain('particulares');
+    expect(r?.texto).not.toContain('PLAMTA');
   });
 
-  // E o texto do plano não fala mais de exames: dizer "os exames saem pelo
-  // IASPI" criava a expectativa que depois teria de ser desfeita.
-  it('o texto do IASPI não menciona exames', async () => {
+  // ⚠️ SEM convênio dito, nada de troca: o texto do IASPI iria para quem tem
+  // Unimed, ou para quem não disse nada.
+  it('sem convênio conhecido, responde o texto de exames', async () => {
     const { esqueceSlots } = await import('./memoria-conversa.js');
     esqueceSlots(PASTA, JID);
     const r = await rodar(
-      '{"intencao":"convenio_iaspi","confianca":0.95,"slots":{"convenio":"IASPI"}}',
-      'atende IASPI?',
+      '{"intencao":"exames_convenio","confianca":0.95,"slots":{}}',
+      'os exames saem pelo convênio?',
     );
-    expect(r?.texto).toContain('PLAMTA');
-    expect(r?.texto.toLowerCase()).not.toContain('exame');
+    expect(r?.texto).not.toContain('PLAMTA');
+  });
+
+  // A trava que de verdade protege a regra do convênio: MARCAR exame escala,
+  // por `PERFIS_SO_HUMANO` em vagas.ts, desde 06/10/2026. Esta é a razão de a
+  // escalada da pergunta ser dispensável — a marcação já não passa.
+  it('MARCAR exame continua escalando, pelo perfil soHumano', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    const { soHumano, perfilDe } = await import('./vagas.js');
+    expect(perfilDe('exame', 'IASPI')).toBe('exame');
+    expect(soHumano('exame')).toBe(true);
+    const r = await rodar(
+      '{"intencao":"quer_horario","confianca":0.95,"slots":{"nome":"Thiago Carvalho","nascimento":"1990-01-01","cidade":"Teresina","necessidade":"exame","convenio":"IASPI"}}',
+      'quero marcar o exame',
+    );
+    expect(r?.acao).toBe('escalar');
   });
 });
 

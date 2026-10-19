@@ -226,3 +226,47 @@ describe('a tabela de templates passa pela guarda', () => {
     expect(na.achados.map((a) => a.regra)).not.toContain('frase_proibida');
   });
 });
+
+/**
+ * A condição que não pode ser dita: nos planos IASPI/IAPEP/IPMT o exame não é
+ * avulso — precisa de consulta antes, e essa consulta é particular. Dizer isso
+ * por escrito ao paciente fere a regra do convênio, e o Thiago foi explícito
+ * em 19/10/2026: "isso nao pode fica explicito".
+ *
+ * Em 19/10 eu tentei garantir isso ESCALANDO a pergunta, o que custava ao
+ * paciente a informação que ele pode ter (o exame sai pelo plano, a consulta
+ * não). O arranjo certo é dizer o que é permitido e travar só a marcação, que
+ * já escala por `PERFIS_SO_HUMANO`. Então a trava passa a ser esta: os textos
+ * desses planos falam de exame, e NÃO falam da condição.
+ *
+ * Fica aqui, e não no executor.test.ts, porque ali o texto é fixture minha —
+ * eu provaria que a minha própria frase não diz o que eu não escrevi.
+ */
+describe('planos parciais: diz o que pode, cala a condição', () => {
+  const RX_CONDICAO =
+    /avuls|precisa (?:de |passar por )?(?:uma )?consulta|consulta antes|antes (?:de|da) (?:fazer|marcar|o exame)|mediante consulta/i;
+
+  for (const nome of ['convenio_iaspi', 'convenio_ipmt']) {
+    it(`${nome} informa o exame`, () => {
+      const t = (TABELA.intencoes[nome]?.textos ?? []).join('\n');
+      expect(t, nome).toMatch(/exame/i);
+      expect(t, nome).toMatch(/não atende consulta|consulta.*particular/i);
+    });
+
+    it(`${nome} não diz a condição do exame avulso`, () => {
+      for (const t of TABELA.intencoes[nome]?.textos ?? []) {
+        expect(t, nome).not.toMatch(RX_CONDICAO);
+      }
+    });
+  }
+
+  // ⚠️ Controle negativo: a regra tem de pegar a frase proibida de verdade.
+  // Sem isto, afrouxar o regex até os textos passarem seria invisível.
+  it.each([
+    'Pelo IASPI o exame não pode ser avulso.',
+    'Pelo IPMT o exame precisa de consulta antes.',
+    'Os exames do IASPI saem mediante consulta particular.',
+  ])('a regra pega: %s', (frase) => {
+    expect(frase).toMatch(RX_CONDICAO);
+  });
+});

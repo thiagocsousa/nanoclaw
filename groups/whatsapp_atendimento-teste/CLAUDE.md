@@ -129,6 +129,10 @@ Abaixo, só o que não cabe num campo `quando`:
   está pensando no PLANTE, e o texto dessas intenções já responde as duas
   metades: a consulta não é coberta, a cirurgia vai pelo plano cirúrgico. Não use
   `convenio_cirurgia` para esses quatro nomes.
+  - **Pergunta de EXAME nesses planos continua sendo `exames_convenio`**, com o
+    plano no slot `convenio`. Quem troca para o texto do plano é o host, porque
+    pela Unimed o exame não sai e por esses sai — o inverso. Você rotula o que
+    ele perguntou; a escolha do texto não é sua.
 - **`paciente_confirmado` e `paciente_outro` só existem logo depois de uma
   pergunta específica.** Quando a última coisa que a Lara disse foi *"É para
   você, Fulano, ou para outra pessoa?"*, a resposta do paciente é uma das duas:

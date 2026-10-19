@@ -259,6 +259,37 @@ function comEnquadramentoRefrativo(
 }
 
 /**
+ * Pergunta de EXAME por IASPI/IAPEP/IPMT: responde com o texto do plano.
+ *
+ * `exames_convenio` fala da Unimed — "os exames não saem pelo convênio" — que
+ * é o oposto do que vale nesses três: por eles o exame SAI, e o que não sai é
+ * a consulta. Sem a troca, quem tem IASPI ouvia o inverso da verdade.
+ *
+ * Mesmo arranjo do `comDesconto`: o modelo rotula o que o paciente perguntou e
+ * o host escolhe o texto que diz a verdade para ele.
+ *
+ * ⚠️ MARCAR exame avulso continua escalando, e por regra anterior a esta:
+ * `exame` é perfil `soHumano` (PERFIS_SO_HUMANO, em vagas.ts). A distinção que
+ * o Thiago fez em 19/10/2026 é essa — a exceção que não pode ser dita ao
+ * paciente é sobre a MARCAÇÃO avulsa, não sobre falar de exame. Por algumas
+ * horas eu escalei a pergunta também, o que negava ao paciente uma informação
+ * que ele pode ter.
+ */
+function comPlanoParcial(
+  intencao: string,
+  slots: Record<string, string | undefined>,
+  tabela: Tabela,
+): string {
+  if (intencao !== 'exames_convenio' && intencao !== 'exames_preco') {
+    return intencao;
+  }
+  const conv = slots.convenio ?? '';
+  if (!RX_PLANO_PARCIAL.test(conv)) return intencao;
+  const alvo = /IPMT|PLANTE/i.test(conv) ? 'convenio_ipmt' : 'convenio_iaspi';
+  return tabela.intencoes[alvo] ? alvo : intencao;
+}
+
+/**
  * Dias sem lente de contato antes da avaliação refrativa.
  *
  * Três, para QUALQUER tipo de lente — o manual trazido pelo Thiago separava
@@ -847,7 +878,11 @@ export async function executa(
   const intencaoFinal = intencaoDaAgenda
     ? intencaoDaAgenda
     : comEnquadramentoRefrativo(
-        comDesconto(c.intencao, lembrados, tabela),
+        comPlanoParcial(
+          comDesconto(c.intencao, lembrados, tabela),
+          lembrados,
+          tabela,
+        ),
         lembrados,
         tabela,
       );
@@ -920,42 +955,6 @@ export async function executa(
   // frase vira corrida. Pedir de novo o que a pessoa acabou de responder é o
   // jeito mais rápido de parecer máquina.
   let texto = r.texto;
-
-  // Exame por IASPI/IAPEP/IPMT: escala, e a Lara não explica por quê.
-  //
-  // Decisão do Thiago em 19/10/2026. Nesses planos o exame não é avulso, e a
-  // condição que o permite NÃO pode ser dita ao paciente — explicá-la fere a
-  // regra do convênio. Uma recepcionista resolve isso por voz; a Lara
-  // escrevendo cria registro com data, hora e print.
-  //
-  // Antes disso o texto do plano dizia "os exames saem pelo IASPI", verdade
-  // pela metade: quem lesse pediria só os exames, e aí não havia saída boa —
-  // revelar a condição, inventar, ou se contradizer.
-  //
-  // ⚠️ O motivo que vai à recepção também não descreve o arranjo: log é
-  // registro igual. Quem trabalha lá sabe o que fazer.
-  if (
-    tabela.intencoes.exames_plano_parcial &&
-    (c.intencao === 'exames_convenio' || c.intencao === 'exames_preco') &&
-    RX_PLANO_PARCIAL.test(
-      comLembrados(groupFolder, chatJid, c.slots).convenio ?? '',
-    )
-  ) {
-    const rx = renderiza(tabela, 'exames_plano_parcial', {
-      confianca: 1,
-      slots,
-    });
-    if (rx.intencao === 'exames_plano_parcial') {
-      return await escalaComo(
-        groupFolder,
-        tabela,
-        tabela.intencoes.exames_plano_parcial.motivo_escalada ??
-          'pergunta sobre exames por plano de cobertura parcial',
-        perguntaDoPaciente,
-        deps,
-      );
-    }
-  }
 
   // ⚠️ A orientação dos 3 dias é EXCEÇÃO à regra de não dar preparo clínico, e
   // a exceção é da avaliação REFRATIVA. "Minha consulta é de rotina, uso lente,

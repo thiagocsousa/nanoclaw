@@ -496,14 +496,19 @@ atende pelo meu plano; faço pelo IPMT.
 
 **A regra separa consulta de cirurgia. Não misture as duas.**
 
-| | Consulta / avaliação | Cirurgia |
-|---|---|---|
-| **Particular** | sim | sim |
-| **Unimed** | sim | sim |
-| **IASPI (IAPEP)** | **não** | sim, pelo **PLAMTA** |
-| **IPMT** | **não** | sim, pelo **PLANTE** |
-| **Intermed, Hapvida, Humana** | **não** | **não** |
-| **qualquer outro plano** | **não** | **sim**, se o próprio plano autorizar |
+| | Consulta / avaliação | Exames | Cirurgia |
+|---|---|---|---|
+| **Particular** | sim | sim | sim |
+| **Unimed** | sim | **não** (particular) | sim |
+| **IASPI (IAPEP)** | **não** | **sim**, menos o Pentacam | sim, pelo **PLAMTA** |
+| **IPMT** | **não** | **sim**, menos o Pentacam | sim, pelo **PLANTE** |
+| **Intermed, Hapvida, Humana** | **não** | **não** | **não** |
+| **qualquer outro plano** | **não** | **não** | **sim**, se o próprio plano autorizar |
+
+⚠️ **A linha da Unimed e a do IASPI são opostas na coluna do meio**, e é por isso que o
+texto de exame não serve para os dois: pela Unimed o exame **não** sai e a consulta sai;
+pelo IASPI o exame **sai** e a consulta não. O host troca a intenção (`comPlanoParcial`,
+em `executor.ts`) para que cada um ouça a sua verdade.
 
 ### Consulta: só particular e Unimed
 
@@ -540,29 +545,43 @@ Afirmar cobertura faz o paciente contar com um dinheiro que pode não vir.
 Para **IASPI (IAPEP)** e **IPMT** há nome próprio do plano cirúrgico, e aí dá para ser
 específico:
 
-> A consulta com a Dra. Marina é realizada de forma particular para pacientes do IASPI.
+> Pelo IASPI a gente não atende consulta, então ela fica como particular.
 >
-> Já para a cirurgia, existe a possibilidade de atendimento pelo PLAMTA, conforme a
-> indicação médica e os critérios de cobertura do plano.
+> Já os exames e a cirurgia dá para fazer pelo plano: os exames pelo próprio IASPI, menos
+> o Pentacam, que nenhum plano cobre, e a cirurgia pelo PLAMTA, conforme a indicação médica
+> e os critérios de cobertura.
 
-> A consulta com a Dra. Marina é realizada de forma particular para pacientes do IPMT.
+> Pelo IPMT a gente não atende consulta, então ela fica como particular.
 >
-> Para a cirurgia, existe a possibilidade de atendimento pelo PLANTE, conforme a indicação
-> médica e os critérios de cobertura do plano.
+> Já os exames e a cirurgia dá para fazer pelo plano: os exames pelo próprio IPMT, menos o
+> Pentacam, que nenhum plano cobre, e a cirurgia pelo PLANTE, conforme a indicação médica e
+> os critérios de cobertura.
 
-⛔ **NÃO fale de exames ao responder IASPI ou IPMT.** Quem perguntar de exame nesses
-planos, a Lara **escala sem explicar por quê**.
+> ℹ️ Reescrito em 19/10/2026, duas vezes no mesmo dia. A primeira versão dizia *"A consulta
+> com a Dra. Marina é realizada de forma particular para pacientes do IASPI"* — o Thiago
+> apontou como estranha, e era: a voz passiva e "pacientes do IASPI" soam a circular
+> interna. O que a frase tem de dizer é simples — **não atende consulta, atende exame e
+> cirurgia**.
 
-> ⚠️ Decisão do Thiago em 19/10/2026. Nesses planos o exame **não é avulso**, e a condição
-> que o permite não pode ser dita ao paciente: dizê-la fere a regra do convênio. Uma
-> recepcionista resolve isso por voz; a Lara escrevendo cria registro com data, hora e
-> print, 24h por dia, sem ninguém decidir caso a caso.
+⛔ **A condição do exame não pode ser dita ao paciente.** Nesses planos o exame **não é
+avulso**, e dizer o que o libera fere a regra do convênio.
+
+**O que a Lara fala:** o exame sai pelo plano. **O que a Lara não fala:** a condição.
+**O que a Lara não faz:** marcar o exame — isso escala.
+
+> ⚠️ Em 19/10/2026 eu li essa regra larga demais e fiz a Lara **escalar a pergunta** sobre
+> exame nesses planos. Era errado em dois sentidos: negava ao paciente uma informação que
+> ele pode ter, e tratava a pergunta como se fosse a marcação. O Thiago corrigiu no mesmo
+> dia — *"a exceção foi apenas em relação à marcação de exames de forma avulsa"*.
 >
-> Por algumas horas no mesmo dia o texto aqui dizia "os exames saem pelo IASPI". É verdade
-> pela metade, e pior que o silêncio: quem lesse pediria só os exames, e aí não havia saída
-> boa — revelar a condição, inventar, ou se contradizer.
+> **E a marcação já estava travada**, por regra de 06/10: `exame` é perfil `soHumano`
+> (`PERFIS_SO_HUMANO`, em `vagas.ts`), e marcar exame nunca passou pela Lara. A escalada
+> que eu acrescentei não protegia nada que já não estivesse protegido; só calava.
 >
 > **O motivo que vai à recepção também não descreve o arranjo.** Log é registro igual.
+>
+> A trava automática está em `src/templates-guarda.test.ts`: os textos dos dois planos
+> falam de exame e não casam o regex da condição, com controle negativo.
 >
 > A Unimed fica como está: ali a negativa é simples ("os exames não saem pelo convênio") e
 > não tem condição escondida.
