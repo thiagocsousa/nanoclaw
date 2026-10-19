@@ -98,6 +98,38 @@ export function emObservacao(groupFolder?: string): boolean {
 }
 
 /**
+ * Valida a pasta de observação de DM pedida por env.
+ *
+ * ⛔ É a trava de CONFIGURAÇÃO, e protege a única falha que importa nesta
+ * semana: ler DM de paciente numa pasta que NÃO está em observação faria a Lara
+ * RESPONDER paciente real. A diferença entre observar e ir ao ar é uma linha de
+ * `.env`, e um erro de digitação não pode decidir isso.
+ *
+ * Devolve a pasta quando é segura, e `''` com o motivo quando não é — quem
+ * chama registra o motivo no log e segue sem observação, que é o estado seguro.
+ */
+export function pastaDeObservacaoDeDm(pedida: string): {
+  folder: string;
+  motivo?: string;
+} {
+  const p = pedida.trim();
+  if (!p) return { folder: '' };
+  if (!emObservacao(p)) {
+    return {
+      folder: '',
+      motivo: `a pasta "${p}" não está em OBSERVACAO_FOLDERS, e sem isso a resposta iria ao paciente`,
+    };
+  }
+  if (!wantsRevisaoHumana(p)) {
+    return {
+      folder: '',
+      motivo: `a pasta "${p}" não está em REVISAO_HUMANA_FOLDERS, então a resposta não tem para onde ir e ninguém observaria nada`,
+    };
+  }
+  return { folder: p };
+}
+
+/**
  * Para onde vai a resposta a revisar, e de onde a aprovação é aceita.
  *
  * ⚠️ Default é o destino do escalonamento, que hoje é a DM do Thiago — NÃO o

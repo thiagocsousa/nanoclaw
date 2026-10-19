@@ -97,6 +97,7 @@ import { abreConversa, conversaAbertaEm } from './memoria-conversa.js';
 import {
   emObservacao,
   lePendentes,
+  pastaDeObservacaoDeDm,
   aprovaEmQualquerPasta,
   concluiEnvio,
   destinoDaRevisao,
@@ -1093,6 +1094,22 @@ async function main(): Promise<void> {
       isGroup?: boolean,
     ) => storeChatMetadata(chatJid, timestamp, name, channel, isGroup),
     registeredGroups: () => registeredGroups,
+    // Uma DM de paciente ganha pasta na primeira mensagem. Reusa o
+    // `registerGroup`, que já valida a pasta, cria o diretório e grava no
+    // banco — então o resto do pipeline não sabe que isto é uma DM.
+    registraDmEmObservacao: (chatJid: string, folder: string) => {
+      if (registeredGroups[chatJid]) return;
+      registerGroup(chatJid, {
+        jid: chatJid,
+        name: chatJid,
+        folder,
+        triggerPattern: DEFAULT_TRIGGER,
+        // Paciente não escreve "@Andy": exigir gatilho faria a observação não
+        // observar nada, que é o estado de antes desta mudança.
+        requiresTrigger: false,
+        isMain: false,
+      } as never);
+    },
   };
 
   // Create and connect all registered channels.
@@ -1122,11 +1139,39 @@ async function main(): Promise<void> {
     process.env.WHATSAPP_ATENDIMENTO_PAIRING_NUMBER ||
     atendimentoEnv.WHATSAPP_ATENDIMENTO_PAIRING_NUMBER;
   if (atendimentoPairingNumber) {
+    // ⚠️ A trava de configuração. Observar DM sem a pasta em observação faria a
+    // Lara RESPONDER paciente real — exatamente o que esta semana não é. Então
+    // a env é ignorada, com erro no log, se a pasta não estiver travada.
+    const dmEnv = readEnvFile(['DM_OBSERVACAO_FOLDER']);
+    const checada = pastaDeObservacaoDeDm(
+      process.env.DM_OBSERVACAO_FOLDER || dmEnv.DM_OBSERVACAO_FOLDER || '',
+    );
+    const dmObservacaoFolder = checada.folder;
+    if (checada.motivo) {
+      logger.error(
+        { motivo: checada.motivo },
+        'DM_OBSERVACAO_FOLDER ignorada: configuração recusada',
+      );
+    } else if (dmObservacaoFolder) {
+      logger.warn(
+        { pasta: dmObservacaoFolder },
+        'observação: DMs do atendimento viram turno; nada vai ao paciente',
+      );
+    }
     const atendimentoChannel = new WhatsAppChannel({
       ...channelOpts,
       authSubDir: 'auth-atendimento',
       pairingNumber: atendimentoPairingNumber,
       groupFolderOwner: 'whatsapp_atendimento-dra-marina',
+      // MODO OBSERVAÇÃO das DMs de paciente (Thiago, 19/10/2026): quando esta
+      // env existe, as DMs deste número viram turno e a resposta vai ao destino
+      // da revisão, nunca ao paciente.
+      //
+      // ⚠️ Sem a env, o comportamento é o de antes: estritamente outbound. E a
+      // pasta apontada aqui PRECISA estar em `OBSERVACAO_FOLDERS`, senão a
+      // resposta sairia para o paciente — é a diferença entre observar e ir ao
+      // ar. O `index.ts` recusa a configuração se isso não estiver de pé.
+      dmObservacaoFolder: dmObservacaoFolder || undefined,
     });
     channels.push(atendimentoChannel);
     // Outbound-only instance: connect in the background. Blocking startup on it

@@ -79,10 +79,27 @@ export interface WhatsAppChannelOpts {
   onMessage: OnInboundMessage;
   onChatMetadata: OnChatMetadata;
   registeredGroups: () => Record<string, RegisteredGroup>;
+  /** Registra uma DM de paciente numa pasta de observação. Ver `dmObservacaoFolder`. */
+  registraDmEmObservacao?: (chatJid: string, folder: string) => void;
   // Per-instance overrides (used for secondary connections)
   authSubDir?: string; // auth dir under STORE_DIR, defaults to 'auth'
   pairingNumber?: string; // phone number for pairing, defaults to PAIRING_NUMBER
   groupFolderOwner?: string; // when set, this instance is outbound-only for this group folder
+  /**
+   * Pasta para onde as DMs de paciente deste número vão, em MODO OBSERVAÇÃO.
+   *
+   * Quando definida, a instância deixa de ser estritamente outbound: as DMs
+   * passam a virar turno de agente, a Lara calcula a resposta e ela vai para o
+   * destino da revisão. A pasta tem de estar em `OBSERVACAO_FOLDERS`, e é a
+   * trava do `aprova` que garante que nada volta ao paciente.
+   *
+   * Decisão do Thiago em 19/10/2026: "quero ler o que o paciente fala na DM e
+   * enviar a resposta no grupo de testes em caráter observatório".
+   *
+   * ⚠️ Sem esta opt o comportamento é o de antes, e é o seguro: nenhum inbound
+   * vira turno. Não ligue sem a pasta estar em observação.
+   */
+  dmObservacaoFolder?: string;
 }
 
 export class WhatsAppChannel implements Channel {
@@ -301,8 +318,15 @@ export class WhatsAppChannel implements Channel {
         // inbound como turno de agente / resposta. Só captura passivamente as
         // respostas individuais dos pacientes (pro resumo de confirmação de
         // consulta) e retorna. Nenhum onMessage, nenhum agente, nada ao paciente.
+        //
+        // A captura passiva roda SEMPRE, e primeiro: é dela que sai o SLA e a
+        // confirmação de consulta, e observação não pode custar isso.
         await this.captureInboundReplies(messages);
         await this.captureSlaTimeline(messages);
+        if (!this.opts.dmObservacaoFolder) return;
+        // MODO OBSERVAÇÃO: as DMs passam a virar turno. O que volta ao paciente
+        // é nada — a pasta está em `OBSERVACAO_FOLDERS` e o `aprova` recusa.
+        await this.processaDmsEmObservacao(messages);
         return;
       }
       for (const msg of messages) {
@@ -456,6 +480,73 @@ export class WhatsAppChannel implements Channel {
   // (SLA). Append-only, NUNCA responde nada, NUNCA aciona o agente.
   // Arquivo separado do lembrete_respostas.jsonl de propósito: aquele é lido
   // pelo pipeline de confirmação e só pode conter mensagens de paciente.
+  /**
+   * As DMs de paciente deste número viram turno de agente, em observação.
+   *
+   * Registra o chat na pasta de observação (uma vez, por chat) e entrega ao
+   * `onMessage`, que é o caminho normal. Daí para frente nada é especial: o
+   * executor classifica, a guarda inspeciona, e a resposta vai para o destino
+   * da revisão em vez do paciente.
+   *
+   * ⚠️ Ignora `fromMe`. Nessas DMs quem mais escreve é a SECRETÁRIA, e tratar a
+   * resposta dela como turno do paciente faria a Lara classificar a própria
+   * clínica — e, pior, o eco `fromMe` é o que mede o SLA, então ele chega aqui
+   * de todo jeito. Só mensagem do paciente vira turno.
+   *
+   * ⛔ Só DM. Grupo que apareça neste número não é conversa de paciente.
+   */
+  private async processaDmsEmObservacao(
+    messages: import('@whiskeysockets/baileys').WAMessage[],
+  ): Promise<void> {
+    const folder = this.opts.dmObservacaoFolder;
+    if (!folder) return;
+    for (const msg of messages) {
+      try {
+        if (!msg.message || msg.key.fromMe) continue;
+        const rawJid = msg.key.remoteJid;
+        if (!rawJid || rawJid === 'status@broadcast') continue;
+        if (rawJid.endsWith('@g.us')) continue;
+        const normalized = normalizeMessageContent(msg.message);
+        if (!normalized) continue;
+        const chatJid = await this.translateJid(rawJid);
+        const content =
+          normalized.conversation ||
+          normalized.extendedTextMessage?.text ||
+          normalized.imageMessage?.caption ||
+          normalized.videoMessage?.caption ||
+          '';
+        if (!content.trim()) continue;
+        const timestamp = new Date(
+          Number(msg.messageTimestamp) * 1000,
+        ).toISOString();
+        this.opts.onChatMetadata(
+          chatJid,
+          timestamp,
+          undefined,
+          'whatsapp',
+          false,
+        );
+        if (!this.opts.registeredGroups()[chatJid]) {
+          this.opts.registraDmEmObservacao?.(chatJid, folder);
+          logger.info(
+            { chatJid, folder },
+            'observação: DM de paciente registrada para leitura',
+          );
+        }
+        this.opts.onMessage(chatJid, {
+          chat_jid: chatJid,
+          sender: chatJid,
+          content,
+          timestamp,
+          is_bot_message: false,
+          id: msg.key.id || `${Date.now()}`,
+        } as never);
+      } catch (err) {
+        logger.warn({ err }, 'observação: falhou ao processar DM');
+      }
+    }
+  }
+
   private async captureSlaTimeline(
     messages: import('@whiskeysockets/baileys').WAMessage[],
   ): Promise<void> {

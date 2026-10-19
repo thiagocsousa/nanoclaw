@@ -338,3 +338,53 @@ describe('modo observação', () => {
     expect(m.aprova('whatsapp_normal-teste', p.codigo)?.codigo).toBe(p.codigo);
   });
 });
+
+/**
+ * A trava de CONFIGURAÇÃO da observação de DM.
+ *
+ * Ler DM de paciente numa pasta que não está em observação faria a Lara
+ * RESPONDER paciente real. A diferença entre observar e ir ao ar não pode ser
+ * um erro de digitação no `.env`.
+ */
+describe('pastaDeObservacaoDeDm', () => {
+  it('vazio é o estado seguro, sem motivo de erro', async () => {
+    process.env.OBSERVACAO_FOLDERS = 'whatsapp_dm';
+    process.env.REVISAO_HUMANA_FOLDERS = 'whatsapp_dm';
+    vi.resetModules();
+    const m = await import('./revisao-humana.js');
+    expect(m.pastaDeObservacaoDeDm('')).toEqual({ folder: '' });
+    expect(m.pastaDeObservacaoDeDm('   ')).toEqual({ folder: '' });
+  });
+
+  it('aceita quando a pasta está em observação E em revisão', async () => {
+    process.env.OBSERVACAO_FOLDERS = 'whatsapp_dm';
+    process.env.REVISAO_HUMANA_FOLDERS = 'whatsapp_dm';
+    vi.resetModules();
+    const m = await import('./revisao-humana.js');
+    expect(m.pastaDeObservacaoDeDm('whatsapp_dm').folder).toBe('whatsapp_dm');
+  });
+
+  // ⛔ O caso que mata: pasta fora da observação. Sem a recusa, a Lara
+  // responderia paciente real na primeira mensagem.
+  it('RECUSA pasta fora de OBSERVACAO_FOLDERS', async () => {
+    process.env.OBSERVACAO_FOLDERS = 'outra_pasta';
+    process.env.REVISAO_HUMANA_FOLDERS = 'whatsapp_dm';
+    vi.resetModules();
+    const m = await import('./revisao-humana.js');
+    const r = m.pastaDeObservacaoDeDm('whatsapp_dm');
+    expect(r.folder).toBe('');
+    expect(r.motivo).toContain('OBSERVACAO_FOLDERS');
+  });
+
+  // E recusa o inverso também: em observação mas sem revisão, a resposta não
+  // tem para onde ir — ninguém observaria nada, e isso é falha silenciosa.
+  it('RECUSA pasta sem REVISAO_HUMANA_FOLDERS', async () => {
+    process.env.OBSERVACAO_FOLDERS = 'whatsapp_dm';
+    process.env.REVISAO_HUMANA_FOLDERS = 'outra_pasta';
+    vi.resetModules();
+    const m = await import('./revisao-humana.js');
+    const r = m.pastaDeObservacaoDeDm('whatsapp_dm');
+    expect(r.folder).toBe('');
+    expect(r.motivo).toContain('REVISAO_HUMANA_FOLDERS');
+  });
+});
