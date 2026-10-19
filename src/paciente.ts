@@ -17,6 +17,14 @@ export interface Candidato {
   convenio: string;
   /** Cidade da ficha. **Costuma vir vazia** — ver o script. */
   cidade: string;
+  /**
+   * Data da última consulta, em `AAAA-MM-DD`. Vem vazia quando nunca houve.
+   *
+   * O script sempre devolveu; o tipo não declarava, e a memória descartava.
+   * Passou a importar em 19/10/2026: quem pede retorno já é paciente da casa, e
+   * mandar essa data no escalonamento poupa a recepção de abrir o iClinic.
+   */
+  ultima_consulta: string;
 }
 
 /** Login + busca custam ~10 s. É por conversa, nunca por turno. */

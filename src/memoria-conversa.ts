@@ -48,6 +48,7 @@ export interface SlotsLembrados {
     nascimento: string;
     convenio?: string;
     cidade?: string;
+    ultima_consulta?: string;
   }>;
   /**
    * Já procuramos? Distinto de `candidatos` vazio: "procurei e não achei" não
@@ -224,6 +225,7 @@ export function lembraCandidatos(
     nascimento: string;
     convenio?: string;
     cidade?: string;
+    ultima_consulta?: string;
   }>,
 ): void {
   const agora = Date.now();
@@ -252,6 +254,7 @@ export function candidatosLembrados(
     nascimento: string;
     convenio?: string;
     cidade?: string;
+    ultima_consulta?: string;
   }>;
 } {
   const m = le(folder)[chatJid];

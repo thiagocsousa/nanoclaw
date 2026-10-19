@@ -62,6 +62,7 @@ import {
 } from './agendamento.js';
 import { faltamNaTriagem, fraseDeTriagem } from './triagem.js';
 import { resolveDiaPedido } from './dia-pedido.js';
+import { contextoDoRetorno } from './retorno-contexto.js';
 import {
   VOCABULARIO_REFRATIVO,
   ehParticular,
@@ -818,15 +819,33 @@ export async function executa(
   if (acao === 'triagem') {
     const perfilAlvo = perfilDe(lembrados.necessidade, lembrados.convenio);
     if (perfilAlvo && soHumano(perfilAlvo)) {
+      // Chega com a resposta pronta: hoje a recepção recebe "quer marcar
+      // retorno" e vai procurar no iClinic (Thiago, 19/10/2026).
+      //
+      // Usa o que a conversa já buscou; só vai ao iClinic se ainda não foi.
+      // Custa ~10 s de Playwright, e o paciente está ouvindo "Só um instante"
+      // de qualquer jeito.
+      const mem = candidatosLembrados(groupFolder, chatJid);
+      let cands = mem.candidatos;
+      if (!mem.buscou) {
+        const tel = telefoneDoJid(remetenteJid || chatJid);
+        if (tel) {
+          cands = await pacientesComTelefone(groupFolder, tel);
+          lembraCandidatos(groupFolder, chatJid, cands);
+        }
+      }
+      const contexto = contextoDoRetorno(cands);
       logger.info(
-        { groupFolder, perfil: perfilAlvo },
+        { groupFolder, perfil: perfilAlvo, cadastros: cands.length },
         'executor: retorno/exame não passa pelo formulário, escala direto',
       );
       return await escalaComo(
         groupFolder,
         tabela,
-        `quer marcar ${perfilAlvo}, que a Lara não agenda; depende da data da ` +
-          `última consulta e quem organiza é a recepção`,
+        `quer marcar ${perfilAlvo}, que a Lara não agenda` +
+          (contexto ? ` · ${contexto}` : '') +
+          '; o retorno só é gratuito quando completa a MESMA avaliação, ' +
+          'então queixa nova é consulta',
         perguntaDoPaciente,
         deps,
       );

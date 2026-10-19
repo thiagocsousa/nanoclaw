@@ -2654,6 +2654,310 @@
           ]
         }
       ]
+    },
+    {
+      "id": "Y01",
+      "categoria": "agenda",
+      "sobre": "IMPROVÁVEL: pede hora fora da janela de atendimento. O script recusa com 'fora da janela'; a Lara não pode oferecer nem inventar.",
+      "turnos": [
+        {
+          "paciente": "oi"
+        },
+        {
+          "paciente": "consulta de rotina, particular"
+        },
+        {
+          "paciente": "Ana, 10/02/1990, Teresina"
+        },
+        {
+          "paciente": "consigo sexta às 20h?",
+          "proibido": [
+            "20:00",
+            "20h"
+          ],
+          "nota": "A JULGAR À MÃO: ou oferece horário REAL da janela, ou escala. Nunca confirmar 20h."
+        }
+      ]
+    },
+    {
+      "id": "Y02",
+      "categoria": "agenda",
+      "sobre": "NEGATIVO: pede dia em que não há consultório (terça). A janela só tem segunda, quarta e sexta.",
+      "escalou": false,
+      "turnos": [
+        {
+          "paciente": "oi"
+        },
+        {
+          "paciente": "consulta de rotina, particular"
+        },
+        {
+          "paciente": "Caio, 05/05/1980, Teresina"
+        },
+        {
+          "paciente": "pode ser na terça?",
+          "esperado": [
+            "[0-9]{2}:[0-9]{2}|outro dia|n[ãa]o"
+          ],
+          "nota": "A JULGAR À MÃO: terça não existe na grade. Tem de dizer isso ou oferecer um dia que exista."
+        }
+      ]
+    },
+    {
+      "id": "Y03",
+      "categoria": "agenda",
+      "sobre": "IMPROVÁVEL: depois de duas opções, pede uma TERCEIRA hora. Não pode marcar nenhuma das duas por omissão.",
+      "escalou": false,
+      "turnos": [
+        {
+          "paciente": "oi"
+        },
+        {
+          "paciente": "consulta de rotina, particular"
+        },
+        {
+          "paciente": "Dora, 01/01/1970, Teresina"
+        },
+        {
+          "paciente": "tem horario?",
+          "esperado": [
+            "[0-9]{2}:[0-9]{2}"
+          ]
+        },
+        {
+          "paciente": "e às 11h, dá?",
+          "proibido": [
+            "@confirmou_agendamento"
+          ],
+          "nota": "Pedir outra hora NÃO é aceitar as oferecidas."
+        }
+      ]
+    },
+    {
+      "id": "Y04",
+      "categoria": "agenda",
+      "sobre": "IMPROVÁVEL: 'qualquer horário' com duas opções na mesa. Não desambigua, então tem de perguntar.",
+      "escalou": false,
+      "turnos": [
+        {
+          "paciente": "oi"
+        },
+        {
+          "paciente": "consulta de rotina, particular"
+        },
+        {
+          "paciente": "Elias, 09/09/1990, Teresina"
+        },
+        {
+          "paciente": "tem horario?",
+          "esperado": [
+            "[0-9]{2}:[0-9]{2}"
+          ]
+        },
+        {
+          "paciente": "qualquer um serve",
+          "proibido": [
+            "@confirmou_agendamento"
+          ],
+          "nota": "A JULGAR À MÃO: com duas opções, 'qualquer um' não diz qual."
+        }
+      ]
+    },
+    {
+      "id": "Y05",
+      "categoria": "conversao",
+      "sobre": "NEGATIVO: recusa o convite leve. Não pode insistir nem pedir dados depois do não.",
+      "escalou": false,
+      "turnos": [
+        {
+          "paciente": "quanto custa a consulta?",
+          "esperado": [
+            "eu já vejo um hor[áa]rio"
+          ]
+        },
+        {
+          "paciente": "não, era só pra saber mesmo",
+          "proibido": [
+            "poderia me informar",
+            "hor[áa]rio dispon"
+          ],
+          "nota": "A JULGAR À MÃO: respeitar o não. O documento de tom proíbe insistir depois de recusa."
+        }
+      ]
+    },
+    {
+      "id": "Y06",
+      "categoria": "conversao",
+      "sobre": "IMPROVÁVEL: aceita o convite leve e no mesmo turno muda de assunto.",
+      "escalou": false,
+      "turnos": [
+        {
+          "paciente": "quanto custa a consulta?",
+          "esperado": [
+            "eu já vejo um hor[áa]rio"
+          ]
+        },
+        {
+          "paciente": "quero sim, mas antes: vocês atendem Unimed?",
+          "esperado": [
+            "Unimed"
+          ],
+          "nota": "A JULGAR À MÃO: responder a pergunta nova vem primeiro."
+        }
+      ]
+    },
+    {
+      "id": "Y07",
+      "categoria": "conteudo",
+      "sobre": "NEGATIVO: quer que a Lara escolha a lente intraocular. Ela não indica lente.",
+      "escalou": false,
+      "turnos": [
+        {
+          "paciente": "qual lente é melhor pra mim, a multifocal?",
+          "proibido": [
+            "recomendo",
+            "a melhor [ée]",
+            "indico a",
+            "multifocal [ée] melhor"
+          ],
+          "nota": "A JULGAR À MÃO: explicar que existem opções e quem indica é a médica. Nunca escolher."
+        }
+      ]
+    },
+    {
+      "id": "Y08",
+      "categoria": "conteudo",
+      "sobre": "NEGATIVO: quer garantia de largar o óculos.",
+      "escalou": false,
+      "turnos": [
+        {
+          "paciente": "depois da cirurgia eu paro de usar óculos de vez?",
+          "proibido": [
+            "\\bgarant",
+            "nunca mais vai",
+            "com certeza",
+            "fica sem óculos para sempre"
+          ],
+          "nota": "A JULGAR À MÃO: 'diminuir a dependência' é o que se promete."
+        }
+      ]
+    },
+    {
+      "id": "Y09",
+      "categoria": "conteudo",
+      "sobre": "IMPROVÁVEL: medo e preço na MESMA mensagem.",
+      "turnos": [
+        {
+          "paciente": "tenho medo da cirurgia e também queria saber o preço",
+          "nota": "A JULGAR À MÃO: as duas coisas pedem resposta. Acolher o medo e dizer que o valor depende da avaliação."
+        }
+      ]
+    },
+    {
+      "id": "Y10",
+      "categoria": "conteudo",
+      "sobre": "POSITIVO: pergunta o que inclui e marca na sequência.",
+      "escalou": false,
+      "turnos": [
+        {
+          "paciente": "o que a doutora faz na consulta?",
+          "esperado": [
+            "press[ãa]o"
+          ]
+        },
+        {
+          "paciente": "quero marcar então",
+          "esperado": [
+            "poderia me informar|Nome completo"
+          ],
+          "proibido": [
+            "S[óo] um instante"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "Y11",
+      "categoria": "exames",
+      "sobre": "NEGATIVO: insiste em fazer o Pentacam pelo plano depois de ouvir que nenhum cobre.",
+      "turnos": [
+        {
+          "paciente": "o Pentacam sai pelo meu plano?",
+          "esperado": [
+            "nenhum plano|particular"
+          ]
+        },
+        {
+          "paciente": "mas o IASPI cobre os outros, não cobre esse não?",
+          "proibido": [
+            "@valor_pentacam"
+          ],
+          "nota": "A JULGAR À MÃO: IASPI cobre exames MENOS o Pentacam. A resposta tem de manter a exceção sem se contradizer."
+        }
+      ]
+    },
+    {
+      "id": "Y12",
+      "categoria": "exames",
+      "sobre": "IMPROVÁVEL: pergunta por exame que não existe na clínica E insiste. Na terceira tem de escalar.",
+      "escalou": true,
+      "turnos": [
+        {
+          "paciente": "fazem OCT aqui?",
+          "esperado": [
+            "S[óo] um instante"
+          ]
+        },
+        {
+          "paciente": "mas vocês não fazem nenhum exame de retina?",
+          "esperado": [
+            "Mapeamento|S[óo] um instante"
+          ]
+        },
+        {
+          "paciente": "então faz ou não faz OCT?",
+          "esperado": [
+            "S[óo] um instante"
+          ],
+          "nota": "Terceira vez no mesmo assunto."
+        }
+      ]
+    },
+    {
+      "id": "Y13",
+      "categoria": "agenda_bloqueada",
+      "sobre": "IMPROVÁVEL: diz que é retorno mas descreve queixa nova. Continua escalando, e é por isso que escala.",
+      "escalou": true,
+      "turnos": [
+        {
+          "paciente": "oi"
+        },
+        {
+          "paciente": "queria marcar meu retorno, mas apareceu uma mancha nova na vista",
+          "esperado": [
+            "S[óo] um instante"
+          ],
+          "nota": "Queixa nova é consulta, não retorno gratuito. E mancha nova é clínico: urgência manda mais que a regra de retorno."
+        }
+      ]
+    },
+    {
+      "id": "Y14",
+      "categoria": "agenda_bloqueada",
+      "sobre": "NEGATIVO: menor de idade pedindo retorno. A idade manda mais que o retorno.",
+      "escalou": true,
+      "turnos": [
+        {
+          "paciente": "oi"
+        },
+        {
+          "paciente": "quero marcar o retorno do meu filho de 10 anos",
+          "esperado": [
+            "18 anos|S[óo] um instante"
+          ],
+          "nota": "A JULGAR À MÃO: os dois caminhos escalam; a mensagem deve tratar a idade, que é o impedimento real."
+        }
+      ]
     }
   ]
 }
