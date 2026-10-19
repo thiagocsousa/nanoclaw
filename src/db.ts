@@ -380,6 +380,49 @@ export function getNewMessages(
   return { messages: rows, newTimestamp };
 }
 
+/**
+ * A última mensagem do PACIENTE neste chat.
+ *
+ * Existe porque o host tinha duas fontes de verdade para "o que ele acabou de
+ * dizer", e a que ele usava estava errada nos turnos 2+.
+ *
+ * O `index.ts` passava `missedMessages[length - 1]`, a última da JANELA. Mas há
+ * dois caminhos de prompt (ver o comentário do caminho de canalização, no
+ * `startMessageLoop`): com container vivo, as mensagens novas vão direto para
+ * ele e o cursor avança por lá. O classificador então vê as mensagens certas —
+ * por isso os rótulos e a oferta saíam corretos — enquanto a janela do
+ * `processGroupMessages` ficava velha, e o host lia a PRIMEIRA mensagem da
+ * conversa como se fosse a última.
+ *
+ * O custo, medido em 19/10/2026: o `vagaEscolhida` recebia "oi" em vez de "a
+ * primeira" e o agendamento entrava em laço — o paciente escolhia e a Lara
+ * repetia a pergunta. Gastei quatro tentativas consertando o lugar errado
+ * (`aceita_horario`, o veto das intenções do host, duas vezes o `temPlano`)
+ * porque todas as medidas apontavam para o chooser, que estava correto.
+ *
+ * E os motivos de escalonamento gravavam a pergunta errada pelo mesmo motivo:
+ * `"pergunta":"--- NOVO PACIENTE ---\noi"` em todo caso aberto.
+ */
+export function ultimaMensagemDoPaciente(
+  chatJid: string,
+  botPrefix: string,
+): string | undefined {
+  const row = db
+    .prepare(
+      `SELECT content FROM messages
+       WHERE chat_jid = ?
+         AND is_bot_message = 0
+         AND content NOT LIKE ? AND content NOT LIKE ?
+         AND content != '' AND content IS NOT NULL
+       ORDER BY timestamp DESC
+       LIMIT 1`,
+    )
+    .get(chatJid, `${botPrefix}:%`, `${BOT_MARK}%`) as
+    | { content: string | null }
+    | undefined;
+  return row?.content ?? undefined;
+}
+
 export function getMessagesSince(
   chatJid: string,
   sinceTimestamp: string,

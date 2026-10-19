@@ -30,6 +30,7 @@ import {
   PROXY_BIND_HOST,
 } from './container-runtime.js';
 import {
+  ultimaMensagemDoPaciente,
   getAllChats,
   getAllRegisteredGroups,
   getAllSessions,
@@ -427,10 +428,22 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
           },
           'executor: janela do turno',
         );
+        // ⚠️ A pergunta vem do BANCO, não da janela.
+        //
+        // `missedMessages[length - 1]` é a última da JANELA, e nos turnos 2+ a
+        // janela está velha: com container vivo, as mensagens novas vão pelo
+        // caminho de canalização e o cursor avança lá. O classificador vê o
+        // certo (daí os rótulos corretos) e o host lia a PRIMEIRA mensagem da
+        // conversa. Virou laço de agendamento, e motivo de escalonamento errado
+        // em todo caso aberto. Ver `ultimaMensagemDoPaciente`.
+        const perguntaReal =
+          ultimaMensagemDoPaciente(chatJid, ASSISTANT_NAME) ??
+          ultima?.content ??
+          '';
         const r = await executa(
           group.folder,
           raw,
-          ultima?.content ?? '',
+          perguntaReal,
           { sendMessage: enviaParaDestino },
           chatJid,
           ultima?.sender ?? '',
@@ -454,7 +467,7 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
         agendouNesteTurno = r.acao === 'marcar';
         intencaoDoTurno = r.intencao;
         acaoDoTurno = r.acao;
-        perguntaDoTurno = ultima?.content ?? '';
+        perguntaDoTurno = perguntaReal;
       }
 
       // A guarda roda nos DOIS caminhos. No de template ela inspeciona texto
