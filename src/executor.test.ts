@@ -230,14 +230,14 @@ const TABELA = {
       acao: 'responder',
       emenda_triagem: true,
       textos: [
-        'Pelo IASPI não atende consulta, fica particular. Exame sai pelo plano, menos o Pentacam, e a cirurgia pelo PLAMTA.',
+        'No consultório, a consulta é particular, R$ {valor_consulta}. Exame sai pelo IASPI, menos o Pentacam, e a cirurgia pelo PLAMTA.',
       ],
     },
     convenio_ipmt: {
       acao: 'responder',
       emenda_triagem: true,
       textos: [
-        'Pelo IPMT não atende consulta, fica particular. Exame sai pelo plano, menos o Pentacam, e a cirurgia pelo PLANTE.',
+        'No consultório, a consulta é particular, R$ {valor_consulta}. Exame sai pelo IPMT, menos o Pentacam, e a cirurgia pelo PLANTE.',
       ],
     },
     pentacam_cobertura: {
@@ -1275,6 +1275,35 @@ describe('exame por IASPI/IPMT: texto do plano (Thiago, 19/10/2026)', () => {
       expect(r?.texto).toContain(plano === 'IPMT' ? 'PLANTE' : 'PLAMTA');
     },
   );
+
+  // O texto do plano passou a citar {valor_consulta} em 19/10/2026 (ideia do
+  // Thiago: quem pergunta "atende IASPI?" quer saber quanto custa). Isso o
+  // colocou sob o `comValorDaAvaliacao`, que troca o valor pelo do desconto em
+  // texto que cita só esse slot — e aqui a troca é CERTA: IASPI não é atendido
+  // para consulta, então quem tem IASPI e quer cirurgia é exatamente o caso do
+  // desconto. O acoplamento não era óbvio, e é por isso que está travado.
+  it('com intenção cirúrgica, o valor citado é o do desconto', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    const r = await rodar(
+      '{"intencao":"convenio_iaspi","confianca":0.95,"slots":{"convenio":"IASPI","necessidade":"cirurgia refrativa"}}',
+      'atende IASPI? queria operar',
+    );
+    expect(r?.texto).toContain('R$ 300,00');
+    expect(r?.texto).not.toContain('R$ 430,00');
+  });
+
+  // ⚠️ E rotina continua no valor cheio: o desconto é da intenção cirúrgica.
+  // Sem este par, afrouxar o desconto até sair sempre ficaria invisível.
+  it('sem intenção cirúrgica, o valor é o cheio', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    const r = await rodar(
+      '{"intencao":"convenio_iaspi","confianca":0.95,"slots":{"convenio":"IASPI","necessidade":"rotina"}}',
+      'atende IASPI?',
+    );
+    expect(r?.texto).toContain('R$ 430,00');
+  });
 
   it('pergunta de PREÇO de exame também cai no texto do plano', async () => {
     const { esqueceSlots } = await import('./memoria-conversa.js');

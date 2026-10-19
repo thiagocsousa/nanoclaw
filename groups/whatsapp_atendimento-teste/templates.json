@@ -256,7 +256,7 @@
       "acao": "responder",
       "fecho": false,
       "textos": [
-        "Pelo IASPI a consulta com a Dra. Marina fica como particular.\n\nMas o exame você faz pelo próprio IASPI, e a cirurgia pelo PLAMTA, se o plano autorizar. Só o Pentacam não sai por plano nenhum, esse é sempre particular."
+        "No consultório, a consulta com a Dra. Marina é particular, R$ {valor_consulta}.\n\nMas o exame você faz pelo próprio IASPI, com exceção do Pentacam, que é particular. E a cirurgia pode ser pelo PLAMTA, se houver indicação médica e o plano autorizar."
       ],
       "emenda_triagem": true
     },
@@ -266,7 +266,7 @@
       "acao": "responder",
       "fecho": false,
       "textos": [
-        "Pelo IPMT a consulta com a Dra. Marina fica como particular.\n\nMas o exame você faz pelo próprio IPMT, e a cirurgia pelo PLANTE, se o plano autorizar. Só o Pentacam não sai por plano nenhum, esse é sempre particular."
+        "No consultório, a consulta com a Dra. Marina é particular, R$ {valor_consulta}.\n\nMas o exame você faz pelo próprio IPMT, com exceção do Pentacam, que é particular. E a cirurgia pode ser pelo PLANTE, se houver indicação médica e o plano autorizar."
       ],
       "emenda_triagem": true
     },

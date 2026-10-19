@@ -545,16 +545,37 @@ Afirmar cobertura faz o paciente contar com um dinheiro que pode não vir.
 Para **IASPI (IAPEP)** e **IPMT** há nome próprio do plano cirúrgico, e aí dá para ser
 específico:
 
-> Pelo IASPI a consulta com a Dra. Marina fica como particular.
+> No consultório, a consulta com a Dra. Marina é particular, R$ {valor_consulta}.
 >
-> Mas o exame você faz pelo próprio IASPI, e a cirurgia pelo PLAMTA, se o plano autorizar.
-> Só o Pentacam não sai por plano nenhum, esse é sempre particular.
+> Mas o exame você faz pelo próprio IASPI, com exceção do Pentacam, que é particular. E a
+> cirurgia pode ser pelo PLAMTA, se houver indicação médica e o plano autorizar.
 
-> Pelo IPMT a consulta com a Dra. Marina fica como particular.
+> No consultório, a consulta com a Dra. Marina é particular, R$ {valor_consulta}.
 >
-> Mas o exame você faz pelo próprio IPMT, e a cirurgia pelo PLANTE, se o plano autorizar.
-> Só o Pentacam não sai por plano nenhum, esse é sempre particular.
+> Mas o exame você faz pelo próprio IPMT, com exceção do Pentacam, que é particular. E a
+> cirurgia pode ser pelo PLANTE, se houver indicação médica e o plano autorizar.
 
+> ⚠️ **O `{valor_consulta}` aqui está sob o desconto.** O texto cita só esse slot, então o
+> `comValorDaAvaliacao` troca o valor pelo de desconto quando a intenção é cirúrgica — e
+> aqui a troca é CERTA: IASPI e IPMT não são atendidos para consulta, logo quem tem um
+> deles e quer operar é exatamente o caso do desconto. *"atende IASPI? queria operar"* sai
+> com R$ 300,00; *"atende IASPI?"* para rotina sai com R$ 430,00. Travado em
+> `executor.test.ts`, com o par rotina/cirurgia — o acoplamento não era óbvio quando o
+> preço entrou no texto.
+
+> ℹ️ QUINTA versão, mesmo dia: o Thiago trouxe uma redação própria, e o ganho dela é o
+> **preço na primeira linha** — quem pergunta "atende IASPI?" quer saber quanto vai custar,
+> e antes tinha de perguntar de novo. Também dele: "com exceção do Pentacam, que é
+> particular", mais limpo que "não sai por plano nenhum"; e "No consultório", que distingue
+> do Vilar.
+>
+> O que não entrou da versão dele foi a FORMA, que tinha voltado a três parágrafos
+> paralelos — um por assunto, cada um abrindo com marcador ("Para quem tem...", "Já a
+> cirurgia...") — além de "Para quem tem IASPI", que fala *sobre* uma categoria de gente
+> quando é a própria pessoa que tem o plano, e de duas passivas ("podem ser feitos", "pode
+> ser realizada") que são o mesmo registro do texto original que ele achou estranho.
+> Conteúdo dele, registro já aprovado.
+>
 > ℹ️ E uma QUARTA vez, no mesmo dia: *"ficou muito organizado"*. Três parágrafos paralelos
 > e simétricos leem como documento, não como alguém digitando. O que humanizou foram três
 > coisas: **"você faz"** em vez de "o exame sai" (a frase passa a falar com a pessoa, não
