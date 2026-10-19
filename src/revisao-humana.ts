@@ -54,6 +54,7 @@ const envConfig = readEnvFile([
   'REVISAO_HUMANA_FOLDERS',
   'REVISAO_JID',
   'REVISAO_FOLDER',
+  'OBSERVACAO_FOLDERS',
 ]);
 
 function env(key: string, fallback = ''): string {
@@ -66,6 +67,35 @@ const FOLDERS = new Set(
     .map((s) => s.trim())
     .filter(Boolean),
 );
+
+/**
+ * MODO OBSERVAÇÃO: a resposta vai para revisão e NUNCA sai ao paciente.
+ *
+ * Decisão do Thiago em 19/10/2026, para a semana de 20/10: a Lara passa a ler o
+ * grupo real, calcula a resposta e manda só para o grupo de teste, para a equipe
+ * julgar a coerência. Quem responde o paciente nessa semana é a secretária
+ * humana.
+ *
+ * ⚠️ É TRAVA, não convenção. "Não vamos aprovar nenhuma" bastaria se ninguém
+ * errasse: um `ok R7K2` digitado por engano no grupo liberaria mensagem para um
+ * paciente REAL. Em observação o `aprova` recusa, então o erro não tem como
+ * acontecer.
+ *
+ * E desliga a cobrança e o alarme do SLA (o Thiago pediu o alarme desligado no
+ * mesmo dia). Sem isso, TODA resposta da semana ficaria pendente para sempre,
+ * gerando cobrança e alarme em cada conversa — e aviso que aparece em tudo é
+ * aviso que ninguém lê, que é o defeito já documentado neste projeto.
+ */
+const OBSERVACAO = new Set(
+  env('OBSERVACAO_FOLDERS')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean),
+);
+
+export function emObservacao(groupFolder?: string): boolean {
+  return !!groupFolder && OBSERVACAO.has(groupFolder);
+}
 
 /**
  * Para onde vai a resposta a revisar, e de onde a aprovação é aceita.
@@ -181,16 +211,27 @@ export function registraParaRevisao(
 }
 
 /** A mensagem que o grupo recebe. */
-export function textoDaRevisao(p: RespostaPendente): string {
+export function textoDaRevisao(
+  p: RespostaPendente,
+  observacao = false,
+): string {
   const corpo = p.partes.map((t, i) => `*${i + 1}.* ${t}`).join('\n\n');
   const aviso = p.jaMarcou
     ? '\n\n⚠️ *O horário JÁ ESTÁ na agenda do iClinic.* Falta só avisar o paciente.'
     : '';
+  // Em observação não promete envio: dizer "responda ok" seria convidar a
+  // liberar mensagem para paciente real numa semana em que isso não é o acordo.
+  const fecho = observacao
+    ? '_Modo observação: isto NÃO foi enviado ao paciente._'
+    : `Responda *ok ${p.codigo}* para enviar ao paciente.`;
+  const cabeca = observacao
+    ? `👁️ *Resposta que a Lara daria* · *${p.codigo}*`
+    : `📝 *Resposta pronta* · *${p.codigo}*`;
   return (
-    `📝 *Resposta pronta* · *${p.codigo}*\n\n` +
+    `${cabeca}\n\n` +
     `*Paciente:* ${p.pergunta}\n\n` +
     `${corpo}${aviso}\n\n` +
-    `Responda *ok ${p.codigo}* para enviar ao paciente.`
+    `${fecho}`
   );
 }
 
@@ -209,6 +250,14 @@ export function aprova(
   folder: string,
   codigo: string,
 ): RespostaPendente | undefined {
+  // ⚠️ A TRAVA. Em observação nada sai ao paciente, nem com `ok CODIGO`.
+  if (emObservacao(folder)) {
+    logger.warn(
+      { folder, codigo },
+      'revisão: aprovação RECUSADA, pasta em modo observação',
+    );
+    return undefined;
+  }
   const itens = lePendentes(folder);
   const p = itens.find((x) => x.codigo.toUpperCase() === codigo.toUpperCase());
   if (!p) return undefined;
@@ -285,6 +334,9 @@ export async function tickRevisaoSla(
 ): Promise<void> {
   const alvo = destino();
   for (const folder of FOLDERS) {
+    // Em observação a fila é só registro para leitura humana: ninguém vai
+    // aprovar, então cobrar e alarmar seria ruído em cada conversa da semana.
+    if (emObservacao(folder)) continue;
     const itens = lePendentes(folder);
     if (itens.length === 0) continue;
     let mudou = false;

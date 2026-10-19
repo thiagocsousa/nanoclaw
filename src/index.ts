@@ -95,6 +95,8 @@ import {
 } from './expediente.js';
 import { abreConversa, conversaAbertaEm } from './memoria-conversa.js';
 import {
+  emObservacao,
+  lePendentes,
   aprovaEmQualquerPasta,
   concluiEnvio,
   destinoDaRevisao,
@@ -514,14 +516,21 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
                 'revisão: nenhum canal para o destino, resposta NÃO foi revisada',
               );
             }
-            await canalRevisao?.sendMessage(alvo.jid, textoDaRevisao(pendente));
+            const observando = emObservacao(group.folder);
+            await canalRevisao?.sendMessage(
+              alvo.jid,
+              textoDaRevisao(pendente, observando),
+            );
             logger.info(
               {
                 group: group.name,
                 codigo: pendente.codigo,
                 partes: partes.length,
+                observacao: observando,
               },
-              'revisão: resposta aguardando aprovação',
+              observando
+                ? 'observação: resposta registrada, NÃO vai ao paciente'
+                : 'revisão: resposta aguardando aprovação',
             );
             return;
           }
@@ -966,6 +975,35 @@ async function main(): Promise<void> {
       // e aí o fluxo segue para a baixa.
       if (!msg.is_bot_message && podeAprovar(chatJid)) {
         const codigo = codigoDaBaixa(trimmed);
+        // ⚠️ Em observação `aprova` recusa e devolve undefined — e sem este
+        // aviso o fluxo cairia na baixa de escalonamento e o `ok` morreria em
+        // silêncio. Falhar calado é o pior desfecho: quem digitou acha que
+        // aprovou. Mesmo raciocínio do comentário do `REVISAO_JID`.
+        const pendenteEmObservacao =
+          codigo &&
+          pastasComRevisao().some(
+            (f) =>
+              emObservacao(f) &&
+              lePendentes(f).some(
+                (x) => x.codigo.toUpperCase() === codigo.toUpperCase(),
+              ),
+          );
+        if (pendenteEmObservacao) {
+          logger.warn(
+            { codigo },
+            'observação: `ok` recusado, nada é enviado ao paciente',
+          );
+          findChannel(channels, chatJid)
+            ?.sendMessage(
+              chatJid,
+              `👁️ ${codigo} NÃO foi enviado: estamos em modo observação.\n\n` +
+                `Quem responde o paciente esta semana é a secretária.`,
+            )
+            .catch((err) =>
+              logger.warn({ err }, 'observação: aviso do `ok` falhou'),
+            );
+          return;
+        }
         const achado = codigo ? aprovaEmQualquerPasta(codigo) : undefined;
         if (achado) {
           const { pendente } = achado;

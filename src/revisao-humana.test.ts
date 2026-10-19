@@ -232,3 +232,109 @@ describe('a mensagem que o grupo recebe', () => {
     expect(t).toContain(`ok ${p.codigo}`);
   });
 });
+
+/**
+ * MODO OBSERVAÇÃO: a trava da semana de 20/10/2026.
+ *
+ * Decisão do Thiago: a Lara lê o grupo real, a resposta vai só para o grupo de
+ * teste, e quem responde o paciente é a secretária humana. É TRAVA e não
+ * convenção — "não vamos aprovar nenhuma" bastaria se ninguém errasse, e um
+ * `ok R7K2` digitado por engano liberaria mensagem para paciente REAL.
+ */
+describe('modo observação', () => {
+  const PASTA_OBS = 'whatsapp_obs-teste';
+
+  beforeEach(() => {
+    process.env.REVISAO_HUMANA_FOLDERS = PASTA_OBS;
+    process.env.OBSERVACAO_FOLDERS = PASTA_OBS;
+    process.env.REVISAO_JID = '55999@g.us';
+  });
+
+  it('aprova RECUSA: nada sai ao paciente', async () => {
+    vi.resetModules();
+    const m = await import('./revisao-humana.js');
+    expect(m.emObservacao(PASTA_OBS)).toBe(true);
+    const p = m.registraParaRevisao(PASTA_OBS, {
+      chatJid: '5586999@s.whatsapp.net',
+      partes: ['A avaliação é R$ 430,00.'],
+      intencao: 'preco_consulta',
+      pergunta: 'quanto custa?',
+      jaMarcou: false,
+    });
+    // A pendência EXISTE — é registro para leitura humana.
+    expect(m.lePendentes(PASTA_OBS).map((x) => x.codigo)).toContain(p.codigo);
+    // Mas aprovar não devolve nada: não há o que enviar.
+    expect(m.aprova(PASTA_OBS, p.codigo)).toBeUndefined();
+    expect(m.aprovaEmQualquerPasta(p.codigo)).toBeUndefined();
+    // E segue na fila, não foi marcada como em voo.
+    const ainda = m.lePendentes(PASTA_OBS).find((x) => x.codigo === p.codigo);
+    expect(ainda?.enviando).toBeFalsy();
+  });
+
+  it('o texto avisa que NÃO foi enviado, e não convida a aprovar', async () => {
+    vi.resetModules();
+    const m = await import('./revisao-humana.js');
+    const p = m.registraParaRevisao(PASTA_OBS, {
+      chatJid: '5586999@s.whatsapp.net',
+      partes: ['Tenho quarta, dia 21/10, às 17:40.'],
+      intencao: 'horario_oferta',
+      pergunta: 'tem horario?',
+      jaMarcou: false,
+    });
+    const t = m.textoDaRevisao(p, true);
+    expect(t).toContain('NÃO foi enviado');
+    expect(t).not.toContain(`ok ${p.codigo}`);
+    // Sem o modo, o convite volta: a trava é por pasta, não global.
+    expect(m.textoDaRevisao(p, false)).toContain(`ok ${p.codigo}`);
+  });
+
+  // E o SLA fica calado: sem isto, TODA resposta da semana geraria cobrança e
+  // alarme, porque ninguém vai aprovar nenhuma. O Thiago pediu o alarme
+  // desligado no mesmo dia. Verificado por sabotagem: sem o `continue`, uma
+  // pendência de 1h já dispara 1 alarme.
+  it('o SLA não cobra nem alarma em observação', async () => {
+    vi.resetModules();
+    const m = await import('./revisao-humana.js');
+    m.registraParaRevisao(PASTA_OBS, {
+      chatJid: '5586999@s.whatsapp.net',
+      partes: ['teste'],
+      intencao: 'preco_consulta',
+      pergunta: 'quanto custa?',
+      // `jaMarcou` torna a pendência URGENTE, que é o caso que mais alarma.
+      jaMarcou: true,
+    });
+    const enviadas: string[] = [];
+    let alarmes = 0;
+    await m.tickRevisaoSla(
+      {
+        sendMessage: (_j: string, t: string) => {
+          enviadas.push(t);
+        },
+        tocaAlarme: async () => {
+          alarmes += 1;
+        },
+      } as never,
+      Date.now() + 60 * 60 * 1000,
+    );
+    expect(enviadas.length).toBe(0);
+    expect(alarmes).toBe(0);
+  });
+
+  // ⚠️ O par que segura: pasta FORA da observação continua aprovando. Uma trava
+  // global desligaria a revisão de verdade quando ela for ao ar.
+  it('pasta fora da observação continua aprovando', async () => {
+    process.env.REVISAO_HUMANA_FOLDERS = `${PASTA_OBS},whatsapp_normal-teste`;
+    process.env.OBSERVACAO_FOLDERS = PASTA_OBS;
+    vi.resetModules();
+    const m = await import('./revisao-humana.js');
+    expect(m.emObservacao('whatsapp_normal-teste')).toBe(false);
+    const p = m.registraParaRevisao('whatsapp_normal-teste', {
+      chatJid: '5586999@s.whatsapp.net',
+      partes: ['ok'],
+      intencao: 'preco_consulta',
+      pergunta: 'quanto custa?',
+      jaMarcou: false,
+    });
+    expect(m.aprova('whatsapp_normal-teste', p.codigo)?.codigo).toBe(p.codigo);
+  });
+});
