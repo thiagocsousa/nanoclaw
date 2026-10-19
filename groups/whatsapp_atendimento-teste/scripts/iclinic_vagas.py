@@ -73,9 +73,19 @@ TIPOS_COM_ENCAIXE_HOJE = {"particular"}
 ANTECEDENCIA_MINIMA_MIN = 120
 
 # Dias extras varridos à procura de um SEGUNDO dia com vaga, depois de já ter
-# achado o primeiro. Teto por causa do orçamento de 180 s: cada dia é uma
-# requisição à agenda.
-MAX_DIAS_EXTRA = 8
+# achado o primeiro. Cada dia é uma requisição à agenda.
+#
+# ⚠️ Era 8, e isso custou tempo de resposta medido em produção no mesmo dia
+# (19/10/2026): 55 s e 68 s em turnos de agenda, com um container de busca 4
+# MINUTOS no ar — perto do teto de 180 s, acima do qual o paciente não recebe
+# nada. O Thiago viu o buraco no grupo: "já tá 6 min sem resposta alguma".
+#
+# Dois é o número certo, não um chute conservador: `alvos` já só tem dias com
+# janela (seg/qua/sex, ver a linha do filtro), então UM dia extra basta para
+# achar o segundo dia no caso comum, e o segundo cobre o caso de o dia seguinte
+# estar cheio. Não achando, a oferta sai com uma opção — que é o fallback
+# combinado com o Thiago.
+MAX_DIAS_EXTRA = 2
 
 COTA_UNIMED_DIA = 5
 ANTECEDENCIA_UNIMED = 7          # dias
@@ -427,10 +437,9 @@ def main():
                 # pondo o dia mais cedo primeiro: o segundo dia é alternativa,
                 # nunca preferência.
                 #
-                # ⚠️ TETO de dias extras. Sem ele, uma agenda com um único dia
-                # livre varreria os 30 alvos, uma requisição cada, e estouraria
-                # o orçamento de 180 s do agent-runner — que é o acidente que
-                # este arquivo já teve em 17/10 e está documentado no topo.
+                # ⚠️ TETO de dias extras, e ele é sobre TEMPO DE RESPOSTA, não
+                # só sobre o limite de 180 s: cada dia extra é uma requisição, e
+                # com 8 a resposta chegou a 68 s em produção. Ver MAX_DIAS_EXTRA.
                 if not a.todas:
                     dias_com_vaga = {v["data"] for v in achadas}
                     if len(dias_com_vaga) >= 2:
