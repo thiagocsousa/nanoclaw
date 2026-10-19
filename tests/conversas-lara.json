@@ -159,12 +159,12 @@
         },
         {
           "paciente": "1",
-          "exige": ["nome completo|data de nascimento"],
+          "exige": ["para voc[êe]|nome completo|data de nascimento"],
           "proibido": [
             "S[óo] um instante",
             "cirurgia ou uma consulta de rotina"
           ],
-          "nota": "⚠️ O número vai no SEGUNDO turno de propósito: a suíte prefixa a primeira mensagem com \"--- NOVO PACIENTE ---\", então o \"1\" nunca chegaria sozinho e o tradutor (que exige a mensagem ser só o número) não casaria. Em produção o paciente manda \"1\" puro, e esse caso está no unitário (`convenio.test.ts`). O arranhador não consegue produzi-lo."
+          "nota": "⚠️ O número vai no SEGUNDO turno de propósito: a suíte prefixa a primeira mensagem com \"--- NOVO PACIENTE ---\", então o \"1\" nunca chegaria sozinho e o tradutor (que exige a mensagem ser só o número) não casaria. Em produção o paciente manda \"1\" puro, e esse caso está no unitário (`convenio.test.ts`). O arranhador não consegue produzi-lo. ⚠️ O `exige` aceita a confirmação de paciente: com telefone que casa cadastro, o gate `confirma_paciente` roda ANTES da triagem, e é o passo certo. Minha versão exigia \"nome completo\" direto e reprovava um acerto — o que a regra guarda está no `proibido`: não escalar e não perguntar de novo o que o menu já respondeu."
         }
       ]
     },
