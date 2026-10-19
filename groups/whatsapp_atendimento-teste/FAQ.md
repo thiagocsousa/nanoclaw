@@ -883,8 +883,8 @@ atravessa; o que atravessa é só o sinal.
 > Sim, é importante suspender o uso das lentes de contato antes da avaliação, porque elas
 > podem alterar o formato da córnea e interferir nas medidas dos exames.
 >
-> Para lentes de contato, orientamos ficar pelo menos 3 dias sem usá-las antes da consulta.
-> Assim, já organizamos seu agendamento respeitando esse prazo.
+> Então, orientamos ficar pelo menos 3 dias sem usá-las antes da consulta. Assim, já
+> organizamos seu agendamento respeitando esse prazo.
 
 > ℹ️ Redação do Thiago, 19/10/2026, substituindo a minha. A anterior dizia "Por isso eu só
 > ofereço horário a partir do terceiro dia", que expõe o mecanismo do host; a nova diz o
