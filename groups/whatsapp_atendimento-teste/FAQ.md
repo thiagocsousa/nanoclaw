@@ -523,9 +523,15 @@ dentro dos parâmetros que **aquele plano** exige.
 
 **As três exceções, que não fazem nem cirurgia:** Intermed, Hapvida e Humana.
 
-> A cirurgia a maioria dos convênios cobre, depende de o seu plano autorizar e de você
-> estar dentro dos critérios que ele exige. Isso a gente vê depois da avaliação com a
-> Dra. Marina.
+> A maioria dos convênios cobre a cirurgia.
+>
+> Quem autoriza é o seu plano, e cada um tem os próprios critérios. Então só dá para
+> confirmar depois da avaliação com a Dra. Marina.
+
+> ℹ️ Reescrito em 19/10/2026: o Thiago apontou a versão anterior como confusa, e era.
+> *"A cirurgia a maioria dos convênios cobre"* invertia a ordem, e *"isso a gente vê"* não
+> dizia o que era "isso". Três ideias numa frase só. O conteúdo é o mesmo: cobre na
+> maioria, quem autoriza é o plano, confirma depois da avaliação.
 
 ⛔ **Nunca diga que o plano dele cobre.** Quem autoriza é o convênio, não a clínica, e os
 critérios são do plano. A frase é sempre condicional: *"depende de o seu plano autorizar"*.
@@ -534,13 +540,23 @@ Afirmar cobertura faz o paciente contar com um dinheiro que pode não vir.
 Para **IASPI (IAPEP)** e **IPMT** há nome próprio do plano cirúrgico, e aí dá para ser
 específico:
 
-> Infelizmente a consulta pelo IASPI a gente não atende, seria particular.
-> Já a cirurgia conseguimos fazer pelo PLAMTA, caso você esteja dentro dos critérios que o
-> plano exige.
+> A consulta com a Dra. Marina é realizada de forma particular para pacientes do IASPI.
+>
+> Os exames saem pelo IASPI, com exceção do Pentacam, que nenhum plano cobre.
+>
+> Já para a cirurgia, existe a possibilidade de atendimento pelo PLAMTA, conforme a
+> indicação médica e os critérios de cobertura do plano.
 
-> Infelizmente a consulta pelo IPMT a gente não atende, seria particular.
-> Já a cirurgia conseguimos fazer pelo PLANTE, caso você esteja dentro dos critérios que o
-> plano exige.
+> A consulta com a Dra. Marina é realizada de forma particular para pacientes do IPMT.
+>
+> Os exames saem pelo IPMT, com exceção do Pentacam, que nenhum plano cobre.
+>
+> Para a cirurgia, existe a possibilidade de atendimento pelo PLANTE, conforme a indicação
+> médica e os critérios de cobertura do plano.
+
+> ⚠️ Estes dois estavam desatualizados aqui: traziam o "Infelizmente" que a revisão de tom
+> tirou em 17/10/2026, e não mencionavam que IASPI e IPMT **cobrem exames** (menos o
+> Pentacam), confirmado pelo Thiago em 19/10. A tabela é a fonte; este bloco é a cópia.
 
 ### Intermed, Hapvida e Humana: não, para nada
 

@@ -2141,10 +2141,9 @@
           "esperado": [
             "S[óo] um instante"
           ],
-          "nota": "A JULGAR À MÃO: se existir texto aprovado para cobertura de exame, ele deve sair aqui; hoje não existe e escalar é o certo.",
+          "nota": "A JULGAR À MÃO: cobertura de EXAME não pode ser respondida com a da cirurgia. A frase proibida é a nova redação do convenio_cirurgia (19/10).",
           "proibido": [
-            "a cirurgia .{0,30}cobre",
-            "maioria dos conv[êe]nios"
+            "maioria dos conv[êe]nios cobre"
           ]
         }
       ]
