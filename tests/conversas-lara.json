@@ -16,7 +16,7 @@
     "nega_desconto": "sem desconto|n[ãa]o (tem|temos|h[áa]|oferecemos) desconto|valor cheio",
     "aponta_menu": "escolh[ae]r? (uma )?(das )?op[çc][õo]es|escolh[ae]r? (um )?n[úu]mero|op[çc][õo]es que (eu )?enviei",
     "telefone": "(?<!\\d)\\(?\\d{2}\\)? ?\\d{4,5}[- ]?\\d{4}(?!\\d)",
-    "anuncia_bot": "atendimento automático|sou (um )?(rob[ôo]|bot|IA)",
+    "anuncia_bot": "atendimento autom[áa]ti(co|zado)|intelig[êe]ncia artificial|chatbot|sou (um )?(rob[ôo]|bot|IA)\\b",
     "finge_humana": "sou (uma )?(pessoa|humana|gente)|n[ãa]o sou (um )?rob[ôo]|sou da recep[çc][ãa]o",
     "completude_exames": "(s[ãa]o|[ée]) (apenas |s[óo] )?dois exames|exames[^.!?]{0,40}(s[ãa]o|[ée]) (apenas |s[óo] )?dois",
     "escolhe_hospital": "(vai ser|ser[áa]|normalmente [ée]|geralmente [ée]) no (Vilar|Hospital do Olho|Namir|T[ée]rcio|COE)",

@@ -337,6 +337,31 @@
         "Pelo convênio os horários seguem a disponibilidade da agenda, então não consigo reservar um horário específico.\n\nTenho {dia}, dia {data}, às {hora}, ou {dia_b}, dia {data_b}, às {hora_b}. Qual fica melhor para você?"
       ]
     },
+    "horario_pedido_indisponivel": {
+      "bloco": "F11d",
+      "quando": "NUNCA rotular isto: quem decide é o host, quando o horário pedido não está livre e há alternativa no mesmo dia.",
+      "acao": "responder",
+      "fecho": false,
+      "slots_obrigatorios": [
+        "dia",
+        "hora"
+      ],
+      "textos": [
+        "Nesse horário eu não consigo encaixar, mas tenho {dia}, dia {data}, às {hora}. Esse funciona para você?"
+      ],
+      "textos_dois": [
+        "Nesse horário eu não consigo encaixar, mas tenho {dia}, dia {data}, às {hora}, ou {dia_b}, dia {data_b}, às {hora_b}. Qual fica melhor?"
+      ]
+    },
+    "pergunta_dia": {
+      "bloco": "F11e",
+      "quando": "NUNCA rotular isto: quem pergunta é o host, quando a pessoa pediu um HORÁRIO mas não disse o dia.",
+      "acao": "responder",
+      "fecho": false,
+      "textos": [
+        "Para qual dia você quer esse horário?"
+      ]
+    },
     "dia_sem_atendimento": {
       "bloco": "F06",
       "quando": "sábado, domingo, terça, quinta, feriado",

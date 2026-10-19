@@ -193,9 +193,16 @@ function ehUnimed(convenio?: string): boolean {
  * é prometer vaga sem saber o que vai ocupar.
  *
  * Fica sobre o PERFIL, não sobre a necessidade crua, porque `perfilDe` já
- * normaliza as variações ("retorno", "retorno-cirurgia", "exame"). E o executor
- * só consulta isto no caminho da AGENDA: `exames_preco` é resposta de preço
- * aprovada e continua saindo normalmente.
+ * normaliza as variações ("retorno", "retorno-cirurgia", "exame").
+ *
+ * ⚠️ Até 19/10/2026 esta doc dizia que o executor "só consulta isto no caminho
+ * da AGENDA". Deixou de ser verdade no mesmo dia: o gate passou a valer também
+ * antes do formulário de triagem, porque quem pedia retorno digitava os quatro
+ * dados para só então ser escalado.
+ *
+ * O que continua valendo, e é o que a frase antiga queria proteger: isto NÃO é
+ * consultado no caminho de RESPOSTA. `exames_preco` e "quanto custa o retorno?"
+ * são respostas aprovadas e continuam saindo. O gate vale para MARCAR.
  */
 const PERFIS_SO_HUMANO = new Set(['retorno', 'retorno-cirurgia', 'exame']);
 
@@ -334,10 +341,6 @@ export async function buscaVagas(
 }
 
 /**
- * Converte a vaga nos slots que os textos usam. `data` sai em DD/MM, que é
- * como a clínica escreve: "Tenho segunda, dia 06/10, às 09:20".
- */
-/**
  * Qual das vagas oferecidas o paciente escolheu, pelo que ele escreveu.
  *
  * Devolve a vaga, ou `undefined` quando não dá para saber — e aí quem chama
@@ -407,6 +410,28 @@ export function ehParticular(perfil: string): boolean {
   return perfil.startsWith('particular');
 }
 
+/**
+ * Os slots de UMA ou DUAS vagas, com o sufixo `_b` na segunda.
+ *
+ * A trinca `dia_b`/`data_b`/`hora_b` era montada à mão em dois lugares do
+ * executor, e `templates.ts` decide `textos_dois` olhando só duas das três. Um
+ * site que esquecesse `data_b` passava no teste de `temSegunda`, caía no texto
+ * de duas opções, e o render rebaixava por chave aberta: o paciente recebia
+ * "Só um instante." com duas vagas boas na mão.
+ */
+export function slotsDasVagas(vagas: Vaga[]): Record<string, string> {
+  const [a, b] = vagas;
+  if (!a) return {};
+  const s = slotsDaVaga(a);
+  if (!b) return s;
+  const sb = slotsDaVaga(b);
+  return { ...s, dia_b: sb.dia, data_b: sb.data, hora_b: sb.hora };
+}
+
+/**
+ * Converte a vaga nos slots que os textos usam. `data` sai em DD/MM, que é
+ * como a clínica escreve: "Tenho segunda, dia 06/10, às 09:20".
+ */
 export function slotsDaVaga(v: Vaga): Record<string, string> {
   const [, mes, dia] = v.data.split('-');
   return {

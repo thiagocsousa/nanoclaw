@@ -65,6 +65,19 @@ const OFERTAS = 'ofertas_pendentes.json';
  */
 export const OFERTA_VALIDA_MS = 30 * 60_000;
 
+/**
+ * As vagas de uma oferta, sempre como lista.
+ *
+ * Mora aqui, junto do tipo, porque é aqui que o invariante está documentado
+ * ("`vaga` continua sendo a primeira"). O executor desdobrava o fallback inline
+ * em quatro lugares, e cada novo leitor tinha de redescobrir que `vagas` pode
+ * faltar — o `ofertas_pendentes.json` em disco tem registros gravados antes de
+ * 19/10/2026, e um deploy no meio de uma conversa lê um deles.
+ */
+export function vagasDaOferta(o: OfertaPendente): Vaga[] {
+  return o.vagas?.length ? o.vagas : [o.vaga];
+}
+
 export interface OfertaPendente {
   /**
    * A vaga inteira, como o `iclinic_vagas.py` devolveu. Guardar a vaga em vez

@@ -54,18 +54,20 @@ import {
 } from './templates.js';
 import {
   esqueceOferta,
+  vagasDaOferta,
   marca,
   type OfertaPendente,
   registraOferta,
   telefoneDoJid,
   ultimaOferta,
 } from './agendamento.js';
-import { faltamNaTriagem, fraseDeTriagem } from './triagem.js';
+import { CAMPOS, faltamNaTriagem, fraseDeTriagem } from './triagem.js';
 import { resolveDiaPedido } from './dia-pedido.js';
 import { contextoDoRetorno } from './retorno-contexto.js';
 import {
   VOCABULARIO_REFRATIVO,
   ehParticular,
+  slotsDasVagas,
   horaPedidaIso,
   vagaEscolhida,
   buscaVagas,
@@ -92,18 +94,6 @@ const FOLDERS = new Set(
  */
 export function wantsTemplates(groupFolder?: string): boolean {
   return !!groupFolder && FOLDERS.has(groupFolder);
-}
-
-/**
- * O script aceita `--dia` só em ISO. O classificador extrai `dia_pedido` como o
- * paciente falou ("sábado", "amanhã"), que não é data, então só repassamos o
- * que já estiver em ISO. O resto vai sem `--dia`, e o script devolve o próximo
- * disponível, que é a resposta certa para "tem vaga?".
- */
-function diaIso(dia_pedido?: string): string | undefined {
-  return dia_pedido && /^\d{4}-\d{2}-\d{2}$/.test(dia_pedido)
-    ? dia_pedido
-    : undefined;
 }
 
 /**
@@ -561,35 +551,73 @@ export async function executa(
       // A hora pedida só vale no PARTICULAR (regra do Thiago, 19/10/2026).
       // No convênio a agenda manda, e o host EXPLICA em vez de ignorar.
       const horaAlvo = horaPedidaIso(c.slots.hora_pedida);
-      const horaValeAqui = !!horaAlvo && !!diaAlvo && ehParticular(perfil);
-      const vagas = await buscaVagas(groupFolder, perfil, {
+      const filtraPelaHora = !!horaAlvo && !!diaAlvo && ehParticular(perfil);
+      let vagas = await buscaVagas(groupFolder, perfil, {
         dia: diaAlvo,
-        ...(horaValeAqui ? { hora: horaAlvo } : {}),
+        ...(filtraPelaHora ? { hora: horaAlvo } : {}),
       });
-      // Pediu hora, não é particular, e a agenda deu alternativa: explica.
+
+      // ⚠️ O filtro duro FABRICAVA escalonamento, e no pior paciente.
+      //
+      // Com `--hora`, o script devolve a vaga pedida ou NADA (iclinic_vagas.py:
+      // "horário ocupado" / "fora da janela"). Zero vagas faz `horario_oferta`
+      // rebaixar e escalar — então quem pedia "sexta às 10h" com as 10h
+      // ocupadas ouvia "Só um instante.", enquanto quem pedia só "sexta"
+      // recebia duas opções. Nomear o horário piorava a resposta, e quem nomeia
+      // horário é o paciente mais decidido da fila. Achado da revisão de
+      // altitude em 19/10/2026.
+      //
+      // A segunda busca só roda nesse caso, que é raro, e é o que permite dizer
+      // "nesse horário não dá, mas tenho X" em vez de calar.
+      let horaNegada = false;
+      if (filtraPelaHora && vagas.length === 0) {
+        vagas = await buscaVagas(groupFolder, perfil, { dia: diaAlvo });
+        horaNegada = vagas.length > 0;
+      }
+
+      // Pediu hora e a oferta NÃO é a hora pedida: aí há o que explicar.
+      //
+      // A condição antiga não comparava nada, e o convênio que pedia 10h e
+      // recebia 10h ouvia "não consigo reservar um horário específico. O que
+      // tenho é às 10:00" — negando o que acabava de conceder.
+      const naoAtendeuAHora = !!horaAlvo && vagas[0]?.inicio !== horaAlvo;
       const explicaConvenio =
-        !!horaAlvo && !ehParticular(perfil) && vagas.length > 0;
+        naoAtendeuAHora && !ehParticular(perfil) && vagas.length > 0;
+      // Particular que pediu hora SEM dizer o dia: o script exige os dois, e
+      // descartar a hora em silêncio é a falha que `hora_pedida` veio consertar.
+      const faltaODia = !!horaAlvo && !diaAlvo && ehParticular(perfil);
+      if (faltaODia && tabela.intencoes.pergunta_dia) {
+        const rp = renderiza(tabela, 'pergunta_dia', { confianca: 1, slots });
+        if (rp.texto && rp.intencao === 'pergunta_dia') {
+          logger.info(
+            { groupFolder, hora: horaAlvo },
+            'executor: hora pedida sem dia, perguntando o dia',
+          );
+          return {
+            texto: rp.texto,
+            intencao: 'pergunta_dia',
+            acao: 'responder',
+          };
+        }
+      }
       if (vagas.length > 0) {
         // Duas opções quando a agenda deu duas: poupa uma ida e volta se a
         // primeira não servir (manual trazido pelo Thiago, 19/10/2026).
         const oferecidas = vagas.slice(0, 2);
-        slots = { ...slots, ...slotsDaVaga(oferecidas[0]) };
-        if (oferecidas[1]) {
-          const b = slotsDaVaga(oferecidas[1]);
-          slots = {
-            ...slots,
-            dia_b: b.dia,
-            data_b: b.data,
-            hora_b: b.hora,
-          };
-        }
+        slots = { ...slots, ...slotsDasVagas(oferecidas) };
         // Guardada para registrar DEPOIS, se o texto realmente for produzido.
         // Registrar aqui gravaria uma oferta que o paciente pode nunca ver —
         // o render ainda pode rebaixar — e aí um "pode ser" marcaria um
         // horário que ele não viu, que é a falha que este módulo impede.
         // Guarda também QUEM é o paciente: no turno do aceite ("pode ser") os
         // slots vêm vazios, e sem isto a marcação recusa por dado faltando.
-        if (explicaConvenio && tabela.intencoes.horario_pedido_convenio) {
+        if (horaNegada && tabela.intencoes.horario_pedido_indisponivel) {
+          logger.info(
+            { groupFolder, hora: horaAlvo },
+            'executor: hora pedida indisponível, oferecendo alternativa',
+          );
+          intencaoDaAgenda = 'horario_pedido_indisponivel';
+        } else if (explicaConvenio && tabela.intencoes.horario_pedido_convenio) {
           logger.info(
             { groupFolder, perfil },
             'executor: hora pedida no convênio, explicando em vez de ignorar',
@@ -642,20 +670,14 @@ export async function executa(
   // escolher a primeira por omissão manda a pessoa à clínica no dia errado,
   // que é a mesma classe de erro de marcar no paciente errado. Quando o texto
   // não desambigua, o host PERGUNTA.
-  const oferecidas = oferta?.vagas?.length
-    ? oferta.vagas
-    : oferta
-      ? [oferta.vaga]
-      : [];
+  const oferecidas = oferta ? vagasDaOferta(oferta) : [];
   const escolhida = oferta
     ? vagaEscolhida(oferecidas, perguntaDoPaciente)
     : undefined;
   if (vaiMarcar && oferta && !escolhida && oferecidas.length > 1) {
-    const b = slotsDaVaga(oferecidas[1]);
-    const a = slotsDaVaga(oferecidas[0]);
     const rq = renderiza(tabela, 'qual_horario', {
       confianca: 1,
-      slots: { ...slots, ...a, dia_b: b.dia, data_b: b.data, hora_b: b.hora },
+      slots: { ...slots, ...slotsDasVagas(oferecidas) },
     });
     if (rq.texto && rq.intencao === 'qual_horario') {
       logger.info(
@@ -738,12 +760,13 @@ export async function executa(
   // ⚠️ `necessidade` NÃO conta como compromisso. Ela é preenchida por qualquer
   // pergunta ("quanto custa a catarata?" já define necessidade), e usá-la aqui
   // faria o convite leve nunca acontecer.
-  const seIdentificou = [
-    lembrados.nome,
-    lembrados.nascimento,
-    lembrados.cidade,
-    lembrados.convenio,
-  ].some((v) => !!v?.trim());
+  // Usa `faltamNaTriagem`, e não uma lista própria: `CAMPOS` em triagem.ts é a
+  // lista única dos quatro dados do formulário. Com uma cópia aqui, mexer lá
+  // mudaria o que a Lara PEDE sem mudar o gate que decide se ela pede — e o
+  // sintoma seria o convite leve indo para quem já se identificou.
+  const seIdentificou =
+    faltamNaTriagem(lembrados as Record<string, string>).length <
+    CAMPOS.length;
   const conviteLeve =
     convidavel && !seIdentificou && !!tabela.intencoes.convite_horario;
   if (convidavel && !conviteLeve) {
@@ -755,6 +778,61 @@ export async function executa(
   // frase vira corrida. Pedir de novo o que a pessoa acabou de responder é o
   // jeito mais rápido de parecer máquina.
   let texto = r.texto;
+
+  // Retorno e exame a Lara não agenda, e a regra vale antes de QUALQUER
+  // pergunta — inclusive a de identidade logo abaixo.
+  //
+  // `soHumano` existia e estava certo, mas só era consultado dentro do bloco da
+  // agenda — que roda DEPOIS da triagem. Medido em 19/10/2026, a pedido do
+  // Thiago: "quero marcar meu retorno" sem dados virava `triagem_dados`, o
+  // paciente digitava nome, nascimento, cidade e convênio, e só então ouvia
+  // "Só um instante.". Justamente quem a clínica já tem no cadastro.
+  //
+  // ⚠️ E a PRIMEIRA versão deste conserto, no mesmo dia, ficou depois do
+  // `confirma_paciente` logo abaixo — que dispara com a mesma condição e
+  // devolve "é você, Thiago?". O conserto era inalcançável no turno 1
+  // justamente para quem tem cadastro, que é toda a população do retorno. O
+  // teste passava porque o fixture não tinha candidato nenhum.
+  //
+  // ⚠️ Só no caminho de `triagem`, que existe para COLETAR e marcar. Em
+  // `recusar_e_triagem` a resposta já saiu (preço, convênio) e é aprovada:
+  // escalar ali engoliria uma resposta correta. "Quanto custa o retorno?"
+  // continua sendo respondido.
+  if (acao === 'triagem') {
+    const perfilAlvo = perfilDe(lembrados.necessidade, lembrados.convenio);
+    if (perfilAlvo && soHumano(perfilAlvo)) {
+      // Chega com a resposta pronta: hoje a recepção recebe "quer marcar
+      // retorno" e vai procurar no iClinic (Thiago, 19/10/2026).
+      //
+      // Usa o que a conversa já buscou; só vai ao iClinic se ainda não foi.
+      // Custa ~10 s de Playwright, e o paciente está ouvindo "Só um instante"
+      // de qualquer jeito.
+      const mem = candidatosLembrados(groupFolder, chatJid);
+      let cands = mem.candidatos;
+      if (!mem.buscou) {
+        const tel = telefoneDoJid(remetenteJid || chatJid);
+        if (tel) {
+          cands = await pacientesComTelefone(groupFolder, tel);
+          lembraCandidatos(groupFolder, chatJid, cands);
+        }
+      }
+      const contexto = contextoDoRetorno(cands);
+      logger.info(
+        { groupFolder, perfil: perfilAlvo, cadastros: cands.length },
+        'executor: retorno/exame não passa pelo formulário, escala direto',
+      );
+      return await escalaComo(
+        groupFolder,
+        tabela,
+        `quer marcar ${perfilAlvo}, que a Lara não agenda` +
+          (contexto ? ` · ${contexto}` : '') +
+          '; o retorno só é gratuito quando completa a MESMA avaliação, ' +
+          'então queixa nova é consulta',
+        perguntaDoPaciente,
+        deps,
+      );
+    }
+  }
 
   // Antes de pedir os quatro dados: a clínica já conhece este telefone?
   //
@@ -803,54 +881,6 @@ export async function executa(
     }
   }
 
-  // Retorno e exame a Lara não agenda, e a regra tem de valer ANTES do
-  // formulário.
-  //
-  // `soHumano` existia e estava certo, mas só era consultado dentro do bloco da
-  // agenda — que roda DEPOIS da triagem. Medido em 19/10/2026, a pedido do
-  // Thiago: "quero marcar meu retorno" sem dados virava `triagem_dados`, o
-  // paciente digitava nome, nascimento, cidade e convênio, e só então ouvia
-  // "Só um instante.". Justamente quem a clínica já tem no cadastro.
-  //
-  // ⚠️ Só no caminho de `triagem`, que existe para COLETAR e marcar. Em
-  // `recusar_e_triagem` a resposta já saiu (preço, convênio) e é aprovada:
-  // escalar ali engoliria uma resposta correta. "Quanto custa o retorno?"
-  // continua sendo respondido.
-  if (acao === 'triagem') {
-    const perfilAlvo = perfilDe(lembrados.necessidade, lembrados.convenio);
-    if (perfilAlvo && soHumano(perfilAlvo)) {
-      // Chega com a resposta pronta: hoje a recepção recebe "quer marcar
-      // retorno" e vai procurar no iClinic (Thiago, 19/10/2026).
-      //
-      // Usa o que a conversa já buscou; só vai ao iClinic se ainda não foi.
-      // Custa ~10 s de Playwright, e o paciente está ouvindo "Só um instante"
-      // de qualquer jeito.
-      const mem = candidatosLembrados(groupFolder, chatJid);
-      let cands = mem.candidatos;
-      if (!mem.buscou) {
-        const tel = telefoneDoJid(remetenteJid || chatJid);
-        if (tel) {
-          cands = await pacientesComTelefone(groupFolder, tel);
-          lembraCandidatos(groupFolder, chatJid, cands);
-        }
-      }
-      const contexto = contextoDoRetorno(cands);
-      logger.info(
-        { groupFolder, perfil: perfilAlvo, cadastros: cands.length },
-        'executor: retorno/exame não passa pelo formulário, escala direto',
-      );
-      return await escalaComo(
-        groupFolder,
-        tabela,
-        `quer marcar ${perfilAlvo}, que a Lara não agenda` +
-          (contexto ? ` · ${contexto}` : '') +
-          '; o retorno só é gratuito quando completa a MESMA avaliação, ' +
-          'então queixa nova é consulta',
-        perguntaDoPaciente,
-        deps,
-      );
-    }
-  }
 
   if (acao === 'triagem' || acao === 'recusar_e_triagem') {
     const formulario = tabela.intencoes.triagem_dados?.textos?.[0] ?? r.texto;

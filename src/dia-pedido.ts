@@ -19,10 +19,8 @@
  * esta arquitetura existe para não fazer — e um erro aqui não produz texto
  * errado, produz o paciente indo à clínica no dia errado.
  */
+import { dataLocal } from './expediente.js';
 import { logger } from './logger.js';
-
-/** America/Fortaleza. Sem horário de verão, mas o IANA cuida se mudar. */
-const TZ = 'America/Fortaleza';
 
 const DIAS: Record<string, number> = {
   domingo: 0,
@@ -36,40 +34,6 @@ const DIAS: Record<string, number> = {
 
 function semAcento(s: string): string {
   return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
-}
-
-/** Hoje no fuso da clínica, como {ano, mes, dia, diaSemana}. */
-function hojeLocal(agora: Date): {
-  ano: number;
-  mes: number;
-  dia: number;
-  diaSemana: number;
-} {
-  const f = new Intl.DateTimeFormat('en-CA', {
-    timeZone: TZ,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    weekday: 'short',
-  });
-  const p = Object.fromEntries(
-    f.formatToParts(agora).map((x) => [x.type, x.value]),
-  );
-  const nomes: Record<string, number> = {
-    Sun: 0,
-    Mon: 1,
-    Tue: 2,
-    Wed: 3,
-    Thu: 4,
-    Fri: 5,
-    Sat: 6,
-  };
-  return {
-    ano: Number(p.year),
-    mes: Number(p.month),
-    dia: Number(p.day),
-    diaSemana: nomes[p.weekday as string] ?? 0,
-  };
 }
 
 function iso(ano: number, mes: number, dia: number): string {
@@ -104,7 +68,17 @@ export function resolveDiaPedido(
   const jaIso = t.match(/\b(\d{4})-(\d{2})-(\d{2})\b/);
   if (jaIso) return jaIso[0];
 
-  const h = hojeLocal(agora);
+  // A data de hoje vem do `expediente.ts`, que é onde o fuso da clínica já
+  // morava. Calcular aqui de novo criava uma segunda noção de "hoje", com o
+  // fuso fixo no código enquanto o outro lê `EXPEDIENTE_TZ` — perto da
+  // meia-noite, "amanhã" cairia em dias diferentes.
+  const [ano, mes, dia] = dataLocal(agora);
+  const h = {
+    ano,
+    mes,
+    dia,
+    diaSemana: new Date(Date.UTC(ano, mes - 1, dia)).getUTCDay(),
+  };
 
   if (/\bhoje\b/.test(t)) return iso(h.ano, h.mes, h.dia);
   if (/\bdepois de amanha\b/.test(t)) {

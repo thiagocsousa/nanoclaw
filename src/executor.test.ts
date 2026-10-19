@@ -14,6 +14,7 @@ const PASTA = 'whatsapp_exec-teste';
 // real, porque mock de Playwright não prova nada sobre o iClinic.
 const buscou: Array<{ perfil: string; dia?: string; hora?: string }> = [];
 let vagasFalsas: Array<Record<string, string>> = [];
+let buscouHook: (() => void) | undefined;
 
 const marcou: Array<Record<string, string>> = [];
 let ofertaFalsa: unknown;
@@ -63,6 +64,7 @@ vi.mock('./vagas.js', async (orig) => {
       o: { dia?: string; hora?: string } = {},
     ) => {
       buscou.push({ perfil, dia: o.dia, hora: o.hora });
+      buscouHook?.();
       return vagasFalsas;
     },
   };
@@ -123,6 +125,15 @@ const TABELA = {
       textos_dois: [
         'Tenho {dia} às {hora}, ou {dia_b} às {hora_b}. Qual fica melhor?',
       ],
+    },
+    horario_pedido_indisponivel: {
+      acao: 'responder',
+      slots_obrigatorios: ['dia', 'hora'],
+      textos: ['Nesse horário não consigo encaixar, mas tenho {dia} às {hora}.'],
+    },
+    pergunta_dia: {
+      acao: 'responder',
+      textos: ['Para qual dia você quer esse horário?'],
     },
     horario_pedido_convenio: {
       acao: 'responder',
@@ -1033,9 +1044,30 @@ describe('retorno e exame não passam pelo formulário (Thiago, 19/10/2026)', ()
   // Medido antes de mexer: "quero marcar meu retorno" virava `triagem_dados`,
   // o paciente digitava os QUATRO campos e só então ouvia "Só um instante".
   // Justamente quem a clínica já tem no cadastro.
+  // ⚠️ COM cadastro, que é a população real do retorno. A primeira versão
+  // deste teste rodava com `candidatosFalsos` vazio e passava por acidente: o
+  // `confirma_paciente` interceptava o turno em produção e devolvia "é você,
+  // Thiago?", então o conserto era inalcançável justamente para quem ele
+  // existia. Achado da revisão de eficiência em 19/10/2026.
+  it('retorno COM cadastro escala na hora, sem perguntar identidade', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    candidatosFalsos = [
+      { id: 47555744, nome: 'THIAGO CARVALHO DE SOUSA', nascimento: '1980-06-01' },
+    ];
+    const r = await rodarDe(
+      '{"intencao":"triagem_dados","confianca":0.95,"slots":{"necessidade":"retorno"}}',
+      'queria marcar meu retorno',
+    );
+    expect(r?.acao).toBe('escalar');
+    expect(r?.texto).not.toContain('É para você');
+    expect(r?.texto.toLowerCase()).not.toContain('nome completo');
+  });
+
   it('retorno sem dados escala na hora, sem pedir nada', async () => {
     const { esqueceSlots } = await import('./memoria-conversa.js');
     esqueceSlots(PASTA, JID);
+    candidatosFalsos = [];
     const r = await rodar(
       '{"intencao":"triagem_dados","confianca":0.95,"slots":{"necessidade":"retorno"}}',
       'quero marcar meu retorno',
@@ -1163,6 +1195,67 @@ describe('dia e hora pedidos pelo paciente (Thiago, 19/10/2026)', () => {
       'tem horario?',
     );
     expect(r?.texto).not.toContain('seguem a agenda');
+  });
+});
+
+describe('hora pedida: os casos que a revisão achou (19/10/2026)', () => {
+  // ⚠️ O filtro duro FABRICAVA escalonamento no paciente mais decidido: quem
+  // pedia "sexta às 10h" com as 10h ocupadas ouvia "Só um instante", enquanto
+  // quem pedia só "sexta" recebia duas opções.
+  it('hora indisponível oferece alternativa, não escala', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    let chamada = 0;
+    vagasFalsas = [];
+    buscouHook = () => {
+      chamada += 1;
+      // 1ª busca com --hora: nada. 2ª sem --hora: alternativas.
+      vagasFalsas =
+        chamada === 1
+          ? []
+          : [
+              { data: '2026-10-23', dia_semana: 'sexta', inicio: '09:20', fim: '09:50' },
+            ];
+    };
+    const r = await rodar(
+      '{"intencao":"horario_oferta","confianca":0.95,"slots":{"necessidade":"catarata","convenio":"particular","dia_pedido":"sexta","hora_pedida":"10h"}}',
+      'consigo sexta às 10h?',
+    );
+    buscouHook = undefined;
+    expect(r?.acao).not.toBe('escalar');
+    expect(r?.texto).toContain('09:20');
+    expect(r?.texto).toContain('não consigo encaixar');
+  });
+
+  // A condição antiga não comparava nada: convênio pedindo 10h e recebendo
+  // 10h ouvia "não consigo reservar um horário específico. O que tenho é às
+  // 10:00" — negando o que acabava de conceder.
+  it('convênio que RECEBE a hora pedida não ouve a explicação', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    vagasFalsas = [
+      { data: '2026-10-23', dia_semana: 'sexta', inicio: '10:00', fim: '10:20' },
+    ];
+    const r = await rodar(
+      '{"intencao":"horario_oferta","confianca":0.95,"slots":{"necessidade":"rotina","convenio":"Unimed","dia_pedido":"sexta","hora_pedida":"10h"}}',
+      'consigo sexta às 10h?',
+    );
+    expect(r?.texto).toContain('10:00');
+    expect(r?.texto).not.toContain('seguem a agenda');
+  });
+
+  it('particular que pede hora SEM dia é perguntado o dia', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    vagasFalsas = [
+      { data: '2026-10-21', dia_semana: 'quarta', inicio: '15:00', fim: '15:30' },
+    ];
+    const r = await rodar(
+      '{"intencao":"horario_oferta","confianca":0.95,"slots":{"necessidade":"catarata","convenio":"particular","hora_pedida":"10h"}}',
+      'pode ser as 10h?',
+    );
+    expect(r?.texto).toContain('Para qual dia');
+    expect(r?.texto).not.toContain('15:00');
   });
 });
 

@@ -16,6 +16,8 @@
  * hoje a recepção recebe "quer marcar retorno" e vai procurar no iClinic.
  */
 
+import { dataLocal } from './expediente.js';
+
 /** `2026-10-02` -> `02/10/2026`. */
 function br(iso: string): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || '');
@@ -26,11 +28,15 @@ function diasDesde(iso: string, agora: Date): number | undefined {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || '');
   if (!m) return undefined;
   const d = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
-  const hoje = Date.UTC(
-    agora.getUTCFullYear(),
-    agora.getUTCMonth(),
-    agora.getUTCDate(),
-  );
+  // ⚠️ Hoje é o dia da CLÍNICA, não o UTC.
+  //
+  // A primeira versão usava `getUTCFullYear/Month/Date`. Teresina é UTC−3,
+  // então das 21h locais em diante o UTC já virou o dia e a conta dava um a
+  // mais — bem na fronteira dos 30 dias, que é o número que a recepção usa
+  // para decidir se o retorno é gratuito ou se virou consulta. Achado da
+  // revisão de reuso em 19/10/2026.
+  const [ano, mes, dia] = dataLocal(agora);
+  const hoje = Date.UTC(ano, mes - 1, dia);
   return Math.floor((hoje - d) / 86_400_000);
 }
 
@@ -44,10 +50,15 @@ function diasDesde(iso: string, agora: Date): number | undefined {
 export function contextoDoRetorno(
   candidatos: Array<{ nome: string; ultima_consulta?: string }>,
   agora: Date = new Date(),
+  procurou = true,
 ): string {
+  // ⚠️ "não achei" e "não procurei" são coisas diferentes, e afirmar a
+  // primeira quando vale a segunda é mentir para quem vai decidir. Acontece
+  // quando o JID vem em LID sem telefone: a busca nem roda.
+  if (!procurou) return 'não consegui conferir o cadastro deste número';
   if (candidatos.length === 0) {
-    // Dizer isto é útil: telefone fora do cadastro raramente é retorno de
-    // verdade, e a recepção já começa desconfiando.
+    // Telefone fora do cadastro raramente é retorno de verdade, e a recepção
+    // já começa desconfiando.
     return 'este telefone não tem cadastro no iClinic';
   }
   const linhas = candidatos

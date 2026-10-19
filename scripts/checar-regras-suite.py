@@ -63,6 +63,20 @@ CASOS = [
      "oi", ["oi", "quanto custa?"], True),
     ("empurra_trabalho", "variante no meio da conversa",
      "Claro, como posso te ajudar?", "e o preço?", ["quero miopia"], True),
+    # A guarda alargou `anuncia_bot` em 19/10/2026 e a cópia da suíte ficou
+    # estreita: "assistente de atendimento POR inteligência artificial" era
+    # bloqueada em produção e passava limpa na passada de duas horas. Regra de
+    # suíte que é subconjunto da guarda deixa de prever a produção, e o sintoma
+    # é uma passada verde sobre texto que o paciente nunca recebeu.
+    ("anuncia_bot", "IA por extenso",
+     "Sou a Lara, assistente de atendimento por inteligência artificial.",
+     "voce é um robo?", [], True),
+    ("anuncia_bot", "atendimento automatizado",
+     "Este é um atendimento automatizado.", "oi", [], True),
+    # ⚠️ A abertura diz "assistente da Dra. Marina Costa", que é verdade e não
+    # anuncia automação. Acusar isso calaria a Lara na primeira mensagem de
+    # toda conversa.
+    ("anuncia_bot", "assistente da médica NÃO conta", ABERTURA, "oi", [], False),
 ]
 
 

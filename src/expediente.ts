@@ -91,6 +91,28 @@ export function horaLocal(agora: Date = new Date()): {
   };
 }
 
+/**
+ * A data de hoje na clínica, como `[ano, mes, dia]`.
+ *
+ * Mora aqui porque é aqui que a decisão de fuso do consultório já estava, com
+ * o `EXPEDIENTE_TZ`. Dois módulos novos de 19/10/2026 calculavam "hoje" por
+ * conta: `dia-pedido.ts` fixando o fuso no código e `retorno-contexto.ts` em
+ * UTC. Três noções de hoje é uma a mais do que o número de fusos que a clínica
+ * tem.
+ */
+export function dataLocal(agora: Date = new Date()): [number, number, number] {
+  const f = new Intl.DateTimeFormat('en-CA', {
+    timeZone: TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  const p = Object.fromEntries(
+    f.formatToParts(agora).map((x) => [x.type, x.value]),
+  );
+  return [Number(p.year), Number(p.month), Number(p.day)];
+}
+
 /** Segunda a sexta, das 8h às 18h. Às 18h00 em ponto já está fechado. */
 export function dentroDoExpediente(agora: Date | number = new Date()): boolean {
   const d = typeof agora === 'number' ? new Date(agora) : agora;
