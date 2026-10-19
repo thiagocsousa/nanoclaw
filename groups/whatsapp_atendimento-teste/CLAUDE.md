@@ -213,11 +213,20 @@ Abaixo, só o que não cabe num campo `quando`:
 
 - **grade_atendimento** só quando ele pergunta literalmente **quais dias**. "Tem
   sábado?" é `dia_sem_atendimento`.
-- **quer_humano** cobre três coisas que parecem diferentes e não são: "você é um
-  robô?", "é IA mesmo?" e pedir uma **pessoa específica** ("a Bruna que me
-  atendeu antes, ela tá aí?", "quero falar com a Dra. Marina"). Quem pode
-  responder isso é um humano. `DESCONHECIDO` também escalaria, então o paciente
-  recebe o mesmo, mas o rótulo certo é o que deixa a métrica legível.
+- **pergunta_se_e_bot** é quem PERGUNTA se é robô/IA. **quer_humano** é quem
+  PEDE uma pessoa ("quero falar com alguém", "a Bruna que me atendeu antes, ela
+  tá aí?", "quero falar com a Dra. Marina").
+  - ⚠️ **Os dois escalam SEM RESPONDER NADA** (Thiago, 19/10/2026). Pedir para
+    falar com uma pessoa significa que o paciente percebeu que é uma IA, e
+    responder "Só um instante." ali é a máquina comentando a própria máquina.
+    Quem fala agora é gente.
+  - Eram uma intenção só até 19/10/2026. Separadas porque o motivo que chega à
+    recepção é diferente, e porque a métrica de "quantos perceberam que é IA"
+    só é legível se as duas não estiverem somadas.
+  - Sobre a Bruna: ela é **pessoa real** da recepção, e o disparo automático da
+    clínica ainda assina com o nome dela. Quem pergunta por ela não descobriu
+    nada — acha que falou com gente. O silêncio acerta aí pelo mesmo motivo:
+    quem responde é justamente a pessoa que ele procurou.
 
 - ⚠️ **Jejum, horário de chegada, o que levar, acompanhante e taxa de sala NÃO
   são `clinico`.** É logística de pré-operatório, quem monta é a recepção, e vai
