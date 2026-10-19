@@ -63,6 +63,7 @@ import {
 import { faltamNaTriagem, fraseDeTriagem } from './triagem.js';
 import {
   VOCABULARIO_REFRATIVO,
+  vagaEscolhida,
   buscaVagas,
   perfilDe,
   slotsDaVaga,
@@ -550,7 +551,19 @@ export async function executa(
         dia: diaIso(c.slots.dia_pedido),
       });
       if (vagas.length > 0) {
-        slots = { ...slots, ...slotsDaVaga(vagas[0]) };
+        // Duas opções quando a agenda deu duas: poupa uma ida e volta se a
+        // primeira não servir (manual trazido pelo Thiago, 19/10/2026).
+        const oferecidas = vagas.slice(0, 2);
+        slots = { ...slots, ...slotsDaVaga(oferecidas[0]) };
+        if (oferecidas[1]) {
+          const b = slotsDaVaga(oferecidas[1]);
+          slots = {
+            ...slots,
+            dia_b: b.dia,
+            data_b: b.data,
+            hora_b: b.hora,
+          };
+        }
         // Guardada para registrar DEPOIS, se o texto realmente for produzido.
         // Registrar aqui gravaria uma oferta que o paciente pode nunca ver —
         // o render ainda pode rebaixar — e aí um "pode ser" marcaria um
@@ -558,7 +571,11 @@ export async function executa(
         // Guarda também QUEM é o paciente: no turno do aceite ("pode ser") os
         // slots vêm vazios, e sem isto a marcação recusa por dado faltando.
         ofertaAOferecer = {
-          vaga: vagas[0],
+          vaga: oferecidas[0],
+          // As duas, para o aceite poder dizer qual. Sem isto, "pode ser" com
+          // duas na mesa marcaria a primeira por omissão — e mandaria a pessoa
+          // à clínica no dia errado.
+          vagas: oferecidas,
           perfil,
           // Da CONVERSA, não só deste turno: no turno que pede horário o
           // modelo raramente repete nome e nascimento, e eles costumam ter
@@ -593,10 +610,36 @@ export async function executa(
       deps,
     );
   }
+  // Qual das vagas ele aceitou?
+  //
+  // Com uma só, qualquer aceite serve. Com duas, "pode ser" não diz nada — e
+  // escolher a primeira por omissão manda a pessoa à clínica no dia errado,
+  // que é a mesma classe de erro de marcar no paciente errado. Quando o texto
+  // não desambigua, o host PERGUNTA.
+  const oferecidas = oferta?.vagas?.length ? oferta.vagas : oferta ? [oferta.vaga] : [];
+  const escolhida = oferta
+    ? vagaEscolhida(oferecidas, perguntaDoPaciente)
+    : undefined;
+  if (vaiMarcar && oferta && !escolhida && oferecidas.length > 1) {
+    const b = slotsDaVaga(oferecidas[1]);
+    const a = slotsDaVaga(oferecidas[0]);
+    const rq = renderiza(tabela, 'qual_horario', {
+      confianca: 1,
+      slots: { ...slots, ...a, dia_b: b.dia, data_b: b.data, hora_b: b.hora },
+    });
+    if (rq.texto && rq.intencao === 'qual_horario') {
+      logger.info(
+        { groupFolder, opcoes: oferecidas.length },
+        'executor: aceite não disse qual horário, perguntando',
+      );
+      return { texto: rq.texto, intencao: 'qual_horario', acao: 'responder' };
+    }
+  }
+
   if (vaiMarcar && oferta) {
     slots = {
       ...slots,
-      ...slotsDaVaga(oferta.vaga),
+      ...slotsDaVaga(escolhida ?? oferta.vaga),
       // `primeiroNome` normaliza a caixa: o cadastro do iClinic guarda em
       // CAIXA ALTA, e sem isto a confirmação saía "Pronto, THIAGO, está
       // agendado" (16/10/2026). Caixa alta soa a grito e não é como a clínica
@@ -829,8 +872,8 @@ export async function executa(
       pedidoPor: remetenteJid || chatJid,
       nascimento: oferta.nascimento ?? c.slots.nascimento,
       convenio: oferta.convenio ?? c.slots.convenio,
-      data: oferta.vaga.data,
-      hora: oferta.vaga.inicio,
+      data: (escolhida ?? oferta.vaga).data,
+      hora: (escolhida ?? oferta.vaga).inicio,
       perfil: oferta.perfil,
       pacienteId: pacienteConfirmado(groupFolder, chatJid),
     });

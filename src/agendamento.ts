@@ -72,6 +72,18 @@ export interface OfertaPendente {
    * o script declara ser fonte única: `fim` já vem calculado por ele.
    */
   vaga: Vaga;
+  /**
+   * TODAS as vagas que foram oferecidas neste turno, na ordem em que apareceram
+   * no texto. `vaga` continua sendo a primeira, para todo o código que já
+   * existia não precisar mudar.
+   *
+   * Existe desde 19/10/2026, quando passamos a oferecer duas opções (ideia do
+   * manual que o Thiago trouxe: menos ida e volta). Oferecer duas cria um
+   * problema que oferecer uma não tinha: "pode ser" deixa de identificar o
+   * horário. Guardar as duas é o que permite ao host perguntar qual, em vez de
+   * escolher por conta e marcar o dia errado.
+   */
+  vagas?: Vaga[];
   perfil: string;
   quando: number;
   /**

@@ -69,6 +69,15 @@ export interface Intencao {
    */
   textos_sem_slot?: string[];
   /**
+   * Texto para quando o host tem DUAS vagas para oferecer.
+   *
+   * Ideia do manual que o Thiago trouxe em 19/10/2026: oferecer duas opções
+   * poupa uma ida e volta quando a primeira não serve. Fica num campo próprio,
+   * e não como variante sorteada em `textos`, porque a escolha não é de estilo:
+   * depende de a agenda ter devolvido duas vagas.
+   */
+  textos_dois?: string[];
+  /**
    * Pendurar o pedido dos dados que faltam depois do texto, em vez de deixar o
    * texto convidar sozinho.
    *
@@ -278,7 +287,16 @@ export function renderiza(
     return escala(`slot obrigatório ausente: ${faltamSlots.join(', ')}`);
   }
 
-  const opcoes = (semSlot ? def.textos_sem_slot : def.textos) ?? [];
+  // Com `dia_b` preenchido, a agenda devolveu duas vagas e o texto de duas
+  // opções é o certo. Sem ele, o de uma. Não é variante de estilo: depende do
+  // que a agenda deu.
+  const temSegunda = !!slots.dia_b?.trim() && !!slots.hora_b?.trim();
+  const opcoes =
+    (semSlot
+      ? def.textos_sem_slot
+      : temSegunda && def.textos_dois?.length
+        ? def.textos_dois
+        : def.textos) ?? [];
   if (opcoes.length === 0) {
     return {
       texto: '',

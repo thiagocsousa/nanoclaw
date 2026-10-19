@@ -120,6 +120,12 @@ const TABELA = {
       acao: 'responder',
       slots_obrigatorios: ['dia', 'hora'],
       textos: ['Tenho {dia} às {hora}.'],
+      textos_dois: ['Tenho {dia} às {hora}, ou {dia_b} às {hora_b}. Qual fica melhor?'],
+    },
+    qual_horario: {
+      acao: 'responder',
+      slots_obrigatorios: ['dia', 'hora', 'dia_b', 'hora_b'],
+      textos: ['Só para eu não errar: {dia}, às {hora}, ou {dia_b}, às {hora_b}?'],
     },
     clinico: {
       acao: 'escalar',
@@ -1009,6 +1015,98 @@ describe('o limiar vale ANTES de gravar (Codex, 17/10/2026)', () => {
       'onde fica?',
     );
     expect(r?.texto).toContain('Elias João Tajra');
+  });
+});
+
+describe('duas opções de horário (manual, 19/10/2026)', () => {
+  const duas = () => {
+    vagasFalsas = [
+      { data: '2026-10-20', dia_semana: 'terça', inicio: '09:00', fim: '09:20' },
+      { data: '2026-10-22', dia_semana: 'quinta', inicio: '14:30', fim: '14:50' },
+    ];
+  };
+
+  it('a agenda com duas vagas oferece as duas', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    duas();
+    const r = await rodar(
+      '{"intencao":"horario_oferta","confianca":0.95,"slots":{"necessidade":"catarata","convenio":"particular"}}',
+      'tem horario?',
+    );
+    expect(r?.texto).toContain('09:00');
+    expect(r?.texto).toContain('14:30');
+  });
+
+  it('com uma vaga só, o texto continua o de uma', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    vagasFalsas = [
+      { data: '2026-10-20', dia_semana: 'terça', inicio: '09:00', fim: '09:20' },
+    ];
+    const r = await rodar(
+      '{"intencao":"horario_oferta","confianca":0.95,"slots":{"necessidade":"catarata","convenio":"particular"}}',
+      'tem horario?',
+    );
+    expect(r?.texto).toContain('09:00');
+    expect(r?.texto).not.toContain('Qual fica melhor');
+  });
+
+  it('aceite que diz QUAL marca aquele horário', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    duas();
+    await rodarDe(
+      '{"intencao":"triagem_dados","confianca":0.95,"slots":{"necessidade":"catarata","nome":"Thiago","nascimento":"01/06/1980","cidade":"Teresina","convenio":"particular"}}',
+      'Thiago, 01/06/1980, Teresina, particular. tem horario?',
+    );
+    marcou.length = 0;
+    const r = await rodar(
+      '{"intencao":"aceita_horario","confianca":0.95,"slots":{}}',
+      'pode ser quinta',
+    );
+    expect(r?.acao).toBe('marcar');
+    expect(marcou[0]?.data).toBe('2026-10-22');
+    expect(marcou[0]?.hora).toBe('14:30');
+  });
+
+  // ⚠️ O que esta mudança podia estragar: "pode ser" com DUAS na mesa não diz
+  // qual, e marcar a primeira por omissão manda a pessoa no dia errado.
+  it('aceite AMBÍGUO pergunta, não marca', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    duas();
+    await rodarDe(
+      '{"intencao":"triagem_dados","confianca":0.95,"slots":{"necessidade":"catarata","nome":"Thiago","nascimento":"01/06/1980","cidade":"Teresina","convenio":"particular"}}',
+      'Thiago, 01/06/1980, Teresina, particular. tem horario?',
+    );
+    marcou.length = 0;
+    const r = await rodar(
+      '{"intencao":"aceita_horario","confianca":0.95,"slots":{}}',
+      'pode ser',
+    );
+    expect(marcou).toHaveLength(0);
+    expect(r?.texto).toContain('não errar');
+    expect(r?.acao).toBe('responder');
+  });
+
+  it('com UMA vaga, "pode ser" continua marcando', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    vagasFalsas = [
+      { data: '2026-10-20', dia_semana: 'terça', inicio: '09:00', fim: '09:20' },
+    ];
+    await rodarDe(
+      '{"intencao":"triagem_dados","confianca":0.95,"slots":{"necessidade":"catarata","nome":"Thiago","nascimento":"01/06/1980","cidade":"Teresina","convenio":"particular"}}',
+      'Thiago, 01/06/1980, Teresina, particular. tem horario?',
+    );
+    marcou.length = 0;
+    const r = await rodar(
+      '{"intencao":"aceita_horario","confianca":0.95,"slots":{}}',
+      'pode ser',
+    );
+    expect(r?.acao).toBe('marcar');
+    expect(marcou[0]?.data).toBe('2026-10-20');
   });
 });
 

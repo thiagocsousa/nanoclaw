@@ -301,6 +301,24 @@
       "textos": [
         "Tenho {dia}, dia {data}, às {hora}. Esse horário funciona para você?",
         "O próximo horário disponível é {dia}, dia {data}, às {hora}. Consegue nesse dia?"
+      ],
+      "textos_dois": [
+        "Tenho {dia}, dia {data}, às {hora}, ou {dia_b}, dia {data_b}, às {hora_b}.\n\nQual fica melhor para você?"
+      ]
+    },
+    "qual_horario": {
+      "bloco": "F11b",
+      "quando": "NUNCA rotular isto: quem pergunta é o host, quando duas opções foram oferecidas e o aceite não disse qual.",
+      "acao": "responder",
+      "fecho": false,
+      "slots_obrigatorios": [
+        "dia",
+        "hora",
+        "dia_b",
+        "hora_b"
+      ],
+      "textos": [
+        "Só para eu não errar: {dia}, às {hora}, ou {dia_b}, às {hora_b}?"
       ]
     },
     "dia_sem_atendimento": {

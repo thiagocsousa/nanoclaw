@@ -2510,6 +2510,39 @@
           "nota": "Sem o quer_horario, esse 'sim' cairia em DESCONHECIDO."
         }
       ]
+    },
+    {
+      "id": "V01",
+      "categoria": "agenda",
+      "sobre": "Duas opções de horário quando a agenda tem duas, e o aceite diz QUAL.",
+      "turnos": [
+        {
+          "paciente": "oi"
+        },
+        {
+          "paciente": "é pra cirurgia de catarata"
+        },
+        {
+          "paciente": "sou eu"
+        },
+        {
+          "paciente": "Teresina, particular. tem horario?",
+          "esperado": [
+            "[0-9]{2}:[0-9]{2}"
+          ],
+          "nota": "A JULGAR À MÃO: se a agenda tiver duas vagas, as duas têm de aparecer com 'Qual fica melhor?'. Com uma só, o texto de uma."
+        },
+        {
+          "paciente": "pode ser o segundo",
+          "esperado": [
+            "agendad"
+          ],
+          "permitido": [
+            "confirmou_agendamento"
+          ],
+          "nota": "Dizer QUAL é o que permite marcar. Um 'pode ser' seco com duas opções tem de perguntar, não marcar."
+        }
+      ]
     }
   ]
 }

@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { perfilDe, slotsDaVaga, temDescontoDeConsulta } from './vagas.js';
+import {
+  perfilDe,
+  slotsDaVaga,
+  temDescontoDeConsulta,
+  vagaEscolhida,
+} from './vagas.js';
 
 // O perfil decide duração, antecedência e cota da agenda. Errá-lo não produz
 // texto errado: produz uma vaga que não existe, já prometida ao paciente. Por
@@ -146,5 +151,53 @@ describe('garanteCredenciais', () => {
       'ICLINIC_CLINIC_ID',
       'ICLINIC_PHYSICIAN_ID',
     ]);
+  });
+});
+
+describe('vagaEscolhida: duas opções exigem saber qual (19/10/2026)', () => {
+  const A = {
+    data: '2026-10-20',
+    dia_semana: 'terça',
+    inicio: '09:00',
+    fim: '09:20',
+  };
+  const B = {
+    data: '2026-10-22',
+    dia_semana: 'quinta',
+    inicio: '14:30',
+    fim: '14:50',
+  };
+
+  it('com UMA vaga, qualquer aceite serve', () => {
+    expect(vagaEscolhida([A], 'pode ser')).toBe(A);
+  });
+
+  it.each([
+    ['a primeira', A],
+    ['o segundo', B],
+    ['quinta', B],
+    ['terça fica melhor', A],
+    ['pode ser 14:30', B],
+    ['as 9h fica bom', A],
+    ['9:00 pode ser', A],
+    ['as 14h30', B],
+    ['14h', B],
+    ['dia 22/10', B],
+  ])('%s escolhe certo', (texto, esperada) => {
+    expect(vagaEscolhida([A, B], texto as string)).toBe(esperada);
+  });
+
+  // ⚠️ O caso que importa: "pode ser" com DUAS na mesa não diz qual. Devolver
+  // a primeira mandaria a pessoa à clínica no dia errado.
+  it.each(['pode ser', 'ok', 'tá bom', 'confirma', 'qualquer um'])(
+    '%s NÃO escolhe: é ambíguo',
+    (texto) => {
+      expect(vagaEscolhida([A, B], texto)).toBeUndefined();
+    },
+  );
+
+  it('texto que casa com as duas também é ambíguo', () => {
+    const C = { ...B, inicio: '09:00' };
+    expect(vagaEscolhida([A, C], 'as 09:00')).toBeUndefined();
   });
 });

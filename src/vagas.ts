@@ -337,6 +337,54 @@ export async function buscaVagas(
  * Converte a vaga nos slots que os textos usam. `data` sai em DD/MM, que é
  * como a clínica escreve: "Tenho segunda, dia 06/10, às 09:20".
  */
+/**
+ * Qual das vagas oferecidas o paciente escolheu, pelo que ele escreveu.
+ *
+ * Devolve a vaga, ou `undefined` quando não dá para saber — e aí quem chama
+ * PERGUNTA, não adivinha. Marcar o dia errado manda a pessoa à clínica no dia
+ * errado, que é pior que uma mensagem a mais.
+ *
+ * Com uma vaga só, qualquer aceite serve: não há o que confundir.
+ */
+export function vagaEscolhida(
+  vagas: Vaga[],
+  texto: string,
+): Vaga | undefined {
+  if (vagas.length === 0) return undefined;
+  if (vagas.length === 1) return vagas[0];
+  const t = texto
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+  // Ordinal explícito: "a primeira", "o segundo".
+  if (/\b(primeir|1[ao°º]?\b)/.test(t)) return vagas[0];
+  if (/\b(segund|2[ao°º]?\b)/.test(t)) return vagas[1];
+
+  // Dia da semana, data ou hora que só UMA das vagas tem. Se duas casam, o
+  // texto não desambiguou.
+  const casam = vagas.filter((v) => {
+    const dia = (v.dia_semana || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+    const [, mes, d] = v.data.split('-');
+    const hora = v.inicio;
+    // A hora é escrita de muitos jeitos: "09:00", "09h", "9h", "9:00", "as 9h".
+    // Exigir `h` ou `:` grudado impede casar com o "9" de uma data.
+    const [hh, mm] = hora.split(':');
+    const rxHora = new RegExp(
+      `\\b0?${Number(hh)}\\s*(?:[h:]\\s*${mm}\\b|[h:](?!\\d)|h\\b)`,
+    );
+    return (
+      (!!dia && t.includes(dia)) ||
+      (!!d && !!mes && t.includes(`${d}/${mes}`)) ||
+      rxHora.test(t)
+    );
+  });
+  return casam.length === 1 ? casam[0] : undefined;
+}
+
 export function slotsDaVaga(v: Vaga): Record<string, string> {
   const [, mes, dia] = v.data.split('-');
   return {
