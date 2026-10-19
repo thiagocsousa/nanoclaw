@@ -757,8 +757,21 @@ avulso**, e dizer o que o libera fere a regra do convênio.
 > A trava automática está em `src/templates-guarda.test.ts`: os textos dos dois planos
 > falam de exame e não casam o regex da condição, com controle negativo.
 >
-> A Unimed fica como está: ali a negativa é simples ("os exames não saem pelo convênio") e
-> não tem condição escondida.
+> A Unimed é o caso simples: ali a negativa não tem condição escondida. O texto é
+
+> Aqui no consultório os exames são particulares, a Unimed não cobre.
+>
+> Se a Dra. Marina pedir algum exame na consulta, você pode usar as regras do seu plano
+> para fazer fora daqui.
+
+> ℹ️ Reescrito em 19/10/2026 a pedido do Thiago. A anterior dizia "os exames são
+> particulares: pela Unimed a Dra. Marina atende consulta e cirurgia, mas os exames não
+> saem pelo convênio" — dois-pontos cramando duas ideias, a mesma informação duas vezes, e
+> no meio o que a Unimed COBRE, que não é o que ele perguntou.
+>
+> ⚠️ E ela se contradizia: dizia que o exame não sai pelo convênio e, no parágrafo
+> seguinte, que ele usa as regras do plano para realizá-los. Faltava o ONDE — não cobre
+> AQUI, e fora daqui ele usa o plano. A versão nova diz "para fazer fora daqui".
 
 ### Intermed, Hapvida e Humana: não, para nada
 
