@@ -384,7 +384,18 @@ def main():
     with sync_playwright() as p:
         br = p.chromium.launch(
             headless=True,
-            executable_path=os.environ.get("PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH"))
+            executable_path=os.environ.get("PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH"),
+            # ⚠️ Sem isto o chromium usa /dev/shm para a memória compartilhada
+            # entre seus processos, e o Docker dá 64 MB por padrão. Com 64 MB
+            # ele não falha com erro: PENDURA — `Page.goto: Timeout 30000ms` em
+            # app.iclinic.com.br enquanto um curl da MESMA imagem respondia 200
+            # em 2 s (medido em 19/10/2026).
+            #
+            # O host já passa `--shm-size=1g` (ver src/script-container.ts), mas
+            # o flag do host cobre só os 3 spawns que ele controla: o container
+            # do AGENTE não tem o flag, e o FAQ manda o agente rodar estes
+            # scripts de dentro dele. Aqui o conserto viaja COM o script.
+            args=["--disable-dev-shm-usage"])
         try:
             ctx = br.new_context()
             pg = ctx.new_page()
@@ -404,8 +415,13 @@ def main():
             # is not enabled" — que se lê como "o iClinic bloqueou a conta", e
             # não é: é corrida perdida. Foi o que derrubou a busca por telefone
             # em A07 e E08 na passada 25.
+            #
+            # ⚠️ 45 s, não 90: o orçamento grande conserta a corrida mas triplica
+            # o que um login PERDIDO custa, e aí uma corrida perdida come metade
+            # do teto de 180 s do host antes da colheita poder agir. 45 s cobre
+            # o caso medido sob carga com folga.
             pg.wait_for_selector(
-                'input[name="email"]:not([disabled])', timeout=90000)
+                'input[name="email"]:not([disabled])', timeout=45000)
             pg.fill('input[name="email"]', EMAIL)
             pg.fill('input[name="password"]', SENHA)
             with pg.expect_navigation(wait_until="domcontentloaded", timeout=25000):
