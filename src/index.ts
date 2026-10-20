@@ -449,12 +449,22 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
         const doId = idDito
           ? mensagemPorIdCurto(chatJid, idDito, ASSISTANT_NAME)
           : undefined;
-        if (idDito && !doId) {
-          logger.warn(
-            { chatJid, idDito },
-            'executor: id de mensagem não resolveu, caindo na linha mais nova',
-          );
-        }
+        // ⚠️ LOGA SEMPRE, com os três desfechos distinguíveis.
+        //
+        // A primeira versão só avisava quando o id vinha e não resolvia. Mas o
+        // caso que importa medir é o agente NÃO devolver o campo: ali `idDito`
+        // é undefined, nenhum aviso saía, e o host caía no comportamento antigo
+        // CALADO. Resultado: zero avisos significava "funcionou" ou "o contrato
+        // novo não pegou", indistinguíveis — e foi exatamente assim que a
+        // primeira medição no ar não concluiu nada (20/10/2026).
+        logger.info(
+          {
+            chatJid,
+            amarracao: doId ? 'ok' : idDito ? 'nao_resolveu' : 'sem_campo',
+            idDito: idDito ?? null,
+          },
+          'executor: amarração do turno',
+        );
         const doBanco =
           doId ?? ultimaMensagemDoPaciente(chatJid, ASSISTANT_NAME);
         const perguntaReal = doBanco?.content ?? ultima?.content ?? '';
