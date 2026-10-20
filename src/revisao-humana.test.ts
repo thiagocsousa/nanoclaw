@@ -438,3 +438,72 @@ describe('pastaDeObservacaoDeDm', () => {
     expect(r.motivo).toContain('REVISAO_HUMANA_FOLDERS');
   });
 });
+
+// --- retemResposta e podeMostrarPresenca ---
+
+/**
+ * ⛔ O incidente de 20/10/2026: com a observação ligada, 13 mensagens
+ * "Só um instante." chegaram a 5 pacientes reais. A retenção excluía
+ * `escalar` — correto no modo revisão, inverso em observação.
+ */
+describe('retemResposta', () => {
+  const DM = '558699999999@s.whatsapp.net';
+  const GRUPO = '120363000@g.us';
+
+  beforeEach(async () => {
+    process.env.OBSERVACAO_FOLDERS = PASTA;
+    vi.resetModules();
+    mod = await import('./revisao-humana.js');
+  });
+  afterEach(() => {
+    delete process.env.OBSERVACAO_FOLDERS;
+  });
+
+  it('EM OBSERVAÇÃO retém até o escalonamento', () => {
+    // Este é o caso do incidente. "Só um instante." é mensagem ao paciente.
+    expect(mod.retemResposta(PASTA, DM, 'escalar')).toBe(true);
+  });
+
+  it('em observação retém a resposta normal também', () => {
+    expect(mod.retemResposta(PASTA, DM, 'responder')).toBe(true);
+    expect(mod.retemResposta(PASTA, DM, 'marcar')).toBe(true);
+  });
+
+  it('CONTROLE NEGATIVO: em GRUPO o escalonamento passa direto', () => {
+    // A exclusão original existe por uma razão boa e tem de continuar valendo
+    // onde ela vale: o humano já vai ver o caso, e pedir que ele aprove a
+    // mensagem que diz "olha isto" é volta inútil. Grupo nunca é observado.
+    expect(mod.retemResposta(PASTA, GRUPO, 'escalar')).toBe(false);
+    expect(mod.retemResposta(PASTA, GRUPO, 'responder')).toBe(true);
+  });
+
+  it('CONTROLE NEGATIVO: pasta sem revisão não retém nada', () => {
+    expect(mod.retemResposta('whatsapp_outra', DM, 'responder')).toBe(false);
+    expect(mod.retemResposta('whatsapp_outra', DM, 'escalar')).toBe(false);
+  });
+});
+
+describe('podeMostrarPresenca', () => {
+  const DM = '558699999999@s.whatsapp.net';
+
+  beforeEach(async () => {
+    process.env.OBSERVACAO_FOLDERS = PASTA;
+    vi.resetModules();
+    mod = await import('./revisao-humana.js');
+  });
+  afterEach(() => {
+    delete process.env.OBSERVACAO_FOLDERS;
+  });
+
+  it('NÃO mostra "digitando" em DM observada', () => {
+    // Presença é egresso: o paciente via atividade do número da clínica mesmo
+    // quando nada seria enviado, porque o setTyping dispara 169 linhas antes
+    // da retenção.
+    expect(mod.podeMostrarPresenca(PASTA, DM)).toBe(false);
+  });
+
+  it('CONTROLE NEGATIVO: mostra em grupo e em pasta não observada', () => {
+    expect(mod.podeMostrarPresenca(PASTA, '120363000@g.us')).toBe(true);
+    expect(mod.podeMostrarPresenca('whatsapp_outra', DM)).toBe(true);
+  });
+});

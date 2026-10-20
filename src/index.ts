@@ -99,6 +99,8 @@ import {
 import { abreConversa, conversaAbertaEm } from './memoria-conversa.js';
 import {
   emObservacao,
+  podeMostrarPresenca,
+  retemResposta,
   lePendentes,
   pastaDeObservacaoDeDm,
   aprovaEmQualquerPasta,
@@ -378,7 +380,13 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
     }, IDLE_TIMEOUT);
   };
 
-  await channel.setTyping?.(chatJid, true);
+  // ⛔ Presença É egresso: o paciente vê "digitando…" vindo do número da
+  // clínica. Esta linha dispara 169 linhas ANTES da trava de texto, então em
+  // observação ela vazava atividade mesmo quando nada era enviado. Não é
+  // mensagem, é presença, e passava por fora de toda trava de texto.
+  if (podeMostrarPresenca(group.folder, chatJid)) {
+    await channel.setTyping?.(chatJid, true);
+  }
   // Marco do turno: a cadência humana é um ALVO de tempo total percebido, e o
   // tempo que o container gasta pensando já foi silêncio para quem espera.
   const inicioDoTurno = Date.now();
@@ -547,7 +555,21 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
         //
         // Escalonamento passa direto: o caso já está com um humano, e pedir que
         // ele aprove a mensagem que diz "olha isto" é uma volta inútil.
-        if (wantsRevisaoHumana(group.folder) && acaoDoTurno !== 'escalar') {
+        //
+        // ⛔ MENOS EM OBSERVAÇÃO, e isto custou um incidente em produção
+        // (20/10/2026): 13 mensagens "Só um instante." chegaram a 5 pacientes
+        // reais a partir do número principal, uma delas seis vezes para quem
+        // tinha escrito que o olho estava doendo.
+        //
+        // A exclusão acima está CERTA para o modo revisão — o humano já vai ver
+        // o caso. Em observação a premissa inverte: o objetivo é que NADA chegue
+        // ao paciente, e "Só um instante." é uma mensagem ao paciente. E
+        // escalonamento é o desfecho mais comum de uma DM desconhecida, então
+        // era o caminho principal, não borda.
+        //
+        // O humano continua sendo notificado: quem avisa é `escala()`, dentro do
+        // executor, que não passa por aqui. O que esta linha recusa é a ENTREGA.
+        if (retemResposta(group.folder, chatJid, acaoDoTurno)) {
           const partes = mensagensDe(paraEnviar);
           if (partes.length > 0) {
             const alvo = destinoDaRevisao();
@@ -861,8 +883,11 @@ async function startMessageLoop(): Promise<void> {
               messagesToSend[messagesToSend.length - 1].timestamp;
             saveState();
             // Show typing indicator while the container processes the piped message
-            channel
-              .setTyping?.(chatJid, true)
+            // ⛔ Menos em observação: presença é egresso. Ver o comentário no
+            // `setTyping` do início do turno.
+            if (podeMostrarPresenca(group.folder, chatJid))
+              channel
+                .setTyping?.(chatJid, true)
               ?.catch((err) =>
                 logger.warn({ chatJid, err }, 'Failed to set typing indicator'),
               );

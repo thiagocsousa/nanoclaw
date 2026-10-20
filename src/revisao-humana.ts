@@ -123,6 +123,53 @@ export function emObservacao(groupFolder?: string, chatJid?: string): boolean {
 }
 
 /**
+ * A resposta deste turno fica RETIDA, em vez de ir ao paciente?
+ *
+ * ⛔ Nasceu de um incidente em produção em 20/10/2026: com a observação ligada,
+ * 13 mensagens "Só um instante." chegaram a 5 pacientes reais a partir do
+ * número principal — uma paciente que tinha escrito que o olho estava doendo
+ * recebeu seis.
+ *
+ * O host excluía `escalar` da retenção, e a exclusão está CERTA para o modo
+ * revisão: o humano já vai ver o caso, pedir que ele aprove a mensagem que diz
+ * "olha isto" é volta inútil. **Em observação a premissa inverte**: o objetivo é
+ * que NADA chegue ao paciente, e "Só um instante." é uma mensagem ao paciente.
+ * E escalonamento é o desfecho mais comum de uma DM desconhecida, então era o
+ * caminho principal, não borda.
+ *
+ * O humano continua avisado de qualquer forma: quem notifica é `escala()`, no
+ * executor, que não passa por aqui. O que esta decisão governa é a ENTREGA.
+ *
+ * É função pura e exportada de propósito: a versão anterior era um `if` inline
+ * no meio de 700 linhas de `index.ts`, sem teste possível, e foi exatamente ali
+ * que o furo morou.
+ */
+export function retemResposta(
+  groupFolder: string,
+  chatJid: string,
+  acao: string,
+): boolean {
+  if (!pastasComRevisao().includes(groupFolder)) return false;
+  if (acao !== 'escalar') return true;
+  return emObservacao(groupFolder, chatJid);
+}
+
+/**
+ * O paciente pode ver "digitando…" neste chat?
+ *
+ * ⛔ Presença É egresso, e passava por fora de toda trava de texto: o
+ * `setTyping` do início do turno dispara 169 linhas ANTES da retenção, então em
+ * observação o paciente via atividade do número da clínica mesmo quando nada
+ * seria enviado.
+ */
+export function podeMostrarPresenca(
+  groupFolder: string,
+  chatJid: string,
+): boolean {
+  return !emObservacao(groupFolder, chatJid);
+}
+
+/**
  * Valida a pasta de observação de DM pedida por env.
  *
  * ⛔ É a trava de CONFIGURAÇÃO, e protege a única falha que importa nesta
