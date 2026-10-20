@@ -179,8 +179,25 @@ export function rodaScript(opts: {
         // `signal` separa os dois: timeout chega como
         // `{code: null, signal: 'SIGTERM', killed: true}`; saída não-zero como
         // `{code: 3, signal: null, killed: false}`.
+        // ⚠️ O predicado é "o processo SAIU sozinho?", não "houve sinal?".
+        //
+        // `typeof err.code === 'number'` só acontece quando o container
+        // terminou com status próprio — e aí o `--rm` já removeu. Todo o resto
+        // é cliente morto por nós, com o container vivo do outro lado:
+        //
+        //   saída não-zero   code=3                                signal=null
+        //   timeout          code=null                             signal=SIGTERM
+        //   maxBuffer        code=ERR_CHILD_PROCESS_STDIO_MAXBUFFER signal=undefined
+        //   binário ausente  code=ENOENT                           signal=undefined
+        //
+        // A primeira versão testava só `signal`, e o maxBuffer passava batido
+        // (medido: `signal` vem undefined) — o chromium ficava vivo até a
+        // varredura de 5 minutos. Achado do review adversarial do Codex em
+        // 20/10/2026. No ENOENT não há container e o `rm -f` erra sem
+        // consequência, que é o preço certo a pagar pela regra simples.
         const sinal = err.signal;
-        if (sinal) colheContainer(opts.nome);
+        const saiuSozinho = typeof err.code === 'number';
+        if (!saiuSozinho) colheContainer(opts.nome);
         resolve({
           stdout,
           stderr,

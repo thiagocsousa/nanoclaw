@@ -424,17 +424,21 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
         // certo (daí os rótulos corretos) e o host lia a PRIMEIRA mensagem da
         // conversa. Virou laço de agendamento, e motivo de escalonamento errado
         // em todo caso aberto. Ver `ultimaMensagemDoPaciente`.
-        const perguntaReal =
-          ultimaMensagemDoPaciente(chatJid, ASSISTANT_NAME) ??
-          ultima?.content ??
-          '';
+        //
+        // ⚠️ Texto e remetente vêm SEMPRE da mesma fonte. Misturar os dois —
+        // texto do banco, remetente da janela — fazia num grupo o aceite de uma
+        // pessoa ser atribuído ao JID de outra, e esse JID vira busca de
+        // cadastro e telefone de contato da consulta.
+        const doBanco = ultimaMensagemDoPaciente(chatJid, ASSISTANT_NAME);
+        const perguntaReal = doBanco?.content ?? ultima?.content ?? '';
+        const remetenteReal = doBanco?.sender ?? ultima?.sender ?? '';
         const r = await executa(
           group.folder,
           raw,
           perguntaReal,
           { sendMessage: enviaParaDestino },
           chatJid,
-          ultima?.sender ?? '',
+          remetenteReal,
         );
         if (!r) {
           // Sem tabela não há texto aprovado, e improvisar é o que esta

@@ -190,6 +190,31 @@ describe('rodaScript', () => {
     expect(mockExecFile).toHaveBeenCalledTimes(1);
   });
 
+  it.each([
+    ['maxBuffer', 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER', undefined],
+    ['binário ausente', 'ENOENT', undefined],
+    ['timeout', null, 'SIGTERM'],
+  ])('colhe quando o cliente morreu: %s', async (_nome, code, signal) => {
+    // ⚠️ A primeira versão testava só `signal`, e o maxBuffer passava batido:
+    // medido, `signal` vem UNDEFINED ali, então o chromium ficava vivo até a
+    // varredura de 5 minutos. Achado do review adversarial do Codex em
+    // 20/10/2026. O predicado certo é "o processo saiu sozinho?", e só
+    // `typeof code === 'number'` responde sim.
+    const p = rodaScript({
+      nome: 'nanoclaw-script-vagas-cli',
+      args: ['run'],
+      timeoutMs: 10,
+      maxBuffer: 1,
+    });
+    responde(0, Object.assign(new Error('x'), { code, signal }), '', '');
+    await p;
+    expect(mockExecFile.mock.calls[1]?.[1]).toEqual([
+      'rm',
+      '-f',
+      'nanoclaw-script-vagas-cli',
+    ]);
+  });
+
   it('devolve stdout e stderr também na FALHA', async () => {
     // ⚠️ É disso que `agendamento.ts` depende: o motivo que chega à RECEPÇÃO
     // sai do stdout do `iclinic_marcar.py`, que é onde ele escreve por que

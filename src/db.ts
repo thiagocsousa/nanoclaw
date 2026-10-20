@@ -415,10 +415,18 @@ export function getNewMessages(
 export function ultimaMensagemDoPaciente(
   chatJid: string,
   botPrefix: string,
-): string | undefined {
+): { content: string; sender: string } | undefined {
+  // ⚠️ Devolve o remetente JUNTO, da MESMA linha, e isto não é conveniência.
+  //
+  // A primeira versão devolvia só o texto, e quem chamava pegava o remetente
+  // de `missedMessages[length - 1]` — a janela velha. Num GRUPO com várias
+  // pessoas, o texto saía de uma e o JID de outra. E esse JID vira busca de
+  // cadastro, telefone de contato da consulta e chave de idempotência: um
+  // aceite podia marcar consulta com o telefone de OUTRO participante.
+  // (Achado do review adversarial do Codex, 20/10/2026.)
   const row = db
     .prepare(
-      `SELECT content FROM messages
+      `SELECT content, sender FROM messages
        WHERE chat_jid = ?
          AND is_bot_message = 0
          AND content NOT LIKE ? AND content NOT LIKE ?
@@ -427,9 +435,10 @@ export function ultimaMensagemDoPaciente(
        LIMIT 1`,
     )
     .get(chatJid, `${botPrefix}:%`, `${BOT_MARK}%`) as
-    | { content: string | null }
+    | { content: string | null; sender: string | null }
     | undefined;
-  return row?.content ?? undefined;
+  if (!row?.content) return undefined;
+  return { content: row.content, sender: row.sender ?? '' };
 }
 
 export function getMessagesSince(

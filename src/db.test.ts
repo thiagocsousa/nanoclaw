@@ -14,6 +14,7 @@ import {
   getTaskById,
   setRegisteredGroup,
   storeMessage,
+  ultimaMensagemDoPaciente,
   updateTask,
 } from './db.js';
 import { formatMessages } from './router.js';
@@ -719,5 +720,72 @@ describe('getMessagesSince: incluirBot', () => {
       'Escolha: 1 refrativa, 2 catarata',
       '2',
     ]);
+  });
+});
+
+// --- ultimaMensagemDoPaciente ---
+
+describe('ultimaMensagemDoPaciente', () => {
+  it('devolve o texto E o remetente da MESMA linha', () => {
+    // ⚠️ O teste que guarda o achado grave do review adversarial do Codex
+    // (20/10/2026): a versão anterior devolvia só o texto, e quem chamava
+    // pegava o remetente da janela velha de `missedMessages`. Num GRUPO com
+    // várias pessoas, o texto saía de uma e o JID de outra — e esse JID vira
+    // busca de cadastro e TELEFONE DE CONTATO DA CONSULTA. Um "pode ser esse
+    // horário" do paciente podia marcar com o telefone de outro participante.
+    storeChatMetadata('grupo@g.us', '2026-10-20T00:00:00.000Z');
+    store({
+      id: 'm1',
+      chat_jid: 'grupo@g.us',
+      sender: 'paciente@s.whatsapp.net',
+      sender_name: 'Paciente',
+      content: 'pode ser esse horario',
+      timestamp: '2026-10-20T10:00:00.000Z',
+    });
+    store({
+      id: 'm2',
+      chat_jid: 'grupo@g.us',
+      sender: 'outra-pessoa@s.whatsapp.net',
+      sender_name: 'Outra',
+      content: 'a primeira',
+      timestamp: '2026-10-20T10:01:00.000Z',
+    });
+
+    const r = ultimaMensagemDoPaciente('grupo@g.us', 'Lara');
+    expect(r).toEqual({
+      content: 'a primeira',
+      sender: 'outra-pessoa@s.whatsapp.net',
+    });
+    // O par não pode cruzar: o texto mais novo é de quem o enviou.
+    expect(r?.sender).not.toBe('paciente@s.whatsapp.net');
+  });
+
+  it('ignora as mensagens do próprio bot', () => {
+    storeChatMetadata('grupo2@g.us', '2026-10-20T00:00:00.000Z');
+    store({
+      id: 'b1',
+      chat_jid: 'grupo2@g.us',
+      sender: 'paciente@s.whatsapp.net',
+      sender_name: 'Paciente',
+      content: 'tem horario?',
+      timestamp: '2026-10-20T10:00:00.000Z',
+    });
+    store({
+      id: 'b2',
+      chat_jid: 'grupo2@g.us',
+      sender: 'bot@s.whatsapp.net',
+      sender_name: 'Lara',
+      content: 'Lara: Tenho quarta as 17:40.',
+      timestamp: '2026-10-20T10:01:00.000Z',
+    });
+
+    expect(ultimaMensagemDoPaciente('grupo2@g.us', 'Lara')?.content).toBe(
+      'tem horario?',
+    );
+  });
+
+  it('devolve undefined quando a conversa não tem mensagem de paciente', () => {
+    storeChatMetadata('vazio@g.us', '2026-10-20T00:00:00.000Z');
+    expect(ultimaMensagemDoPaciente('vazio@g.us', 'Lara')).toBeUndefined();
   });
 });
