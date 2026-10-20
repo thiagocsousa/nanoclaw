@@ -261,7 +261,7 @@
       "acao": "responder",
       "fecho": false,
       "textos": [
-        "Não atendemos consultas pelo IASPI, então teria que ser particular.\n\nMas os exames podem ser feitos pelo próprio IASPI, com exceção do Pentacam, que é particular. E a cirurgia pode ser pelo PLAMTA, se houver indicação médica e o plano autorizar."
+        "Não atendemos consultas pelo IASPI, mas temos a opção do atendimento particular.\n\nOs exames podem ser feitos pelo próprio IASPI, com exceção do Pentacam, que é particular. E a cirurgia pode ser pelo PLAMTA, se houver indicação médica e o plano autorizar."
       ],
       "emenda_triagem": true
     },
@@ -569,7 +569,7 @@
       "acao": "responder",
       "fecho": false,
       "textos": [
-        "É esse mesmo número que você está usando aqui. Se ligar, vai falar com outra atendente; por mensagem eu te respondo na hora."
+        "É esse mesmo número que você está usando aqui. Mas o atendimento por telefone é feito por outra atendente, então talvez seja necessário explicar novamente o que você precisa."
       ]
     },
     "quer_ligar": {
@@ -578,7 +578,7 @@
       "acao": "responder",
       "fecho": false,
       "textos": [
-        "É esse mesmo número, pode ligar aqui. Se ligar, vai falar com outra atendente; por mensagem eu já continuo com você agora."
+        "Pode ligar para esse mesmo número, sim! Mas atendimento por telefone é feito por outra atendente, então talvez seja necessário explicar novamente o que você precisa."
       ]
     },
     "audio_escala": {
