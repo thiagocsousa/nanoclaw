@@ -1,7 +1,13 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
+// ⚠️ `code` é `number | string | null`, e os três casos importam: número é
+// saída própria do processo, string é erro do CLIENTE
+// (ERR_CHILD_PROCESS_STDIO_MAXBUFFER, ENOENT) e null vem junto com um sinal.
+// É essa união que `rodaScript` usa para decidir se há container para colher.
 type Cb = (
-  err: (Error & { signal?: string | null; code?: number | null }) | null,
+  err:
+    | (Error & { signal?: string | null; code?: number | string | null })
+    | null,
   stdout: string,
   stderr: string,
 ) => void;
