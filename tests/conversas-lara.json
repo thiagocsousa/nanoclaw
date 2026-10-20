@@ -2423,6 +2423,23 @@
       ]
     },
     {
+      "id": "Y05b",
+      "categoria": "conversao",
+      "sobre": "CONTROLE NEGATIVO do Y05: um \"não\" SEGUIDO de pergunta não é fechamento. Tem de responder o convênio, não despedir-se.",
+      "turnos": [
+        {
+          "paciente": "quanto custa a consulta?",
+          "exige": ["430"]
+        },
+        {
+          "paciente": "não, era só pra saber se vocês atendem Unimed",
+          "exige": ["[Uu]nimed"],
+          "proibido": ["Eu que agradeço", "Imagina!"],
+          "nota": "A ampliação do `quando` do agradece_fecha para cobrir \"era só pra saber mesmo\" (Y05) pode engolir isto, que é PERGUNTA com um \"não\" na frente. Se este cenário reprovar, a ampliação foi longe demais."
+        }
+      ]
+    },
+    {
       "id": "Y06",
       "categoria": "conversao",
       "sobre": "IMPROVÁVEL: aceita o convite leve e no mesmo turno muda de assunto.",

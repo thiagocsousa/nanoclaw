@@ -55,7 +55,7 @@
     },
     "agradece_fecha": {
       "bloco": "F00f",
-      "quando": "agradece e/ou encerra, sem pedir mais nada: 'obrigado', 'era só isso', 'valeu', 'ok obrigada'. ⚠️ NÃO é pedir_esclarecimento: aqui ele está FECHANDO, não sinalizando que quer algo.",
+      "quando": "agradece e/ou encerra, sem pedir mais nada: 'obrigado', 'era só isso', 'valeu', 'ok obrigada'. TAMBÉM o paciente DISPENSANDO o convite de horário sem perguntar nada novo: 'não, era só pra saber mesmo', 'só queria saber o valor', 'por enquanto é só', 'depois eu vejo'. ⚠️ NÃO é pedir_esclarecimento: aqui ele está FECHANDO, não sinalizando que quer algo. ⚠️ E um 'não' SEGUIDO de pergunta NÃO é fechamento: 'não, era só pra saber se vocês atendem Unimed' é convenio_consulta — o que decide é haver ou não pergunta nova, não a palavra 'não'.",
       "acao": "responder",
       "fecho": false,
       "textos": [
