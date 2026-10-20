@@ -744,6 +744,20 @@ def main():
     print("estimativa: ~%d min" % estimado, flush=True)
     resultados = []
     for n, cen in enumerate(cenarios, 1):
+        # ⚠️ Checa o expediente A CADA cenário, não só na largada.
+        #
+        # Uma passada completa leva horas e ATRAVESSA o fim do expediente
+        # (21:30 UTC). A primeira versão desta trava só checava no início, e
+        # então uma passada iniciada às 18h UTC reprovaria em falso todos os
+        # cenários depois das 21:30 — o mesmo diagnóstico falso que ela existe
+        # para evitar. Para aqui e devolve o que já mediu, que é dado bom.
+        motivo = fora_do_expediente()
+        if motivo and not args.fora_do_expediente:
+            print("\nPARADA: o expediente fechou no meio da passada.", flush=True)
+            print("  %s." % motivo, flush=True)
+            print("  %d de %d cenários medidos; o resto reprovaria em falso."
+                  % (n - 1, len(cenarios)), flush=True)
+            break
         print("[%d/%d] %s %s ..." % (n, len(cenarios), cen["id"], cen["categoria"]),
               end=" ", flush=True)
         isola_cenario()
