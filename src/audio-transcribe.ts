@@ -33,11 +33,12 @@
  * timeout, JSON inválido: a agente continua respondendo. O bug original era o
  * paciente ficar sem resposta, e nada aqui pode recriá-lo.
  */
-import { execFile } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
+import { readonlyMountArgs } from './container-runtime.js';
 import { readEnvFile } from './env.js';
+import { nomeiaContainer, rodaScript } from './script-container.js';
 import { logger } from './logger.js';
 
 const envConfig = readEnvFile([
@@ -216,14 +217,34 @@ export async function transcreveAudio(
 
   const dir = path.dirname(arquivo);
   const nome = path.basename(arquivo);
+  // ⚠️ `--name`, para poder COLHER o container.
+  //
+  // Sem ele o container nascia com nome aleatório do Docker, e aí era
+  // invisível tanto para `cleanupOrphans()` quanto para
+  // `colheScriptsEsquecidos()` — foi exatamente assim que um `iclinic_vagas.py`
+  // chamado `inspiring_hofstadter` viveu uma HORA na VM em 19/10/2026.
+  //
+  // E aqui o vazamento é PIOR que no caminho do iClinic: este container pede
+  // `--cpus=1.5` numa máquina de 2 núcleos, então um órfão fica com 75% da VM.
+  // Está no caminho de áudio de PACIENTE, onde ninguém olha o log na hora.
+  //
+  // O prefixo de script faz a varredura periódica cobrir este container: o
+  // teto do STT é 90 s, então um de 5 minutos é, por definição, órfão.
+  const containerName = nomeiaContainer('stt');
   const args = [
     'run',
     '--rm',
+    '--name',
+    containerName,
     '--network',
     'none', // áudio de paciente não sai da máquina
     `--memory=${MEMORY}`,
     '--memory-swap',
     MEMORY, // sem swap: estourar deve falhar rápido, não arrastar a VM
+    // ⚠️ `--cpus` aqui é teto RÍGIDO e deliberado do autor, diferente do
+    // `--cpu-shares` dos containers de script: whisper descontrolado numa VM de
+    // 2 núcleos não pode engolir a máquina. Mantido como estava — o defeito
+    // deste arquivo era o ciclo de vida, não o limite.
     '--cpus=1.5',
     // O piso de citação é do CONTÊINER (ele marca `incerta`); o de urgência é
     // do host, porque é ele que conhece o vocabulário de queixa.
@@ -233,47 +254,47 @@ export async function transcreveAudio(
     `STT_BEAM=${BEAM}`,
     '-e',
     `STT_PISO_CONFIANCA=${PISO_CONFIANCA}`,
-    '-v',
-    `${dir}:/audio:ro`,
+    ...readonlyMountArgs(dir, '/audio'),
     IMAGE,
     `/audio/${nome}`,
   ];
 
-  return new Promise((resolve) => {
-    execFile(
-      'docker',
-      args,
-      { timeout: TIMEOUT_MS, maxBuffer: 1024 * 1024 },
-      (err, stdout, stderr) => {
-        if (err) {
-          logger.warn(
-            { err: err.message, arquivo: nome },
-            'stt: transcrição falhou, usando marcador',
-          );
-          return resolve(undefined);
-        }
-        const t = parseSaidaStt(stdout);
-        if (!t) {
-          logger.warn(
-            { arquivo: nome, stderr: stderr.slice(0, 200) },
-            'stt: saída não interpretável',
-          );
-          return resolve(undefined);
-        }
-        logger.info(
-          {
-            arquivo: nome,
-            segundos: t.segundos,
-            confianca: t.confianca,
-            incerta: t.incerta,
-            motivo: t.motivo,
-            // O TEXTO não vai para o log: é fala de paciente sobre saúde.
-            caracteres: t.texto.length,
-          },
-          'stt: transcrito',
-        );
-        resolve(t);
-      },
-    );
+  // ⚠️ `rodaScript` em vez de `execFile('docker', ...)`: o binário estava
+  // CRAVADO como 'docker' aqui, o que quebraria na migração para o Apple
+  // Container, e o `timeout` do `execFile` matava o cliente sem matar o
+  // container. Quem possui spawn, timeout e colheita é `script-container.ts`.
+  const { stdout, stderr, erro, timeout } = await rodaScript({
+    nome: containerName,
+    args,
+    timeoutMs: TIMEOUT_MS,
+    maxBuffer: 1024 * 1024,
   });
+  if (erro) {
+    logger.warn(
+      { err: erro, arquivo: nome, timeout },
+      'stt: transcrição falhou, usando marcador',
+    );
+    return undefined;
+  }
+  const t = parseSaidaStt(stdout);
+  if (!t) {
+    logger.warn(
+      { arquivo: nome, stderr: stderr.slice(0, 200) },
+      'stt: saída não interpretável',
+    );
+    return undefined;
+  }
+  logger.info(
+    {
+      arquivo: nome,
+      segundos: t.segundos,
+      confianca: t.confianca,
+      incerta: t.incerta,
+      motivo: t.motivo,
+      // O TEXTO não vai para o log: é fala de paciente sobre saúde.
+      caracteres: t.texto.length,
+    },
+    'stt: transcrito',
+  );
+  return t;
 }
