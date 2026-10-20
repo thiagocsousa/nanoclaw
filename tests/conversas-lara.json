@@ -1678,6 +1678,30 @@
       ]
     },
     {
+      "id": "K06b",
+      "categoria": "endereco",
+      "sobre": "O paciente chama o mesmo lugar de CLÍNICA e de HOSPITAL. As duas formas têm de achar o endereço: quem decide é o nome próprio, não a palavra antes dele (Thiago, 20/10/2026).",
+      "turnos": [
+        {
+          "paciente": "onde fica a clinica namir clementino?",
+          "exige": ["[ÁA]urea Freire"],
+          "proibido": ["S[óo] um instante"]
+        },
+        {
+          "paciente": "e o hospital tercio rezende, qual o endereco?",
+          "exige": ["Gabriel Ferreira"],
+          "proibido": ["S[óo] um instante"],
+          "nota": "INVERTIDO de propósito: Tércio Rezende é clínica e aqui o paciente chama de hospital. Se o classificador se apoiar na palavra em vez do nome, este turno reprova."
+        },
+        {
+          "paciente": "a clinica vilar fica onde?",
+          "exige": ["Benjamin Constant"],
+          "proibido": ["S[óo] um instante"],
+          "nota": "Também invertido: o Vilar é HOSPITAL e o paciente chama de clínica. Cobre o outro sentido do mesmo erro."
+        }
+      ]
+    },
+    {
       "id": "K07",
       "categoria": "outro_local",
       "sobre": "Pergunta se o hospital aceita o plano dele. A cobertura muda por hospital (Thiago, 04/10/2026), é raro, e quando não aceita o caminho é particular, que envolve valor de cirurgia. Nunca dizer que não cobre: o não fecha um caso que tem alternativa paga.",

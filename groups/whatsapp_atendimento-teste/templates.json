@@ -520,7 +520,7 @@
     },
     "endereco_hospital_vilar": {
       "bloco": "F17",
-      "quando": "pergunta o endereço, a localização ou como chegar NO Hospital Vilar, nomeando esse hospital",
+      "quando": "pergunta o endereço, a localização ou como chegar NO Hospital Vilar, nomeando o lugar. ⚠️ O paciente pode chamar de hospital, de clínica ou só pelo nome, e as três formas valem: quem decide é o NOME próprio, não a palavra antes dele.",
       "acao": "responder",
       "fecho": true,
       "textos": [
@@ -529,7 +529,7 @@
     },
     "endereco_hospital_olho": {
       "bloco": "F17",
-      "quando": "pergunta o endereço, a localização ou como chegar NO Hospital do Olho, nomeando esse hospital",
+      "quando": "pergunta o endereço, a localização ou como chegar NO Hospital do Olho, nomeando o lugar. ⚠️ O paciente pode chamar de hospital, de clínica ou só pelo nome, e as três formas valem: quem decide é o NOME próprio, não a palavra antes dele.",
       "acao": "responder",
       "fecho": true,
       "textos": [
@@ -538,7 +538,7 @@
     },
     "endereco_hospital_namir": {
       "bloco": "F17",
-      "quando": "pergunta o endereço, a localização ou como chegar NO Namir Clementino, nomeando esse hospital",
+      "quando": "pergunta o endereço, a localização ou como chegar NO Namir Clementino, nomeando o lugar. ⚠️ O paciente pode chamar de hospital, de clínica ou só pelo nome, e as três formas valem: quem decide é o NOME próprio, não a palavra antes dele.",
       "acao": "responder",
       "fecho": true,
       "textos": [
@@ -547,7 +547,7 @@
     },
     "endereco_hospital_tercio": {
       "bloco": "F17",
-      "quando": "pergunta o endereço, a localização ou como chegar NO Tércio Rezende, nomeando esse hospital",
+      "quando": "pergunta o endereço, a localização ou como chegar NO Tércio Rezende, nomeando o lugar. ⚠️ O paciente pode chamar de hospital, de clínica ou só pelo nome, e as três formas valem: quem decide é o NOME próprio, não a palavra antes dele.",
       "acao": "responder",
       "fecho": true,
       "textos": [
@@ -556,7 +556,7 @@
     },
     "endereco_hospital_coe": {
       "bloco": "F17",
-      "quando": "pergunta o endereço, a localização ou como chegar NO COE, nomeando esse hospital",
+      "quando": "pergunta o endereço, a localização ou como chegar NO COE, nomeando o lugar. ⚠️ O paciente pode chamar de hospital, de clínica ou só pelo nome, e as três formas valem: quem decide é o NOME próprio, não a palavra antes dele.",
       "acao": "responder",
       "fecho": true,
       "textos": [
