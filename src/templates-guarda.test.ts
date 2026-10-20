@@ -320,3 +320,49 @@ describe('so_do_host concorda com o `quando`', () => {
     expect(quantas).toBeGreaterThanOrEqual(9);
   });
 });
+
+/**
+ * IASPI e IPMT são o MESMO texto com as siglas trocadas.
+ *
+ * Os dois planos têm a mesma regra — consulta não atendida, exames pelo plano
+ * menos o Pentacam, cirurgia pelo plano cirúrgico — e os textos sempre foram
+ * idênticos a menos de IASPI↔IPMT e PLAMTA↔PLANTE.
+ *
+ * ⚠️ E eles DIVERGIRAM em 20/10/2026: a Marina aprovou uma redação nova e o
+ * Thiago mandou três textos, o do IASPI entre eles e o do IPMT não. Eu apliquei
+ * só o aprovado — certo — e por algumas horas o paciente do IPMT ouviu a
+ * redação velha enquanto o do IASPI ouvia a nova. Ninguém teria notado: são
+ * duas intenções diferentes, disparadas por siglas diferentes, e nenhum cenário
+ * compara uma com a outra.
+ *
+ * Este teste não impede mudar os dois: impede mudar UM e esquecer o outro. Se
+ * algum dia eles tiverem de divergir de verdade, é só apagar este teste — de
+ * propósito, com alguém decidindo, que é o que faltou aqui.
+ */
+describe('convenio_iaspi e convenio_ipmt', () => {
+  it('são o mesmo texto com as siglas trocadas', () => {
+    const iaspi = TABELA.intencoes.convenio_iaspi?.textos?.[0];
+    const ipmt = TABELA.intencoes.convenio_ipmt?.textos?.[0];
+    expect(iaspi).toBeTruthy();
+    expect(ipmt).toBeTruthy();
+    const derivado = (iaspi as string)
+      .replaceAll('IASPI', 'IPMT')
+      .replace('PLAMTA', 'PLANTE');
+    expect(ipmt).toBe(derivado);
+  });
+
+  it('cada um nomeia só o seu par de siglas', () => {
+    // Controle negativo do teste acima: ele passaria se os DOIS textos fossem
+    // iguais e errados (ambos citando IASPI, por exemplo).
+    const iaspi = TABELA.intencoes.convenio_iaspi?.textos?.[0] as string;
+    const ipmt = TABELA.intencoes.convenio_ipmt?.textos?.[0] as string;
+    expect(iaspi).toContain('IASPI');
+    expect(iaspi).toContain('PLAMTA');
+    expect(iaspi).not.toContain('IPMT');
+    expect(iaspi).not.toContain('PLANTE');
+    expect(ipmt).toContain('IPMT');
+    expect(ipmt).toContain('PLANTE');
+    expect(ipmt).not.toContain('IASPI');
+    expect(ipmt).not.toContain('PLAMTA');
+  });
+});

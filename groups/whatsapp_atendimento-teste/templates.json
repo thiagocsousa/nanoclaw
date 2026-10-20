@@ -271,7 +271,7 @@
       "acao": "responder",
       "fecho": false,
       "textos": [
-        "Não atendemos consultas pelo IPMT, então teria que ser particular.\n\nMas os exames podem ser feitos pelo próprio IPMT, com exceção do Pentacam, que é particular. E a cirurgia pode ser pelo PLANTE, se houver indicação médica e o plano autorizar."
+        "Não atendemos consultas pelo IPMT, mas temos a opção do atendimento particular.\n\nOs exames podem ser feitos pelo próprio IPMT, com exceção do Pentacam, que é particular. E a cirurgia pode ser pelo PLANTE, se houver indicação médica e o plano autorizar."
       ],
       "emenda_triagem": true
     },
