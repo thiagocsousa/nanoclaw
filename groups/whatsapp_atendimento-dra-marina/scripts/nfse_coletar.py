@@ -66,10 +66,34 @@ def login(pw):
     b = pw.chromium.launch(
         headless=True,
         executable_path=os.environ.get("PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH"),
+        # ⚠️ Sem isto o chromium usa /dev/shm para a memória compartilhada
+        # entre seus processos, e o Docker dá 64 MB por padrão — com 64 MB
+        # ele não falha com erro, PENDURA. E este script NÃO passa pelos
+        # spawns do host que levam `--shm-size`, então aqui o conserto tem
+        # de viajar com o script. Medido: com 64 MB e só este arg, o login
+        # completa (19/10/2026).
+        args=["--disable-dev-shm-usage"],
     )
     ctx = b.new_context()
     pg = ctx.new_page()
     pg.goto("https://app.iclinic.com.br/", wait_until="domcontentloaded")
+    # ⚠️ Esperar o campo HABILITAR antes de digitar.
+    #
+    # O `fill` do Playwright já espera por "enabled", mas com orçamento FIXO
+    # de 30 s — e 30 s não bastam. Medido na VM em 19/10/2026: o campo leva
+    # ~2,5 s numa máquina folgada e passa de 30 s sob carga, porque a tela de
+    # login soma um tracker cujo DNS não resolve (event.getblue.io,
+    # ERR_NAME_NOT_RESOLVED) e uma geolocalização que vai até o timeout no
+    # headless. Quando estoura, o erro é '<input disabled ... "Email de
+    # acesso">' com "element is not enabled", que se lê como "o iClinic
+    # bloqueou a conta" — e não é: é corrida perdida.
+    #
+    # ⚠️ Este script roda em pipeline SILENCIOSO (ninguém olha o log na hora),
+    # e é por isso que ele estava entre os seis que não tinham a espera. A
+    # medição e o histórico completo estão em
+    # groups/whatsapp_atendimento-teste/scripts/iclinic_vagas.py.
+    pg.wait_for_selector(
+        'input[name="email"]:not([disabled])', timeout=45000)
     pg.fill('input[name="email"]', ICLINIC_EMAIL)
     pg.fill('input[name="password"]', ICLINIC_PASSWORD)
     with pg.expect_navigation(wait_until="domcontentloaded", timeout=20000):
