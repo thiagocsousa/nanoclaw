@@ -235,23 +235,39 @@ def fora_do_expediente():
     }
     if GRUPO_DIR.name not in folders:
         return None
+    # ⚠️ Config quebrada BARRA, não libera.
+    #
+    # A primeira versão devolvia None quando o fuso ou o horário não parseavam,
+    # e None aqui significa "pode rodar" — ou seja, a trava se desligava
+    # exatamente no caso em que mais se precisa dela, e a passada voltaria a
+    # produzir o diagnóstico falso que ela existe para evitar. O
+    # `src/expediente.ts` cai no PADRÃO e continua barrando; esta cópia agora
+    # faz o mesmo, e avisa qual valor está ruim.
     try:
         from zoneinfo import ZoneInfo
-        tz = ZoneInfo(_env("EXPEDIENTE_TZ") or "America/Fortaleza")
+        nome_tz = _env("EXPEDIENTE_TZ") or "America/Fortaleza"
+        tz = ZoneInfo(nome_tz)
     except Exception:
-        return None
+        return ("EXPEDIENTE_TZ=%r não é um fuso válido, e com config quebrada "
+                "a trava barra em vez de liberar" % (_env("EXPEDIENTE_TZ"),))
 
     def minutos(chave, padrao):
-        m = re.match(r"^(\d{1,2})(?:[:h](\d{2}))?$",
-                     (_env(chave) or padrao).strip())
+        bruto = (_env(chave) or padrao).strip()
+        m = re.match(r"^(\d{1,2})(?:[:h](\d{2}))?$", bruto)
         if not m:
             return None
-        return int(m.group(1)) * 60 + int(m.group(2) or 0)
+        h, mi = int(m.group(1)), int(m.group(2) or 0)
+        # Mesma validação do `minutosDe` em src/expediente.ts.
+        if h > 23 or mi > 59:
+            return None
+        return h * 60 + mi
 
     ini, fim = minutos("EXPEDIENTE_INICIO", "7:30"), minutos("EXPEDIENTE_FIM",
                                                              "18:30")
     if ini is None or fim is None:
-        return None
+        return ("EXPEDIENTE_INICIO=%r ou EXPEDIENTE_FIM=%r não é um horário "
+                "válido, e com config quebrada a trava barra em vez de liberar"
+                % (_env("EXPEDIENTE_INICIO"), _env("EXPEDIENTE_FIM")))
     agora = datetime.now(tz)
     atual = agora.hour * 60 + agora.minute
     if agora.weekday() > 4:

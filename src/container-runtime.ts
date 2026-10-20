@@ -74,6 +74,20 @@ export function nomeValidoDeContainer(name: string): boolean {
   return /^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/.test(name);
 }
 
+/**
+ * Argumentos de `ps` para listar containers nossos por prefixo.
+ *
+ * ⚠️ Mora AQUI porque `.claude/skills/convert-to-apple-container/SKILL.md`
+ * nomeia esta chamada como passo de migração ("Orphan detection:
+ * `docker ps --filter` → `container ls --format json`"), e a skill edita este
+ * arquivo. Dois consumidores, duas estratégias de execução deliberadamente
+ * diferentes — `cleanupOrphans` é `execSync` na subida, `colheScriptsEsquecidos`
+ * é `execFile` num tique —, mas UMA linha de comando.
+ */
+export function psArgs(prefixo: string, formato: string): string[] {
+  return ['ps', '--filter', `name=${prefixo}`, '--format', formato];
+}
+
 /** Stop a container by name. Uses execFileSync to avoid shell injection. */
 export function stopContainer(name: string): void {
   if (!nomeValidoDeContainer(name)) {
@@ -126,7 +140,10 @@ export function ensureContainerRuntimeRunning(): void {
 export function cleanupOrphans(): void {
   try {
     const output = execSync(
-      `${CONTAINER_RUNTIME_BIN} ps --filter name=${CONTAINER_NAME_PREFIX} --format '{{.Names}}'`,
+      [
+        CONTAINER_RUNTIME_BIN,
+        ...psArgs(CONTAINER_NAME_PREFIX, "'{{.Names}}'"),
+      ].join(' '),
       { stdio: ['pipe', 'pipe', 'pipe'], encoding: 'utf-8' },
     );
     const orphans = output.trim().split('\n').filter(Boolean);

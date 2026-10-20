@@ -111,7 +111,6 @@ import {
   wantsRevisaoHumana,
 } from './revisao-humana.js';
 import { logger } from './logger.js';
-import { colheScriptsEsquecidos } from './script-container.js';
 
 // Re-export for backwards compatibility during refactor
 export { escapeXml, formatMessages } from './router.js';
@@ -1256,20 +1255,6 @@ async function main(): Promise<void> {
       retomaConversasDoExpediente();
     } catch (err) {
       logger.warn({ err }, 'expediente: varredura de retomada falhou');
-    }
-    // ⚠️ Rede de segurança do vazamento de container, no tique que já existia.
-    //
-    // `cleanupOrphans()` só roda na SUBIDA do processo, e foi por isso que um
-    // `iclinic_vagas.py` de 19/10/2026 viveu uma HORA queimando 85% de um dos
-    // dois núcleos. E pendurar `cleanupOrphans` aqui seria pior que o bug: ela
-    // derruba todo `nanoclaw-*`, incluindo os containers de AGENTE vivos, com
-    // paciente dentro. `colheScriptsEsquecidos` filtra por script e exige
-    // idade, então pega o órfão de quem esquecer de colher sem tocar em
-    // conversa nenhuma. O teto é o maior timeout de script (180 s) com folga.
-    try {
-      colheScriptsEsquecidos(300_000);
-    } catch (err) {
-      logger.warn({ err }, 'script: varredura de órfãos falhou');
     }
   }, 60_000);
 

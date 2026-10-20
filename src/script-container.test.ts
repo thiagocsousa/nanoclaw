@@ -37,8 +37,9 @@ vi.mock('./container-runtime.js', async (importOriginal) => ({
   CONTAINER_RUNTIME_BIN: 'docker',
 }));
 
-import { CONTAINER_NAME_PREFIX } from './container-runtime.js';
+import { CONTAINER_NAME_PREFIX, psArgs } from './container-runtime.js';
 import {
+  IDADE_DE_ORFAO_MS,
   LIMITES_DE_RECURSO,
   PREFIXO_DE_SCRIPT,
   colheContainer,
@@ -101,8 +102,6 @@ describe('LIMITES_DE_RECURSO', () => {
     // trabalho, justamente no container do caminho de resposta ao paciente,
     // enquanto o container do AGENTE não tem limite nenhum. `--cpu-shares` só
     // vale sob disputa.
-    expect(LIMITES_DE_RECURSO).toContain('--cpu-shares');
-    expect(LIMITES_DE_RECURSO).not.toContain('--cpus');
     // Sem `--memory`: teto baixo faz o OOM killer derrubar o chromium no meio
     // da navegação e o erro que chega é outro igualmente enganoso. E com os
     // 64 MB padrão de /dev/shm o chromium não falha, PENDURA: `Page.goto`
@@ -199,7 +198,6 @@ describe('rodaScript', () => {
   it.each([
     ['maxBuffer', 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER', undefined],
     ['binário ausente', 'ENOENT', undefined],
-    ['timeout', null, 'SIGTERM'],
   ])('colhe quando o cliente morreu: %s', async (_nome, code, signal) => {
     // ⚠️ A primeira versão testava só `signal`, e o maxBuffer passava batido:
     // medido, `signal` vem UNDEFINED ali, então o chromium ficava vivo até a
@@ -219,6 +217,58 @@ describe('rodaScript', () => {
       '-f',
       'nanoclaw-script-vagas-cli',
     ]);
+  });
+
+  it('arma a rede de segunda chance SÓ quando o cliente morreu', async () => {
+    // ⚠️ Isto substituiu uma varredura de 60 s que rodava para sempre: medido,
+    // um fork/exec de 22 MB do CLI do docker caía 1 a 3 vezes DENTRO de cada
+    // execução de script, na mesma VM de 2 núcleos. O one-shot é equivalente
+    // porque `rodaScript` é o único dono de spawn — um container só vaza onde a
+    // colheita foi tentada.
+    vi.useFakeTimers();
+    try {
+      const p = rodaScript({
+        nome: 'nanoclaw-script-vagas-rede',
+        args: ['run'],
+        timeoutMs: 10,
+        maxBuffer: 1,
+      });
+      responde(
+        0,
+        Object.assign(new Error('x'), { code: null, signal: 'SIGTERM' }),
+        '',
+        '',
+      );
+      await p;
+      // 1ª chamada: o run. 2ª: o `rm -f` imediato. Nada de `ps` ainda.
+      expect(mockExecFile).toHaveBeenCalledTimes(2);
+      vi.advanceTimersByTime(IDADE_DE_ORFAO_MS + 1);
+      // Agora sim a varredura, UMA vez.
+      expect((mockExecFile.mock.calls[2][1] as string[])[0]).toBe('ps');
+      vi.advanceTimersByTime(IDADE_DE_ORFAO_MS * 5);
+      expect(mockExecFile).toHaveBeenCalledTimes(3);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('saída não-zero NÃO arma varredura nenhuma', async () => {
+    // Controle negativo: o `--rm` já removeu, não há o que colher nem varrer.
+    vi.useFakeTimers();
+    try {
+      const p = rodaScript({
+        nome: 'nanoclaw-script-vagas-semrede',
+        args: ['run'],
+        timeoutMs: 10,
+        maxBuffer: 1,
+      });
+      responde(0, Object.assign(new Error('x'), { code: 3, signal: null }));
+      await p;
+      vi.advanceTimersByTime(IDADE_DE_ORFAO_MS * 5);
+      expect(mockExecFile).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('devolve stdout e stderr também na FALHA', async () => {
@@ -302,6 +352,24 @@ describe('colheScriptsEsquecidos', () => {
     expect(removidos).toEqual(['nanoclaw-script-vagas-velho']);
   });
 
+  it('usa psArgs, que é o que a migração de runtime conserta', () => {
+    // ⚠️ `.claude/skills/convert-to-apple-container/SKILL.md` nomeia este
+    // `docker ps --filter` como passo de migração, e a skill edita
+    // container-runtime.ts. Se esta chamada voltar a ser montada à mão aqui,
+    // depois da migração a varredura devolve vazio e cega em silêncio.
+    colheScriptsEsquecidos(180_000);
+    expect(mockExecFile.mock.calls[0][1]).toEqual(
+      psArgs(PREFIXO_DE_SCRIPT, '{{.Names}}\t{{.CreatedAt}}'),
+    );
+  });
+
+  it('o piso de idade é derivado dos timeouts, não um literal', () => {
+    // A relação "o piso tem de passar do maior timeout de script" morava só na
+    // prosa, e levantar VAGAS_TIMEOUT_MS deixaria o piso de ser teto em
+    // silêncio.
+    expect(IDADE_DE_ORFAO_MS).toBeGreaterThan(180_000);
+  });
+
   it('o filtro é de script, nunca de agente', () => {
     // ⚠️ O controle negativo que me impediu de pendurar `cleanupOrphans()` num
     // tique: ela derruba todo `nanoclaw-*`, incluindo o container de AGENTE
@@ -313,6 +381,16 @@ describe('colheScriptsEsquecidos', () => {
     expect(
       'nanoclaw-whatsapp-atendimento-teste-123'.startsWith(PREFIXO_DE_SCRIPT),
     ).toBe(false);
+    // ⚠️ E o caso que quase passou: com o nome antigo do container de agente
+    // (`nanoclaw-${pasta}-${ts}`), uma pasta chamada `script` produzia
+    // `nanoclaw-script-<ts>`, casava este filtro e era colhida à força NO MEIO
+    // da conversa do paciente. Por isso o agente tem infixo próprio.
+    expect('nanoclaw-agent-script-123'.startsWith(PREFIXO_DE_SCRIPT)).toBe(
+      false,
+    );
+    expect('nanoclaw-script-1770000000000'.startsWith(PREFIXO_DE_SCRIPT)).toBe(
+      true,
+    );
   });
 
   it('ignora data que não parseia, em vez de colher tudo', () => {

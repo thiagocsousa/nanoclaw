@@ -433,7 +433,15 @@ export async function runContainerAgent(
 
   const mounts = buildVolumeMounts(group, input.isMain);
   const safeName = group.folder.replace(/[^a-zA-Z0-9-]/g, '-');
-  const containerName = `nanoclaw-${safeName}-${Date.now()}`;
+  // ⚠️ `nanoclaw-agent-`, não `nanoclaw-${pasta}-`. O prefixo precisa ser
+  // DISJUNTO do `nanoclaw-script-` de `script-container.ts`, porque a varredura
+  // periódica colhe à força tudo que casa o dele com mais de alguns minutos de
+  // vida. Com o nome antigo, um grupo chamado `script` produzia
+  // `nanoclaw-script-<ts>` e o container de AGENTE era morto no meio da
+  // conversa do paciente — justamente o desastre que a varredura diz evitar. A
+  // segurança estava apoiada em nenhum grupo se chamar `script`.
+  // `cleanupOrphans()` continua achando os dois: ela filtra por `nanoclaw-`.
+  const containerName = `nanoclaw-agent-${safeName}-${Date.now()}`;
   const containerArgs = buildContainerArgs(mounts, containerName, {
     ...input,
     approvalJid: group.containerConfig?.approvalJid,

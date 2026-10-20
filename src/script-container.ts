@@ -6,6 +6,7 @@ import {
   CONTAINER_NAME_PREFIX,
   CONTAINER_RUNTIME_BIN,
   nomeValidoDeContainer,
+  psArgs,
   readonlyMountArgs,
 } from './container-runtime.js';
 import { logger } from './logger.js';
@@ -67,9 +68,14 @@ export function nomeiaContainer(rotulo: string): string {
 /**
  * Limites e ajustes dos containers de script.
  *
- * ⚠️ `--shm-size=1g` não é otimização, é requisito. O Docker dá 64 MB de
- * /dev/shm por padrão, e o chromium usa /dev/shm para a memória compartilhada
- * entre seus processos. Com 64 MB ele não derruba com erro: ele PENDURA.
+ * ⚠️ `--shm-size=1g` é REDE, não requisito — e isso mudou depois que os nove
+ * scripts passaram a mandar `--disable-dev-shm-usage` no próprio navegador.
+ * Com aquele arg o chromium não aloca em /dev/shm, então este teto não muda
+ * nada nos três caminhos que o host spawna: é config morta para eles. Fica
+ * porque custa ZERO (tmpfs é teto preguiçoso, não reserva: o container mostra
+ * `size=1048576k` com `Used 0`) e porque cobre o script que alguém escrever
+ * amanhã e esquecer o arg. O Docker dá 64 MB de /dev/shm por padrão, e com
+ * 64 MB o chromium não derruba com erro: ele PENDURA.
  *
  * Medido na VM em 19/10/2026: o mesmo `iclinic_paciente_por_telefone.py`, com
  * a carga da máquina já normalizada em 1.70, falhava em
@@ -197,7 +203,28 @@ export function rodaScript(opts: {
         // consequência, que é o preço certo a pagar pela regra simples.
         const sinal = err.signal;
         const saiuSozinho = typeof err.code === 'number';
-        if (!saiuSozinho) colheContainer(opts.nome);
+        if (!saiuSozinho) {
+          colheContainer(opts.nome);
+          // ⚠️ Rede de segunda chance, armada AQUI e uma vez só.
+          //
+          // A primeira versão varria a cada 60 s, para sempre, e isso era um
+          // fork/exec de 22 MB do CLI do docker caindo 1 a 3 vezes DENTRO de
+          // cada execução de script (um script leva ~87 s típicos, 180 s no
+          // teto) — na mesma VM de 2 núcleos e no exato caminho que este módulo
+          // existe para proteger. 1440 invocações por dia, inclusive em
+          // instalação que nunca subiu container de script.
+          //
+          // O one-shot é EQUIVALENTE porque `rodaScript` é o único dono de
+          // spawn: um container só vaza onde a colheita foi tentada, e é
+          // justamente aqui. Se o processo morrer antes disso, quem cobre é o
+          // `cleanupOrphans()` da subida. Regime permanente: zero `docker ps`.
+          const t = setTimeout(
+            () => colheScriptsEsquecidos(),
+            IDADE_DE_ORFAO_MS,
+          );
+          // Não segura o processo no ar só por causa da rede.
+          t.unref?.();
+        }
         resolve({
           stdout,
           stderr,
@@ -253,16 +280,38 @@ export function colheContainer(nome: string): void {
  * rede que pega o órfão de quem esquecer de colher — e alguém esquece, como
  * `audio-transcribe.ts` mostra.
  */
-export function colheScriptsEsquecidos(idadeMinimaMs: number): void {
+/**
+ * Idade a partir da qual um container de script é órfão por definição.
+ *
+ * ⚠️ DERIVADO dos tempos limite reais, não um literal. A primeira versão
+ * passava `300_000` na chamada, com o comentário dizendo "o teto é o maior
+ * timeout de script (180 s) com folga" — a relação existia só na prosa, e
+ * levantar `VAGAS_TIMEOUT_MS` deixaria o piso de ser teto em silêncio.
+ *
+ * Lê as mesmas variáveis que os scripts leem. O dobro é a folga: um container
+ * vivo além do dobro do tempo que alguém esperaria por ele não tem mais ninguém
+ * esperando.
+ */
+export const IDADE_DE_ORFAO_MS =
+  2 *
+  Math.max(
+    Number(process.env.VAGAS_TIMEOUT_MS) || 180_000,
+    Number(process.env.STT_TIMEOUT_MS) || 90_000,
+    90_000, // `paciente.ts`, fixo no código
+  );
+
+export function colheScriptsEsquecidos(
+  idadeMinimaMs: number = IDADE_DE_ORFAO_MS,
+): void {
   execFile(
     CONTAINER_RUNTIME_BIN,
-    [
-      'ps',
-      '--filter',
-      `name=${PREFIXO_DE_SCRIPT}`,
-      '--format',
-      '{{.Names}}\t{{.CreatedAt}}',
-    ],
+    // ⚠️ `psArgs` de `container-runtime.ts`, não a linha de comando montada
+    // aqui. `.claude/skills/convert-to-apple-container/SKILL.md` nomeia
+    // exatamente este `docker ps --filter` como passo de migração, e a skill
+    // edita `container-runtime.ts`. Com a chamada montada aqui, depois da
+    // migração esta varredura devolveria vazio e cegaria em SILÊNCIO — que é o
+    // modo de falha do `inspiring_hofstadter`, recriado pela migração.
+    psArgs(PREFIXO_DE_SCRIPT, '{{.Names}}\t{{.CreatedAt}}'),
     (err, stdout) => {
       if (err) return;
       const agora = Date.now();

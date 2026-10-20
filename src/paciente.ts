@@ -66,15 +66,23 @@ export async function pacientesComTelefone(
     timeoutMs: TIMEOUT_MS,
     maxBuffer: 1024 * 1024,
   });
-  if (!saida) {
+  // ⚠️ `erro`, não `!saida`, e os outros três chamadores de `rodaScript` usam
+  // `erro` também. A diferença tem dente: quando o script RECUSA com motivo, ele
+  // imprime `{"ok": false, "erro": "telefone_invalido"}` e sai com código 2 —
+  // então `erro` está preenchido E `saida` não está vazia. Com `!saida` o aviso
+  // não disparava, o código seguia para o parse, via `ok: false` e devolvia []
+  // calado. O motivo que o PRÓPRIO script escreveu ia para o lixo, que é
+  // exatamente o que esta série de commits existe para impedir.
+  if (erro) {
     // Falha de busca NÃO é "não é paciente": é não saber. Quem chama cai na
     // triagem normal, que é o comportamento de sempre.
     logger.warn(
-      { groupFolder, ms: Date.now() - t0, err: erro },
+      { groupFolder, ms: Date.now() - t0, err: erro, saida: saida.slice(-200) },
       'paciente: busca por telefone falhou',
     );
     return [];
   }
+  if (!saida) return [];
 
   const linha = saida
     .trim()
