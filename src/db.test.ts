@@ -845,7 +845,9 @@ describe('mensagemPorIdCurto', () => {
 
   it('devolve nada quando o sufixo não acha, em vez de chutar', () => {
     doisRemetentes();
-    expect(mensagemPorIdCurto('corrida@g.us', 'ZZZZ9999', 'Lara')).toBeUndefined();
+    expect(
+      mensagemPorIdCurto('corrida@g.us', 'ZZZZ9999', 'Lara'),
+    ).toBeUndefined();
   });
 
   it('devolve nada quando o sufixo é AMBÍGUO', () => {

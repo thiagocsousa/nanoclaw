@@ -48,6 +48,16 @@ vi.mock('./agendamento.js', async (orig) => {
 let candidatosFalsos: Array<{ id: number; nome: string; nascimento: string }> =
   [];
 let buscasPorTelefone: string[] = [];
+// ⚠️ Controla a trava da observação. Ela existe porque a Lara MARCAVA no
+// iClinic durante a semana de observação: `emObservacao` só era consultado em
+// `index.ts`, depois de `executa` ter rodado inteiro, e a escrita acontece
+// dentro. Quem perguntou foi o Thiago, em 20/10/2026, e a resposta era sim.
+let emObservacaoFalsa = false;
+vi.mock('./revisao-humana.js', async (orig) => {
+  const real = await orig<typeof import('./revisao-humana.js')>();
+  return { ...real, emObservacao: () => emObservacaoFalsa };
+});
+
 vi.mock('./paciente.js', async (orig) => {
   const real = (await orig()) as Record<string, unknown>;
   return {
@@ -1784,6 +1794,56 @@ describe('duas opções de horário (manual, 19/10/2026)', () => {
     expect(r?.acao).toBe('marcar');
     expect(marcou[0]?.data).toBe('2026-10-22');
     expect(marcou[0]?.hora).toBe('14:30');
+  });
+
+  it('EM OBSERVAÇÃO não escreve no iClinic, e diz o que teria marcado', async () => {
+    // ⛔ O buraco que o Thiago pegou em 20/10/2026 perguntando "mesmo não
+    // enviando mensagem pro paciente, a Lara marca no iClinic?".
+    //
+    // A sequência era provável: o paciente pergunta horário (o host busca a
+    // agenda e REGISTRA a oferta, mesmo com o texto retido), depois diz "pode
+    // ser" para a SECRETÁRIA HUMANA no mesmo DM, e a Lara gravava. Consulta
+    // fantasma na agenda da Marina, ou dupla quando a secretária marcasse — e
+    // o paciente sem confirmação, porque o texto nunca saiu.
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    duas();
+    await rodarDe(
+      '{"intencao":"triagem_dados","confianca":0.95,"slots":{"necessidade":"catarata","nome":"Thiago","nascimento":"01/06/1980","cidade":"Teresina","convenio":"particular"}}',
+      'Thiago, 01/06/1980, Teresina, particular. tem horario?',
+    );
+    marcou.length = 0;
+    emObservacaoFalsa = true;
+    try {
+      const r = await rodar(
+        '{"intencao":"aceita_horario","confianca":0.95,"slots":{}}',
+        'pode ser quinta',
+      );
+      // O que NÃO pode acontecer, e é o ponto do teste.
+      expect(marcou).toEqual([]);
+      // E o que tem de acontecer: escala dizendo a decisão.
+      expect(r?.acao).toBe('escalar');
+    } finally {
+      emObservacaoFalsa = false;
+    }
+  });
+
+  it('CONTROLE NEGATIVO: fora da observação, marca normalmente', async () => {
+    // Sem isto, o teste acima passaria com a marcação quebrada para todos.
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    duas();
+    await rodarDe(
+      '{"intencao":"triagem_dados","confianca":0.95,"slots":{"necessidade":"catarata","nome":"Thiago","nascimento":"01/06/1980","cidade":"Teresina","convenio":"particular"}}',
+      'Thiago, 01/06/1980, Teresina, particular. tem horario?',
+    );
+    marcou.length = 0;
+    const r = await rodar(
+      '{"intencao":"aceita_horario","confianca":0.95,"slots":{}}',
+      'pode ser quinta',
+    );
+    expect(r?.acao).toBe('marcar');
+    expect(marcou.length).toBe(1);
   });
 
   // ⚠️ O que esta mudança podia estragar: "pode ser" com DUAS na mesa não diz

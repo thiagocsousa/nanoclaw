@@ -68,6 +68,7 @@ import {
 import { CAMPOS, faltamNaTriagem, fraseDeTriagem } from './triagem.js';
 import { resolveDiaPedido } from './dia-pedido.js';
 import { contextoDoRetorno } from './retorno-contexto.js';
+import { emObservacao } from './revisao-humana.js';
 import { dataLocal } from './expediente.js';
 import {
   duasOpcoes,
@@ -1432,6 +1433,43 @@ export async function executa(
         groupFolder,
         tabela,
         'aceitou um horário, mas não há oferta registrada ou ela venceu; confirme com o paciente',
+        perguntaDoPaciente,
+        deps,
+        c.intencao,
+      );
+    }
+    // ⛔ TRAVA DA OBSERVAÇÃO: não escreve no iClinic.
+    //
+    // ⚠️ Este era um BURACO real na semana de observação, e foi o Thiago que
+    // perguntou (20/10/2026): "mesmo não enviando mensagem pro paciente, a Lara
+    // marca no iClinic?". Marcava. `emObservacao` só era consultado em
+    // `index.ts`, DEPOIS de `executa` ter rodado inteiro — e a escrita acontece
+    // aqui dentro.
+    //
+    // A sequência que isso produzia é provável, não hipotética: o paciente
+    // pergunta horário (o host busca a agenda e REGISTRA a oferta, mesmo com o
+    // texto retido), depois diz "pode ser" para a SECRETÁRIA HUMANA no mesmo
+    // DM, e a Lara gravava a consulta. Resultado: consulta fantasma na agenda
+    // da Marina, ou dupla quando a secretária marcasse também — e o paciente
+    // sem confirmação nenhuma, porque o texto nunca saiu.
+    //
+    // Escala em vez de produzir o texto de confirmação, de propósito: aquele
+    // texto afirma "está agendado", e numa semana em que ele vai para um grupo
+    // de revisão humana, afirmação falsa pode ser copiada para o paciente. O
+    // que a observação precisa julgar é a DECISÃO, e ela está no motivo.
+    if (emObservacao(groupFolder, chatJid)) {
+      const v = escolhida ?? oferta.vaga;
+      logger.warn(
+        { groupFolder, chatJid, data: v.data, hora: v.inicio },
+        'observação: NÃO marquei no iClinic; a decisão foi para a revisão',
+      );
+      esqueceOferta(groupFolder, chatJid);
+      return await escalaComo(
+        groupFolder,
+        tabela,
+        `EM OBSERVAÇÃO, nada foi gravado: a Lara marcaria ${v.dia_semana}, ` +
+          `dia ${v.data}, às ${v.inicio} para ${oferta.nome || 'este paciente'}` +
+          ' — quem marca de verdade nesta semana é a secretária',
         perguntaDoPaciente,
         deps,
         c.intencao,
