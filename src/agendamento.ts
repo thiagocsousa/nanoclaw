@@ -338,35 +338,42 @@ export async function escreveNoIclinic(
     throw new Error(`iclinic_marcar.py não existe em ${folder}`);
   }
   garanteCredenciais();
-  const { nome, args } = montaArgs({
-    rotulo: 'marcar',
-    dir,
-    script: 'iclinic_marcar.py',
-    envKeys: CREDENCIAIS,
-    argv: [
-      '--nome',
-      d.paciente,
-      '--data',
-      d.data,
-      '--inicio',
-      d.hora,
-      '--fim',
-      fim,
-      '--perfil',
-      d.perfil,
-    ],
-  });
+  // ⚠️ O argv inteiro é montado AQUI e entregue ao `montaArgs` de uma vez.
+  //
+  // A versão anterior empurrava `--telefone`, `--paciente-id` e `--nascimento`
+  // no `args` DEPOIS da imagem e do caminho do script. Funcionava, mas recriava
+  // a suposição posicional que este refactor existiu para matar. Quem escreve
+  // `args` é só o `montaArgs`.
+  const argv = [
+    '--nome',
+    d.paciente,
+    '--data',
+    d.data,
+    '--inicio',
+    d.hora,
+    '--fim',
+    fim,
+    '--perfil',
+    d.perfil,
+  ];
   // O telefone sai do JID de quem pediu — mas só se for telefone de verdade.
   // Sem ele o cadastro criado fica SEM contato, e o pipeline de lembrete não
   // alcança o paciente; com um número inventado é pior, porque a conferência de
   // identidade recusa o próprio paciente (05/10/2026, ver `telefoneDoJid`).
   const telefone = telefoneDoJid(d.pedidoPor);
-  if (telefone) args.push('--telefone', telefone);
+  if (telefone) argv.push('--telefone', telefone);
   // Cadastro confirmado pela pessoa: vai direto, sem a conferência.
-  if (d.pacienteId) args.push('--paciente-id', String(d.pacienteId));
+  if (d.pacienteId) argv.push('--paciente-id', String(d.pacienteId));
   // Sem o nascimento o script NÃO casa o paciente existente e escala — é o
   // segundo fator da identidade, junto com o telefone.
-  if (d.nascimento) args.push('--nascimento', d.nascimento);
+  if (d.nascimento) argv.push('--nascimento', d.nascimento);
+  const { nome, args } = montaArgs({
+    rotulo: 'marcar',
+    dir,
+    script: 'iclinic_marcar.py',
+    envKeys: CREDENCIAIS,
+    argv,
+  });
   const r = await rodaScript({
     nome,
     args,

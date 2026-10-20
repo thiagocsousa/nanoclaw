@@ -1685,19 +1685,22 @@
         {
           "paciente": "onde fica a clinica namir clementino?",
           "exige": ["[ÁA]urea Freire"],
-          "proibido": ["S[óo] um instante"]
+          "proibido": ["S[óo] um instante"],
+          "intencao_esperada": "endereco_hospital_namir"
         },
         {
           "paciente": "e o hospital tercio rezende, qual o endereco?",
           "exige": ["Gabriel Ferreira"],
           "proibido": ["S[óo] um instante"],
-          "nota": "INVERTIDO de propósito: Tércio Rezende é clínica e aqui o paciente chama de hospital. Se o classificador se apoiar na palavra em vez do nome, este turno reprova."
+          "nota": "INVERTIDO de propósito: Tércio Rezende é clínica e aqui o paciente chama de hospital. Se o classificador se apoiar na palavra em vez do nome, este turno reprova.",
+          "intencao_esperada": "endereco_hospital_tercio"
         },
         {
           "paciente": "a clinica vilar fica onde?",
           "exige": ["Benjamin Constant"],
           "proibido": ["S[óo] um instante"],
-          "nota": "Também invertido: o Vilar é HOSPITAL e o paciente chama de clínica. Cobre o outro sentido do mesmo erro."
+          "nota": "Também invertido: o Vilar é HOSPITAL e o paciente chama de clínica. Cobre o outro sentido do mesmo erro.",
+          "intencao_esperada": "endereco_hospital_vilar"
         }
       ]
     },
@@ -2437,12 +2440,14 @@
       "turnos": [
         {
           "paciente": "quanto custa a consulta?",
-          "esperado": ["Quer que eu veja os hor[áa]rios"]
+          "esperado": ["Quer que eu veja os hor[áa]rios"],
+          "intencao_esperada": "preco_consulta"
         },
         {
           "paciente": "não, era só pra saber mesmo",
           "proibido": ["poderia me informar", "hor[áa]rio dispon"],
-          "nota": "A JULGAR À MÃO: respeitar o não. O documento de tom proíbe insistir depois de recusa."
+          "nota": "A JULGAR À MÃO: respeitar o não. O documento de tom proíbe insistir depois de recusa.",
+          "intencao_esperada": "agradece_fecha"
         }
       ]
     },
@@ -2453,13 +2458,15 @@
       "turnos": [
         {
           "paciente": "quanto custa a consulta?",
-          "exige": ["430"]
+          "exige": ["430"],
+          "intencao_esperada": "preco_consulta"
         },
         {
           "paciente": "não, era só pra saber se vocês atendem Unimed",
           "exige": ["[Uu]nimed"],
           "proibido": ["Eu que agradeço", "Imagina!"],
-          "nota": "A ampliação do `quando` do agradece_fecha para cobrir \"era só pra saber mesmo\" (Y05) pode engolir isto, que é PERGUNTA com um \"não\" na frente. Se este cenário reprovar, a ampliação foi longe demais."
+          "nota": "A ampliação do `quando` do agradece_fecha para cobrir \"era só pra saber mesmo\" (Y05) pode engolir isto, que é PERGUNTA com um \"não\" na frente. Se este cenário reprovar, a ampliação foi longe demais.",
+          "intencao_esperada": "convenio_consulta"
         }
       ]
     },

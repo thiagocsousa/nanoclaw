@@ -304,15 +304,17 @@ export async function buscaVagas(
   }
 
   garanteCredenciais();
-  // `-e NOME` herda o valor do ambiente do host: a senha não aparece em `ps`.
-  const { nome, args } = montaArgs({
-    rotulo: 'vagas',
-    dir,
-    script: 'iclinic_vagas.py',
-    envKeys: CREDENCIAIS,
-    argv: ['--perfil', perfil],
-  });
-  if (opts.dia) args.push('--dia', opts.dia);
+  // ⚠️ O argv inteiro vai por `montaArgs`, nada de `args.push` depois.
+  //
+  // A versão anterior passava `['--perfil', perfil]` e empurrava `--dia`,
+  // `--hora` e `--antecedencia` direto no `args` — ou seja, DEPOIS da imagem e
+  // do caminho do script. Funcionava, porque docker trata tudo após a imagem
+  // como argumento do comando, mas recriava a suposição posicional que este
+  // refactor existiu para matar: acrescentar um token no fim do `montaArgs`
+  // passaria a mandar estas flags como argumento errado, em silêncio. Quem
+  // escreve `args` é só o `montaArgs`.
+  const argv = ['--perfil', perfil];
+  if (opts.dia) argv.push('--dia', opts.dia);
   if (opts.hora) {
     if (!opts.dia) {
       // O script sai com erro nesse caso, e aqui o erro é meu: pedir hora sem
@@ -320,11 +322,20 @@ export async function buscaVagas(
       logger.error('vagas: --hora exige --dia; não vou buscar');
       return [];
     }
-    args.push('--hora', opts.hora);
+    argv.push('--hora', opts.hora);
   }
   if (opts.antecedencia && opts.antecedencia > 0) {
-    args.push('--antecedencia', String(Math.floor(opts.antecedencia)));
+    argv.push('--antecedencia', String(Math.floor(opts.antecedencia)));
   }
+
+  // `-e NOME` herda o valor do ambiente do host: a senha não aparece em `ps`.
+  const { nome, args } = montaArgs({
+    rotulo: 'vagas',
+    dir,
+    script: 'iclinic_vagas.py',
+    envKeys: CREDENCIAIS,
+    argv,
+  });
 
   const t0 = Date.now();
   const saida = await executa(nome, args);

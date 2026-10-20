@@ -366,3 +366,55 @@ describe('convenio_iaspi e convenio_ipmt', () => {
     expect(ipmt).not.toContain('PLAMTA');
   });
 });
+
+/**
+ * As cinco intenções de endereço compartilham o mesmo rabo de especificação.
+ *
+ * ⚠️ O commit 9faa4160 argumenta por que as cinco têm de andar juntas —
+ * "ajustar apenas os dois que são clínicas criaria a assimetria inversa: 'a
+ * clínica Vilar' deixaria de achar o Hospital Vilar" — e então colou a frase
+ * idêntica em cinco lugares sem nada guardando o conjunto. Invariante em prosa
+ * é o modo de falha mais caro deste projeto: edite um dos cinco no mês que vem
+ * e nada reprova.
+ *
+ * É o mesmo erro do par IASPI/IPMT acima, cometido no mesmo dia, duas horas
+ * depois. Aqui o `quando` é especificação do classificador, não texto ao
+ * paciente, então não há checkpoint de aprovação humana a respeitar: dava para
+ * compor de uma constante. O teste é a opção conservadora, e deixa o arquivo
+ * legível para quem revisa a tabela sem ler o código.
+ */
+describe('as cinco intenções de endereço', () => {
+  const IDS = [
+    'endereco_hospital_vilar',
+    'endereco_hospital_olho',
+    'endereco_hospital_namir',
+    'endereco_hospital_tercio',
+    'endereco_hospital_coe',
+  ];
+
+  it('dizem, todas, que o nome decide e não a palavra antes dele', () => {
+    const rabos = IDS.map((id) => {
+      const q = TABELA.intencoes[id]?.quando ?? '';
+      return q.slice(q.indexOf('nomeando o lugar'));
+    });
+    expect(rabos[0]).toContain('hospital');
+    expect(rabos[0]).toContain('clínica');
+    // Todos idênticos a partir do ponto comum.
+    for (const r of rabos) expect(r).toBe(rabos[0]);
+  });
+
+  it('cada uma nomeia só o SEU lugar', () => {
+    // Controle negativo: o teste acima passaria se as cinco fossem iguais
+    // inteiras, inclusive na parte que identifica o lugar.
+    const nomes: Record<string, string> = {
+      endereco_hospital_vilar: 'Vilar',
+      endereco_hospital_olho: 'Hospital do Olho',
+      endereco_hospital_namir: 'Namir Clementino',
+      endereco_hospital_tercio: 'Tércio Rezende',
+      endereco_hospital_coe: 'COE',
+    };
+    for (const [id, nome] of Object.entries(nomes)) {
+      expect(TABELA.intencoes[id]?.quando).toContain(nome);
+    }
+  });
+});
