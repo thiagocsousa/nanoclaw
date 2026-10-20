@@ -67,7 +67,13 @@ describe('formatMessages', () => {
   it('formats a single message as XML with context header', () => {
     const result = formatMessages([makeMsg()], TZ);
     expect(result).toContain('<context timezone="UTC" />');
-    expect(result).toContain('<message sender="Alice"');
+    expect(result).toContain('sender="Alice"');
+    // ⚠️ O `id` curto entra no prompt para o agente poder DEVOLVER qual
+    // mensagem leu. Sem ele o host consultava a linha mais nova do banco no
+    // momento do resultado, e com container vivo a intenção velha era
+    // executada contra a mensagem nova — com o remetente dela virando o
+    // contato da consulta (Codex, 20/10/2026).
+    expect(result).toContain('<message id="1"');
     expect(result).toContain('>hello</message>');
     expect(result).toContain('Jan 1, 2024');
   });
@@ -361,5 +367,24 @@ describe('trigger gating (requiresTrigger interaction)', () => {
   it('non-main group with requiresTrigger=false always processes (no trigger needed)', () => {
     const msgs = [makeMsg({ content: 'hello no trigger' })];
     expect(shouldProcess(false, false, undefined, msgs)).toBe(true);
+  });
+});
+
+// --- id curto no prompt ---
+
+describe('formatMessages: o id que amarra o turno', () => {
+  it('manda o SUFIXO do id, não o id inteiro', () => {
+    // O agente tem de conseguir copiar de volta. Pedir uma string opaca de 32
+    // caracteres é pedir erro de transcrição; 8 ele copia. Ver
+    // `TAMANHO_DO_ID_CURTO` em db.ts.
+    const longo = '3EB0A1B2C3D4E5F60718293A';
+    const result = formatMessages([makeMsg({ id: longo })], 'UTC');
+    expect(result).toContain(`id="${longo.slice(-8)}"`);
+    expect(result).not.toContain(longo);
+  });
+
+  it('escapa o id como qualquer outro atributo', () => {
+    const result = formatMessages([makeMsg({ id: 'a&b<c"d' })], 'UTC');
+    expect(result).toContain('id="a&amp;b&lt;c&quot;d"');
   });
 });

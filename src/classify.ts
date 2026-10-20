@@ -17,6 +17,19 @@ export interface Classificacao {
   intencao: string;
   confianca: number;
   slots: Record<string, string>;
+
+  /**
+   * O id curto da mensagem que o agente DISSE ter lido.
+   *
+   * ⚠️ Opcional de propósito, e o host NUNCA confia nele sem conferir. Serve
+   * para amarrar o resultado à mensagem certa: com container vivo, uma
+   * mensagem nova pode chegar enquanto o resultado da anterior está em voo, e
+   * sem esta amarração o host executava a intenção velha contra a mensagem
+   * nova (achado do review adversarial do Codex, 20/10/2026). Quem resolve é
+   * `mensagemPorIdCurto`, que devolve nada quando o sufixo não acha ou acha
+   * mais de uma — e aí o host cai no comportamento antigo e loga.
+   */
+  idMensagem?: string;
   observacao?: string;
   /** Por que o parser rebaixou, quando rebaixou. */
   rebaixou?: string;
@@ -91,6 +104,32 @@ function achaJson(bruto: string): unknown | undefined {
   return undefined;
 }
 
+/** O id curto que o objeto declara, se parecer um id curto. */
+function idDoObjeto(o: Record<string, unknown>): string | undefined {
+  const dito =
+    typeof o.id_mensagem === 'string'
+      ? o.id_mensagem.trim()
+      : typeof o.idMensagem === 'string'
+        ? o.idMensagem.trim()
+        : '';
+  return /^[A-Za-z0-9_-]{4,40}$/.test(dito) ? dito : undefined;
+}
+
+/**
+ * Espia SÓ o id curto da saída, sem exigir a tabela.
+ *
+ * ⚠️ Existe porque quem resolve a mensagem do turno é o host, ANTES de chamar
+ * `executa` — e `executa` é quem faz o `interpreta` completo. Em vez de
+ * duplicar a extração de JSON (que tolera cerca de código e ruído), as duas
+ * passam por `achaJson`. Dois parses baratos valem menos que duas cópias da
+ * tolerância a ruído, que divergiriam.
+ */
+export function idMensagemDe(bruto: string): string | undefined {
+  const o = achaJson(bruto);
+  if (!o || typeof o !== 'object') return undefined;
+  return idDoObjeto(o as Record<string, unknown>);
+}
+
 export function interpreta(bruto: string, tabela: Tabela): Classificacao {
   const obj = achaJson(bruto);
   if (!obj || typeof obj !== 'object') {
@@ -100,6 +139,10 @@ export function interpreta(bruto: string, tabela: Tabela): Classificacao {
 
   const intencao = typeof o.intencao === 'string' ? o.intencao.trim() : '';
   if (!intencao) return DESCONHECIDO('sem campo intencao');
+  // ⚠️ Campo de amarração do turno. Ausente não é erro: o host cai no
+  // comportamento antigo. Só aceita o que PARECE id curto — o resto é ruído do
+  // modelo e não vale propagar.
+  const idMensagem = idDoObjeto(o);
 
   const validas = new Set([...intencoesValidas(tabela), 'DESCONHECIDO']);
   if (!validas.has(intencao)) {
@@ -145,6 +188,7 @@ export function interpreta(bruto: string, tabela: Tabela): Classificacao {
     intencao,
     confianca: bruta,
     slots,
+    idMensagem,
     observacao:
       typeof o.observacao === 'string' && o.observacao.trim()
         ? o.observacao.trim().slice(0, 300)

@@ -13,6 +13,8 @@ import {
   storeMessageDirect,
   getTaskById,
   setRegisteredGroup,
+  idCurto,
+  mensagemPorIdCurto,
   storeMessage,
   ultimaMensagemDoPaciente,
   updateTask,
@@ -787,5 +789,101 @@ describe('ultimaMensagemDoPaciente', () => {
   it('devolve undefined quando a conversa não tem mensagem de paciente', () => {
     storeChatMetadata('vazio@g.us', '2026-10-20T00:00:00.000Z');
     expect(ultimaMensagemDoPaciente('vazio@g.us', 'Lara')).toBeUndefined();
+  });
+});
+
+// --- mensagemPorIdCurto ---
+
+describe('mensagemPorIdCurto', () => {
+  /**
+   * ⚠️ O teste da corrida que o conserto do par texto/remetente NÃO cobriu.
+   *
+   * Com container vivo, uma mensagem nova chega enquanto o resultado da
+   * anterior está em voo. `ultimaMensagemDoPaciente` devolve a mais NOVA, então
+   * o host executava a intenção velha contra a mensagem nova — e num grupo o
+   * remetente dela virava `pedidoPor`, ou seja, o aceite de um participante
+   * marcava consulta com o telefone de OUTRO. Achado do review adversarial do
+   * Codex em 20/10/2026.
+   */
+  function doisRemetentes() {
+    storeChatMetadata('corrida@g.us', '2026-10-20T00:00:00.000Z');
+    store({
+      id: 'MSG-DO-PACIENTE-AAAA1111',
+      chat_jid: 'corrida@g.us',
+      sender: 'paciente@s.whatsapp.net',
+      sender_name: 'Paciente',
+      content: 'pode ser esse horario',
+      timestamp: '2026-10-20T10:00:00.000Z',
+    });
+    store({
+      id: 'MSG-DE-OUTRA-PESSOA-BBBB2222',
+      chat_jid: 'corrida@g.us',
+      sender: 'outra@s.whatsapp.net',
+      sender_name: 'Outra',
+      content: 'bom dia a todos',
+      timestamp: '2026-10-20T10:00:30.000Z',
+    });
+  }
+
+  it('acha a mensagem do turno, não a mais nova', () => {
+    doisRemetentes();
+    // A mais nova é de outra pessoa — é o que o host pegava antes.
+    expect(ultimaMensagemDoPaciente('corrida@g.us', 'Lara')?.sender).toBe(
+      'outra@s.whatsapp.net',
+    );
+    // Com o id que o agente devolveu, acha a certa.
+    const r = mensagemPorIdCurto(
+      'corrida@g.us',
+      idCurto('MSG-DO-PACIENTE-AAAA1111'),
+      'Lara',
+    );
+    expect(r).toEqual({
+      content: 'pode ser esse horario',
+      sender: 'paciente@s.whatsapp.net',
+    });
+  });
+
+  it('devolve nada quando o sufixo não acha, em vez de chutar', () => {
+    doisRemetentes();
+    expect(mensagemPorIdCurto('corrida@g.us', 'ZZZZ9999', 'Lara')).toBeUndefined();
+  });
+
+  it('devolve nada quando o sufixo é AMBÍGUO', () => {
+    // ⚠️ Ambiguidade silenciosa aqui seria pior que a corrida: o host acharia
+    // que amarrou o turno e teria amarrado na mensagem errada. Melhor cair no
+    // comportamento antigo e logar.
+    storeChatMetadata('ambiguo@g.us', '2026-10-20T00:00:00.000Z');
+    for (const [id, quem] of [
+      ['PRIMEIRA-XXXX0000', 'a@s.whatsapp.net'],
+      ['SEGUNDA-XXXX0000', 'b@s.whatsapp.net'],
+    ] as const) {
+      store({
+        id,
+        chat_jid: 'ambiguo@g.us',
+        sender: quem,
+        sender_name: quem,
+        content: 'texto ' + id,
+        timestamp: '2026-10-20T10:00:00.000Z',
+      });
+    }
+    expect(
+      mensagemPorIdCurto('ambiguo@g.us', 'XXXX0000', 'Lara'),
+    ).toBeUndefined();
+  });
+
+  it('recusa sufixo curto demais', () => {
+    doisRemetentes();
+    expect(mensagemPorIdCurto('corrida@g.us', '11', 'Lara')).toBeUndefined();
+  });
+
+  it('não atravessa conversas', () => {
+    doisRemetentes();
+    expect(
+      mensagemPorIdCurto(
+        'outro-chat@g.us',
+        idCurto('MSG-DO-PACIENTE-AAAA1111'),
+        'Lara',
+      ),
+    ).toBeUndefined();
   });
 });

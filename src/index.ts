@@ -30,6 +30,7 @@ import {
   PROXY_BIND_HOST,
 } from './container-runtime.js';
 import {
+  mensagemPorIdCurto,
   ultimaMensagemDoPaciente,
   getAllChats,
   getAllRegisteredGroups,
@@ -57,6 +58,7 @@ import {
   formatOutbound,
 } from './router.js';
 import { WhatsAppChannel } from './channels/whatsapp.js';
+import { idMensagemDe } from './classify.js';
 import { readEnvFile } from './env.js';
 import {
   restoreRemoteControl,
@@ -428,7 +430,33 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
         // texto do banco, remetente da janela — fazia num grupo o aceite de uma
         // pessoa ser atribuído ao JID de outra, e esse JID vira busca de
         // cadastro e telefone de contato da consulta.
-        const doBanco = ultimaMensagemDoPaciente(chatJid, ASSISTANT_NAME);
+        //
+        // ⚠️ E a amarração do TURNO: o agente devolve o id curto da mensagem
+        // que ele leu, e é ESSA linha que o host consulta.
+        //
+        // Sem isso o host pegava a linha mais nova do banco no momento do
+        // resultado. Com container vivo, uma mensagem nova pode chegar
+        // enquanto o resultado da anterior está em voo — e aí a intenção
+        // VELHA era executada contra a mensagem NOVA, com o remetente dela
+        // virando `pedidoPor` na marcação: num grupo, o aceite de um
+        // participante marcava consulta com o telefone de outro. O conserto do
+        // par texto/remetente garantiu que os dois vêm da MESMA linha; não
+        // garantiu que é a linha certa. (Codex, 20/10/2026.)
+        //
+        // O fallback é o comportamento antigo, e é LOGADO: id ausente (modelo
+        // velho, turno sem o campo) ou ambíguo não pode virar silêncio.
+        const idDito = idMensagemDe(raw);
+        const doId = idDito
+          ? mensagemPorIdCurto(chatJid, idDito, ASSISTANT_NAME)
+          : undefined;
+        if (idDito && !doId) {
+          logger.warn(
+            { chatJid, idDito },
+            'executor: id de mensagem não resolveu, caindo na linha mais nova',
+          );
+        }
+        const doBanco =
+          doId ?? ultimaMensagemDoPaciente(chatJid, ASSISTANT_NAME);
         const perguntaReal = doBanco?.content ?? ultima?.content ?? '';
         const remetenteReal = doBanco?.sender ?? ultima?.sender ?? '';
         const r = await executa(

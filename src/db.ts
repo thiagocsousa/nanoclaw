@@ -412,6 +412,65 @@ export function getNewMessages(
  * E os motivos de escalonamento gravavam a pergunta errada pelo mesmo motivo:
  * `"pergunta":"--- NOVO PACIENTE ---\noi"` em todo caso aberto.
  */
+/**
+ * Quantos caracteres do fim do id identificam a mensagem no prompt.
+ *
+ * ⚠️ Sufixo, não o id inteiro, e a razão é o modelo. A identidade do turno só
+ * vale se o agente conseguir DEVOLVER o que recebeu, e pedir a ele que copie
+ * uma string opaca de 32 caracteres é pedir erro de transcrição. Oito
+ * caracteres ele copia; o projeto já usa a mesma ideia nos códigos de
+ * escalonamento (`7XB9`).
+ *
+ * Não cria estado no host: o sufixo é derivável nos dois sentidos.
+ */
+export const TAMANHO_DO_ID_CURTO = 8;
+
+/** O id curto que o prompt mostra para esta mensagem. */
+export function idCurto(id: string): string {
+  return id.slice(-TAMANHO_DO_ID_CURTO);
+}
+
+/**
+ * A mensagem do paciente que o agente DISSE ter lido, achada pelo id curto.
+ *
+ * ⚠️ Existe por causa de uma corrida que o conserto do par texto/remetente não
+ * cobriu (review adversarial do Codex, 20/10/2026): `ultimaMensagemDoPaciente`
+ * devolve a linha MAIS NOVA, e com container vivo uma mensagem nova pode
+ * chegar enquanto o resultado da anterior está em voo. O host então executava
+ * a intenção VELHA contra a mensagem NOVA — e o remetente dela virava
+ * `pedidoPor` na marcação, ou seja, num grupo o aceite de um participante
+ * podia marcar consulta com o telefone de outro.
+ *
+ * Devolve `undefined` quando o sufixo não acha nada OU acha mais de uma: quem
+ * chama cai no comportamento antigo e LOGA. Ambiguidade silenciosa aqui seria
+ * pior que a corrida.
+ */
+export function mensagemPorIdCurto(
+  chatJid: string,
+  idCurtoDito: string,
+  botPrefix: string,
+): { content: string; sender: string } | undefined {
+  const sufixo = idCurtoDito.trim();
+  if (sufixo.length < 4) return undefined;
+  const rows = db
+    .prepare(
+      `SELECT content, sender FROM messages
+       WHERE chat_jid = ?
+         AND is_bot_message = 0
+         AND content NOT LIKE ? AND content NOT LIKE ?
+         AND content != '' AND content IS NOT NULL
+         AND id LIKE ?
+       ORDER BY timestamp DESC
+       LIMIT 2`,
+    )
+    .all(chatJid, `${botPrefix}:%`, `${BOT_MARK}%`, `%${sufixo}`) as Array<{
+    content: string | null;
+    sender: string | null;
+  }>;
+  if (rows.length !== 1 || !rows[0].content) return undefined;
+  return { content: rows[0].content, sender: rows[0].sender ?? '' };
+}
+
 export function ultimaMensagemDoPaciente(
   chatJid: string,
   botPrefix: string,

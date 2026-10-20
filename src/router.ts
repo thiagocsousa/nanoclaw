@@ -1,5 +1,6 @@
 import { Channel, NewMessage } from './types.js';
 import { formatLocalTime } from './timezone.js';
+import { idCurto } from './db.js';
 
 export function escapeXml(s: string): string {
   if (!s) return '';
@@ -23,7 +24,14 @@ export function formatMessages(
       m.reply_to_message_content && m.reply_to_sender_name
         ? `\n  <quoted_message from="${escapeXml(m.reply_to_sender_name)}">${escapeXml(m.reply_to_message_content)}</quoted_message>`
         : '';
-    return `<message sender="${escapeXml(m.sender_name)}" time="${escapeXml(displayTime)}"${replyAttr}>${replySnippet}${escapeXml(m.content)}</message>`;
+    // ⚠️ `id` existe para o agente poder DEVOLVER qual mensagem ele leu.
+    //
+    // Sem isso o host consultava a linha mais nova do banco no momento do
+    // resultado, e com container vivo uma mensagem nova podia chegar no meio —
+    // a intenção velha era executada contra a mensagem nova, e o remetente
+    // dela virava o contato da consulta. É curto de propósito: ver
+    // `idCurto`/`TAMANHO_DO_ID_CURTO` em db.ts.
+    return `<message id="${escapeXml(idCurto(m.id))}" sender="${escapeXml(m.sender_name)}" time="${escapeXml(displayTime)}"${replyAttr}>${replySnippet}${escapeXml(m.content)}</message>`;
   });
 
   const header = `<context timezone="${escapeXml(timezone)}" />\n`;
