@@ -418,3 +418,45 @@ describe('as cinco intenções de endereço', () => {
     }
   });
 });
+
+/**
+ * `agradece_fecha` e `dispensa_convite` não podem trocar de lugar.
+ *
+ * ⛔ Em 20/10/2026 eu "consertei" o Y05 ampliando o `quando` do
+ * `agradece_fecha` para cobrir a RECUSA do convite — e apontei uma situação
+ * nova para texto aprovado para outra situação. O paciente que recusava levava
+ * "Eu que agradeço!" sem ter agradecido. O texto estava aprovado; o ROTEAMENTO
+ * não, e é o roteamento que nenhuma aprovação humana vigia.
+ *
+ * O invariante é semântico: quem agradece recebe texto de gratidão; quem
+ * recusa, não.
+ */
+describe('agradece_fecha vs dispensa_convite', () => {
+  const GRATIDAO = /agrade[çc]|imagina/i;
+
+  it('os textos de agradecimento PRESSUPÕEM gratidão', () => {
+    const textos = TABELA.intencoes.agradece_fecha?.textos ?? [];
+    expect(textos.length).toBeGreaterThan(0);
+    for (const t of textos) expect(t).toMatch(GRATIDAO);
+  });
+
+  it('os textos de recusa NÃO agradecem', () => {
+    // Este é o teste do defeito: se alguém colar um "Eu que agradeço" aqui, ou
+    // reapontar a recusa para a outra intenção, reprova.
+    const textos = TABELA.intencoes.dispensa_convite?.textos ?? [];
+    expect(textos.length).toBeGreaterThan(0);
+    for (const t of textos) expect(t).not.toMatch(GRATIDAO);
+  });
+
+  it('o `quando` de cada um aponta para o outro', () => {
+    // Prosa é o modo de falha mais caro deste projeto, mas aqui ela é a
+    // especificação do classificador — e as duas situações são vizinhas o
+    // suficiente para o modelo confundir sem o aviso explícito.
+    expect(TABELA.intencoes.agradece_fecha?.quando).toContain(
+      'dispensa_convite',
+    );
+    expect(TABELA.intencoes.dispensa_convite?.quando).toContain(
+      'agradece_fecha',
+    );
+  });
+});
