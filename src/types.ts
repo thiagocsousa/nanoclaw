@@ -92,21 +92,37 @@ export interface TaskRunLog {
 export interface Channel {
   name: string;
   connect(): Promise<void>;
-  sendMessage(jid: string, text: string): Promise<void>;
+  /**
+   * ⚠️ `origem` existe por causa do incidente de 20/10/2026: a política de
+   * observação precisa saber se isto veio do TURNO da Lara ou de um pipeline da
+   * clínica. Bloquear por ALVO quebraria o lembrete de consulta, a
+   * auto-resposta, a nota fiscal e a avaliação pós-consulta — um paciente que
+   * escrevesse na semana deixaria de receber o lembrete da própria consulta.
+   *
+   * Opcional, e quem não declara é tratado como `turno`: falha FECHADO. Ver
+   * `podeEntregar` em revisao-humana.ts.
+   */
+  sendMessage(jid: string, text: string, origem?: string): Promise<void>;
   isConnected(): boolean;
   ownsJid(jid: string): boolean;
   disconnect(): Promise<void>;
   // Optional: send image file. Path must be an absolute host path.
-  sendImage?(jid: string, imagePath: string, caption?: string): Promise<void>;
+  sendImage?(
+    jid: string,
+    imagePath: string,
+    caption?: string,
+    origem?: string,
+  ): Promise<void>;
   // Optional: send a document/file (e.g. PDF). Path must be an absolute host path.
   sendDocument?(
     jid: string,
     filePath: string,
     fileName?: string,
     caption?: string,
+    origem?: string,
   ): Promise<void>;
   // Optional: typing indicator. Channels that support it implement it.
-  setTyping?(jid: string, isTyping: boolean): Promise<void>;
+  setTyping?(jid: string, isTyping: boolean, origem?: string): Promise<void>;
   // Optional: sync group/chat names from the platform.
   syncGroups?(force: boolean): Promise<void>;
   // Optional: returns true when this channel is the designated sender for a group folder.

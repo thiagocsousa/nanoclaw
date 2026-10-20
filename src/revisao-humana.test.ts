@@ -507,3 +507,82 @@ describe('podeMostrarPresenca', () => {
     expect(mod.podeMostrarPresenca('whatsapp_outra', DM)).toBe(true);
   });
 });
+
+// --- podeEntregar: a trava da Fase 2 ---
+
+describe('podeEntregar', () => {
+  const DM = '558699999999@s.whatsapp.net';
+  const GRUPO = '120363000@g.us';
+
+  beforeEach(async () => {
+    process.env.OBSERVACAO_FOLDERS = PASTA;
+    vi.resetModules();
+    mod = await import('./revisao-humana.js');
+  });
+  afterEach(() => {
+    delete process.env.OBSERVACAO_FOLDERS;
+  });
+
+  it('RECUSA o turno em DM observada', () => {
+    // O caso do incidente, agora no instante do envio em vez de num ponto do
+    // fluxo: vale para texto, imagem, documento e presença igualmente.
+    expect(
+      mod.podeEntregar({ alvo: DM, origem: 'turno', folderDoAlvo: PASTA }),
+    ).toBe(false);
+  });
+
+  it('PERMITE os pipelines da clínica na MESMA DM', () => {
+    // ⚠️ É isto que o bloqueio por alvo quebraria: o lembrete da consulta, a
+    // auto-resposta, a nota fiscal e a avaliação pós-consulta. Um paciente que
+    // escrevesse na semana deixaria de receber o lembrete da PRÓPRIA consulta.
+    for (const origem of ['script', 'revisao', 'alerta'] as const) {
+      expect(mod.podeEntregar({ alvo: DM, origem, folderDoAlvo: PASTA })).toBe(
+        true,
+      );
+    }
+  });
+
+  it('quem NÃO declara origem falha FECHADO', () => {
+    // Um chamador novo que esqueça de declarar é recusado em observação, em vez
+    // de vazar. É a única parte do desenho que sobrevive a alguém esquecer.
+    expect(mod.podeEntregar({ alvo: DM, folderDoAlvo: PASTA })).toBe(false);
+  });
+
+  it('sem saber a pasta, recusa o turno enquanto houver observação ligada', () => {
+    expect(mod.podeEntregar({ alvo: DM, origem: 'turno' })).toBe(false);
+  });
+
+  it('CONTROLE NEGATIVO: grupo sempre passa', () => {
+    // Revisão, alerta e o próprio grupo de teste dependem disto.
+    expect(
+      mod.podeEntregar({ alvo: GRUPO, origem: 'turno', folderDoAlvo: PASTA }),
+    ).toBe(true);
+  });
+
+  it('CONTROLE NEGATIVO: DM de pasta NÃO observada passa', () => {
+    expect(
+      mod.podeEntregar({
+        alvo: DM,
+        origem: 'turno',
+        folderDoAlvo: 'whatsapp_outra',
+      }),
+    ).toBe(true);
+  });
+});
+
+describe('podeEntregar sem observação ligada', () => {
+  const DM = '558699999999@s.whatsapp.net';
+
+  beforeEach(async () => {
+    delete process.env.OBSERVACAO_FOLDERS;
+    vi.resetModules();
+    mod = await import('./revisao-humana.js');
+  });
+
+  it('CONTROLE NEGATIVO: com observação desligada, tudo passa', () => {
+    // Sem isto, a trava derrubaria o funcionamento normal da clínica.
+    expect(mod.podeEntregar({ alvo: DM, origem: 'turno' })).toBe(true);
+    expect(mod.podeEntregar({ alvo: DM })).toBe(true);
+    expect(mod.algumaPastaEmObservacao()).toBe(false);
+  });
+});

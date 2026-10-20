@@ -498,3 +498,64 @@ export async function tickRevisaoSla(
     }
   }
 }
+
+/** De onde veio um egresso. Quem não declara é tratado como `turno`. */
+export type OrigemDeEgresso =
+  /** O turno da Lara: resposta, escalonamento, presença. */
+  | 'turno'
+  /** Script de pipeline da clínica, com origem fixa e aprovada. */
+  | 'script'
+  /** A revisão humana entregando o que FOI aprovado por uma pessoa. */
+  | 'revisao'
+  /** Aviso a humano: SLA, escalonamento, bloqueio da guarda. */
+  | 'alerta';
+
+/** O alvo é DM de pessoa, e não um grupo? */
+export function ehDm(alvo: string): boolean {
+  return !ehGrupo(alvo);
+}
+
+/**
+ * Pode entregar isto, agora, neste alvo?
+ *
+ * ⛔ A trava da Fase 2, e ela existe porque a Fase 1 não é suficiente: as
+ * decisões de retenção ficam em PONTOS do fluxo, e os egressos estão
+ * espalhados antes e depois deles. Em 20/10/2026 eu enumerei os caminhos ao
+ * paciente TRÊS vezes, com três resultados diferentes, afirmando nas duas
+ * primeiras que estava coberto. Então a política não pode depender de a
+ * enumeração estar certa: ela é consultada no instante do envio, por onde todo
+ * egresso passa.
+ *
+ * ⚠️ Bloqueia por ORIGEM, não por alvo, e isso é o ponto. Bloquear por alvo —
+ * "recusa qualquer DM de paciente observado" — quebraria quatro pipelines da
+ * clínica que não têm relação com a Lara: o lembrete de consulta, a
+ * auto-resposta, o PDF da nota fiscal e a avaliação pós-consulta. Um paciente
+ * que escrevesse na semana deixaria de receber o lembrete da PRÓPRIA consulta,
+ * o que é pior que o incidente original.
+ *
+ * ⚠️ Quem não declara origem é `turno`, ou seja falha FECHADO. Um chamador novo
+ * que esqueça de declarar é recusado em observação, em vez de vazar — é o
+ * inverso do que acontecia, e é a única parte do desenho que sobrevive a
+ * alguém esquecer.
+ */
+export function podeEntregar(opts: {
+  alvo: string;
+  origem?: OrigemDeEgresso;
+  /** A pasta sob a qual este alvo é atendido, quando se sabe. */
+  folderDoAlvo?: string;
+}): boolean {
+  const origem = opts.origem ?? 'turno';
+  // Grupo nunca é paciente: revisão, alerta e o próprio grupo de teste.
+  if (!ehDm(opts.alvo)) return true;
+  // Pipeline da clínica e entrega aprovada por humano passam sempre.
+  if (origem !== 'turno') return true;
+  // Sem pasta não há como saber se esta DM é observada. Em observação ligada,
+  // recusar é o lado seguro do erro: o turno não fala com DM nenhuma.
+  if (!opts.folderDoAlvo) return !algumaPastaEmObservacao();
+  return !emObservacao(opts.folderDoAlvo, opts.alvo);
+}
+
+/** Alguma pasta está em observação neste momento? */
+export function algumaPastaEmObservacao(): boolean {
+  return OBSERVACAO.size > 0;
+}

@@ -102,7 +102,9 @@ import {
   podeMostrarPresenca,
   retemResposta,
   lePendentes,
+  type OrigemDeEgresso,
   pastaDeObservacaoDeDm,
+  podeEntregar,
   aprovaEmQualquerPasta,
   concluiEnvio,
   destinoDaRevisao,
@@ -166,7 +168,8 @@ function enviaParaDestino(
     logger.warn({ jid, groupFolder }, 'sem canal para o destino interno');
     return;
   }
-  return channel.sendMessage(jid, text);
+  // `alerta`: destino INTERNO (aviso a humano, grupo de revisão), nunca paciente.
+  return channel.sendMessage(jid, text, 'alerta');
 }
 
 function getOrRecoverCursor(chatJid: string): string {
@@ -598,6 +601,7 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
             await canalRevisao?.sendMessage(
               alvo.jid,
               textoDaRevisao(pendente, observando),
+              'revisao',
             );
             logger.info(
               {
@@ -632,7 +636,7 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
               await channel.setTyping?.(chatJid, true);
               await sleep(espera);
             }
-            await channel.sendMessage(chatJid, parte);
+            await channel.sendMessage(chatJid, parte, 'turno');
             // A próxima mensagem conta o tempo dela, do zero.
             inicioDaMensagem = Date.now();
           }
@@ -640,7 +644,7 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
         }
         if (!enviou) {
           for (const parte of mensagensDe(paraEnviar)) {
-            await channel.sendMessage(chatJid, parte);
+            await channel.sendMessage(chatJid, parte, 'turno');
           }
         }
         outputSentToUser = true;
@@ -888,9 +892,12 @@ async function startMessageLoop(): Promise<void> {
             if (podeMostrarPresenca(group.folder, chatJid))
               channel
                 .setTyping?.(chatJid, true)
-              ?.catch((err) =>
-                logger.warn({ chatJid, err }, 'Failed to set typing indicator'),
-              );
+                ?.catch((err) =>
+                  logger.warn(
+                    { chatJid, err },
+                    'Failed to set typing indicator',
+                  ),
+                );
           } else {
             // No active container — enqueue for a new one
             queue.enqueueMessageCheck(chatJid);
@@ -1053,7 +1060,36 @@ async function main(): Promise<void> {
   }
 
   // Channel callbacks (shared by all channels)
+  /**
+   * ⛔ A política de egresso que o canal consulta no instante do envio.
+   *
+   * Mora AQUI porque só o host sabe a pasta de cada alvo. O canal garante que
+   * nada sai sem perguntar; a decisão é desta função.
+   *
+   * ⚠️ DM de paciente em observação não está em `registeredGroups` (verificado
+   * em 20/10/2026: a tabela tem 5 linhas e nenhuma DM de paciente). Então para
+   * DM desconhecida a pasta é a de observação de DM, que é sob qual pasta
+   * aquele turno roda. Sem isso a política não acharia a pasta e recusaria tudo.
+   */
+  const politicaDeEgresso = (opts: {
+    alvo: string;
+    origem?: string;
+    tipo: 'texto' | 'imagem' | 'documento' | 'presenca';
+  }): boolean => {
+    const dmEnv = readEnvFile(['DM_OBSERVACAO_FOLDER']);
+    const pastaDeDm = pastaDeObservacaoDeDm(
+      process.env.DM_OBSERVACAO_FOLDER || dmEnv.DM_OBSERVACAO_FOLDER || '',
+    ).folder;
+    const folderDoAlvo = registeredGroups[opts.alvo]?.folder || pastaDeDm;
+    return podeEntregar({
+      alvo: opts.alvo,
+      origem: opts.origem as OrigemDeEgresso | undefined,
+      folderDoAlvo: folderDoAlvo || undefined,
+    });
+  };
+
   const channelOpts = {
+    podeEntregar: politicaDeEgresso,
     onMessage: (chatJid: string, msg: NewMessage) => {
       // Remote control commands — intercept before storage
       const trimmed = msg.content.trim();
@@ -1115,7 +1151,14 @@ async function main(): Promise<void> {
           // review adversarial do Codex em 19/10/2026.
           void (async () => {
             for (const parte of pendente.partes) {
-              await canalPaciente?.sendMessage(pendente.chatJid, parte);
+              // `revisao`: isto foi aprovado por uma PESSOA. Sem declarar, a
+              // política de egresso trataria como `turno` e barraria a
+              // aprovação do humano — a trava viraria uma prisão.
+              await canalPaciente?.sendMessage(
+                pendente.chatJid,
+                parte,
+                'revisao',
+              );
             }
             concluiEnvio(achado.folder, pendente.codigo);
             logger.info(
@@ -1309,7 +1352,8 @@ async function main(): Promise<void> {
         return;
       }
       const text = formatOutbound(rawText);
-      if (text) await channel.sendMessage(jid, text);
+      // `script`: o IPC já validou a origem fixa em `patientDmBlocked`.
+      if (text) await channel.sendMessage(jid, text, 'script');
     },
   });
   startEscalationSla({
@@ -1321,7 +1365,8 @@ async function main(): Promise<void> {
         logger.warn({ jid }, 'escalation-sla: nenhum canal para o destino');
         return;
       }
-      return channel.sendMessage(jid, text);
+      // `alerta`: aviso a humano, nunca texto a paciente.
+      return channel.sendMessage(jid, text, 'alerta');
     },
   });
   // Mesma escada, mesmo relógio: uma resposta pronta e não aprovada é um
@@ -1346,7 +1391,7 @@ async function main(): Promise<void> {
         logger.warn({ jid }, 'revisão: nenhum canal para o destino');
         return;
       }
-      return channel.sendMessage(jid, text);
+      return channel.sendMessage(jid, text, 'alerta');
     };
     logger.info(
       { pastas: pastasComRevisao(), destino: destinoDaRevisao() },
@@ -1364,7 +1409,12 @@ async function main(): Promise<void> {
         (groupFolder && findChannelForGroup(channels, groupFolder)) ||
         findChannel(channels, jid);
       if (!channel) throw new Error(`No channel for JID: ${jid}`);
-      return channel.sendMessage(jid, text);
+      // ⚠️ `script` nos TRÊS egressos do IPC: o `patientDmBlocked` de ipc.ts já
+      // validou a origem fixa antes de chegar aqui, e é ele o guardião desse
+      // caminho. Declarar `script` é o que preserva o lembrete de consulta, a
+      // auto-resposta, a nota fiscal e a avaliação pós-consulta durante a
+      // observação — bloquear por alvo os quebraria.
+      return channel.sendMessage(jid, text, 'script');
     },
     sendImage: async (jid, imagePath, caption) => {
       const channel = findChannel(channels, jid);
@@ -1372,7 +1422,7 @@ async function main(): Promise<void> {
         logger.warn({ jid }, 'Channel does not support sendImage');
         return;
       }
-      return channel.sendImage(jid, imagePath, caption);
+      return channel.sendImage(jid, imagePath, caption, 'script');
     },
     sendDocument: async (jid, filePath, fileName, caption, groupFolder) => {
       const channel =
@@ -1382,7 +1432,7 @@ async function main(): Promise<void> {
         logger.warn({ jid }, 'Channel does not support sendDocument');
         return;
       }
-      return channel.sendDocument(jid, filePath, fileName, caption);
+      return channel.sendDocument(jid, filePath, fileName, caption, 'script');
     },
     registeredGroups: () => registeredGroups,
     registerGroup,

@@ -79,6 +79,21 @@ export interface WhatsAppChannelOpts {
   onMessage: OnInboundMessage;
   onChatMetadata: OnChatMetadata;
   registeredGroups: () => Record<string, RegisteredGroup>;
+  /**
+   * ⛔ A POLÍTICA DE EGRESSO, injetada pelo host.
+   *
+   * Todo envio a um jid — texto, imagem, documento, presença e o flush da fila
+   * de reconexão — passa por aqui antes de tocar o socket. O canal não decide
+   * política: ele só garante que ninguém sai sem ser perguntado.
+   *
+   * O host decide porque é ele que sabe a pasta de cada alvo. Sem a função
+   * injetada, tudo é permitido — instalação sem observação não muda em nada.
+   */
+  podeEntregar?: (opts: {
+    alvo: string;
+    origem?: string;
+    tipo: 'texto' | 'imagem' | 'documento' | 'presenca';
+  }) => boolean;
   /** Registra uma DM de paciente numa pasta de observação. Ver `dmObservacaoFolder`. */
   registraDmEmObservacao?: (
     chatJid: string,
@@ -159,7 +174,11 @@ export class WhatsAppChannel implements Channel {
    */
   private pairingCodeRequested = false;
   private lidToPhoneMap: Record<string, string> = {};
-  private outgoingQueue: Array<{ jid: string; text: string }> = [];
+  // ⚠️ `origem` fica na fila de propósito: item enfileirado antes e entregue
+  // depois da reconexão é o caso que nenhuma trava no fluxo pega, e a política
+  // tem de ser reavaliada no instante do envio, não no do enfileiramento.
+  private outgoingQueue: Array<{ jid: string; text: string; origem?: string }> =
+    [];
   private flushing = false;
   private groupSyncTimerStarted = false;
   private jsonlAppends: Record<string, number> = {};
@@ -797,7 +816,9 @@ export class WhatsAppChannel implements Channel {
     jid: string,
     imagePath: string,
     caption?: string,
+    origem?: string,
   ): Promise<void> {
+    if (!this.podeSair(jid, 'imagem', origem)) return;
     const fs = await import('fs');
     if (!fs.existsSync(imagePath)) {
       logger.warn({ jid, imagePath }, 'sendImage: file not found');
@@ -853,7 +874,9 @@ export class WhatsAppChannel implements Channel {
     filePath: string,
     fileName?: string,
     caption?: string,
+    origem?: string,
   ): Promise<void> {
+    if (!this.podeSair(jid, 'documento', origem)) return;
     const fs = await import('fs');
     const path = await import('path');
     if (!fs.existsSync(filePath)) {
@@ -886,7 +909,37 @@ export class WhatsAppChannel implements Channel {
     }
   }
 
-  async sendMessage(jid: string, text: string): Promise<void> {
+  /**
+   * ⛔ Ponto ÚNICO de egresso. Nada sai para um jid sem passar por aqui.
+   *
+   * Existe por causa de um incidente em produção (20/10/2026): com a observação
+   * ligada, 13 mensagens "Só um instante." chegaram a 5 pacientes reais. A
+   * política estava num PONTO do fluxo (`index.ts`) e os egressos estavam
+   * espalhados antes e depois dele — e três enumerações minhas dos caminhos
+   * deram três resultados diferentes.
+   *
+   * ⚠️ `sendImage`, `sendDocument` e o flush da fila chamavam
+   * `sock.sendMessage` DIRETO, sem passar pelo `sendMessage` deste canal. Então
+   * travar só o `sendMessage` deixaria imagem, PDF e texto atrasado abertos —
+   * foi o achado que derrubou o primeiro desenho.
+   */
+  private podeSair(
+    alvo: string,
+    tipo: 'texto' | 'imagem' | 'documento' | 'presenca',
+    origem?: string,
+  ): boolean {
+    const ok = this.opts.podeEntregar?.({ alvo, origem, tipo }) ?? true;
+    if (!ok) {
+      logger.warn(
+        { alvo, tipo, origem: origem ?? 'turno' },
+        'egresso: RECUSADO pela política (observação)',
+      );
+    }
+    return ok;
+  }
+
+  async sendMessage(jid: string, text: string, origem?: string): Promise<void> {
+    if (!this.podeSair(jid, 'texto', origem)) return;
     // Instância secundária tem número próprio, e ASSISTANT_HAS_OWN_NUMBER diz
     // que o bot tem o dele: nos dois casos fromMe já basta e nada é marcado.
     const prefixed =
@@ -895,7 +948,7 @@ export class WhatsAppChannel implements Channel {
         : `${BOT_MARK}${text}`;
 
     if (!this.connected) {
-      this.outgoingQueue.push({ jid, text: prefixed });
+      this.outgoingQueue.push({ jid, text: prefixed, origem });
       logger.info(
         { jid, length: prefixed.length, queueSize: this.outgoingQueue.length },
         'WA disconnected, message queued',
@@ -910,7 +963,7 @@ export class WhatsAppChannel implements Channel {
       this.auditSecondaryDm(target, 'text', prefixed);
       logger.info({ jid, target, length: prefixed.length }, 'Message sent');
     } catch (err) {
-      this.outgoingQueue.push({ jid, text: prefixed });
+      this.outgoingQueue.push({ jid, text: prefixed, origem });
       logger.warn(
         { jid, err, queueSize: this.outgoingQueue.length },
         'Failed to send, message queued',
@@ -937,7 +990,14 @@ export class WhatsAppChannel implements Channel {
     this.sock?.end(undefined);
   }
 
-  async setTyping(jid: string, isTyping: boolean): Promise<void> {
+  async setTyping(
+    jid: string,
+    isTyping: boolean,
+    origem?: string,
+  ): Promise<void> {
+    // Desligar presença é sempre permitido: não revela atividade, e se algo
+    // ligou por engano, desligar é o conserto.
+    if (isTyping && !this.podeSair(jid, 'presenca', origem)) return;
     try {
       const status = isTyping ? 'composing' : 'paused';
       logger.debug({ jid, status }, 'Sending presence update');
@@ -1065,6 +1125,10 @@ export class WhatsAppChannel implements Channel {
       while (this.outgoingQueue.length > 0) {
         const item = this.outgoingQueue.shift()!;
         const target = await this.resolveWaJid(item.jid);
+        // ⚠️ Reavalia AQUI, não no enfileiramento: a política pode ter mudado
+        // enquanto o item esperava a reconexão, e item atrasado entregue depois
+        // é o caso que nenhuma trava no fluxo pega.
+        if (!this.podeSair(item.jid, 'texto', item.origem)) continue;
         const sent = await this.sock.sendMessage(target, { text: item.text });
         this.rememberSentId(sent?.key?.id);
         this.recordBotSentId(target, sent?.key?.id);
