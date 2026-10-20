@@ -27,21 +27,15 @@
  * rebaixa para DESCONHECIDO e o caso escala. O próprio script já avisa disso
  * quando não consegue ler a agenda: "NÃO ofereça horário, escale".
  */
-import { execFile } from 'child_process';
 
 import { ehUnimed, temPlano } from './convenio.js';
 import fs from 'fs';
 import path from 'path';
 
-import { CONTAINER_IMAGE, GROUPS_DIR } from './config.js';
+import { GROUPS_DIR } from './config.js';
 import { readEnvFile } from './env.js';
-import { CONTAINER_RUNTIME_BIN } from './container-runtime.js';
 import { logger } from './logger.js';
-import {
-  LIMITES_DE_RECURSO,
-  colheContainer,
-  nomeiaContainer,
-} from './script-container.js';
+import { montaArgs, rodaScript } from './script-container.js';
 
 /** Mesmo teto do pre-check do agent-runner: Playwright no iClinic leva ~87s. */
 const TIMEOUT_MS = Number(process.env.VAGAS_TIMEOUT_MS) || 180_000;
@@ -231,31 +225,29 @@ export function perfilDe(
   return ehUnimed(convenio) ? 'unimed' : 'particular';
 }
 
-function executa(args: string[]): Promise<string | undefined> {
-  return new Promise((resolve) => {
-    execFile(
-      CONTAINER_RUNTIME_BIN,
-      args,
-      { timeout: TIMEOUT_MS, maxBuffer: 2 * 1024 * 1024 },
-      (err, stdout, stderr) => {
-        if (stderr?.trim()) {
-          logger.debug({ stderr: stderr.slice(0, 400) }, 'vagas: stderr');
-        }
-        if (err) {
-          // O timeout do `execFile` mata o cliente, não o container: foi
-          // assim que um `iclinic_vagas.py` ficou uma hora no ar.
-          const nome = args[args.indexOf('--name') + 1];
-          if (nome) colheContainer(nome);
-          logger.warn(
-            { err: err.message, container: nome },
-            'vagas: script falhou ou estourou o tempo',
-          );
-          return resolve(undefined);
-        }
-        resolve(stdout);
-      },
-    );
+async function executa(
+  nome: string,
+  args: string[],
+): Promise<string | undefined> {
+  // ⚠️ `nome` vem por parâmetro. A versão anterior recuperava o nome varrendo
+  // o próprio array (`args[args.indexOf('--name') + 1]`), com um `if (nome)`
+  // só por causa disso — e bastava alguém reordenar os argumentos para aquilo
+  // devolver `'run'`, que passa na validação, e o host mandar `docker rm -f
+  // run`. Quem monta o argv agora devolve os dois juntos.
+  const { stdout, erro, timeout } = await rodaScript({
+    nome,
+    args,
+    timeoutMs: TIMEOUT_MS,
+    maxBuffer: 2 * 1024 * 1024,
   });
+  if (erro) {
+    logger.warn(
+      { err: erro, container: nome, timeout },
+      'vagas: script falhou ou estourou o tempo',
+    );
+    return undefined;
+  }
+  return stdout;
 }
 
 /** Última linha não vazia da saída é o JSON do script. */
@@ -312,30 +304,14 @@ export async function buscaVagas(
   }
 
   garanteCredenciais();
-  const nome = nomeiaContainer('vagas');
-  const args = [
-    'run',
-    '--rm',
-    '--name',
-    nome,
-    ...LIMITES_DE_RECURSO,
-    '--network',
-    'bridge',
-  ];
   // `-e NOME` herda o valor do ambiente do host: a senha não aparece em `ps`.
-  for (const k of CREDENCIAIS) {
-    if (process.env[k]) args.push('-e', k);
-  }
-  args.push(
-    '-v',
-    `${dir}:/workspace/group:ro`,
-    '--entrypoint',
-    'python3',
-    CONTAINER_IMAGE,
-    '/workspace/group/scripts/iclinic_vagas.py',
-    '--perfil',
-    perfil,
-  );
+  const { nome, args } = montaArgs({
+    rotulo: 'vagas',
+    dir,
+    script: 'iclinic_vagas.py',
+    envKeys: CREDENCIAIS,
+    argv: ['--perfil', perfil],
+  });
   if (opts.dia) args.push('--dia', opts.dia);
   if (opts.hora) {
     if (!opts.dia) {
@@ -351,7 +327,7 @@ export async function buscaVagas(
   }
 
   const t0 = Date.now();
-  const saida = await executa(args);
+  const saida = await executa(nome, args);
   if (!saida) return [];
 
   const obj = leJson(saida);

@@ -57,9 +57,26 @@ export function readonlyMountArgs(
   return ['-v', `${hostPath}:${containerPath}:ro`];
 }
 
+/**
+ * Prefixo de TODO container que o NanoClaw cria.
+ *
+ * ⚠️ `cleanupOrphans()` abaixo varre por este prefixo. Enquanto ele era um
+ * literal repetido em três arquivos, os containers de script subiam sem
+ * `--name` e a varredura passava por cima deles: em 19/10/2026 um
+ * `iclinic_vagas.py` chamado `inspiring_hofstadter` — nome aleatório do Docker
+ * — viveu uma HORA queimando 85% de um núcleo. Quem gera nome usa esta
+ * constante, para que a varredura e a geração não possam divergir.
+ */
+export const CONTAINER_NAME_PREFIX = 'nanoclaw-';
+
+/** O nome é seguro para entrar numa linha de comando? */
+export function nomeValidoDeContainer(name: string): boolean {
+  return /^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/.test(name);
+}
+
 /** Stop a container by name. Uses execFileSync to avoid shell injection. */
 export function stopContainer(name: string): void {
-  if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/.test(name)) {
+  if (!nomeValidoDeContainer(name)) {
     throw new Error(`Invalid container name: ${name}`);
   }
   execSync(`${CONTAINER_RUNTIME_BIN} stop -t 1 ${name}`, { stdio: 'pipe' });
@@ -109,7 +126,7 @@ export function ensureContainerRuntimeRunning(): void {
 export function cleanupOrphans(): void {
   try {
     const output = execSync(
-      `${CONTAINER_RUNTIME_BIN} ps --filter name=nanoclaw- --format '{{.Names}}'`,
+      `${CONTAINER_RUNTIME_BIN} ps --filter name=${CONTAINER_NAME_PREFIX} --format '{{.Names}}'`,
       { stdio: ['pipe', 'pipe', 'pipe'], encoding: 'utf-8' },
     );
     const orphans = output.trim().split('\n').filter(Boolean);

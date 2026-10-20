@@ -1,38 +1,80 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
+type Cb = (
+  err: (Error & { signal?: string | null; code?: number | null }) | null,
+  stdout: string,
+  stderr: string,
+) => void;
+
 const mockExecFile = vi.fn();
-vi.mock('child_process', () => ({
-  execFile: (...args: unknown[]) => mockExecFile(...args),
-}));
 vi.mock('node:child_process', () => ({
   execFile: (...args: unknown[]) => mockExecFile(...args),
+}));
+vi.mock('child_process', () => ({
+  execFile: (...args: unknown[]) => mockExecFile(...args),
+  execSync: vi.fn(() => ''),
 }));
 vi.mock('./logger.js', () => ({
   logger: { warn: vi.fn(), info: vi.fn(), debug: vi.fn(), error: vi.fn() },
 }));
-vi.mock('./container-runtime.js', () => ({
+vi.mock('./config.js', () => ({
+  CONTAINER_IMAGE: 'nanoclaw-agent:latest',
+  GROUPS_DIR: '/groups',
+}));
+// ⚠️ `importOriginal`, não um objeto escrito à mão. O ponto de
+// CONTAINER_NAME_PREFIX e nomeValidoDeContainer morarem em container-runtime.ts
+// é não existirem duas cópias; um mock literal aqui recriaria exatamente a
+// transcrição que a mudança eliminou, e o teste passaria com o módulo real
+// divergindo.
+vi.mock('./container-runtime.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./container-runtime.js')>()),
   CONTAINER_RUNTIME_BIN: 'docker',
 }));
 
+import { CONTAINER_NAME_PREFIX } from './container-runtime.js';
 import {
   LIMITES_DE_RECURSO,
+  PREFIXO_DE_SCRIPT,
   colheContainer,
+  colheScriptsEsquecidos,
+  montaArgs,
   nomeiaContainer,
+  rodaScript,
 } from './script-container.js';
+
+/** Dispara o callback do execFile da chamada `i`. */
+function responde(
+  i: number,
+  err: Parameters<Cb>[0],
+  stdout = '',
+  stderr = '',
+): void {
+  const call = mockExecFile.mock.calls[i];
+  (call[call.length - 1] as Cb)(err, stdout, stderr);
+}
+
+beforeEach(() => mockExecFile.mockReset());
 
 describe('nomeiaContainer', () => {
   it('usa o prefixo que cleanupOrphans varre', () => {
     // ⚠️ Este é o teste que importa. `cleanupOrphans()` filtra por
     // `name=nanoclaw-`, e o órfão de uma hora achado em 19/10/2026 se chamava
     // `inspiring_hofstadter` — nome do Docker — então a varredura passava por
-    // cima dele. Se alguém trocar o prefixo, a colheita na subida volta a ser
-    // cega sem nenhum outro sintoma.
-    expect(nomeiaContainer('vagas').startsWith('nanoclaw-')).toBe(true);
+    // cima dele. Vem da constante compartilhada, então mudar o filtro quebra
+    // aqui em vez de cegar a varredura em silêncio.
+    expect(nomeiaContainer('vagas').startsWith(CONTAINER_NAME_PREFIX)).toBe(
+      true,
+    );
+    expect(PREFIXO_DE_SCRIPT.startsWith(CONTAINER_NAME_PREFIX)).toBe(true);
+  });
+
+  it('separa script de agente no nome', () => {
+    // A varredura periódica SÓ pode tocar em script: ela roda a cada minuto e
+    // os containers de agente estão vivos com paciente dentro.
+    expect(nomeiaContainer('vagas').startsWith(PREFIXO_DE_SCRIPT)).toBe(true);
   });
 
   it('não repete entre execuções simultâneas', () => {
-    // Dois containers com o mesmo nome: o segundo `docker run` recusa, e o
-    // sintoma seria uma busca falhando sem motivo aparente.
     const nomes = new Set(
       Array.from({ length: 200 }, () => nomeiaContainer('vagas')),
     );
@@ -47,33 +89,153 @@ describe('nomeiaContainer', () => {
 });
 
 describe('LIMITES_DE_RECURSO', () => {
-  it('limita CPU e NÃO limita memória', () => {
-    // A ausência de `--memory` é decisão, não esquecimento: teto baixo faz o
-    // OOM killer derrubar o chromium no meio da navegação e o erro que chega é
-    // outro igualmente enganoso. Ver o comentário em script-container.ts.
-    expect(LIMITES_DE_RECURSO).toEqual(['--cpus', '1', '--shm-size=1g']);
-    expect(LIMITES_DE_RECURSO).not.toContain('--memory');
+  it('usa peso relativo, NÃO teto rígido de CPU', () => {
+    // ⚠️ Correção de um gol contra. `--cpus 1` é teto rígido de CFS e morde
+    // mesmo com o segundo núcleo ocioso: 1,75x de perda medida no mesmo
+    // trabalho, justamente no container do caminho de resposta ao paciente,
+    // enquanto o container do AGENTE não tem limite nenhum. `--cpu-shares` só
+    // vale sob disputa.
+    expect(LIMITES_DE_RECURSO).toContain('--cpu-shares');
+    expect(LIMITES_DE_RECURSO).not.toContain('--cpus');
+    // Sem `--memory`: teto baixo faz o OOM killer derrubar o chromium no meio
+    // da navegação e o erro que chega é outro igualmente enganoso. E com os
+    // 64 MB padrão de /dev/shm o chromium não falha, PENDURA: `Page.goto`
+    // estourando 30 s enquanto um curl da mesma imagem respondia 200 em 2 s.
+    expect(LIMITES_DE_RECURSO).toEqual([
+      '--cpu-shares',
+      '512',
+      '--shm-size=1g',
+    ]);
+  });
+});
+
+describe('montaArgs', () => {
+  it('nomeia, limita e monta a pasta somente-leitura', () => {
+    const { nome, args } = montaArgs({
+      rotulo: 'vagas',
+      dir: '/groups/teste',
+      script: 'iclinic_vagas.py',
+      envKeys: [],
+      argv: ['--perfil', 'particular'],
+    });
+    expect(args.slice(0, 4)).toEqual(['run', '--rm', '--name', nome]);
+    for (const f of LIMITES_DE_RECURSO) expect(args).toContain(f);
+    expect(args).toContain('/groups/teste:/workspace/group:ro');
+    expect(args).toContain('/workspace/group/scripts/iclinic_vagas.py');
+    expect(args.slice(-2)).toEqual(['--perfil', 'particular']);
   });
 
-  it('carrega o /dev/shm que o chromium precisa', () => {
-    // ⚠️ Com os 64 MB padrão do Docker o chromium não falha, PENDURA: medido em
-    // 19/10/2026, `Page.goto` estourando 30 s em app.iclinic.com.br enquanto um
-    // curl da mesma imagem e da mesma rede respondia 200 em 2 s. Um flag de
-    // diferença fez o goto completar. Se alguém tirar isto, o sintoma volta
-    // disfarçado de "iClinic fora do ar".
-    expect(LIMITES_DE_RECURSO).toContain('--shm-size=1g');
+  it('passa só as credenciais presentes no ambiente', () => {
+    process.env.CRED_PRESENTE_TESTE = 'x';
+    delete process.env.CRED_AUSENTE_TESTE;
+    const { args } = montaArgs({
+      rotulo: 'x',
+      dir: '/d',
+      script: 's.py',
+      envKeys: ['CRED_PRESENTE_TESTE', 'CRED_AUSENTE_TESTE'],
+    });
+    expect(args).toContain('CRED_PRESENTE_TESTE');
+    expect(args).not.toContain('CRED_AUSENTE_TESTE');
+    // Nunca `-e NOME=valor`: isso deixaria a senha visível em `ps`.
+    expect(args.join(' ')).not.toContain('CRED_PRESENTE_TESTE=');
+    delete process.env.CRED_PRESENTE_TESTE;
+  });
+});
+
+describe('rodaScript', () => {
+  it('colhe o container no TIMEOUT', async () => {
+    const p = rodaScript({
+      nome: 'nanoclaw-script-vagas-abc',
+      args: ['run'],
+      timeoutMs: 10,
+      maxBuffer: 1,
+    });
+    const err = Object.assign(new Error('Command failed'), {
+      signal: 'SIGTERM',
+      code: null,
+    });
+    responde(0, err, '', 'traceback');
+    const r = await p;
+    expect(r.timeout).toBe(true);
+    expect(r.erro).toContain('signal=SIGTERM');
+    expect(r.erro).toContain('traceback');
+    // A 2ª chamada é o `rm -f`: o timeout mata o CLIENTE docker, não o
+    // container, e foi assim que um iclinic_vagas.py viveu uma hora.
+    expect(mockExecFile.mock.calls[1][1]).toEqual([
+      'rm',
+      '-f',
+      'nanoclaw-script-vagas-abc',
+    ]);
+  });
+
+  it('NÃO colhe em saída não-zero, que o --rm já removeu', async () => {
+    // ⚠️ Controle negativo e a economia que ele guarda: colher aqui custava
+    // 0,11 s e 22 MB de RSS por falha, sem nem deixar log, disparados no
+    // momento em que a VM tinha 166 MiB livres.
+    const p = rodaScript({
+      nome: 'nanoclaw-script-vagas-def',
+      args: ['run'],
+      timeoutMs: 10,
+      maxBuffer: 1,
+    });
+    const err = Object.assign(new Error('Command failed'), {
+      signal: null,
+      code: 3,
+    });
+    responde(0, err, '', 'erro do script');
+    const r = await p;
+    expect(r.timeout).toBe(false);
+    expect(r.erro).toContain('erro do script');
+    expect(r.erro).not.toContain('signal=');
+    expect(mockExecFile).toHaveBeenCalledTimes(1);
+  });
+
+  it('devolve stdout e stderr também na FALHA', async () => {
+    // ⚠️ É disso que `agendamento.ts` depende: o motivo que chega à RECEPÇÃO
+    // sai do stdout do `iclinic_marcar.py`, que é onde ele escreve por que
+    // recusou. Um ponto único que devolvesse só `erro` faria a escalada chegar
+    // com a linha de comando em vez do motivo.
+    const p = rodaScript({
+      nome: 'nanoclaw-script-marcar-xyz',
+      args: ['run'],
+      timeoutMs: 10,
+      maxBuffer: 1,
+    });
+    const err = Object.assign(new Error('Command failed'), {
+      signal: null,
+      code: 2,
+    });
+    responde(0, err, '{"ok": false, "erro": "escrita_indisponivel"}', 'warn');
+    const r = await p;
+    expect(r.stdout).toContain('escrita_indisponivel');
+    expect(r.stderr).toBe('warn');
+  });
+
+  it('devolve stdout no sucesso e não colhe nada', async () => {
+    const p = rodaScript({
+      nome: 'nanoclaw-script-vagas-ghi',
+      args: ['run'],
+      timeoutMs: 10,
+      maxBuffer: 1,
+    });
+    responde(0, null, '{"ok": true}', '');
+    expect(await p).toEqual({
+      stdout: '{"ok": true}',
+      stderr: '',
+      timeout: false,
+    });
+    expect(mockExecFile).toHaveBeenCalledTimes(1);
   });
 });
 
 describe('colheContainer', () => {
-  beforeEach(() => mockExecFile.mockReset());
-
   it('manda remover o container pelo nome', () => {
     colheContainer('nanoclaw-script-vagas-abc123');
-    expect(mockExecFile).toHaveBeenCalledTimes(1);
-    const [bin, args] = mockExecFile.mock.calls[0];
-    expect(bin).toBe('docker');
-    expect(args).toEqual(['rm', '-f', 'nanoclaw-script-vagas-abc123']);
+    expect(mockExecFile.mock.calls[0][1]).toEqual([
+      'rm',
+      '-f',
+      'nanoclaw-script-vagas-abc123',
+    ]);
   });
 
   it('recusa nome que não passa na validação, sem executar nada', () => {
@@ -82,5 +244,49 @@ describe('colheContainer', () => {
       colheContainer(ruim);
     }
     expect(mockExecFile).not.toHaveBeenCalled();
+  });
+});
+
+describe('colheScriptsEsquecidos', () => {
+  it('filtra por script e colhe só o velho', () => {
+    colheScriptsEsquecidos(180_000);
+    expect(mockExecFile.mock.calls[0][1]).toEqual([
+      'ps',
+      '--filter',
+      `name=${PREFIXO_DE_SCRIPT}`,
+      '--format',
+      '{{.Names}}\t{{.CreatedAt}}',
+    ]);
+    const velho = new Date(Date.now() - 600_000).toISOString();
+    const novo = new Date(Date.now() - 5_000).toISOString();
+    responde(
+      0,
+      null,
+      `nanoclaw-script-vagas-velho\t${velho}\n` +
+        `nanoclaw-script-vagas-novo\t${novo}\n`,
+    );
+    const removidos = mockExecFile.mock.calls
+      .slice(1)
+      .map((c) => (c[1] as string[])[2]);
+    expect(removidos).toEqual(['nanoclaw-script-vagas-velho']);
+  });
+
+  it('o filtro é de script, nunca de agente', () => {
+    // ⚠️ O controle negativo que me impediu de pendurar `cleanupOrphans()` num
+    // tique: ela derruba todo `nanoclaw-*`, incluindo o container de AGENTE
+    // vivo, com paciente dentro. A cada 60 s isso mataria conversa no meio.
+    expect(PREFIXO_DE_SCRIPT).not.toBe(CONTAINER_NAME_PREFIX);
+    colheScriptsEsquecidos(180_000);
+    const filtro = (mockExecFile.mock.calls[0][1] as string[])[2];
+    expect(filtro).toBe(`name=${PREFIXO_DE_SCRIPT}`);
+    expect(
+      'nanoclaw-whatsapp-atendimento-teste-123'.startsWith(PREFIXO_DE_SCRIPT),
+    ).toBe(false);
+  });
+
+  it('ignora data que não parseia, em vez de colher tudo', () => {
+    colheScriptsEsquecidos(1);
+    responde(0, null, 'nanoclaw-script-vagas-x\tsei-la-quando\n');
+    expect(mockExecFile).toHaveBeenCalledTimes(1);
   });
 });

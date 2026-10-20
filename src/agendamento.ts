@@ -32,18 +32,12 @@
  * próprio `iclinic_vagas.py` já avisa "NÃO ofereça horário, escale" quando não
  * consegue ler a agenda.
  */
-import { execFile } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
-import { CONTAINER_IMAGE, GROUPS_DIR } from './config.js';
-import { CONTAINER_RUNTIME_BIN } from './container-runtime.js';
+import { GROUPS_DIR } from './config.js';
 import { logger } from './logger.js';
-import {
-  LIMITES_DE_RECURSO,
-  colheContainer,
-  nomeiaContainer,
-} from './script-container.js';
+import { montaArgs, rodaScript } from './script-container.js';
 import {
   buscaVagas,
   CREDENCIAIS,
@@ -344,37 +338,24 @@ export async function escreveNoIclinic(
     throw new Error(`iclinic_marcar.py não existe em ${folder}`);
   }
   garanteCredenciais();
-  const nome = nomeiaContainer('marcar');
-  const args = [
-    'run',
-    '--rm',
-    '--name',
-    nome,
-    ...LIMITES_DE_RECURSO,
-    '--network',
-    'bridge',
-  ];
-  for (const k of CREDENCIAIS) {
-    if (process.env[k]) args.push('-e', k);
-  }
-  args.push(
-    '-v',
-    `${dir}:/workspace/group:ro`,
-    '--entrypoint',
-    'python3',
-    CONTAINER_IMAGE,
-    '/workspace/group/scripts/iclinic_marcar.py',
-    '--nome',
-    d.paciente,
-    '--data',
-    d.data,
-    '--inicio',
-    d.hora,
-    '--fim',
-    fim,
-    '--perfil',
-    d.perfil,
-  );
+  const { nome, args } = montaArgs({
+    rotulo: 'marcar',
+    dir,
+    script: 'iclinic_marcar.py',
+    envKeys: CREDENCIAIS,
+    argv: [
+      '--nome',
+      d.paciente,
+      '--data',
+      d.data,
+      '--inicio',
+      d.hora,
+      '--fim',
+      fim,
+      '--perfil',
+      d.perfil,
+    ],
+  });
   // O telefone sai do JID de quem pediu — mas só se for telefone de verdade.
   // Sem ele o cadastro criado fica SEM contato, e o pipeline de lembrete não
   // alcança o paciente; com um número inventado é pior, porque a conferência de
@@ -386,28 +367,25 @@ export async function escreveNoIclinic(
   // Sem o nascimento o script NÃO casa o paciente existente e escala — é o
   // segundo fator da identidade, junto com o telefone.
   if (d.nascimento) args.push('--nascimento', d.nascimento);
-  const saida = await new Promise<string>((resolve, reject) => {
-    execFile(
-      CONTAINER_RUNTIME_BIN,
-      args,
-      { timeout: TIMEOUT_MS, maxBuffer: 2 * 1024 * 1024 },
-      (err, stdout, stderr) => {
-        if (!err) return resolve(stdout);
-        // O timeout do `execFile` mata o cliente, não o container.
-        colheContainer(nome);
-        // `err.message` é só "Command failed: docker run ...", que repete o que
-        // já se sabe e esconde o que importa. O script diz POR QUE recusou na
-        // própria saída — e sem isto a escalada chega à recepção com a linha de
-        // comando em vez do motivo.
-        const detalhe = [stdout, stderr]
-          .map((x) => String(x || '').trim())
-          .filter(Boolean)
-          .join(' | ')
-          .slice(-600);
-        reject(new Error(detalhe || err.message));
-      },
-    );
+  const r = await rodaScript({
+    nome,
+    args,
+    timeoutMs: TIMEOUT_MS,
+    maxBuffer: 2 * 1024 * 1024,
   });
+  if (r.erro) {
+    // `err.message` é só "Command failed: docker run ...", que repete o que já
+    // se sabe e esconde o que importa. O script diz POR QUE recusou na própria
+    // saída — e sem isto a escalada chega à recepção com a linha de comando em
+    // vez do motivo. Por isso `rodaScript` devolve stdout/stderr na falha.
+    const detalhe = [r.stdout, r.stderr]
+      .map((x) => x.trim())
+      .filter(Boolean)
+      .join(' | ')
+      .slice(-600);
+    throw new Error(detalhe || r.erro);
+  }
+  const saida = r.stdout;
 
   // Última linha JSON, como todos os scripts desta base.
   for (const linha of saida.trim().split('\n').reverse()) {

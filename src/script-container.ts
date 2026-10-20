@@ -1,10 +1,17 @@
 import { execFile } from 'node:child_process';
+import path from 'node:path';
 
-import { CONTAINER_RUNTIME_BIN } from './container-runtime.js';
+import { CONTAINER_IMAGE } from './config.js';
+import {
+  CONTAINER_NAME_PREFIX,
+  CONTAINER_RUNTIME_BIN,
+  nomeValidoDeContainer,
+  readonlyMountArgs,
+} from './container-runtime.js';
 import { logger } from './logger.js';
 
 /**
- * Nome e colheita dos containers de script (Playwright no iClinic).
+ * Dono do ciclo de vida dos containers de script (Playwright no iClinic).
  *
  * ⚠️ O PROBLEMA: `execFile(docker, args, { timeout })` mata o CLIENTE `docker
  * run`, não o container. Quando o host desiste, o container continua rodando
@@ -26,22 +33,35 @@ import { logger } from './logger.js';
  * Com isso, a busca por telefone falhou em A07 e E08 e passou em E05 na mesma
  * passada, e a leitura fácil (e errada) era "o iClinic está bloqueando a
  * conta".
+ *
+ * ⚠️ E a PRIMEIRA versão deste módulo era só um punhado de helpers, com cada
+ * chamador fiando `execFile` + timeout + colheita por conta própria. O cheiro
+ * que denunciou: `vagas.ts` recuperava o nome do container varrendo o próprio
+ * array de argumentos (`args[args.indexOf('--name') + 1]`) — e bastava alguém
+ * reordenar os argumentos para aquilo devolver `'run'`, que passa na validação
+ * de nome, e o host mandar `docker rm -f run`. Agora quem spawna é
+ * `rodaScript`: nenhum chamador escreve `--name` nem lembra de colher.
+ *
+ * O preço de não ter um dono já estava pago em `src/audio-transcribe.ts`, um
+ * QUARTO `docker run` com timeout, sem `--name`, sem colheita e com `'docker'`
+ * no lugar de `CONTAINER_RUNTIME_BIN`.
  */
+
+/** Prefixo só dos containers de SCRIPT, para a varredura não tocar no agente. */
+export const PREFIXO_DE_SCRIPT = `${CONTAINER_NAME_PREFIX}script-`;
 
 /**
  * Um nome por execução, para poder colher depois.
  *
- * ⚠️ O prefixo `nanoclaw-` não é enfeite: `cleanupOrphans()` em
- * `container-runtime.ts` já derruba todo container com esse prefixo, e roda na
- * subida do processo. O coletor existia e estava CEGO — o órfão de uma hora
- * encontrado em 19/10/2026 se chamava `inspiring_hofstadter`, nome aleatório do
- * Docker, porque estes três scripts subiam sem `--name`. Nomear aqui conserta
- * duas coisas de uma vez: a colheita no caminho de erro, abaixo, e a varredura
- * que já existia.
+ * ⚠️ O prefixo vem de `container-runtime.ts`: `cleanupOrphans()` varre por ele,
+ * e enquanto era literal repetido os dois lados podiam divergir sem nada
+ * reprovar. O coletor existia e estava CEGO — o órfão de uma hora encontrado em
+ * 19/10/2026 se chamava `inspiring_hofstadter`, nome aleatório do Docker,
+ * porque estes scripts subiam sem `--name`.
  */
 export function nomeiaContainer(rotulo: string): string {
   const unico = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
-  return `nanoclaw-script-${rotulo}-${unico}`;
+  return `${PREFIXO_DE_SCRIPT}${rotulo}-${unico}`;
 }
 
 /**
@@ -55,22 +75,128 @@ export function nomeiaContainer(rotulo: string): string {
  * a carga da máquina já normalizada em 1.70, falhava em
  * `Page.goto: Timeout 30000ms exceeded` em app.iclinic.com.br enquanto um curl
  * da MESMA imagem e da MESMA rede respondia 200 em 2 s. Trocando um único
- * flag — `--shm-size=1g` — o `goto` passou a completar.
+ * flag — `--shm-size=1g` — o `goto` passou a completar. É TETO de tmpfs, não
+ * reserva: o container mostra `size=1048576k` com `Used 0` e as páginas entram
+ * sob demanda, então 1g não tira nada da máquina de 1,9 GiB.
  *
  * Isso também é a resposta para o diagnóstico errado que eu defendi antes: o
  * container órfão de uma hora era real e o vazamento era real, mas a carga
  * alta era CONSEQUÊNCIA, não causa. Com load 1.70 o sintoma continuava.
  *
- * ⚠️ Só CPU, de propósito. `--memory` num chromium é troca de sintoma: o
- * limite baixo faz o OOM killer derrubar o navegador no meio da navegação, e
- * o erro que chega é outro igualmente enganoso. A pressão de memória do dia
- * 19/10 vinha de containers ACUMULADOS, e quem resolve isso é a colheita
- * abaixo, não um teto por container.
+ * ⚠️ `--cpu-shares`, NÃO `--cpus` — e isto é correção de um gol contra. A
+ * primeira versão usava `--cpus 1`, que é teto RÍGIDO de CFS (`cpu.max` vira
+ * `100000 100000`) e morde mesmo com o segundo núcleo ocioso: 1,75x de perda
+ * medida no mesmo trabalho. Ou seja, o dia 19/10 inteiro consertando respostas
+ * de 55 s e 68 s na agenda, e no fim um imposto permanente justamente neste
+ * container — enquanto o container do AGENTE, que disputa a mesma máquina de 2
+ * CPUs, não tem limite nenhum (`container-runner.ts`). `--cpu-shares` é peso
+ * relativo: só vale sob disputa, então um script sozinho usa a máquina toda e
+ * o host continua ganhando quando os dois brigam.
  *
- * `--cpus 1` num host de 2 CPUs garante que um script desgovernado deixe um
- * núcleo para o host: é o que faltava quando o load bateu 6,85.
+ * Sem `--memory`: teto baixo faz o OOM killer derrubar o navegador no meio da
+ * navegação, e o erro que chega é outro igualmente enganoso. A pressão de
+ * memória do dia 19/10 vinha de containers ACUMULADOS, e quem resolve isso é a
+ * colheita, não um teto por container.
  */
-export const LIMITES_DE_RECURSO = ['--cpus', '1', '--shm-size=1g'];
+export const LIMITES_DE_RECURSO = ['--cpu-shares', '512', '--shm-size=1g'];
+
+/**
+ * Monta o `docker run` de um script do grupo.
+ *
+ * `envKeys` entra por parâmetro em vez de importar `CREDENCIAIS` de
+ * `vagas.ts`: `vagas.ts` importa este módulo, e o caminho de volta seria ciclo.
+ */
+export function montaArgs(opts: {
+  rotulo: string;
+  dir: string;
+  script: string;
+  envKeys: readonly string[];
+  argv?: readonly string[];
+}): { nome: string; args: string[] } {
+  const nome = nomeiaContainer(opts.rotulo);
+  const args = [
+    'run',
+    '--rm',
+    '--name',
+    nome,
+    ...LIMITES_DE_RECURSO,
+    '--network',
+    'bridge',
+  ];
+  for (const k of opts.envKeys) {
+    if (process.env[k]) args.push('-e', k);
+  }
+  args.push(
+    ...readonlyMountArgs(opts.dir, '/workspace/group'),
+    '--entrypoint',
+    'python3',
+    CONTAINER_IMAGE,
+    path.posix.join('/workspace/group/scripts', opts.script),
+    ...(opts.argv ?? []),
+  );
+  return { nome, args };
+}
+
+/**
+ * Roda o container e garante que ele morre.
+ *
+ * Devolve `stdout` no sucesso; na falha, `erro` com o que o provedor disse —
+ * mensagem, sinal e o fim do `stderr`. A versão anterior era
+ * `(err, stdout) => resolve(err ? undefined : stdout)`, que jogava os três no
+ * lixo: em 19/10/2026 a busca por telefone falhou em A07 e E08 e passou em E05
+ * na mesma passada, e o log não dizia se tinha sido timeout, login do iClinic
+ * ou credencial faltando — e as três exigem conserto diferente.
+ */
+export function rodaScript(opts: {
+  nome: string;
+  args: readonly string[];
+  timeoutMs: number;
+  maxBuffer: number;
+}): Promise<{
+  stdout: string;
+  stderr: string;
+  erro?: string;
+  timeout: boolean;
+}> {
+  return new Promise((resolve) => {
+    execFile(
+      CONTAINER_RUNTIME_BIN,
+      [...opts.args],
+      { timeout: opts.timeoutMs, maxBuffer: opts.maxBuffer },
+      (err, stdout, stderr) => {
+        // ⚠️ `stdout` e `stderr` voltam SEMPRE, inclusive na falha. Um ponto
+        // único não pode engolir o que o chamador precisa: `agendamento.ts`
+        // monta o motivo que chega à RECEPÇÃO a partir do stdout, porque é ali
+        // que o `iclinic_marcar.py` escreve por que recusou. Devolver só `erro`
+        // faria a escalada chegar com a linha de comando em vez do motivo.
+        if (!err) return resolve({ stdout, stderr, timeout: false });
+        // ⚠️ Só o TIMEOUT vaza container. Saída não-zero o `--rm` já removeu, e
+        // colher ali custava um fork/exec do CLI do Docker por nada: 0,11 s e
+        // 22 MB de RSS, disparados justamente no momento que o incidente de
+        // 19/10 registra como 166 MiB livres e load 6,85 — e sem nem deixar
+        // linha de log, porque o callback só loga quando dá certo.
+        //
+        // `signal` separa os dois: timeout chega como
+        // `{code: null, signal: 'SIGTERM', killed: true}`; saída não-zero como
+        // `{code: 3, signal: null, killed: false}`.
+        const sinal = err.signal;
+        if (sinal) colheContainer(opts.nome);
+        resolve({
+          stdout,
+          stderr,
+          timeout: !!sinal,
+          erro: [
+            err.message,
+            sinal ? `signal=${sinal}` : '',
+            stderr.trim().slice(-800),
+          ]
+            .filter(Boolean)
+            .join(' · '),
+        });
+      },
+    );
+  });
+}
 
 /**
  * Mata e remove o container, se ele ainda estiver de pé.
@@ -80,8 +206,9 @@ export const LIMITES_DE_RECURSO = ['--cpus', '1', '--shm-size=1g'];
  * tentado.
  */
 export function colheContainer(nome: string): void {
-  // Mesma validação de `stopContainer`: o nome entra numa linha de comando.
-  if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/.test(nome)) {
+  // Mesma validação de `stopContainer`, agora pela função dele: o nome entra
+  // numa linha de comando.
+  if (!nomeValidoDeContainer(nome)) {
     logger.warn({ container: nome }, 'script: nome de container recusado');
     return;
   }
@@ -93,4 +220,47 @@ export function colheContainer(nome: string): void {
       logger.warn({ container: nome }, 'script: container colhido após falha');
     }
   });
+}
+
+/**
+ * Varredura periódica dos containers de script esquecidos.
+ *
+ * ⚠️ Por que NÃO pendurar `cleanupOrphans()` num tique, que é o conselho
+ * óbvio: ela derruba todo container com o prefixo `nanoclaw-`, e isso inclui os
+ * containers de AGENTE VIVOS. Na subida do processo é inofensivo, porque nada
+ * nosso deveria estar rodando; a cada minuto, mataria conversa de paciente no
+ * meio. Esta função filtra por `PREFIXO_DE_SCRIPT` e exige idade mínima.
+ *
+ * A idade é o que a torna segura: um container de script mais velho que o
+ * timeout do host é, por definição, um que ninguém está mais esperando. É a
+ * rede que pega o órfão de quem esquecer de colher — e alguém esquece, como
+ * `audio-transcribe.ts` mostra.
+ */
+export function colheScriptsEsquecidos(idadeMinimaMs: number): void {
+  execFile(
+    CONTAINER_RUNTIME_BIN,
+    [
+      'ps',
+      '--filter',
+      `name=${PREFIXO_DE_SCRIPT}`,
+      '--format',
+      '{{.Names}}\t{{.CreatedAt}}',
+    ],
+    (err, stdout) => {
+      if (err) return;
+      const agora = Date.now();
+      for (const linha of stdout.trim().split('\n').filter(Boolean)) {
+        const [nome, criadoEm] = linha.split('\t');
+        if (!nome || !criadoEm) continue;
+        const criado = Date.parse(criadoEm);
+        if (Number.isNaN(criado)) continue;
+        if (agora - criado < idadeMinimaMs) continue;
+        logger.warn(
+          { container: nome, idadeS: Math.round((agora - criado) / 1000) },
+          'script: container esquecido, colhendo na varredura',
+        );
+        colheContainer(nome);
+      }
+    },
+  );
 }

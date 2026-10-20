@@ -111,6 +111,7 @@ import {
   wantsRevisaoHumana,
 } from './revisao-humana.js';
 import { logger } from './logger.js';
+import { colheScriptsEsquecidos } from './script-container.js';
 
 // Re-export for backwards compatibility during refactor
 export { escapeXml, formatMessages } from './router.js';
@@ -415,19 +416,6 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
       // teste estrutural dela garante que nenhum texto aprovado é bloqueado.
       if (wantsTemplates(group.folder)) {
         const ultima = missedMessages[missedMessages.length - 1];
-        // ⚠️ Instrumentação do laço do E08 (19/10/2026). Duas medidas se
-        // contradizem: o cursor avança para a mensagem CERTA, e o executor
-        // recebe a PRIMEIRA mensagem da conversa. Uma das duas premissas minhas
-        // está errada, e eu já queimei quatro tentativas deduzindo.
-        logger.info(
-          {
-            group: group.name,
-            janela: missedMessages.length,
-            primeira: missedMessages[0]?.content?.slice(0, 40),
-            ultima: ultima?.content?.slice(0, 40),
-          },
-          'executor: janela do turno',
-        );
         // ⚠️ A pergunta vem do BANCO, não da janela.
         //
         // `missedMessages[length - 1]` é a última da JANELA, e nos turnos 2+ a
@@ -1264,6 +1252,20 @@ async function main(): Promise<void> {
       retomaConversasDoExpediente();
     } catch (err) {
       logger.warn({ err }, 'expediente: varredura de retomada falhou');
+    }
+    // ⚠️ Rede de segurança do vazamento de container, no tique que já existia.
+    //
+    // `cleanupOrphans()` só roda na SUBIDA do processo, e foi por isso que um
+    // `iclinic_vagas.py` de 19/10/2026 viveu uma HORA queimando 85% de um dos
+    // dois núcleos. E pendurar `cleanupOrphans` aqui seria pior que o bug: ela
+    // derruba todo `nanoclaw-*`, incluindo os containers de AGENTE vivos, com
+    // paciente dentro. `colheScriptsEsquecidos` filtra por script e exige
+    // idade, então pega o órfão de quem esquecer de colher sem tocar em
+    // conversa nenhuma. O teto é o maior timeout de script (180 s) com folga.
+    try {
+      colheScriptsEsquecidos(300_000);
+    } catch (err) {
+      logger.warn({ err }, 'script: varredura de órfãos falhou');
     }
   }, 60_000);
 

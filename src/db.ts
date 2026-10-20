@@ -36,6 +36,15 @@ function createSchema(database: Database.Database): void {
       FOREIGN KEY (chat_jid) REFERENCES chats(jid)
     );
     CREATE INDEX IF NOT EXISTS idx_timestamp ON messages(timestamp);
+    -- ATENCAO: as consultas por conversa filtram chat_jid e ordenam por
+    -- timestamp, e PRIMARY KEY (id, chat_jid) nao serve de prefixo para
+    -- chat_jid. Sem este indice, ultimaMensagemDoPaciente fazia SCAN da tabela
+    -- inteira mais USE TEMP B-TREE FOR ORDER BY: medido 0,02 ms com 639 linhas,
+    -- mas 6,0 ms com 200 mil -- e better-sqlite3 e sincrono, entao isso e tempo
+    -- de loop de eventos que atrasa TODA conversa simultanea. Com o indice,
+    -- 0,003 ms. Tira tambem o scan de getMessagesSince e das buscas vizinhas.
+    CREATE INDEX IF NOT EXISTS idx_messages_chat_ts
+      ON messages(chat_jid, timestamp);
 
     CREATE TABLE IF NOT EXISTS scheduled_tasks (
       id TEXT PRIMARY KEY,
