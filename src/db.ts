@@ -527,7 +527,13 @@ export function getMessagesSince(
   // Subquery takes the N most recent, outer query re-sorts chronologically.
   const sql = `
     SELECT * FROM (
+      -- is_bot_message entra porque quem chama precisa distinguir a fala da
+      -- Lara da do paciente: em pasta com template esta consulta devolve as
+      -- DUAS (o classificador precisa ver o que ela disse), e sem a coluna a
+      -- varredura do expediente contava a fala da PROPRIA Lara como conversa
+      -- segurada e re-enfileirava em laco (medido em producao, 20/10/2026).
       SELECT id, chat_jid, sender, sender_name, content, timestamp, is_from_me,
+             is_bot_message,
              reply_to_message_id, reply_to_message_content, reply_to_sender_name
       FROM messages
       WHERE chat_jid = ? AND timestamp > ?

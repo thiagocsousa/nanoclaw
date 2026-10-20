@@ -889,3 +889,49 @@ describe('mensagemPorIdCurto', () => {
     ).toBeUndefined();
   });
 });
+
+// --- getMessagesSince devolve a marca de bot ---
+
+describe('getMessagesSince: a marca de bot volta na linha', () => {
+  it('devolve is_bot_message, para quem chama poder separar', () => {
+    // ⚠️ Sem esta coluna, a varredura do expediente contava a fala da PRÓPRIA
+    // Lara como "conversa segurada" e re-enfileirava em laço: ela postava "Só
+    // um instante.", aquilo ficava depois do cursor, a varredura de 60 s via
+    // pendente, re-enfileirava, ela postava de novo. Medido em produção em
+    // 20/10/2026, com um escalonamento no DM do Thiago a cada ciclo.
+    //
+    // E o conserto no chamador (filtrar `!m.is_bot_message`) era INERTE sem
+    // isto: o campo vinha `undefined`, então `!undefined` era true para todas.
+    storeChatMetadata('marca@g.us', '2026-10-20T00:00:00.000Z');
+    store({
+      id: 'p1',
+      chat_jid: 'marca@g.us',
+      sender: 'paciente@s.whatsapp.net',
+      sender_name: 'Paciente',
+      content: 'tem horario?',
+      timestamp: '2026-10-20T10:00:00.000Z',
+    });
+    storeMessageDirect({
+      id: 'b1',
+      chat_jid: 'marca@g.us',
+      sender: 'bot',
+      sender_name: 'Lara',
+      content: 'Só um instante.',
+      timestamp: '2026-10-20T10:01:00.000Z',
+      is_from_me: true,
+      is_bot_message: true,
+    });
+
+    const todas = getMessagesSince(
+      'marca@g.us',
+      '2026-10-20T09:00:00.000Z',
+      'Lara',
+      50,
+      true, // pasta com template: devolve as duas
+    );
+    expect(todas.length).toBe(2);
+    const doPaciente = todas.filter((m) => !m.is_bot_message);
+    expect(doPaciente.length).toBe(1);
+    expect(doPaciente[0].content).toBe('tem horario?');
+  });
+});

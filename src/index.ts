@@ -930,9 +930,25 @@ function retomaConversasDoExpediente(): void {
       MAX_MESSAGES_PER_PROMPT,
       wantsTemplates(group.folder),
     );
-    if (pendentes.length === 0) continue;
+    // ⚠️ Só retoma se houver mensagem DO PACIENTE pendente.
+    //
+    // `getMessagesSince` em pasta com template devolve TAMBÉM as falas da Lara,
+    // de propósito: o classificador precisa ver o que ela disse. Mas aqui isso
+    // criava um laço que se alimenta, medido em produção em 20/10/2026, com a
+    // observação recém-ligada:
+    //
+    //   a Lara posta "Só um instante." -> a fala dela fica depois do cursor ->
+    //   a varredura de 60 s vê "pendente" -> re-enfileira -> novo turno ->
+    //   escala -> posta de novo -> ...
+    //
+    // Resultado: um "Só um instante." no grupo e um escalonamento no DM do
+    // Thiago a cada ciclo, pela MESMA pergunta, com código novo a cada vez
+    // (73NK, YBXK, QH9Q). "Conversa segurada" significa que o PACIENTE escreveu
+    // e nós retivemos; fala da Lara não é trabalho retido.
+    const doPaciente = pendentes.filter((m) => !m.is_bot_message);
+    if (doPaciente.length === 0) continue;
     logger.info(
-      { group: group.name, pendentes: pendentes.length },
+      { group: group.name, pendentes: doPaciente.length },
       'expediente: retomando conversa segurada fora do horário',
     );
     queue.enqueueMessageCheck(chatJid);
