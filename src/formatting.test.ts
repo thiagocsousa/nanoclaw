@@ -221,11 +221,24 @@ describe('TRIGGER_PATTERN', () => {
   });
 });
 
+// ⚠️ Gatilho de teste DERIVADO do ASSISTANT_NAME, não a string literal
+// '@Claw'. Estes dois testes afirmam que um gatilho por grupo é DIFERENTE do
+// padrão, e o padrão é `@${ASSISTANT_NAME}`, que vem do ambiente. O `.env`
+// deste repositório usa ASSISTANT_NAME="Claw" — num projeto chamado nanoclaw,
+// o nome mais provável do mundo — então o literal colidia com o padrão e os
+// dois testes ficavam VERMELHOS PERMANENTES na máquina de quem desenvolve.
+// Vermelho permanente é pior que teste ausente: treina quem lê a ignorar
+// falhas — eu mesmo citei estas duas como "falha pré-existente, não tem
+// relação" quatro vezes em 19 e 20/10/2026 antes de finalmente olhar, e levou
+// dois comandos. O `.env` não é versionado, então não há como datar quando
+// começou.
+const GATILHO_DE_OUTRO_GRUPO = `@${ASSISTANT_NAME}XYZ`;
+
 describe('getTriggerPattern', () => {
   it('uses the configured per-group trigger when provided', () => {
-    const pattern = getTriggerPattern('@Claw');
+    const pattern = getTriggerPattern(GATILHO_DE_OUTRO_GRUPO);
 
-    expect(pattern.test('@Claw hello')).toBe(true);
+    expect(pattern.test(`${GATILHO_DE_OUTRO_GRUPO} hello`)).toBe(true);
     expect(pattern.test(`@${ASSISTANT_NAME} hello`)).toBe(false);
   });
 
@@ -340,7 +353,9 @@ describe('trigger gating (requiresTrigger interaction)', () => {
 
   it('non-main group does not process when only the default trigger is present for a custom-trigger group', () => {
     const msgs = [makeMsg({ content: `@${ASSISTANT_NAME} do something` })];
-    expect(shouldProcess(false, true, '@Claw', msgs)).toBe(false);
+    expect(shouldProcess(false, true, GATILHO_DE_OUTRO_GRUPO, msgs)).toBe(
+      false,
+    );
   });
 
   it('non-main group with requiresTrigger=false always processes (no trigger needed)', () => {
