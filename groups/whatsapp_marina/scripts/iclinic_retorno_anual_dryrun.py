@@ -138,11 +138,31 @@ def run(days):
     print(f"[dry-run] Simulando {days} execução(ões) do cron retorno anual…", flush=True)
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        browser = p.chromium.launch(
+            headless=True,
+            # ⚠️ Sem isto o chromium usa /dev/shm para a memória compartilhada
+            # entre seus processos, e o Docker dá 64 MB por padrão — com 64 MB ele
+            # não falha com erro, PENDURA. Este script não passa pelos spawns do
+            # host que levam `--shm-size`, então o conserto viaja com o script.
+            args=["--disable-dev-shm-usage"],
+        )
         context = browser.new_context()
         page = context.new_page()
 
         page.goto("https://app.iclinic.com.br/", wait_until="domcontentloaded")
+        # ⚠️ Esperar o campo HABILITAR antes de digitar.
+        #
+        # O `fill` do Playwright já espera por "enabled", mas com orçamento FIXO
+        # de 30 s — e 30 s não bastam. Medido na VM em 19/10/2026: o campo leva
+        # ~2,5 s numa máquina folgada e passa de 30 s sob carga, porque a tela de
+        # login soma um tracker cujo DNS não resolve (event.getblue.io,
+        # ERR_NAME_NOT_RESOLVED) e uma geolocalização que vai até o timeout no
+        # headless. Quando estoura, o erro é '<input disabled ... "Email de
+        # acesso">' com "element is not enabled", que se lê como "o iClinic
+        # bloqueou a conta" — e não é: é corrida perdida. A medição completa está
+        # em groups/whatsapp_atendimento-teste/scripts/iclinic_vagas.py.
+        page.wait_for_selector(
+            'input[name="email"]:not([disabled])', timeout=45000)
         page.fill('input[name="email"]', EMAIL)
         page.fill('input[name="password"]', SENHA)
         with page.expect_navigation(wait_until="domcontentloaded", timeout=20000):
