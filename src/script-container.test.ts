@@ -219,6 +219,54 @@ describe('rodaScript', () => {
     ]);
   });
 
+  it('a varredura é PERIÓDICA, não uma tentativa só', async () => {
+    // ⚠️ Achado do review adversarial do Codex (20/10/2026): o one-shot
+    // desistia para sempre se o `rm -f` ou a própria varredura falhassem com o
+    // runtime fora do ar por um instante — e o container de STT carrega 1,5 dos
+    // 2 núcleos. "Único dono de spawn" garante onde o vazamento NASCE, não que
+    // a limpeza funcionou.
+    //
+    // ⚠️ Módulo NOVO de propósito: `varreduraArmada` é estado de módulo, então
+    // a varredura é armada uma vez por processo e um teste anterior deste
+    // arquivo já a teria consumido. `resetModules` é o preço de a trava ser um
+    // booleano de módulo — e ela é um booleano de módulo porque a varredura
+    // tem de ser armada sob demanda, para instalação sem iClinic pagar zero.
+    vi.resetModules();
+    const fresco = await import('./script-container.js');
+    vi.useFakeTimers();
+    try {
+      const p = fresco.rodaScript({
+        nome: 'nanoclaw-script-vagas-periodica',
+        args: ['run'],
+        timeoutMs: 10,
+        maxBuffer: 1,
+      });
+      responde(
+        0,
+        Object.assign(new Error('x'), { code: null, signal: 'SIGTERM' }),
+        '',
+        '',
+      );
+      await p;
+      const psAte = () =>
+        mockExecFile.mock.calls.filter((c) => (c[1] as string[])[0] === 'ps')
+          .length;
+      expect(psAte()).toBe(0);
+      // Primeira varredura: FALHA, como se o runtime estivesse fora do ar.
+      vi.advanceTimersByTime(10 * 60 * 1000 + 1);
+      expect(psAte()).toBe(1);
+      const idx = mockExecFile.mock.calls.findIndex(
+        (c) => (c[1] as string[])[0] === 'ps',
+      );
+      responde(idx, Object.assign(new Error('runtime fora do ar'), {}));
+      // E ela TENTA DE NOVO, que é o que o one-shot não fazia.
+      vi.advanceTimersByTime(10 * 60 * 1000 + 1);
+      expect(psAte()).toBe(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('arma a rede de segunda chance SÓ quando o cliente morreu', async () => {
     // ⚠️ Isto substituiu uma varredura de 60 s que rodava para sempre: medido,
     // um fork/exec de 22 MB do CLI do docker caía 1 a 3 vezes DENTRO de cada
@@ -241,12 +289,8 @@ describe('rodaScript', () => {
       );
       await p;
       // 1ª chamada: o run. 2ª: o `rm -f` imediato. Nada de `ps` ainda.
+      // 1ª chamada: o run. 2ª: o `rm -f` imediato. Nada de `ps` ainda.
       expect(mockExecFile).toHaveBeenCalledTimes(2);
-      vi.advanceTimersByTime(IDADE_DE_ORFAO_MS + 1);
-      // Agora sim a varredura, UMA vez.
-      expect((mockExecFile.mock.calls[2][1] as string[])[0]).toBe('ps');
-      vi.advanceTimersByTime(IDADE_DE_ORFAO_MS * 5);
-      expect(mockExecFile).toHaveBeenCalledTimes(3);
     } finally {
       vi.useRealTimers();
     }

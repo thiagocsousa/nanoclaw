@@ -205,25 +205,7 @@ export function rodaScript(opts: {
         const saiuSozinho = typeof err.code === 'number';
         if (!saiuSozinho) {
           colheContainer(opts.nome);
-          // ⚠️ Rede de segunda chance, armada AQUI e uma vez só.
-          //
-          // A primeira versão varria a cada 60 s, para sempre, e isso era um
-          // fork/exec de 22 MB do CLI do docker caindo 1 a 3 vezes DENTRO de
-          // cada execução de script (um script leva ~87 s típicos, 180 s no
-          // teto) — na mesma VM de 2 núcleos e no exato caminho que este módulo
-          // existe para proteger. 1440 invocações por dia, inclusive em
-          // instalação que nunca subiu container de script.
-          //
-          // O one-shot é EQUIVALENTE porque `rodaScript` é o único dono de
-          // spawn: um container só vaza onde a colheita foi tentada, e é
-          // justamente aqui. Se o processo morrer antes disso, quem cobre é o
-          // `cleanupOrphans()` da subida. Regime permanente: zero `docker ps`.
-          const t = setTimeout(
-            () => colheScriptsEsquecidos(),
-            IDADE_DE_ORFAO_MS,
-          );
-          // Não segura o processo no ar só por causa da rede.
-          t.unref?.();
+          armaVarredura();
         }
         resolve({
           stdout,
@@ -262,7 +244,17 @@ export function colheContainer(nome: string): void {
   execFile(CONTAINER_RUNTIME_BIN, ['rm', '-f', nome], (err) => {
     if (!err) {
       logger.warn({ container: nome }, 'script: container colhido após falha');
+      return;
     }
+    // ⚠️ Falha de colheita não pode ser silêncio. A versão anterior só logava
+    // o SUCESSO, então "o runtime estava fora do ar e o container ficou vivo"
+    // e "não havia nada para colher" eram indistinguíveis no log. Quem fica
+    // com o prejuízo é a VM: o container de STT tem 1,5 núcleo de dois.
+    // (Achado do review adversarial do Codex, 20/10/2026.)
+    logger.warn(
+      { container: nome, err: err.message },
+      'script: colheita falhou, a varredura periódica é quem pega',
+    );
   });
 }
 
@@ -300,6 +292,51 @@ export const IDADE_DE_ORFAO_MS =
     90_000, // `paciente.ts`, fixo no código
   );
 
+/**
+ * Com que frequência a varredura roda, DEPOIS de armada.
+ *
+ * ⚠️ Três desenhos foram tentados em 20/10/2026, e este é a síntese de duas
+ * objeções opostas que ambas estavam certas:
+ *
+ * 1. **Tique de 60 s, sempre ligado.** Medido: um fork/exec de 22 MB do CLI do
+ *    docker caindo 1 a 3 VEZES DENTRO de cada execução de script (87 s
+ *    típicos, 180 s no teto), na VM de 2 núcleos, no exato caminho que este
+ *    módulo protege. 1440 por dia, inclusive em instalação sem iClinic.
+ * 2. **One-shot armado na falha.** Resolvia o custo, mas o review adversarial
+ *    do Codex matou a equivalência: se o `rm -f` OU a própria varredura
+ *    falharem — runtime fora do ar por um instante —, o erro era engolido e
+ *    NINGUÉM tentava de novo. O container sobrevivia até o processo reiniciar,
+ *    e o de STT carrega 1,5 dos 2 núcleos. "Único dono de spawn" garante onde
+ *    o vazamento NASCE, não que a limpeza tenha funcionado.
+ *
+ * Então: periódica (sobrevive a falha transitória, que era o ponto do Codex),
+ * de baixa frequência (uma execução de 180 s vê zero ou uma, não três), e
+ * armada SÓ depois do primeiro container de script (instalação sem iClinic
+ * paga zero, que era o outro ponto da medição).
+ */
+const INTERVALO_DE_VARREDURA_MS = 10 * 60 * 1000;
+
+let varreduraArmada = false;
+
+/** Liga a varredura periódica, uma vez, no primeiro container que falhar. */
+function armaVarredura(): void {
+  if (varreduraArmada) return;
+  varreduraArmada = true;
+  const t = setInterval(() => {
+    try {
+      colheScriptsEsquecidos();
+    } catch (err) {
+      logger.warn({ err }, 'script: varredura de órfãos falhou');
+    }
+  }, INTERVALO_DE_VARREDURA_MS);
+  // Não segura o processo no ar só por causa da rede.
+  t.unref?.();
+  logger.info(
+    { intervaloMs: INTERVALO_DE_VARREDURA_MS },
+    'script: varredura periódica de órfãos armada',
+  );
+}
+
 export function colheScriptsEsquecidos(
   idadeMinimaMs: number = IDADE_DE_ORFAO_MS,
 ): void {
@@ -313,7 +350,15 @@ export function colheScriptsEsquecidos(
     // modo de falha do `inspiring_hofstadter`, recriado pela migração.
     psArgs(PREFIXO_DE_SCRIPT, '{{.Names}}\t{{.CreatedAt}}'),
     (err, stdout) => {
-      if (err) return;
+      if (err) {
+        // ⚠️ Também não pode ser silêncio: se o `ps` falha, a varredura é
+        // justamente quem deveria estar cobrindo o resto.
+        logger.warn(
+          { err: err.message },
+          'script: não consegui listar containers de script',
+        );
+        return;
+      }
       const agora = Date.now();
       for (const linha of stdout.trim().split('\n').filter(Boolean)) {
         const [nome, criadoEm] = linha.split('\t');
