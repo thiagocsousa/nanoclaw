@@ -559,3 +559,30 @@ export function podeEntregar(opts: {
 export function algumaPastaEmObservacao(): boolean {
   return OBSERVACAO.size > 0;
 }
+
+/**
+ * A chave da sessão do agente para este turno.
+ *
+ * ⛔ Medido em produção em 21/10/2026: a sessão era `sessions[group.folder]`, e
+ * a observação põe TODAS as DMs de paciente na MESMA pasta. Resultado: um único
+ * agente, com uma única sessão, atendendo todos os pacientes — e o contexto de
+ * um entrando no turno de outro.
+ *
+ * O sintoma que revelou: a pergunta "Quanto custa a cirurgia refrativa?"
+ * recebeu o texto de `menor_de_idade`, e o `id_mensagem` que o agente devolveu
+ * apontava para uma mensagem de OUTRO paciente, noutra conversa. Não era erro
+ * de classificação: era contexto cruzado.
+ *
+ * ⚠️ Em dado de saúde isso é sério por si, independente de nada chegar ao
+ * paciente: a conversa de um estava visível no contexto do turno de outro.
+ *
+ * ⚠️ Composta, e SÓ para DM observada. A chave é usada na tabela `sessions`
+ * (coluna `group_folder`) e consultada pelo `task-scheduler` por pasta; trocar
+ * tudo por `chatJid` quebraria os dois. Grupo normal, DM do Thiago e DM da
+ * Marina continuam com a pasta como chave.
+ */
+export function chaveDaSessao(groupFolder: string, chatJid: string): string {
+  return emObservacao(groupFolder, chatJid)
+    ? `${groupFolder}:${chatJid}`
+    : groupFolder;
+}

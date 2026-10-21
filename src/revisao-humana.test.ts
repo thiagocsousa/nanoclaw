@@ -586,3 +586,43 @@ describe('podeEntregar sem observação ligada', () => {
     expect(mod.algumaPastaEmObservacao()).toBe(false);
   });
 });
+
+// --- chaveDaSessao ---
+
+describe('chaveDaSessao', () => {
+  const DM = '558699999999@s.whatsapp.net';
+  const OUTRA_DM = '558688888888@s.whatsapp.net';
+  const GRUPO = '120363000@g.us';
+
+  beforeEach(async () => {
+    process.env.OBSERVACAO_FOLDERS = PASTA;
+    vi.resetModules();
+    mod = await import('./revisao-humana.js');
+  });
+  afterEach(() => {
+    delete process.env.OBSERVACAO_FOLDERS;
+  });
+
+  it('DMs observadas DIFERENTES têm sessões diferentes', () => {
+    // ⛔ O defeito medido em 21/10/2026: a sessão era por PASTA, e a observação
+    // põe todas as DMs na mesma pasta — um agente, uma sessão, todos os
+    // pacientes, contexto de um no turno do outro. A pergunta "Quanto custa a
+    // cirurgia refrativa?" recebeu o texto de `menor_de_idade` porque o modelo
+    // classificou mensagem de OUTRO paciente.
+    const a = mod.chaveDaSessao(PASTA, DM);
+    const b = mod.chaveDaSessao(PASTA, OUTRA_DM);
+    expect(a).not.toBe(b);
+    expect(a).toContain(DM);
+  });
+
+  it('CONTROLE NEGATIVO: grupo continua com a PASTA como chave', () => {
+    // A chave vai na tabela `sessions` (coluna group_folder) e o
+    // task-scheduler consulta por pasta. Mudar tudo quebraria os dois.
+    expect(mod.chaveDaSessao(PASTA, GRUPO)).toBe(PASTA);
+  });
+
+  it('CONTROLE NEGATIVO: DM de pasta NÃO observada continua pela pasta', () => {
+    // A DM do Thiago (whatsapp_main) e a da Marina não mudam de chave.
+    expect(mod.chaveDaSessao('whatsapp_marina', DM)).toBe('whatsapp_marina');
+  });
+});

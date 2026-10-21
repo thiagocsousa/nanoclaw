@@ -98,6 +98,7 @@ import {
 } from './expediente.js';
 import { abreConversa, conversaAbertaEm } from './memoria-conversa.js';
 import {
+  chaveDaSessao,
   emObservacao,
   podeMostrarPresenca,
   retemResposta,
@@ -454,8 +455,23 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
         // par texto/remetente garantiu que os dois vêm da MESMA linha; não
         // garantiu que é a linha certa. (Codex, 20/10/2026.)
         //
-        // O fallback é o comportamento antigo, e é LOGADO: id ausente (modelo
-        // velho, turno sem o campo) ou ambíguo não pode virar silêncio.
+        // ⛔ E FALHA FECHADO: sem id que resolva, o turno NÃO executa.
+        //
+        // O fallback para "a mensagem mais nova" era o comportamento antigo, e
+        // medido em produção em 21/10/2026 ele colava rótulo de um turno na
+        // pergunta de outro. Dois casos reais no mesmo dia:
+        //
+        //   - "Quanto custa a cirurgia refrativa?" recebeu o texto de
+        //     `menor_de_idade`, e o id devolvido apontava para mensagem de
+        //     OUTRO paciente;
+        //   - "Pertinho de minha casa. Grato!" apareceu em TRÊS propostas
+        //     seguidas com três respostas diferentes, porque três turnos leram
+        //     a mesma mensagem mais nova.
+        //
+        // Falhar aberto aqui é pior que não responder: produz resposta
+        // plausível para a pergunta errada, e em observação isso enche o grupo
+        // de revisão de pares que não existem. O Codex apontou isto como alto
+        // em 20/10/2026 e eu mantive o fallback com log — foi o erro.
         const idDito = idMensagemDe(raw);
         const doId = idDito
           ? mensagemPorIdCurto(chatJid, idDito, ASSISTANT_NAME)
@@ -476,8 +492,23 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
           },
           'executor: amarração do turno',
         );
-        const doBanco =
-          doId ?? ultimaMensagemDoPaciente(chatJid, ASSISTANT_NAME);
+        if (!doId) {
+          // Sem par confiável o host não improvisa: avisa humano e cala. É o
+          // mesmo princípio de "sem tabela não há texto aprovado" — aqui não há
+          // PERGUNTA confiável, e responder a pergunta errada é pior que o
+          // silêncio com aviso.
+          const { jid, folder } = destinoDoAviso();
+          enviaParaDestino(
+            jid,
+            '⛔ *Turno sem amarração*\n\nO agente não devolveu um ' +
+              '`id_mensagem` que resolvesse nesta conversa, então eu não sei a ' +
+              'QUAL mensagem a classificação se refere. Nada foi respondido.\n\n' +
+              `Conversa: \`${chatJid}\`\nid devolvido: \`${idDito ?? '(nenhum)'}\``,
+            folder,
+          );
+          return;
+        }
+        const doBanco = doId;
         const perguntaReal = doBanco?.content ?? ultima?.content ?? '';
         const remetenteReal = doBanco?.sender ?? ultima?.sender ?? '';
         const r = await executa(
@@ -695,7 +726,11 @@ async function runAgent(
   onOutput?: (output: ContainerOutput) => Promise<void>,
 ): Promise<'success' | 'error'> {
   const isMain = group.isMain === true;
-  const sessionId = sessions[group.folder];
+  // ⛔ Chave COMPOSTA em DM observada: sem isto todos os pacientes
+  // compartilhavam uma sessão e o contexto de um entrava no turno de outro.
+  // Ver `chaveDaSessao`.
+  const chaveSessao = chaveDaSessao(group.folder, chatJid);
+  const sessionId = sessions[chaveSessao];
 
   // Update tasks snapshot for container to read (filtered by group)
   const tasks = getAllTasks();
@@ -727,8 +762,8 @@ async function runAgent(
   const wrappedOnOutput = onOutput
     ? async (output: ContainerOutput) => {
         if (output.newSessionId) {
-          sessions[group.folder] = output.newSessionId;
-          setSession(group.folder, output.newSessionId);
+          sessions[chaveSessao] = output.newSessionId;
+          setSession(chaveSessao, output.newSessionId);
         }
         await onOutput(output);
       }
@@ -751,8 +786,8 @@ async function runAgent(
     );
 
     if (output.newSessionId) {
-      sessions[group.folder] = output.newSessionId;
-      setSession(group.folder, output.newSessionId);
+      sessions[chaveSessao] = output.newSessionId;
+      setSession(chaveSessao, output.newSessionId);
     }
 
     if (output.status === 'error') {
@@ -772,8 +807,8 @@ async function runAgent(
           { group: group.name, staleSessionId: sessionId, error: output.error },
           'Stale session detected — clearing for next retry',
         );
-        delete sessions[group.folder];
-        deleteSession(group.folder);
+        delete sessions[chaveSessao];
+        deleteSession(chaveSessao);
       }
 
       logger.error(
