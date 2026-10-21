@@ -42,21 +42,21 @@
         {
           "paciente": "queria fazer a cirurgia pra parar de usar óculos",
           "esperado": [
-            "[Nn]ome completo",
-            "[Nn]ascimento",
-            "[Cc]idade",
-            "[Cc]onv[êe]nio"
+            "para voc[êe], Thiago|cirurgia ou consulta de rotina|conv[êe]nio ou particular"
           ],
-          "nota": "Quatro dados EM TÓPICOS, um por linha. Não em frase corrida. A abertura deixou de ser menu numerado em 17/10/2026: a necessidade agora vem de frase solta, e é isso que este turno exercita.",
-          "proibido": [],
+          "nota": "⚠️ Reescrito em 21/10/2026, com a oferta vindo antes da coleta: o formulário de quatro campos deixou de ser a abertura. O telefone tem cadastro, então o primeiro passo é a pergunta de identidade; sem cadastro, é a pergunta que leva à agenda. Nome e nascimento só no aceite — por isso estão em `proibido` aqui.",
+          "proibido": [
+            "[Nn]ome completo",
+            "[Nn]ascimento"
+          ],
           "intencao_esperada": "triagem_dados"
         },
         {
           "paciente": "Thiago Carvalho de Sousa, 10/03/1980, Teresina, particular",
           "esperado": [
-            "\\d{1,2}[h:]"
+            "lente de contato"
           ],
-          "nota": "Deve vir dia E hora concretos na MESMA mensagem, sem perguntar permissão.",
+          "nota": "⚠️ NÃO é o horário ainda: refrativa pergunta da lente por iniciativa antes de ofertar (Marina, 19/10/2026), porque são 3 dias sem usar e ofertar amanhã mandaria a pessoa viajar para um exame que não presta. O horário vem depois da resposta sobre a lente.",
           "proibido": [],
           "intencao_esperada": "horario_oferta"
         }

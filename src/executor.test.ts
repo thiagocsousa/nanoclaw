@@ -1214,6 +1214,77 @@ describe('triagem completa vira oferta de horário (Thiago, 17/10/2026)', () => 
     expect(marcou).toHaveLength(1);
   });
 
+  /**
+   * ⚠️ Cadastro ESPONTÂNEO depois da oferta — o defeito que a passada dirigida
+   * de 21/10/2026 achou, em dois cenários (W01 e W03).
+   *
+   * Com um horário na mesa, dar os dados é o reflexo natural do paciente. O
+   * `!ultimaOferta` do `triagemVaiAgenda`, que mata o laço de reoferta, é largo
+   * demais: a triagem não ia à agenda, nada faltava perguntar, e a escalada de
+   * "nada a perguntar" mandava "Só um instante." a quem respondeu certo.
+   */
+  it('cadastro espontâneo depois da oferta repete a oferta, não escala', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    buscou.length = 0;
+    vagasFalsas = [
+      {
+        data: '2026-10-22',
+        dia_semana: 'quinta',
+        inicio: '09:00',
+        fim: '09:20',
+      },
+    ];
+    const t1 = await rodar(
+      '{"intencao":"triagem_dados","confianca":0.95,"slots":{"necessidade":"rotina","convenio":"particular"}}',
+      'consulta de rotina, particular',
+    );
+    expect(t1?.texto).toMatch(/09:00/);
+    const buscasAntes = buscou.length;
+
+    const t2 = await rodar(
+      '{"intencao":"triagem_dados","confianca":0.95,"slots":{"nome":"Ana","nascimento":"10/02/1990","cidade":"Teresina"}}',
+      'Ana, 10/02/1990, Teresina',
+    );
+    expect(t2?.acao).toBe('responder');
+    expect(t2?.texto).toMatch(/09:00/);
+    expect(t2?.texto).not.toContain('Só um instante');
+    // ⚠️ E SEM nova busca: o horário repetido é o que já estava de pé. Buscar
+    // de novo gastaria 18s de container e poderia oferecer OUTRO horário a quem
+    // está olhando o primeiro.
+    expect(buscou.length).toBe(buscasAntes);
+    // Não é aceite: nada foi marcado, porque o paciente não disse sim.
+    expect(marcou).toHaveLength(0);
+  });
+
+  it('insistir mandando cadastro sem aceitar escala na terceira', async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+    vagasFalsas = [
+      {
+        data: '2026-10-22',
+        dia_semana: 'quinta',
+        inicio: '09:00',
+        fim: '09:20',
+      },
+    ];
+    await rodar(
+      '{"intencao":"triagem_dados","confianca":0.95,"slots":{"necessidade":"rotina","convenio":"particular"}}',
+      'consulta de rotina, particular',
+    );
+    const acoes: Array<string | undefined> = [];
+    for (const msg of ['Ana, 10/02/1990', 'Ana Souza', 'é Ana mesmo']) {
+      const r = await rodar(
+        '{"intencao":"triagem_dados","confianca":0.95,"slots":{"nome":"Ana","nascimento":"10/02/1990","cidade":"Teresina"}}',
+        msg,
+      );
+      acoes.push(r?.acao);
+    }
+    expect(acoes.slice(0, 2)).toEqual(['responder', 'responder']);
+    expect(acoes[2]).toBe('escalar');
+    expect(marcou).toHaveLength(0);
+  });
+
   it('com a oferta de pé, uma pergunta qualquer NÃO marca', async () => {
     const { esqueceSlots } = await import('./memoria-conversa.js');
     esqueceSlots(PASTA, JID);

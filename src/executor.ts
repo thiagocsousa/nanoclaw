@@ -1743,6 +1743,48 @@ export async function executa(
     // uma string reconhecível não mudava nenhum dos 176 testes.
 
     if (acao === 'triagem') {
+      // ⚠️ Cadastro ESPONTÂNEO depois da oferta.
+      //
+      // Com um horário na mesa, dar os dados é o reflexo natural do paciente —
+      // e até 21/10/2026, à tarde, isso levava "Só um instante.". O
+      // `!ultimaOferta` que eu pus no `triagemVaiAgenda` (para matar o laço de
+      // reoferta) é largo demais: com oferta de pé a triagem não vai à agenda,
+      // nada falta para perguntar, e a escalada de "nada a perguntar" dispara.
+      // Apareceu na passada dirigida, em DOIS cenários (W01 e W03), e foi
+      // reproduzido localmente antes deste conserto.
+      //
+      // O certo é repetir a oferta QUE JÁ ESTÁ DE PÉ — sem nova busca de 18s —,
+      // porque o texto dela é "Tenho {dia}, dia {data}, às {hora}. Esse horário
+      // funciona para você?", que é exatamente o que se diz a quem acabou de
+      // mandar o cadastro. Não é aceite: o paciente ainda não disse sim, e
+      // tratar como sim marcaria consulta sem confirmação.
+      if (!pedido && pendente && !pendente.aguardaDados) {
+        const insistiu = await escalaSeInsistiu(
+          groupFolder,
+          tabela,
+          'horario_oferta_repetida',
+          'mandou dados de cadastro três vezes com a mesma oferta na mesa e ' +
+            'nunca aceitou o horário; veja o que o paciente quer',
+          { perguntaDoPaciente, deps, chatJid, rotulo: c.intencao },
+          () => esqueceOferta(groupFolder, chatJid),
+        );
+        if (insistiu) return insistiu;
+        const ro = renderiza(tabela, 'horario_oferta', {
+          confianca: 1,
+          slots: { ...slots, ...slotsDasVagas(vagasDaOferta(pendente)) },
+        });
+        if (ro.texto && ro.intencao === 'horario_oferta') {
+          logger.info(
+            { groupFolder, vagas: vagasDaOferta(pendente).length },
+            'executor: cadastro espontâneo, repete a oferta de pé',
+          );
+          return {
+            texto: ro.texto,
+            intencao: 'horario_oferta',
+            acao: 'responder',
+          };
+        }
+      }
       if (!pedido) {
         // Nada a perguntar e ainda assim triagem: é rótulo errado. Escalar é
         // melhor que repetir formulário ou adivinhar o que ele quer.
