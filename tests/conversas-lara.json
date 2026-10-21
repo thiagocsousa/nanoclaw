@@ -1735,6 +1735,81 @@
       "escalou": true
     },
     {
+      "id": "I05",
+      "categoria": "fora_de_teresina",
+      "sobre": "Cirúrgico que NÃO diz a cidade: a Lara pergunta antes de ofertar horário. A cidade não escolhe agenda e marca() não a grava — o único uso é o arranjo de mesmo dia para quem vem de fora, e descobrir isso depois de prometer horário obriga a desmarcar. Regra de 21/10/2026.",
+      "escalou": false,
+      "turnos": [
+        {
+          "paciente": "oi"
+        },
+        {
+          "paciente": "quero operar catarata, particular",
+          "exige": [
+            "de Teresina ou vem de outra cidade"
+          ],
+          "proibido": [
+            "[0-9]{2}:[0-9]{2}",
+            "S[óo] um instante",
+            "Nome completo"
+          ],
+          "nota": "Tem necessidade e convênio, logo o perfil fecha e a agenda seria consultada. A cidade é o que falta, e no cirúrgico ela TRAVA a oferta. Nada de horário aqui."
+        },
+        {
+          "paciente": "sou de Floriano",
+          "proibido": [
+            "S[óo] um instante"
+          ],
+          "nota": "Vem de fora e é cirúrgico: o caminho esperado é o arranjo de exames e consulta no mesmo dia (paciente_de_fora), não um horário solto."
+        }
+      ]
+    },
+    {
+      "id": "W04",
+      "categoria": "agenda",
+      "sobre": "Cadastro em DUAS mensagens, que é como as pessoas escrevem. Achado do review adversarial do Codex em 21/10/2026: o turno do primeiro campo escalava com \"Só um instante.\" e o do segundo marcava sozinho depois de o caso ir à recepção. ⚠️ PARA no pedido do nascimento: não marca nada no iClinic de propósito.",
+      "escalou": false,
+      "turnos": [
+        {
+          "paciente": "oi"
+        },
+        {
+          "paciente": "é pra cirurgia de catarata, particular, sou de Teresina",
+          "exige": [
+            "[0-9]{2}:[0-9]{2}"
+          ],
+          "proibido": [
+            "Nome completo",
+            "nascimento"
+          ],
+          "nota": "Oferta ANTES da coleta: com necessidade, convênio e cidade, o próximo passo é o horário, não o cadastro."
+        },
+        {
+          "paciente": "pode ser",
+          "exige": [
+            "nome completo|nascimento"
+          ],
+          "proibido": [
+            "S[óo] um instante",
+            "agendad"
+          ],
+          "nota": "Aceitou: agora o cadastro é cobrado. E nada pode afirmar que está agendado."
+        },
+        {
+          "paciente": "Thiago Carvalho",
+          "exige": [
+            "nascimento"
+          ],
+          "proibido": [
+            "S[óo] um instante",
+            "nome completo",
+            "agendad"
+          ],
+          "nota": "⛔ O TURNO DO DEFEITO. Só o nome: tem de pedir o que FALTA. Antes do conserto, `completaOAceite` era falso, `oferta` ficava undefined, o ramo do pedido era inalcançável e isto escalava — e a oferta seguia armada para marcar sozinha na mensagem seguinte."
+        }
+      ]
+    },
+    {
       "id": "D06",
       "categoria": "convenio",
       "sobre": "Plano fora da lista: consulta não, cirurgia sim se o plano autorizar (F04).",
