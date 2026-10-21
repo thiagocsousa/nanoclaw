@@ -491,13 +491,36 @@ def checa(resposta, turno, globais, anteriores=()):
     return duras, avisos
 
 
-def aprova_pendentes():
-    """Aprova o que estiver na fila da revisão, como a recepção faria.
+def ms_do_iso(iso):
+    """ISO do harness -> epoch ms, que é o formato do `quando` da fila."""
+    return int(
+        datetime.fromisoformat(iso.replace("Z", "+00:00")).timestamp() * 1000
+    )
+
+
+def aprova_pendentes(desde):
+    """Aprova o que ESTE cenário colocou na fila, como a recepção faria.
 
     ⚠️ A aprovação TEM de passar pelo host: é ele que envia ao paciente. Apagar
     o arquivo da fila deixaria o paciente sem nada e o cenário no timeout do
     mesmo jeito. Então o harness fala como o grupo de atendimento, mandando
     "ok CODIGO" no JID de onde a aprovação é aceita.
+
+    ⛔ `desde` é OBRIGATÓRIO, e é o conserto de 21/10/2026.
+
+    Até aqui esta função lia o arquivo inteiro e aprovava TODOS os códigos. Com
+    a semana de observação ligada, a fila acumula as respostas que a Lara
+    calculou para pacientes REAIS e que ninguém aprovou — eram 31, de 11
+    números, da janela 20/10 16:02 a 21/10 09:46. Uma passada nesse estado
+    entregaria as 31 horas depois e fora de contexto, e a trava da observação
+    não segura: a aprovação sai com `origem: 'revisao'`, que ela libera de
+    propósito. É o incidente de 20/10 por outro mecanismo.
+
+    O parâmetro já existia em `espera_e_aprova(desde, ...)` e não era usado em
+    nada — o filtro estava previsto e nunca foi escrito.
+
+    Item sem `quando` NÃO é aprovado: não há como provar que é deste cenário, e
+    o estado seguro é deixar na fila.
 
     Devolve os códigos aprovados.
     """
@@ -508,7 +531,12 @@ def aprova_pendentes():
             itens = json.load(f)
     except (OSError, ValueError):
         return []
-    codigos = [p.get("codigo") for p in itens if p.get("codigo")]
+    corte = ms_do_iso(desde)
+    codigos = [
+        p["codigo"]
+        for p in itens
+        if p.get("codigo") and int(p.get("quando") or 0) >= corte
+    ]
     for codigo in codigos:
         injeta("ok %s" % codigo, chat=REVISAO_JID, sender=REVISAO_SENDER)
     return codigos
@@ -520,7 +548,7 @@ def espera_e_aprova(desde, limite_s=60):
         return []
     fim = time.time() + limite_s
     while time.time() < fim:
-        codigos = aprova_pendentes()
+        codigos = aprova_pendentes(desde)
         if codigos:
             return codigos
         time.sleep(2)
