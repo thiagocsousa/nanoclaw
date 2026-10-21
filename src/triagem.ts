@@ -32,8 +32,11 @@ const EM_FRASE: Record<Campo, string> = {
   convenio: 'o convênio (ou particular)',
 };
 
-export function faltamNaTriagem(slots: Record<string, string>): Campo[] {
-  return CAMPOS.filter((c) => !slots[c]?.trim());
+export function faltamNaTriagem(
+  slots: Record<string, string>,
+  entre: readonly Campo[] = CAMPOS,
+): Campo[] {
+  return entre.filter((c) => !slots[c]?.trim());
 }
 
 /** "a, b e c" — vírgula entre, "e" antes do último, como se escreve. */
@@ -49,13 +52,29 @@ function primeiroNome(nome?: string): string | undefined {
 }
 
 export interface OpcoesDaFrase {
-  /** O formulário completo da tabela, usado quando falta tudo. */
-  textoCompleto: string;
+  /**
+   * O formulário completo da tabela, usado quando falta tudo.
+   *
+   * Opcional porque com `apenas` ele não tem uso: quem pede um subconjunto
+   * nunca cai no formulário de quatro campos, e os chamadores eram obrigados a
+   * passar `textoCompleto: ''` só para satisfazer o tipo.
+   */
+  textoCompleto?: string;
   /**
    * Prefixo de propósito. Em `triagem_dados` o próximo passo é o horário, e
    * dizer isso justifica o pedido em vez de só exigir. Vazio desliga.
    */
   proposito?: string;
+  /**
+   * Restringe o pedido a um subconjunto dos campos.
+   *
+   * Existe desde 21/10/2026, quando a oferta passou a vir ANTES da coleta
+   * (Thiago: "hoje a gente faz assim" na clínica). No turno do aceite o que
+   * falta para marcar é nome e nascimento — cidade e convênio ou já vieram, ou
+   * não entram na marcação. Pedir os quatro ali seria devolver o formulário a
+   * quem acabou de escolher um horário.
+   */
+  apenas?: readonly Campo[];
 }
 
 /**
@@ -66,10 +85,20 @@ export function fraseDeTriagem(
   slots: Record<string, string>,
   opts: OpcoesDaFrase,
 ): string {
-  const faltando = faltamNaTriagem(slots);
+  const faltando = faltamNaTriagem(slots, opts.apenas ?? CAMPOS);
   if (faltando.length === 0) return '';
   // Nenhum dado na mão: é o primeiro contato, e o formulário aprovado é o certo.
-  if (faltando.length === CAMPOS.length) return opts.textoCompleto;
+  // ⚠️ Só vale quando o pedido é dos QUATRO. Com `apenas`, "falta tudo" quer
+  // dizer "faltam os dois do aceite", e devolver o formulário inteiro ali seria
+  // exatamente o que a oferta-antes-da-coleta veio tirar do caminho.
+  //
+  // ⚠️ A pergunta é `!opts.apenas`, não `entre === CAMPOS`. A primeira versão
+  // comparava a REFERÊNCIA do array, então `apenas: [...CAMPOS]` — uma forma
+  // natural de dizer "os quatro" — mudava o comportamento em silêncio, sem erro
+  // de tipo e sem teste olhando.
+  if (!opts.apenas && faltando.length === CAMPOS.length) {
+    return opts.textoCompleto ?? '';
+  }
 
   const de = primeiroNome(slots.nome);
   const itens = faltando.map((c) =>

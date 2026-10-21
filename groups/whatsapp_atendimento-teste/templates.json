@@ -29,6 +29,42 @@
       "textos": ["Você está procurando cirurgia, ou uma consulta de rotina?"],
       "so_do_host": true
     },
+    "pergunta_necessidade_convenio": {
+      "bloco": "F00",
+      "quando": "NUNCA rotular isto: quem pergunta é o host, quando precisa de necessidade E convênio para poder consultar a agenda e a pessoa não disse nenhum dos dois.",
+      "acao": "responder",
+      "fecho": false,
+      "so_do_host": true,
+      "textos": [
+        "Seria para avaliação de cirurgia ou consulta de rotina? Seria por convênio ou particular?"
+      ]
+    },
+    "pergunta_convenio": {
+      "bloco": "F00",
+      "quando": "NUNCA rotular isto: quem pergunta é o host, quando a necessidade e a cidade já são conhecidas e falta só o convênio. É a primeira frase do pergunta_convenio_cidade, sozinha — a voz é a mesma (Thiago, 21/10/2026: \"fica o texto da Marina\").",
+      "acao": "responder",
+      "fecho": false,
+      "so_do_host": true,
+      "textos": ["Seria por convênio ou particular?"]
+    },
+    "pergunta_cidade": {
+      "bloco": "F00",
+      "quando": "NUNCA rotular isto: quem pergunta é o host, quando a necessidade é CIRÚRGICA, o convênio já veio e falta só a cidade. A cidade só trava a oferta no cirúrgico, onde existe o arranjo de mesmo dia para quem vem de fora.",
+      "acao": "responder",
+      "fecho": false,
+      "so_do_host": true,
+      "textos": ["Você é de Teresina ou vem de outra cidade?"]
+    },
+    "pergunta_convenio_cidade": {
+      "bloco": "F00",
+      "quando": "NUNCA rotular isto: quem pergunta é o host, quando a necessidade já é conhecida e faltam o convênio E a cidade. Faltando só o convênio, ou só a cidade, o host usa uma frase corrida. A cidade TRAVA a oferta apenas no cirúrgico, onde o arranjo de mesmo dia existe; na rotina ela não atrasa horário nenhum. A cidade entra na mesma pergunta porque quem vem de fora recebe o arranjo de mesmo dia, e descobrir isso DEPOIS de ofertar horário obrigaria a desmarcar.",
+      "acao": "responder",
+      "fecho": false,
+      "so_do_host": true,
+      "textos": [
+        "Seria por convênio ou particular? E você é de Teresina ou vem de outra cidade?"
+      ]
+    },
     "convite_horario": {
       "bloco": "F00g",
       "quando": "NUNCA rotular isto: quem decide é o host. É o convite LEVE, pendurado depois de uma resposta quando a conversa ainda não mostrou que a pessoa quer marcar.",

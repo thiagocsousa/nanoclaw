@@ -113,7 +113,7 @@ Abaixo, só o que não cabe num campo `quando`:
 
   | o paciente manda | a Lara faz |
   |---|---|
-  | 1, 2, 3 | pede nome, nascimento e cidade, com a necessidade já preenchida |
+  | 1, 2, 3 | com a necessidade já preenchida, pergunta o convênio e a cidade |
   | 4 (Outros) | `pedir_esclarecimento` — pergunta o que ele precisa |
   | outro número | `DESCONHECIDO`, escala |
 
@@ -205,6 +205,17 @@ Abaixo, só o que não cabe num campo `quando`:
     plano no slot `convenio`. Quem troca para o texto do plano é o host, porque
     pela Unimed o exame não sai e por esses sai — o inverso. Você rotula o que
     ele perguntou; a escolha do texto não é sua.
+- **Cadastro depois de um horário oferecido é `triagem_dados`, como sempre.**
+  Desde 21/10/2026 a Lara oferece o horário ANTES de coletar os dados, e pede
+  nome e nascimento só depois do aceite. Então existe um turno novo: a Lara
+  pergunta *"poderia me informar o nome completo do paciente e a data de
+  nascimento?"* e o paciente responde *"Thiago Carvalho, 01/06/1980"*.
+
+  Isso é `triagem_dados` com os slots `nome` e `nascimento` — **não**
+  `aceita_horario`, porque ele não está aceitando nada, está se cadastrando.
+  Quem sabe que aquele cadastro fecha uma marcação é o host, porque foi ele que
+  perguntou. **Rotular não é preencher**, aqui como em todo o resto.
+
 - **Responder "qual fica melhor?" é `aceita_horario`.** O gatilho completo, com
   os exemplos e o incidente que o criou, está no `quando` da intenção. Aqui fica
   só o que não cabe lá: quem resolve QUAL das duas é o host (`vagaEscolhida`, em

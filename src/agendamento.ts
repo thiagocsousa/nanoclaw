@@ -111,6 +111,17 @@ export interface OfertaPendente {
   nome?: string;
   nascimento?: string;
   convenio?: string;
+  /**
+   * A oferta está de pé e o host PEDIU nome e nascimento para fechar.
+   *
+   * ⚠️ É a trava que permite a marcação acontecer num turno rotulado
+   * `triagem_dados`. Sem ela, "oferta pendente + nome e nascimento na memória"
+   * marcaria em qualquer turno — inclusive num "qual o endereço?" — e o
+   * paciente receberia confirmação de uma consulta que não pediu. Com a marca,
+   * só fecha quem foi perguntado. Entrou em 21/10/2026, com a
+   * oferta-antes-da-coleta.
+   */
+  aguardaDados?: boolean;
 }
 
 function arquivoOfertas(folder: string): string {

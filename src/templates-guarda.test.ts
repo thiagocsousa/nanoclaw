@@ -67,6 +67,41 @@ function preenche(texto: string): string {
   );
 }
 
+/**
+ * As quatro perguntas que levam à agenda têm de EXISTIR na tabela.
+ *
+ * ⚠️ Teste estrutural, e não decoração. Desde 21/10/2026 as quatro vêm da
+ * tabela (uma fonte de texto só, decisão do Thiago: "fica o texto da Marina"),
+ * e `perguntaQueLevaAAgenda` devolve `sem_texto` quando a linha não existe.
+ * `sem_texto` no bloco da agenda cai no caminho da oferta — ou seja, **uma
+ * linha apagada abre o portão em silêncio**. O caso que dói é o
+ * `pergunta_cidade`: sem ele, o paciente cirúrgico de outra cidade recebe
+ * horário antes de alguém descobrir que ele vem de fora, e aí a consulta tem de
+ * ser desmarcada.
+ *
+ * Isso apareceu num teste de unidade só porque a tabela DE TESTE não tinha as
+ * linhas novas. Em produção o sintoma seria silencioso.
+ */
+describe('as perguntas que levam à agenda existem na tabela', () => {
+  for (const nome of [
+    'pergunta_necessidade',
+    'pergunta_necessidade_convenio',
+    'pergunta_convenio_cidade',
+    'pergunta_convenio',
+    'pergunta_cidade',
+  ]) {
+    it(`${nome} tem texto, é só do host e manda não rotular`, () => {
+      const i = TABELA.intencoes[nome];
+      expect(i, nome).toBeDefined();
+      expect(i.textos?.[0], nome).toBeTruthy();
+      // O host é que escolhe estas: se o modelo puder rotular, ele rotula.
+      expect(i.so_do_host, nome).toBe(true);
+      expect(i.quando ?? '', nome).toMatch(/NUNCA rotular/);
+      expect(i.acao, nome).toBe('responder');
+    });
+  }
+});
+
 describe('a tabela de templates passa pela guarda', () => {
   const casos: Array<[string, string, string]> = [];
   for (const [nome, def] of Object.entries(TABELA.intencoes)) {

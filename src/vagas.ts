@@ -133,6 +133,22 @@ function ehCirurgico(n: string): boolean {
 }
 
 /**
+ * A necessidade é cirúrgica? Aceita o texto como o classificador mandou.
+ *
+ * ⚠️ Existe para não exportar o `ehCirurgico`, que depende de o chamador
+ * lembrar de passar minúsculas — o tipo de pegadinha que este arquivo já
+ * documenta em outros lugares. Aqui a função cuida disso.
+ *
+ * Quem usa: a decisão de PEDIR a cidade antes de ofertar horário. A cidade não
+ * escolhe agenda; ela decide se o paciente precisa saber do arranjo de mesmo
+ * dia antes de combinar a viagem, e esse arranjo só existe no cirúrgico
+ * (Thiago, 21/10/2026).
+ */
+export function necessidadeCirurgica(necessidade?: string): boolean {
+  return ehCirurgico((necessidade ?? '').toLowerCase());
+}
+
+/**
  * O desconto da consulta: intenção de CIRURGIA **e** plano não atendido.
  *
  * As duas condições juntas. É o erro mais fácil de cometer na tabela de preços

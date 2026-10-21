@@ -2343,7 +2343,7 @@
           "paciente": "quanto custa a consulta?",
           "esperado": [
             "430",
-            "poderia me informar"
+            "Quer que eu veja os hor[áa]rios"
           ],
           "exige": [
             "430"
@@ -2367,7 +2367,7 @@
             "agenda da semana|depende"
           ],
           "esperado": [
-            "hor[áa]rios dispon|poderia me informar"
+            "hor[áa]rios dispon"
           ],
           "proibido": [
             "Segunda",
@@ -2388,10 +2388,11 @@
           "paciente": "vocês atendem Unimed para consulta?",
           "esperado": [
             "Unimed",
-            "poderia me informar"
+            "cirurgia, ou uma consulta de rotina|Quer que eu veja os hor[áa]rios"
           ],
           "proibido": [
-            "Ajudo em algo mais"
+            "Ajudo em algo mais",
+            "nascimento"
           ]
         }
       ]
@@ -2405,7 +2406,7 @@
         {
           "paciente": "quanto custa a consulta?",
           "esperado": [
-            "poderia me informar"
+            "Quer que eu veja os hor[áa]rios"
           ]
         },
         {
@@ -2650,17 +2651,18 @@
     {
       "id": "U02",
       "categoria": "conversao",
-      "sobre": "Já se identificou: o convite pede o que falta, que é o passo útil.",
+      "sobre": "Já se identificou: a emenda pede o que falta PARA A AGENDA (a necessidade), nunca o cadastro — nome e nascimento são pedidos no aceite.",
       "escalou": false,
       "turnos": [
         {
           "paciente": "sou o Marcos, de Teresina, particular. quanto é a consulta?",
           "esperado": [
             "430",
-            "poderia me informar"
+            "cirurgia, ou uma consulta de rotina"
           ],
           "proibido": [
-            "Quer que eu veja os hor[áa]rios"
+            "Quer que eu veja os hor[áa]rios",
+            "nascimento"
           ]
         }
       ]
@@ -2680,10 +2682,11 @@
         {
           "paciente": "quero sim",
           "esperado": [
-            "poderia me informar|Nome completo"
+            "cirurgia ou consulta de rotina|conv[êe]nio ou particular"
           ],
           "proibido": [
-            "S[óo] um instante"
+            "S[óo] um instante",
+            "Nome completo"
           ],
           "nota": "Sem o quer_horario, esse 'sim' cairia em DESCONHECIDO."
         }
@@ -3110,10 +3113,11 @@
         {
           "paciente": "quero marcar então",
           "esperado": [
-            "poderia me informar|Nome completo"
+            "cirurgia ou consulta de rotina|conv[êe]nio ou particular"
           ],
           "proibido": [
-            "S[óo] um instante"
+            "S[óo] um instante",
+            "Nome completo"
           ]
         }
       ]

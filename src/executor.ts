@@ -81,10 +81,10 @@ import {
   buscaVagas,
   perfilDe,
   periodoPedido,
+  necessidadeCirurgica,
   slotsDaVaga,
   soHumano,
   temDescontoDeConsulta,
-  type Vaga,
 } from './vagas.js';
 
 const envConfig = readEnvFile(['TEMPLATE_FOLDERS']);
@@ -178,39 +178,23 @@ function comDesconto(
 }
 
 /**
- * Triagem que se completou vira oferta de horário.
+ * ⚠️ Aqui vivia o `comOfertaDeHorario` — "triagem com os QUATRO dados completos
+ * vira oferta de horário", decisão do Thiago em 17/10/2026 para o E08.
  *
- * Decisão do Thiago em 17/10/2026, com as três opções na mesa, depois que a
- * passada 11 reprovou o E08 no turno "Teresina, particular. tem horario?".
+ * Removido em 21/10/2026, com a inversão da ordem. O que ele fazia passou a ser
+ * o caminho normal, e com precondição mais fraca: `triagemVaiAgenda` manda toda
+ * triagem à agenda assim que o PERFIL fecha (necessidade e convênio), sem
+ * esperar nome, nascimento e cidade. Ou seja, a troca nunca mais seria o que
+ * decidia a oferta.
  *
- * Aquela mensagem faz as DUAS coisas: entrega os dados que faltavam e pede
- * horário. O classificador rotulou `triagem_dados`, que é defensável, e aí o
- * bloco da agenda não rodava — ele só roda quando a intenção exige `dia` e
- * `hora`. O host tinha os quatro dados e a necessidade na mão e respondia "Só
- * um instante.".
- *
- * É o host decidindo com o que ele SABE, em vez de depender de o rótulo ter
- * caído do lado certo — mesmo arranjo do `comDesconto`. E era a única saída
- * honesta: pedir ao modelo que acertasse o rótulo é devolver a decisão a quem
- * errou.
- *
- * A troca acontece ANTES do bloco da agenda de propósito; depois dele seria
- * trocar o texto sem ter ido buscar a vaga. E retorno/exame continuam
- * protegidos: quem barra é o `soHumano` dentro do bloco, não esta função.
+ * E tinha virado defeito: ela promovia a intenção para `horario_oferta`, cujos
+ * `slots_obrigatorios` incluem `dia` e `hora`, e isso entra no bloco da agenda
+ * IGNORANDO a oferta pendente. No turno em que o paciente mandava nome e
+ * nascimento para fechar o aceite, os quatro campos ficavam completos, a troca
+ * disparava, e o host gastava outra busca de 18s para reofertar o horário que a
+ * pessoa acabara de aceitar. O `!ultimaOferta` do portão novo não alcançava
+ * isto, porque a troca acontece antes dele. Medido pelo teste da sequência.
  */
-function comOfertaDeHorario(
-  intencao: string,
-  lembrados: Record<string, string | undefined>,
-  tabela: Tabela,
-): string {
-  if (tabela.intencoes[intencao]?.acao !== 'triagem') return intencao;
-  if (!tabela.intencoes.horario_oferta) return intencao;
-  if (!lembrados.necessidade?.trim()) return intencao;
-  if (faltamNaTriagem(lembrados as Record<string, string>).length > 0) {
-    return intencao;
-  }
-  return 'horario_oferta';
-}
 
 /**
  * O valor da avaliação que ESTE paciente paga, em todo texto que o cita.
@@ -394,6 +378,63 @@ function isoParaBr(iso: string): string {
 }
 
 /** Escala com um motivo próprio, devolvendo o texto de DESCONHECIDO. */
+/**
+ * Os campos que a MARCAÇÃO exige, e que por isso são pedidos no aceite.
+ *
+ * Subconjunto de `CAMPOS`: cidade e convênio ou já vieram antes da oferta, ou
+ * não entram em `marca()`. Vive aqui, e não em `triagem.ts`, porque é um
+ * requisito do iClinic, não do formulário da clínica.
+ */
+const CAMPOS_DA_MARCACAO = ['nome', 'nascimento'] as const;
+
+/**
+ * Três vezes a mesma coisa é insistência: o host passa o caso à recepção.
+ *
+ * ⚠️ Função porque eram DUAS implementações com o limiar literal nas duas — a
+ * do fim de `executa` e a do pedido de nome e nascimento, que nasceu em
+ * 21/10/2026. Mudar a política (o limiar, ou desarmar a oferta ao escalar)
+ * exigia achar as duas e notar que divergiam.
+ *
+ * Contar aqui, e não no classificador, é de propósito: insistência não é o
+ * paciente escrever parecido, é o HOST ter escolhido o mesmo texto de novo — ou
+ * seja, o texto não resolveu. Isso o host sabe sem a LLM julgar nada.
+ *
+ * Devolve `undefined` quando ainda não é hora de escalar, e aí quem chamou
+ * segue o caminho normal.
+ */
+const LIMITE_DE_INSISTENCIA = 3;
+
+async function escalaSeInsistiu(
+  groupFolder: string,
+  tabela: Tabela,
+  chave: string,
+  motivo: string,
+  ctx: {
+    perguntaDoPaciente: string;
+    deps: EscalationSlaDeps;
+    chatJid: string;
+    rotulo?: string;
+  },
+  /** Roda só quando a escalada de fato acontece (ex.: desarmar a oferta). */
+  antesDeEscalar?: () => void,
+): Promise<SaidaDoExecutor | undefined> {
+  const vezes = contaRepeticao(groupFolder, ctx.chatJid, chave);
+  if (vezes < LIMITE_DE_INSISTENCIA) return undefined;
+  logger.info(
+    { groupFolder, chave, vezes },
+    'executor: mesma coisa pela terceira vez, escala',
+  );
+  antesDeEscalar?.();
+  return await escalaComo(
+    groupFolder,
+    tabela,
+    motivo,
+    ctx.perguntaDoPaciente,
+    ctx.deps,
+    ctx.rotulo,
+  );
+}
+
 async function escalaComo(
   groupFolder: string,
   tabela: Tabela,
@@ -455,6 +496,78 @@ export interface SaidaDoExecutor {
  * `bruto` é a saída crua do agente, não a limpa: o JSON pode vir cercado de
  * ruído, e é o parser que decide o que é válido.
  */
+/**
+ * O que a Lara precisa perguntar para poder IR À AGENDA.
+ *
+ * ⚠️ Decisão ÚNICA, usada no bloco da agenda e na emenda da triagem, porque
+ * duas cópias divergiriam na hora. Nasceu em 21/10/2026, com a oferta vindo
+ * antes da coleta (Thiago: "hoje a gente faz assim" na clínica): o que falta
+ * para a agenda é necessidade e convênio, nunca nome e nascimento, que passaram
+ * a ser pedidos no aceite.
+ *
+ * Quando eu apliquei a inversão só no bloco da agenda, a emenda ficou pedindo o
+ * nascimento com a frase "Para eu já ver um horário, poderia me informar…" —
+ * uma justificativa que a mudança tornou FALSA, porque o host não precisa do
+ * nascimento para ver horário nenhum. Daí a função.
+ *
+ * A cidade não entra no perfil, então nunca é ela que trava a agenda: só decide
+ * se a pergunta do convênio vai acompanhada. Quem já disse a cidade não pode
+ * ouvir "você é de Teresina?" de novo.
+ */
+type PerguntaDaAgenda =
+  /** Há o que perguntar, e o texto é este. */
+  | { tipo: 'pergunta'; texto: string; intencao: string }
+  /** O perfil já fecha: não há pergunta a fazer aqui. */
+  | { tipo: 'nada' }
+  /** Falta dado, mas a tabela do grupo não tem o texto — cai na rede antiga. */
+  | { tipo: 'sem_texto' };
+
+function perguntaQueLevaAAgenda(
+  tabela: Tabela,
+  dados: { necessidade?: string; convenio?: string; cidade?: string },
+): PerguntaDaAgenda {
+  const semNecessidade = !dados.necessidade?.trim();
+  const semConvenio = !dados.convenio?.trim();
+  const semCidade = !dados.cidade?.trim();
+  // ⚠️ A CIDADE só trava a oferta no cirúrgico (decisão do Thiago, 21/10/2026).
+  //
+  // Ela não escolhe agenda — `perfilDe` não a usa — e `marca()` não a grava em
+  // lugar nenhum. O único uso operacional é o arranjo de mesmo dia para quem
+  // vem de fora, e esse só existe na avaliação cirúrgica. Mas aí ele é urgente:
+  // descobrir que a pessoa mora em Floriano DEPOIS de prometer um horário
+  // obriga a desmarcar, que é o que o `quando` do `pergunta_convenio_cidade` já
+  // dizia. Na rotina, perguntar a cidade custaria um turno e não mudaria nada.
+  const cidadeTrava = semCidade && necessidadeCirurgica(dados.necessidade);
+  // Nada travando: ou o perfil fecha, ou a necessidade não casa com perfil
+  // nenhum — e aí perguntar de novo o que ele já disse é o defeito que a
+  // memória existe para matar. Quem decide o desfecho é quem chamou.
+  if (!semNecessidade && !semConvenio && !cidadeTrava) return { tipo: 'nada' };
+  // UMA fonte de texto para as quatro perguntas: a tabela.
+  //
+  // ⚠️ Até 21/10/2026 os ramos de dois campos liam a tabela e os de um campo
+  // COMPUNHAM a frase pelo vocabulário de `triagem.ts`. Duas fontes na mesma
+  // decisão, e o sintoma era a voz: a composta dizia "poderia me informar o
+  // convênio (ou particular)" e a aprovada diz "Seria por convênio ou
+  // particular?". O Thiago decidiu que fica o texto da Marina, então as quatro
+  // vêm da tabela — e mexer no texto passa a ser mexer num lugar.
+  const nome = semNecessidade
+    ? semConvenio
+      ? 'pergunta_necessidade_convenio'
+      : 'pergunta_necessidade'
+    : // Os dois faltando é uma pergunta só, e o texto é da Marina. Vale também
+      // fora do cirúrgico: a cidade entra de graça na mesma mensagem, o que
+      // não é o mesmo que travar a oferta por ela.
+      semConvenio && semCidade
+      ? 'pergunta_convenio_cidade'
+      : semConvenio
+        ? 'pergunta_convenio'
+        : 'pergunta_cidade';
+  const texto = tabela.intencoes[nome]?.textos?.[0];
+  return texto
+    ? { tipo: 'pergunta', texto, intencao: nome }
+    : { tipo: 'sem_texto' };
+}
+
 export async function executa(
   groupFolder: string,
   bruto: string,
@@ -613,7 +726,9 @@ export async function executa(
   // é a classificação certa para o que ELE viu.
   //
   // O host preenche a necessidade e manda para a triagem, que é o passo certo:
-  // o paciente já disse o que quer e falta o cadastro.
+  // o paciente já disse o que quer e falta o convênio. Desde 21/10/2026 a
+  // triagem ali pergunta o que leva à AGENDA (convênio e cidade), não o
+  // cadastro — nome e nascimento só depois de o horário estar na mesa.
   const doMenu = respostaDoMenu(perguntaDoPaciente);
   if (doMenu) {
     // "4 - Outros": o menu não disse o que ele quer, então a Lara PERGUNTA em
@@ -751,20 +866,6 @@ export async function executa(
   // registrada sem nome e a marcação morria com "faltou: paciente".
 
   let slots = c.slots;
-  // A triagem completa passa a pedir horário. Tem de vir antes do bloco abaixo,
-  // porque é ele que vai à agenda (ver `comOfertaDeHorario`).
-  const completa = comOfertaDeHorario(
-    c.intencao,
-    comLembrados(groupFolder, chatJid, c.slots),
-    tabela,
-  );
-  if (completa !== c.intencao) {
-    logger.info(
-      { groupFolder, de: c.intencao, para: completa },
-      'executor: triagem completa, host vai à agenda',
-    );
-    c.intencao = completa;
-  }
 
   // ⚠️ Iniciativa da Lara antes de oferecer horário para avaliação REFRATIVA.
   //
@@ -775,9 +876,78 @@ export async function executa(
   // Perguntar por iniciativa custa um turno e evita a viagem perdida: sem
   // isso, a Lara oferece amanhã, a pessoa vem de Picos, faz o exame e o exame
   // não presta. Só na refrativa — catarata e rotina não dependem disso.
-  const exigeHorario = (
-    tabela.intencoes[c.intencao]?.slots_obrigatorios ?? []
-  ).some((x) => x === 'dia' || x === 'hora');
+  const exige = tabela.intencoes[c.intencao]?.slots_obrigatorios ?? [];
+  // ⛔ A OFERTA VEM ANTES DA COLETA (decisão do Thiago, 21/10/2026: "hoje a
+  // gente faz assim" na clínica).
+  //
+  // O que a agenda precisa é só `perfilDe(necessidade, convenio)` — nome,
+  // nascimento e cidade NÃO entram na busca. Antes disto o ramo da triagem
+  // interceptava e devolvia o formulário de quatro campos, e a oferta só saía
+  // depois. Observado em produção no mesmo dia: "Veja a disponibilidade de
+  // horário, por favor!" recebeu "Para eu já ver um horário, poderia me
+  // informar...".
+  //
+  // Nome e nascimento passam a ser cobrados no ACEITE, que é quando a marcação
+  // de fato precisa deles (ver o ramo `marcar`).
+  //
+  // ⚠️ O custo, aceito pelo Thiago: mais gente vai ver horário e desaparecer
+  // antes de dar nome, e a oferta não bloqueia a vaga na agenda — ela só vence
+  // em 30 min. O formulário filtrava quem não estava decidido.
+  // ⚠️ Lê a ação da TABELA, não da variável `acao`: ela só é computada 350
+  // linhas abaixo, e aqui o que importa é o que a intenção pede.
+  const acaoDaTabela = tabela.intencoes[c.intencao]?.acao;
+  // ⚠️ OFERTA ANTES DA COLETA (Thiago, 21/10/2026: "hoje a gente faz assim").
+  //
+  // A triagem passa a ENTRAR na agenda: com perfil, para oferecer horário; sem
+  // perfil, para perguntar o que falta para poder oferecer (necessidade,
+  // convênio, cidade). Nome e nascimento saem da abertura e passam a ser
+  // pedidos no ACEITE, que é o turno em que a marcação precisa deles.
+  //
+  // `!ultimaOferta` não é detalhe: com uma oferta de pé, o turno que RESPONDE
+  // ao pedido de dados ainda chega rotulado como triagem, e sem esta condição o
+  // host buscaria a agenda de novo e ofereceria um horário que o paciente
+  // acabou de aceitar — a mesma classe do laço de 20/10/2026.
+  //
+  // ⚠️ E não entra para retorno/exame. Eles escalam de qualquer jeito, mas o
+  // caminho de TRIAGEM lá embaixo escala melhor: ele busca os cadastros no
+  // iClinic pelo telefone e manda à recepção o contexto do último atendimento
+  // mais a regra da gratuidade. Deixar o bloco da agenda interceptar aqui
+  // trocava aquele motivo por um genérico — regressão que o teste do retorno
+  // pegou na hora.
+  // ⚠️ UMA leitura da conversa e UM perfil para o turno INTEIRO.
+  //
+  // `comLembrados` é `readFileSync` + `JSON.parse` a cada chamada, e depois do
+  // último `lembraSlots` (bem acima) nada mais muda o que ela devolve — então
+  // toda leitura daqui para baixo devolveria o mesmo objeto. Antes da limpeza
+  // de 21/10/2026 eram cinco leituras idênticas e dois `perfilDe` iguais, em
+  // quatro nomes diferentes, e o comentário do gate da lente já celebrava a
+  // consolidação ("as três devolviam o mesmo objeto") enquanto a duplicata
+  // seguia 80 linhas abaixo. Quem precisar de um valor DEPOIS de um
+  // `lembraSlots` novo tem de reler explicitamente, e dizer por quê.
+  const daConversa = comLembrados(groupFolder, chatJid, c.slots);
+  const perfilDaConversa = perfilDe(
+    daConversa.necessidade,
+    daConversa.convenio,
+  );
+  // Idem para a oferta pendente: `ultimaOferta` lê `ofertas_pendentes.json`, e
+  // entre aqui e o aceite não há gravação nenhuma.
+  const pendente = ultimaOferta(groupFolder, chatJid);
+  const triagemVaiAgenda =
+    acaoDaTabela === 'triagem' &&
+    !pendente &&
+    !(perfilDaConversa && soHumano(perfilDaConversa));
+  // ⚠️ UMA pergunta só: "o host vai à agenda neste turno?".
+  //
+  // Eram três cópias — o `exigeHorario` do gate da lente, o `if` do bloco da
+  // agenda e o `comOfertaDeHorario`. Em 21/10/2026 a terceira saiu e a primeira
+  // ficou desatualizada no mesmo instante: `triagem_dados` com o perfil fechado
+  // passou a ofertar, e o gate da lente, que só olhava `slots_obrigatorios`,
+  // deixou de perguntar da lente antes de oferecer horário para refrativa.
+  // Resultado: a Lara oferecia terça para quem precisa de 3 dias sem lente.
+  // Três testes pegaram, e a resposta certa não era consertar a cópia.
+  const vaiAAgenda =
+    exige.includes('dia') || exige.includes('hora') || triagemVaiAgenda;
+
   // ⚠️ Só para quem a Lara de fato agenda, e por DOIS motivos independentes.
   //
   // "Retorno da cirurgia refrativa" casa com o vocabulário refrativo, e um
@@ -791,13 +961,11 @@ export async function executa(
   // (`slots_conversa.json`), e não há escrita entre elas — as três devolviam o
   // mesmo objeto por três leituras. Reler é certo DEPOIS de um `lembraSlots`,
   // que é o motivo de os outros pontos da função relerem; aqui não é o caso.
-  const paraLente = comLembrados(groupFolder, chatJid, c.slots);
-  const perfilParaLente = perfilDe(paraLente.necessidade, paraLente.convenio);
   if (
-    exigeHorario &&
-    !!perfilParaLente &&
-    !soHumano(perfilParaLente) &&
-    VOCABULARIO_REFRATIVO.test(paraLente.necessidade ?? '') &&
+    vaiAAgenda &&
+    !!perfilDaConversa &&
+    !soHumano(perfilDaConversa) &&
+    VOCABULARIO_REFRATIVO.test(daConversa.necessidade ?? '') &&
     !lenteLembrada(groupFolder, chatJid) &&
     tabela.intencoes.pergunta_lente
   ) {
@@ -813,11 +981,35 @@ export async function executa(
   }
 
   let ofertaAOferecer: Omit<OfertaPendente, 'quando'> | undefined;
-  // Quando a agenda decide trocar o texto (hoje só o caso do convênio com hora
-  // pedida). Fica aqui porque o render acontece bem depois do bloco da agenda.
-  let intencaoDaAgenda: string | undefined;
-  const exige = tabela.intencoes[c.intencao]?.slots_obrigatorios ?? [];
-  if (exige.includes('dia') || exige.includes('hora')) {
+  /**
+   * A intenção que o HOST decidiu, sobrepondo o rótulo do classificador.
+   *
+   * ⚠️ Chamava-se `intencaoDoHost` e o nome deixou de ser verdade em
+   * 21/10/2026: além das trocas do bloco da agenda (o convênio com hora pedida,
+   * a oferta antes da coleta), ela passou a carregar também `aceita_horario`,
+   * atribuída FORA daquele bloco, pelo turno que completa o aceite. Nome que
+   * mente sobre quem escreve é como a próxima sobreposição vai para o lugar
+   * errado.
+   *
+   * Fica aqui, e é lida bem depois, porque o render acontece depois do bloco da
+   * agenda — a troca precisa do resultado da busca.
+   */
+  let intencaoDoHost: string | undefined;
+  /**
+   * O que falta para a Lara poder IR à agenda, quando falta.
+   *
+   * ⚠️ Não é um `return` aqui dentro, de propósito. A primeira versão
+   * respondia direto do bloco da agenda e passava na frente da confirmação de
+   * identidade ("É para você, Thiago, ou para outra pessoa?"), que fica ~550
+   * linhas abaixo: quem tinha cadastro no telefone deixava de ser perguntado e
+   * ia direto para o convênio. Três testes pegaram, e é a mesma classe do
+   * contexto cruzado entre pacientes. Então o bloco só ANOTA, e quem pergunta
+   * é o ramo da triagem, que já roda na ordem certa.
+   */
+  let perguntaParaAgenda:
+    | Extract<PerguntaDaAgenda, { tipo: 'pergunta' }>
+    | undefined;
+  if (vaiAAgenda) {
     // O perfil sai do que a CONVERSA disse, não só deste turno.
     //
     // Quando criei a memória em 07/10 escopei só ao desconto, escrevendo que
@@ -829,8 +1021,7 @@ export async function executa(
     //
     // O risco de marcar com convênio velho segue pequeno: o turno atual vence
     // o lembrado e a validade é de 4 horas. Sem isto, não há marcação alguma.
-    const paraPerfil = comLembrados(groupFolder, chatJid, c.slots);
-    const perfil = perfilDe(paraPerfil.necessidade, paraPerfil.convenio);
+    const perfil = perfilDaConversa;
     if (perfil && soHumano(perfil)) {
       // Retorno e exame a Lara não agenda (regra do Thiago, 06/10/2026). Escala
       // ANTES de ir à agenda: consultar vaga aqui gastaria 18s para descobrir um
@@ -848,33 +1039,38 @@ export async function executa(
         c.intencao,
       );
     }
-    if (!perfil) {
-      // "Não rode no chute" (F12): perfil errado é vaga inválida já prometida.
-      //
-      // Mas se o que falta é SÓ a necessidade, perguntar é melhor que escalar.
-      // Isso ficou mais comum quando a abertura deixou de ser menu em
-      // 17/10/2026: sem o "1, 2, 3, 4" a necessidade nem sempre vem no
-      // primeiro turno, e escalar aí mandaria para a recepção um caso que uma
-      // pergunta resolve.
-      const faltaSoNecessidade =
-        !paraPerfil.necessidade?.trim() && !!paraPerfil.convenio?.trim();
-      if (faltaSoNecessidade && tabela.intencoes.pergunta_necessidade) {
-        const rn = renderiza(tabela, 'pergunta_necessidade', {
-          confianca: 1,
-          slots,
-        });
-        if (rn.texto) {
-          logger.info(
-            { groupFolder, intencao: c.intencao },
-            'executor: falta só a necessidade, pergunta em vez de escalar',
-          );
-          return {
-            texto: rn.texto,
-            intencao: 'pergunta_necessidade',
-            acao: 'responder',
-          };
-        }
+    // ⚠️ UM portão só para "posso ir à agenda?".
+    //
+    // Até a primeira versão de 21/10/2026 esta pergunta vivia DENTRO do
+    // `if (!perfil)`, e isso bastava enquanto o que faltava era necessidade ou
+    // convênio — sem eles não há perfil. Quando a cidade entrou na conta
+    // (decisão do Thiago no mesmo dia: ela trava a oferta no cirúrgico), a
+    // regra ficou inalcançável, porque "catarata + particular" JÁ tem perfil e
+    // ia direto ofertar. O teste novo passou sem medir nada.
+    //
+    // Agora o portão é único: `perguntaQueLevaAAgenda` decide, com perfil ou
+    // sem. Sem perfil E sem pergunta é escalonamento ("não rode no chute",
+    // F12: perfil errado é vaga inválida já prometida).
+    const q = perguntaQueLevaAAgenda(tabela, daConversa);
+    if (q.tipo === 'pergunta') {
+      logger.info(
+        {
+          groupFolder,
+          intencao: c.intencao,
+          pergunta: q.intencao,
+          triagemVaiAgenda,
+        },
+        'executor: falta dado para ir à agenda',
+      );
+      if (triagemVaiAgenda) {
+        // Caminho da TRIAGEM: anota e segue. Ver `perguntaParaAgenda`.
+        perguntaParaAgenda = q;
+      } else {
+        // Caminho de dia/hora: a ação da intenção é `responder`, o ramo da
+        // triagem não roda, então é aqui mesmo que a pergunta sai.
+        return { texto: q.texto, intencao: q.intencao, acao: 'responder' };
       }
+    } else if (!perfil) {
       logger.info(
         { groupFolder, intencao: c.intencao, slots: c.slots },
         'executor: sem perfil para a agenda, vai escalar',
@@ -909,9 +1105,7 @@ export async function executa(
       // preparo não existe. Achado do Codex, 19/10/2026.
       const antecedencia =
         lenteLembrada(groupFolder, chatJid) === 'sim' &&
-        VOCABULARIO_REFRATIVO.test(
-          comLembrados(groupFolder, chatJid, c.slots).necessidade ?? '',
-        )
+        VOCABULARIO_REFRATIVO.test(daConversa.necessidade ?? '')
           ? DIAS_SEM_LENTE
           : 0;
       let vagas = await buscaVagas(groupFolder, perfil, {
@@ -1039,7 +1233,7 @@ export async function executa(
             { groupFolder, hora: horaAlvo },
             'executor: hora pedida indisponível, oferecendo alternativa',
           );
-          intencaoDaAgenda = 'horario_pedido_indisponivel';
+          intencaoDoHost = 'horario_pedido_indisponivel';
         } else if (
           explicaConvenio &&
           tabela.intencoes.horario_pedido_convenio
@@ -1048,7 +1242,16 @@ export async function executa(
             { groupFolder, perfil },
             'executor: hora pedida no convênio, explicando em vez de ignorar',
           );
-          intencaoDaAgenda = 'horario_pedido_convenio';
+          intencaoDoHost = 'horario_pedido_convenio';
+        } else if (triagemVaiAgenda && tabela.intencoes.horario_oferta) {
+          // A intenção que chegou é de triagem, e sem esta troca o bloco acima
+          // monta a oferta e o texto final volta a pedir nome: o host tinha o
+          // horário na mão e perguntava dado.
+          logger.info(
+            { groupFolder, intencao: c.intencao, perfil },
+            'executor: perfil conhecido, oferece horário antes de coletar dados',
+          );
+          intencaoDoHost = 'horario_oferta';
         }
         ofertaAOferecer = {
           vaga: oferecidas[0],
@@ -1060,9 +1263,9 @@ export async function executa(
           // Da CONVERSA, não só deste turno: no turno que pede horário o
           // modelo raramente repete nome e nascimento, e eles costumam ter
           // vindo do cadastro dois turnos antes.
-          nome: paraPerfil.nome,
-          nascimento: paraPerfil.nascimento,
-          convenio: paraPerfil.convenio,
+          nome: daConversa.nome,
+          nascimento: daConversa.nascimento,
+          convenio: daConversa.convenio,
         };
       }
     }
@@ -1073,8 +1276,62 @@ export async function executa(
   // segundo substituidor — e o `preenche` original, que é a trava contra texto
   // com chave aberta, disparava antes e rebaixava o turno. O caminho inteiro
   // era inalcançável, e nenhum teste cobria.
-  const vaiMarcar = tabela.intencoes[c.intencao]?.acao === 'marcar';
-  const oferta = vaiMarcar ? ultimaOferta(groupFolder, chatJid) : undefined;
+  // O turno que COMPLETA o aceite.
+  //
+  // Com a oferta vindo antes da coleta, o aceite ("pode ser esse") chega sem
+  // nome nem nascimento, e o host os PEDE. A resposta — "Thiago Costa,
+  // 01/06/1980" — volta rotulada `triagem_dados`, não `aceita_horario`: para o
+  // classificador ela é cadastro, e está certo. Quem sabe que aquilo fecha uma
+  // marcação é o host, porque foi ele que perguntou.
+  //
+  // ⚠️ Exige `aguardaDados`, e não só "tem oferta pendente": sem a marca, um
+  // "qual o endereço?" com nome e nascimento na memória marcaria consulta.
+  //
+  // ⚠️ `cadastro` existe para a precedência "a oferta vence a memória" ser
+  // escrita UMA vez. Ela estava em três cópias — aqui, no pedido de nome e
+  // nascimento e na carga de `marca()` —, e uma delas usava `||` onde as outras
+  // usavam `??`. Quem fosse inverter a precedência tinha de achar as três e
+  // notar que uma era diferente. Quem diz o que falta é `faltamNaTriagem`, a
+  // função que responde exatamente isso e que este mesmo diff estendeu com o
+  // parâmetro dos campos.
+  const cadastro = {
+    nome: (pendente?.nome ?? daConversa.nome ?? '').trim(),
+    nascimento: (pendente?.nascimento ?? daConversa.nascimento ?? '').trim(),
+  };
+  const faltaCadastro = faltamNaTriagem(cadastro, CAMPOS_DA_MARCACAO);
+  /**
+   * Este turno é a RESPOSTA ao pedido de cadastro?
+   *
+   * ⚠️ Entrou em 21/10/2026, do review adversarial do Codex, e o defeito era
+   * meu: eu tratava a oferta marcada como ativa só quando os DOIS campos
+   * chegavam. Com o cadastro em duas mensagens — que é como as pessoas
+   * escrevem — o turno do primeiro campo tinha `completaOAceite` falso, logo
+   * `vaiMarcar` falso, logo `oferta` undefined, logo o ramo que pediria o campo
+   * que falta era INALCANÇÁVEL. O turno caía na triagem, que não tinha o que
+   * perguntar, e escalava: quem respondia certo recebia "Só um instante.".
+   *
+   * Pior: a escalada não desarmava a oferta, então a segunda mensagem fechava a
+   * marcação SOZINHA, depois de o caso já ter ido para a recepção. Medido nos
+   * três turnos antes de consertar.
+   *
+   * `acaoDaTabela === 'triagem'` e não `!== 'marcar'`: um turno de FAQ ("qual o
+   * endereço?") no meio da coleta tem de receber o endereço, não o pedido de
+   * dados outra vez — ignorar o que a pessoa perguntou é o "parece máquina" que
+   * esta arquitetura existe para evitar. A oferta fica de pé e o próximo turno
+   * de cadastro continua de onde parou.
+   */
+  const respondeAoPedido =
+    !!pendente?.aguardaDados && acaoDaTabela === 'triagem';
+  const completaOAceite = respondeAoPedido && faltaCadastro.length === 0;
+  if (completaOAceite) {
+    // A intenção da TABELA passa a ser o aceite: é ela que carrega
+    // `acao: 'marcar'` e o texto de confirmação.
+    intencaoDoHost = 'aceita_horario';
+  }
+  const vaiMarcar = completaOAceite || acaoDaTabela === 'marcar';
+  // A oferta também fica visível para o turno que respondeu PELA METADE: é ele
+  // que precisa chegar ao ramo do pedido, logo abaixo.
+  const oferta = vaiMarcar || respondeAoPedido ? pendente : undefined;
   // O caminho acima impede a oferta de nascer para retorno/exame, então isto é
   // rede: oferta gravada antes da regra, ou perfil que passe a existir depois.
   if (oferta && soHumano(oferta.perfil)) {
@@ -1101,6 +1358,10 @@ export async function executa(
   const escolhida = oferta
     ? vagaEscolhida(oferecidas, perguntaDoPaciente)
     : undefined;
+  // ⚠️ Uma vez, não cinco. `vagasDaOferta` (em agendamento.ts) existe porque
+  // "o executor desdobrava o fallback inline em quatro lugares"; este é o mesmo
+  // fallback, um nível acima, e tinha chegado a cinco cópias.
+  const vagaDoAceite = escolhida ?? oferta?.vaga;
   if (vaiMarcar && oferta && !escolhida && oferecidas.length > 1) {
     const rq = renderiza(tabela, 'qual_horario', {
       confianca: 1,
@@ -1123,21 +1384,90 @@ export async function executa(
     }
   }
 
+  // Aceitou o horário e falta o cadastro: aí o host PEDE nome e nascimento.
+  //
+  // É a outra metade da oferta-antes-da-coleta. A marcação exige os dois
+  // (`iclinic_marcar.py`), e antes de 21/10/2026 eles vinham da triagem, que
+  // acontecia antes da oferta. Invertida a ordem, este é o turno em que eles
+  // fazem falta — e pedir aqui é o que a clínica faz hoje.
+  if (oferta && faltaCadastro.length > 0) {
+    const v = vagaDoAceite ?? oferta.vaga;
+    const pedido = fraseDeTriagem(cadastro, {
+      apenas: CAMPOS_DA_MARCACAO,
+      proposito: 'Perfeito! Para eu confirmar o agendamento, ',
+    });
+    if (!pedido) return undefined;
+    // ⚠️ Conta a insistência AQUI, porque este `return` passa por fora do
+    // contador do fim da função. Sem isto, quem responde à pergunta com
+    // qualquer outra coisa ouve a mesma pergunta para sempre: a oferta continua
+    // de pé, `aguardaDados` continua marcado, e nada escala. É o sintoma das
+    // três perguntas idênticas que o Thiago viu em 20/10/2026, num caminho novo.
+    const insistiu = await escalaSeInsistiu(
+      groupFolder,
+      tabela,
+      'pergunta_dados_para_marcar',
+      `aceitou ${v.dia_semana}, dia ${v.data}, às ${v.inicio}, mas o nome e o ` +
+        'nascimento não vieram em três pedidos; complete o cadastro e ' +
+        'confirme com o paciente',
+      { perguntaDoPaciente, deps, chatJid, rotulo: c.intencao },
+      // ⚠️ Desarma a oferta ao escalar, como faz a trava da observação. Sem
+      // isto, `aguardaDados` e a oferta continuam de pé depois de o caso ir
+      // para a recepção: o paciente manda o nome mais tarde, o caminho do
+      // aceite fecha sozinho, e a Lara marca um horário que a secretária pode
+      // já ter resolvido à mão. Escalar é transferir a dona do caso; quem
+      // transfere não guarda o gatilho.
+      () => esqueceOferta(groupFolder, chatJid),
+    );
+    if (insistiu) return insistiu;
+    // ⚠️ Regrava a oferta ESTREITADA na vaga escolhida, e marcada.
+    //
+    // Estreitar porque o turno seguinte traz "Thiago, 01/06/1980", que não
+    // desambigua nada: com as duas opções ainda de pé, o host perguntaria
+    // "qual horário?" depois de a pessoa já ter escolhido. Marcar porque é a
+    // marca que autoriza o turno seguinte a fechar a marcação.
+    //
+    // Guarda também o cadastro parcial: a regravação substitui a oferta
+    // inteira, e sem isto o dado já coletado sumiria justamente no turno que
+    // pede o que falta.
+    registraOferta(groupFolder, chatJid, {
+      ...oferta,
+      vaga: v,
+      vagas: [v],
+      nome: cadastro.nome || undefined,
+      nascimento: cadastro.nascimento || undefined,
+      aguardaDados: true,
+    });
+    logger.info(
+      { groupFolder, data: v.data, hora: v.inicio, falta: faltaCadastro },
+      'executor: aceite sem cadastro, pedindo o que falta',
+    );
+    return {
+      texto: pedido,
+      intencao: 'pergunta_dados_para_marcar',
+      acao: 'responder',
+    };
+  }
+
   if (vaiMarcar && oferta) {
     slots = {
       ...slots,
-      ...slotsDaVaga(escolhida ?? oferta.vaga),
+      ...slotsDaVaga(vagaDoAceite ?? oferta.vaga),
       // `primeiroNome` normaliza a caixa: o cadastro do iClinic guarda em
       // CAIXA ALTA, e sem isto a confirmação saía "Pronto, THIAGO, está
       // agendado" (16/10/2026). Caixa alta soa a grito e não é como a clínica
       // escreve.
-      paciente: primeiroNome(oferta.nome ?? c.slots.nome ?? ''),
+      // ⚠️ Do `cadastro`, que já funde oferta + memória. Com `c.slots` o turno
+      // que fechava o aceite mandando SÓ o nascimento produzia "Pronto, ,
+      // está agendado" — vírgula dupla, nome vazio — e a guarda de saída deixa
+      // passar, porque a marcação de fato aconteceu. Achado ao verificar o
+      // review do Codex, 21/10/2026.
+      paciente: primeiroNome(cadastro.nome || oferta.nome || ''),
     };
   }
 
   const lembrados = comLembrados(groupFolder, chatJid, slots);
-  const intencaoFinal = intencaoDaAgenda
-    ? intencaoDaAgenda
+  const intencaoFinal = intencaoDoHost
+    ? intencaoDoHost
     : TROCAS.reduce((i, troca) => troca(i, lembrados, tabela), c.intencao);
   const r = renderiza(tabela, intencaoFinal, {
     confianca: c.confianca,
@@ -1169,36 +1499,71 @@ export async function executa(
   // `acao === 'responder'` não é redundante com o `jaConvidou`: o caminho do
   // desconto, logo acima, já forçou `recusar_e_triagem`, e sem essa condição a
   // emenda entraria duas vezes no mesmo texto.
-  const convidavel =
-    acao === 'responder' &&
-    !!tabela.intencoes[entregou]?.emenda_triagem &&
-    !jaConvidou(groupFolder, chatJid);
+  const temEmenda =
+    acao === 'responder' && !!tabela.intencoes[entregou]?.emenda_triagem;
+  // Uma leitura, e fatorado: repetir o `!jaConvidou` no `conviteLeve` obrigava
+  // o leitor a desdobrar `convidavel` para descobrir que não era redundante.
+  const naoConvidou = !jaConvidou(groupFolder, chatJid);
+  const convidavel = temEmenda && naoConvidou;
 
-  // COMO convidar depende do quanto a conversa já se comprometeu.
-  //
-  // Decisão do Thiago em 19/10/2026, depois da análise do manual que ele
-  // trouxe de outra IA: "vamos tentar o melhor dos dois". O manual convida com
-  // uma pergunta leve e só pede os dados depois do sim; a nossa versão pede os
-  // três dados junto com a resposta. A dele tem menos atrito com quem só
-  // pesquisava preço; a nossa é mais rápida com quem já quer marcar.
-  //
-  // O host escolhe pelo que SABE: se a pessoa já deu algum dado PESSOAL (nome,
-  // nascimento, cidade, convênio), ela está se identificando, e aí pedir o que
-  // falta é o passo útil. Se só sabemos o assunto, ela ainda está pesquisando,
-  // e três campos de cara é o que o próprio manual chama de exigir cadastro
-  // para informar valor.
-  //
   // ⚠️ `necessidade` NÃO conta como compromisso. Ela é preenchida por qualquer
   // pergunta ("quanto custa a catarata?" já define necessidade), e usá-la aqui
   // faria o convite leve nunca acontecer.
   // Usa `faltamNaTriagem`, e não uma lista própria: `CAMPOS` em triagem.ts é a
-  // lista única dos quatro dados do formulário. Com uma cópia aqui, mexer lá
-  // mudaria o que a Lara PEDE sem mudar o gate que decide se ela pede — e o
-  // sintoma seria o convite leve indo para quem já se identificou.
+  // lista única dos quatro dados do formulário.
   const seIdentificou =
     faltamNaTriagem(lembrados as Record<string, string>).length < CAMPOS.length;
+
+  // COMO emendar depende do que falta para a AGENDA.
+  //
+  // ⚠️ Esta decisão foi reescrita em 21/10/2026, quando o Thiago pediu que as
+  // emendas também fossem invertidas. O critério anterior era `seIdentificou`
+  // — "a pessoa já deu algum dos quatro dados?" —, que vinha da decisão de
+  // 19/10 ("vamos tentar o melhor dos dois": convite leve para quem pesquisa,
+  // pedido de dados para quem se identifica).
+  //
+  // Esse critério deixou de descrever o fluxo. Com a oferta vindo antes da
+  // coleta, ter dito o nome não aproxima ninguém de um horário: o que aproxima
+  // é necessidade e convênio. Quem perguntou o preço dizendo "sou o Marcos"
+  // recebia "poderia me informar a data de nascimento", com a justificativa
+  // "Para eu já ver um horário" — e o host não precisa do nascimento para ver
+  // horário nenhum. A frase era falsa e o pedido, inútil.
+  //
+  // Agora a emenda PEDE o que falta para a agenda (necessidade, convênio), e
+  // nunca o cadastro — nome e nascimento são pedidos no aceite, e só lá.
+  const faltaParaAgenda: PerguntaDaAgenda =
+    perguntaParaAgenda ?? perguntaQueLevaAAgenda(tabela, lembrados);
+
+  // ⚠️ O que a inversão NÃO muda: QUEM recebe pergunta.
+  //
+  // `seIdentificou` continua decidindo isso, e é decisão de 19/10/2026 — quem
+  // só pesquisava preço recebe o convite LEVE, porque pedir dado para informar
+  // valor é o que o manual chama de exigir cadastro. Na primeira tentativa eu
+  // troquei este gate pelo "falta algo para a agenda" e desfiz aquela decisão
+  // de passagem: "quanto custa a consulta?" passou a receber "Seria para
+  // avaliação de cirurgia ou consulta de rotina?" em vez do convite. Dois
+  // testes pegaram.
+  //
+  // O que mudou é o SEGUNDO caso do convite: quem já se identificou E não tem
+  // nada pendente para a agenda. Antes esse turno pedia o cadastro que falta
+  // ("a data de nascimento"); agora não há o que pedir, e sem o convite a
+  // resposta ficaria sem próximo passo, contra o F04.
+  //
+  // E a RECUSA de convênio entra no convite. Até 20/10/2026 ela ficava sozinha
+  // quando não havia dado a pedir, e isso era coerente: com os quatro campos
+  // preenchidos, qualquer pergunta ali repetiria algo já dito. Invertida a
+  // emenda, "não havia dado a pedir" passou a ser o caso NORMAL — a recusa
+  // conhece o convênio por definição —, e a mensagem de maior conversão da
+  // clínica ("seria particular, R$ 430" / "sai por R$ 300") terminaria sem
+  // próximo passo nenhum, contra o F04. O convite é o passo, e é texto
+  // aprovado. ⚠️ Isto reverte a decisão de que a recusa não pendura pergunta;
+  // o que a decisão protegia — não pedir o que a pessoa já deu — continua de
+  // pé, porque com tudo conhecido não sai pedido, sai convite.
   const conviteLeve =
-    convidavel && !seIdentificou && !!tabela.intencoes.convite_horario;
+    (temEmenda || acao === 'recusar_e_triagem') &&
+    naoConvidou &&
+    (!seIdentificou || faltaParaAgenda.tipo === 'nada') &&
+    !!tabela.intencoes.convite_horario;
   if (convidavel && !conviteLeve) {
     acao = 'recusar_e_triagem' as Resultado['acao'];
   }
@@ -1225,7 +1590,7 @@ export async function executa(
   // desconhecida responde (a pessoa perguntou, e a informação é aprovada),
   // necessidade sabidamente OUTRA escala. Saiu na passada 15, no Z05.
   if (c.intencao === 'usa_lente') {
-    const n = comLembrados(groupFolder, chatJid, c.slots).necessidade ?? '';
+    const n = daConversa.necessidade ?? '';
     if (n.trim() && !VOCABULARIO_REFRATIVO.test(n)) {
       return await escalaComo(
         groupFolder,
@@ -1358,47 +1723,35 @@ export async function executa(
     // fazia a coleta depender de a LLM reconstruir o formulário inteiro a cada
     // turno — o oposto da separação que esta arquitetura promete. Achado do
     // review do Codex em 17/10/2026.
-    let pedido = fraseDeTriagem(comLembrados(groupFolder, chatJid, slots), {
-      textoCompleto: formulario,
-    });
+    // ⚠️ A MESMA decisão dos dois outros pontos, inclusive na recusa de
+    // convênio: o que emenda a resposta é o que leva à agenda, não o cadastro.
+    // Nome e nascimento são pedidos no aceite, e só lá.
+    const pedido =
+      faltaParaAgenda.tipo === 'pergunta'
+        ? faltaParaAgenda.texto
+        : faltaParaAgenda.tipo === 'sem_texto'
+          ? // A rede: o formulário de quatro campos, como era até 20/10/2026.
+            // Vale quando a tabela do grupo não tem os textos novos.
+            fraseDeTriagem(lembrados, { textoCompleto: formulario })
+          : '';
 
-    // Os quatro dados completos e ainda assim triagem: o que falta é a
-    // NECESSIDADE, que não é um dos quatro campos, e quem pergunta isso é o
-    // menu da abertura.
-    //
-    // Antes, `pedido` vinha vazio e o fallback era `r.texto` — o formulário
-    // INTEIRO. Na passada 6 (E08) o paciente mandou nome, nascimento, cidade e
-    // convênio numa tacada e levou os quatro de volta; nenhuma oferta saiu, e o
-    // "pode ser esse horário" seguinte escalou por falta de oferta. O comentário
-    // da própria `fraseDeTriagem` já avisava que string vazia significa "não há
-    // pergunta a fazer", e era justamente aí que se repetia tudo.
-    // Só no caminho de TRIAGEM. Na recusa não: já existe decisão de que, com
-    // tudo preenchido, a recusa não pendura pergunta no fim, e emendar o menu
-    // ali seria desfazê-la de passagem.
-    // ⚠️ A necessidade também vem da CONVERSA, não só deste turno.
-    //
-    // Eu consertei a `fraseDeTriagem` logo acima para ler a memória (achado 5
-    // do Codex) e deixei esta linha vizinha lendo só `slots`. A passada 11
-    // cobrou na hora, no E08: o paciente disse "é pra cirurgia de catarata" no
-    // turno 2 e, no turno 4, "Teresina, particular. tem horario?" recebeu de
-    // volta "Você está procurando cirurgia, ou uma consulta de rotina?" — com
-    // `necessidade: catarata` gravado na memória no mesmo instante. Perguntar o
-    // que o host já sabe é o defeito que a memória existe para matar.
-    if (
-      acao === 'triagem' &&
-      !pedido &&
-      !comLembrados(groupFolder, chatJid, slots).necessidade?.trim()
-    ) {
-      // Pergunta, não menu. A abertura deixou de listar opções numeradas em
-      // 17/10/2026 ("fica muito bot", Thiago), e quem pergunta a necessidade
-      // quando ela falta passou a ser este texto.
-      pedido = tabela.intencoes.pergunta_necessidade?.textos?.[0] ?? '';
-    }
+    // ⚠️ Era aqui que ficava o fallback do `pergunta_necessidade` — "os quatro
+    // dados completos e ainda assim triagem, então o que falta é a
+    // NECESSIDADE". Virou código morto em 21/10/2026: `perguntaQueLevaAAgenda`
+    // já devolve essa pergunta, e por isso `pedido` nunca chega vazio com a
+    // necessidade faltando. Verificado por sabotagem — trocar aquele texto por
+    // uma string reconhecível não mudava nenhum dos 176 testes.
 
     if (acao === 'triagem') {
       if (!pedido) {
         // Nada a perguntar e ainda assim triagem: é rótulo errado. Escalar é
         // melhor que repetir formulário ou adivinhar o que ele quer.
+        //
+        // ⚠️ Desarma a oferta de passagem. Era por AQUI que o cadastro em duas
+        // mensagens escalava, e a oferta ficava armada para marcar sozinha no
+        // turno seguinte. O ramo acima agora impede a escalada; isto é a rede,
+        // para nenhum caminho novo herdar o mesmo buraco.
+        if (pendente?.aguardaDados) esqueceOferta(groupFolder, chatJid);
         return await escalaComo(
           groupFolder,
           tabela,
@@ -1479,10 +1832,15 @@ export async function executa(
       operacao: 'marcar',
       // A oferta vem primeiro: ela carrega o que foi coletado na triagem. O
       // turno do aceite normalmente não repete nome nem nascimento.
-      paciente: oferta.nome || c.slots.nome || '',
+      // ⚠️ `daConversa` é `comLembrados`, não `c.slots`: no turno que fecha
+      // o aceite o nome pode ter vindo DOIS turnos antes (o paciente responde
+      // "Thiago Costa" e só depois a data), e `c.slots` só tem o turno atual.
+      // Com `c.slots` aqui, a marcação recusava por `dado_faltando: paciente`
+      // exatamente no caminho novo.
+      paciente: cadastro.nome || oferta.nome || '',
       pedidoPor: remetenteJid || chatJid,
-      nascimento: oferta.nascimento ?? c.slots.nascimento,
-      convenio: oferta.convenio ?? c.slots.convenio,
+      nascimento: oferta.nascimento ?? daConversa.nascimento,
+      convenio: oferta.convenio ?? daConversa.convenio,
       data: (escolhida ?? oferta.vaga).data,
       hora: (escolhida ?? oferta.vaga).inicio,
       perfil: oferta.perfil,
@@ -1534,23 +1892,31 @@ export async function executa(
   //
   // `triagem` pura fica de fora porque repete de propósito enquanto coleta (um
   // campo por mensagem é o caso bom), e marcar e escalar já têm desfecho.
-  if (acao === 'responder' || acao === 'recusar_e_triagem') {
-    const vezes = contaRepeticao(groupFolder, chatJid, r.intencao);
-    if (vezes >= 3) {
-      logger.info(
-        { groupFolder, intencao: r.intencao, vezes },
-        'executor: mesma resposta pela terceira vez, escala',
-      );
-      return await escalaComo(
-        groupFolder,
-        tabela,
-        `respondeu "${r.intencao}" ${vezes} vezes seguidas e o paciente ` +
-          `continua no mesmo assunto; a resposta pronta não está resolvendo`,
-        perguntaDoPaciente,
-        deps,
-        c.intencao,
-      );
-    }
+  // ⚠️ `perguntaParaAgenda` entra na conta, e a triagem crua continua fora.
+  //
+  // A distinção deixou de ser a mesma em 21/10/2026: antes a triagem repetia
+  // variando (um campo por mensagem, o caso bom do comentário acima); agora,
+  // enquanto o convênio não vem, o texto que sai é IDÊNTICO. Repetir três
+  // vezes a mesma pergunta é insistência igual à de qualquer resposta pronta —
+  // e o paciente que não responde ao convênio é justamente quem a recepção
+  // precisa ver.
+  const perguntaRepetida =
+    acao === 'triagem' ? perguntaParaAgenda?.intencao : undefined;
+  if (
+    acao === 'responder' ||
+    acao === 'recusar_e_triagem' ||
+    perguntaRepetida
+  ) {
+    const insistiu = await escalaSeInsistiu(
+      groupFolder,
+      tabela,
+      perguntaRepetida ?? r.intencao,
+      `respondeu "${r.intencao}" ${LIMITE_DE_INSISTENCIA} vezes seguidas e o ` +
+        'paciente continua no mesmo assunto; a resposta pronta não está ' +
+        'resolvendo',
+      { perguntaDoPaciente, deps, chatJid, rotulo: c.intencao },
+    );
+    if (insistiu) return insistiu;
   }
 
   // O convite leve é uma SEGUNDA mensagem, como a emenda dos dados: a resposta
