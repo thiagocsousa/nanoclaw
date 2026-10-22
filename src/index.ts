@@ -121,6 +121,13 @@ import {
 } from './revisao-humana.js';
 import { logger } from './logger.js';
 import {
+  type DmsObservadas,
+  anotaDm,
+  chatsAcompanhados,
+  grupoDaDm,
+  podaDms,
+} from './dm-observada.js';
+import {
   avisoDeCapturaParada,
   type EstadoDaVigia,
   textoDoAviso,
@@ -136,6 +143,17 @@ let registeredGroups: Record<string, RegisteredGroup> = {};
 /** Estado da vigia da captura. Ver `vigia-captura.ts`. */
 const vigia: EstadoDaVigia = { ultimaCaptura: Date.now() };
 let lastAgentTimestamp: Record<string, string> = {};
+
+/**
+ * As DMs de paciente acompanhadas. Ver `dm-observada.ts` e
+ * `docs/DM-SEM-REGISTRO.md`: elas NÃO vão para `registered_groups`, porque
+ * registrar apagaria o grupo de atendimento (pasta é UNIQUE) e desarmaria o
+ * gate de DM do IPC.
+ */
+let dmsObservadas: DmsObservadas = {};
+
+/** Quanto tempo sem sinal até a DM sair do registro. */
+const VALIDADE_DA_DM_MS = 7 * 24 * 3600 * 1000;
 let messageLoopRunning = false;
 
 const channels: Channel[] = [];
@@ -150,6 +168,14 @@ function loadState(): void {
     logger.warn('Corrupted last_agent_timestamp in DB, resetting');
     lastAgentTimestamp = {};
   }
+  const dmsCru = getRouterState('dms_observadas');
+  try {
+    dmsObservadas = dmsCru ? JSON.parse(dmsCru) : {};
+  } catch {
+    logger.warn('dms_observadas corrompido, zerando');
+    dmsObservadas = {};
+  }
+  dmsObservadas = podaDms(dmsObservadas, Date.now(), VALIDADE_DA_DM_MS);
   sessions = getAllSessions();
   registeredGroups = getAllRegisteredGroups();
   logger.info(
@@ -203,6 +229,22 @@ function getOrRecoverCursor(chatJid: string): string {
 function saveState(): void {
   setRouterState('last_timestamp', lastTimestamp);
   setRouterState('last_agent_timestamp', JSON.stringify(lastAgentTimestamp));
+  setRouterState('dms_observadas', JSON.stringify(dmsObservadas));
+}
+
+/**
+ * O grupo deste chat: o registrado OU a DM acompanhada.
+ *
+ * ⚠️ UM resolvedor, e não `registeredGroups[chatJid]` espalhado. Quem precisa
+ * enxergar DM observada chama isto; quem NÃO pode — o gate de DM do `ipc.ts`,
+ * que se desarma com chat registrado — continua lendo o mapa cru, de propósito.
+ */
+function grupoDoChat(chatJid: string): RegisteredGroup | undefined {
+  const registrado = registeredGroups[chatJid];
+  if (registrado) return registrado;
+  const dm = dmsObservadas[chatJid];
+  if (!dm) return undefined;
+  return grupoDaDm(chatJid, dm, DEFAULT_TRIGGER) as RegisteredGroup;
 }
 
 function registerGroup(jid: string, group: RegisteredGroup): void {
@@ -279,7 +321,7 @@ export function _setRegisteredGroups(
  * Called by the GroupQueue when it's this group's turn.
  */
 async function processGroupMessages(chatJid: string): Promise<boolean> {
-  const group = registeredGroups[chatJid];
+  const group = grupoDoChat(chatJid);
   if (!group) return true;
 
   const channel = findChannel(channels, chatJid);
@@ -846,7 +888,9 @@ async function startMessageLoop(): Promise<void> {
 
   while (true) {
     try {
-      const jids = Object.keys(registeredGroups);
+      // Grupos ∪ DMs acompanhadas. A DM não está em `registered_groups` de
+      // propósito (ver `dm-observada.ts`), então ela precisa entrar aqui.
+      const jids = chatsAcompanhados(registeredGroups, dmsObservadas);
       const { messages, newTimestamp } = getNewMessages(
         jids,
         lastTimestamp,
@@ -872,7 +916,7 @@ async function startMessageLoop(): Promise<void> {
         }
 
         for (const [chatJid, groupMessages] of messagesByGroup) {
-          const group = registeredGroups[chatJid];
+          const group = grupoDoChat(chatJid);
           if (!group) continue;
 
           const channel = findChannel(channels, chatJid);
@@ -1290,7 +1334,11 @@ async function main(): Promise<void> {
       }
 
       // Sender allowlist drop mode: discard messages from denied senders before storing
-      if (!msg.is_from_me && !msg.is_bot_message && registeredGroups[chatJid]) {
+      // ⚠️ `grupoDoChat`, não o mapa cru: a DM observada ENTRA no descarte por
+      // remetente (decisão do Thiago, 22/10/2026). Hoje não muda nada — não há
+      // `sender-allowlist.json` —, mas é o que permite bloquear um número no
+      // dia em que precisar, sem código novo. Ver `docs/DM-SEM-REGISTRO.md`.
+      if (!msg.is_from_me && !msg.is_bot_message && grupoDoChat(chatJid)) {
         const cfg = loadSenderAllowlist();
         if (
           shouldDropMessage(chatJid, cfg) &&
@@ -1323,22 +1371,42 @@ async function main(): Promise<void> {
       folder: string,
       desdeIso: string,
     ) => {
+      // ⛔ A DM NÃO vira grupo registrado. Até 22/10/2026 esta função chamava
+      // `registerGroup`, e aquilo (a) lançava sempre, por passar
+      // `triggerPattern` onde o tipo pede `trigger` e não passar `added_at`,
+      // (b) teria APAGADO a linha do grupo de atendimento se não lançasse,
+      // porque `folder` é UNIQUE e o insert é `INSERT OR REPLACE`, e (c)
+      // desarmaria o gate de DM do `ipc.ts`, que se abre para chat registrado.
+      // Ver `docs/DM-SEM-REGISTRO.md`.
       if (registeredGroups[chatJid]) return;
-      // ⛔ O cursor começa AQUI. `getOrRecoverCursor` devolve '' para chat
-      // desconhecido, e aí a primeira rodada varreria todo o histórico gravado
-      // daquele chat. "Só mensagens novas" (Thiago, 19/10/2026).
-      lastAgentTimestamp[chatJid] = desdeIso;
-      saveState();
-      registerGroup(chatJid, {
-        jid: chatJid,
-        name: chatJid,
+      // ⚠️ Chamado a CADA mensagem, não só na primeira: com a DM fora de
+      // `registered_groups`, a condição do canal
+      // (`if (!registeredGroups()[chatJid])`) é sempre verdadeira. O `vistaEm`
+      // é renovado aqui — sem isso a poda apagaria um paciente ATIVO 7 dias
+      // depois do primeiro contato, e o cursor dele iria junto.
+      const novaDm = !dmsObservadas[chatJid];
+      if (novaDm) {
+        // ⛔ O cursor começa AQUI, e só na primeira vez. `getOrRecoverCursor`
+        // devolve '' para chat desconhecido, e aí a primeira rodada varreria
+        // todo o histórico gravado daquele chat. "Só mensagens novas" (Thiago,
+        // 19/10/2026). `anotaDm` é idempotente no piso justamente para este
+        // valor não voltar ao presente nas chamadas seguintes.
+        lastAgentTimestamp[chatJid] = desdeIso;
+      }
+      dmsObservadas = anotaDm(
+        dmsObservadas,
+        chatJid,
         folder,
-        triggerPattern: DEFAULT_TRIGGER,
-        // Paciente não escreve "@Andy": exigir gatilho faria a observação não
-        // observar nada, que é o estado de antes desta mudança.
-        requiresTrigger: false,
-        isMain: false,
-      } as never);
+        desdeIso,
+        new Date().toISOString(),
+      );
+      saveState();
+      if (novaDm) {
+        logger.info(
+          { chatJid, folder },
+          'DM de paciente passa a ser acompanhada',
+        );
+      }
     },
   };
 
