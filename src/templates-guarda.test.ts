@@ -68,6 +68,33 @@ function preenche(texto: string): string {
 }
 
 /**
+ * ⚠️ Id repetido na suíte passa pelo JSON sem erro nenhum.
+ *
+ * Aconteceu DUAS vezes em 22/10/2026: usei `N01`/`N02`, que já existiam em
+ * `fora_de_escopo`, e depois `R03`, que já existia em `exames`. O cenário novo
+ * não substitui o antigo — os dois ficam no arquivo, e `--only R03` roda os
+ * dois ou o errado, dependendo da ordem. É o tipo de erro que só aparece
+ * quando alguém conta à mão, e eu contei à mão na primeira vez e esqueci na
+ * segunda.
+ */
+describe('a suíte não tem id repetido', () => {
+  it('cada cenário tem id único', () => {
+    const suite = JSON.parse(
+      fs.readFileSync(
+        path.join(process.cwd(), 'tests/conversas-lara.json'),
+        'utf-8',
+      ),
+    ) as { cenarios: Array<{ id: string }> };
+    const vistos = new Map<string, number>();
+    for (const c of suite.cenarios) {
+      vistos.set(c.id, (vistos.get(c.id) ?? 0) + 1);
+    }
+    const repetidos = [...vistos].filter(([, n]) => n > 1).map(([id]) => id);
+    expect(repetidos).toEqual([]);
+  });
+});
+
+/**
  * As quatro perguntas que levam à agenda têm de EXISTIR na tabela.
  *
  * ⚠️ Teste estrutural, e não decoração. Desde 21/10/2026 as quatro vêm da
