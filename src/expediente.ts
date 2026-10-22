@@ -30,6 +30,7 @@ const envConfig = readEnvFile([
   'EXPEDIENTE_INICIO',
   'EXPEDIENTE_FIM',
   'EXPEDIENTE_ULTIMO_INICIO',
+  'EXPEDIENTE_CONVERSA_VIVA',
   'EXPEDIENTE_TZ',
 ]);
 
@@ -84,6 +85,20 @@ const FIM = minutosDe('EXPEDIENTE_FIM', '18:30');
  * seguinte, com o fio inteiro no prompt.
  */
 const ULTIMO_INICIO = minutosDe('EXPEDIENTE_ULTIMO_INICIO', '18:00');
+
+/**
+ * Quanto tempo sem falar nada até a conversa deixar de contar como "em
+ * andamento", para efeito da meia hora final. Uma hora (Thiago, 22/10/2026).
+ *
+ * ⛔ Prazo PRÓPRIO, e não a validade da memória de slots. Chegaram juntos no
+ * mesmo dia e eu usei um só: aí apertar este para uma hora fazia o paciente
+ * que responde 70 minutos depois perder o convênio lembrado e os candidatos da
+ * oferta em curso. São duas perguntas sobre o mesmo dado — "ainda lembro o que
+ * ela me disse?" e "ela ainda está falando comigo?" — e só a segunda quer ser
+ * curta.
+ */
+export const CONVERSA_VIVA_MS =
+  minutosDe('EXPEDIENTE_CONVERSA_VIVA', '1:00') * 60 * 1000;
 /** Teresina. Sem horário de verão desde 2019, mas o IANA cuida disso. */
 const TZ = env('EXPEDIENTE_TZ', 'America/Fortaleza');
 

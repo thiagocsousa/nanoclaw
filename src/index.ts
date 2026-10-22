@@ -92,6 +92,7 @@ import {
 import { humanDelayMs, sleep, wantsHumanCadence } from './human-cadence.js';
 import { mensagensDe } from './templates.js';
 import {
+  CONVERSA_VIVA_MS,
   dentroDoExpediente,
   podeResponder,
   wantsExpediente,
@@ -441,7 +442,7 @@ function expedienteSegura(
   pendentes: number,
 ): boolean {
   if (!wantsExpediente(group.folder)) return false;
-  const abertaEm = conversaAbertaEm(group.folder, chatJid);
+  const abertaEm = conversaAbertaEm(group.folder, chatJid, CONVERSA_VIVA_MS);
   if (podeResponder(abertaEm)) {
     // Dentro do horário: marca o início, se ainda não houver. `abreConversa`
     // devolve o valor existente quando já há um válido, então a conversa das

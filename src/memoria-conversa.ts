@@ -116,20 +116,20 @@ export interface SlotsLembrados {
 const ARQUIVO = 'slots_conversa.json';
 
 /**
- * Uma hora (Thiago, 22/10/2026; eram quatro antes).
+ * Quatro horas. Uma conversa de paciente se arrasta pela manhã inteira, e
+ * esquecer no meio traz de volta o bug que isto conserta. Mas não é eterno:
+ * o mesmo paciente voltando noutro dia para outro assunto não deve herdar o
+ * convênio de antes. Quando o turno traz o dado, ele VENCE o lembrado.
  *
- * O limite serve a duas coisas em tensão: esquecer no meio de uma conversa traz
- * de volta o bug que isto conserta (perguntar duas vezes o mesmo), e lembrar
- * demais faz o paciente que volta noutro assunto herdar o convênio de antes.
- * Quando o turno traz o dado, ele VENCE o lembrado.
- *
- * ⚠️ Com uma hora, paciente que responde 70 minutos depois é tratado como
- * conversa nova: nome, convênio e necessidade são perguntados de novo. Era o
- * caso que as quatro horas cobriam. Em troca, este é também o prazo que separa
- * "já estava falando" de "acabou de chegar" na meia hora final do expediente
- * (`podeResponder` em `expediente.ts`), e quatro horas ali era largo demais.
+ * ⚠️ Em 22/10/2026 isto desceu para uma hora e voltou no mesmo dia. O pedido
+ * era apertar "esta conversa ainda está viva?" na meia hora final do
+ * expediente, e eu amarrei as duas coisas no mesmo prazo. Não são a mesma: uma
+ * hora aqui faria o paciente que responde 70 minutos depois perder o convênio
+ * lembrado e, pior, perder os CANDIDATOS da oferta em curso — a Lara oferece
+ * três horários às 10h e o "2" das 11h10 não resolve mais. Quem quer o prazo
+ * curto é o expediente, e ele agora tem o seu: `CONVERSA_VIVA_MS`.
  */
-const VALIDO_MS = 60 * 60 * 1000;
+const VALIDO_MS = 4 * 60 * 60 * 1000;
 
 function arquivo(folder: string): string {
   return path.join(GROUPS_DIR, folder, ARQUIVO);
@@ -435,13 +435,22 @@ export function abreConversa(
   return agora;
 }
 
-/** Quando a conversa começou, se ainda está dentro da validade. */
+/**
+ * Quando a conversa começou, se ainda está dentro da validade.
+ *
+ * ⚠️ `validadeMs` existe porque quem pergunta isto tem duas intenções
+ * diferentes. Para preencher template, vale a validade dos slots (4h). Para o
+ * expediente decidir "esta pessoa já estava falando ou acabou de chegar", o
+ * prazo é mais curto e é dele (`CONVERSA_VIVA_MS`). Mesmo dado, perguntas
+ * diferentes — e amarrar as duas num prazo só foi o erro de 22/10/2026.
+ */
 export function conversaAbertaEm(
   folder: string,
   chatJid: string,
+  validadeMs: number = VALIDO_MS,
 ): number | undefined {
   const m = le(folder)[chatJid];
-  if (!m || Date.now() - m.quando > VALIDO_MS) return undefined;
+  if (!m || Date.now() - m.quando > validadeMs) return undefined;
   return m.abertaEm;
 }
 
