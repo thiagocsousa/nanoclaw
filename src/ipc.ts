@@ -16,6 +16,15 @@ export interface IpcDeps {
     text: string,
     groupFolder?: string,
   ) => Promise<void>;
+  /**
+   * Avisa o host que um PIPELINE falou com este chat.
+   *
+   * ⛔ A origem existe aqui (`data.origin`) e se perdia na gravação: a tabela
+   * `messages` não tem coluna para ela. Sem isto o host não consegue saber que
+   * um "SIM" é resposta ao lembrete das 15h, e produz "Só um instante." — 24
+   * das 55 entradas da fila em 22/10/2026. Ver `docs/RESPOSTA-A-PIPELINE.md`.
+   */
+  registraPipeline?: (chatJid: string, origin: string) => void;
   sendImage: (
     jid: string,
     imagePath: string,
@@ -53,6 +62,12 @@ const DM_ALLOWED_ORIGINS = new Set([
   'send_reminder', // lembrete de consulta (template fixo)
   'lembrete_autoreply', // auto-resposta ao lembrete (template fixo)
   'send_nota', // DANFSE da NFS-e (template fixo)
+  // ⚠️ Estes dois moram em `whatsapp_marina` e escrevem com `groupFolder` do
+  // atendimento. Até 22/10/2026 passavam por NÃO serem gateados (o gate olha a
+  // pasta de origem do arquivo); agora passam por serem AUTORIZADOS, que é
+  // diferente — mover o script de pasta deixa de quebrá-los.
+  'send_avaliacao', // pedido de avaliação no Google (template fixo)
+  'send_retorno', // lembrete de 1 ano de consulta (template fixo)
 ]);
 
 function patientDmBlocked(
@@ -153,8 +168,18 @@ export function startIpcWatcher(deps: IpcDeps): void {
                     data.text,
                     data.groupFolder as string | undefined,
                   );
+                  if (typeof data.origin === 'string' && data.origin) {
+                    deps.registraPipeline?.(
+                      data.chatJid as string,
+                      data.origin,
+                    );
+                  }
                   logger.info(
-                    { chatJid: data.chatJid, sourceGroup },
+                    {
+                      chatJid: data.chatJid,
+                      sourceGroup,
+                      origin: data.origin ?? null,
+                    },
                     'IPC message sent',
                   );
                 } else {

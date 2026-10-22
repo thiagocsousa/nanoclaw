@@ -42,6 +42,13 @@ def main():
     data = {
         "type": "message",
         "chatJid": jid,
+        # ⛔ A origem. Sem ela o host não sabe que a resposta do paciente
+        # pertence a este pipeline, e um "ok" vira "Só um instante." na fila.
+        # E, até 22/10/2026, este script só não era bloqueado pelo gate de DM
+        # porque `patientDmBlocked` olha a pasta de ONDE O ARQUIVO SAIU
+        # (whatsapp_marina), não a do destino — funcionava por acidente da
+        # hospedagem. Ver docs/RESPOSTA-A-PIPELINE.md.
+        "origin": "send_retorno",
         "text": msg,
         "groupFolder": "whatsapp_atendimento-dra-marina",
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime()),

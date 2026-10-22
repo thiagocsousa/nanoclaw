@@ -120,6 +120,7 @@ import {
   wantsRevisaoHumana,
 } from './revisao-humana.js';
 import { logger } from './logger.js';
+import { type PipelineDoChat, soEcoDePipeline } from './resposta-pipeline.js';
 import {
   type EventoSla,
   cursorDepoisDeSemear,
@@ -144,6 +145,15 @@ export { escapeXml, formatMessages } from './router.js';
 let lastTimestamp = '';
 let sessions: Record<string, string> = {};
 let registeredGroups: Record<string, RegisteredGroup> = {};
+
+/**
+ * O último pipeline que falou com cada chat. Ver `resposta-pipeline.ts`.
+ *
+ * ⛔ Existe porque a origem se perdia na gravação: `messages` não tem coluna
+ * para ela. É isto que permite saber que um "SIM" às 15h é resposta ao
+ * lembrete, e não uma conversa começando.
+ */
+let pipelinePorChat: Record<string, PipelineDoChat> = {};
 
 /** Estado da vigia da captura. Ver `vigia-captura.ts`. */
 const vigia: EstadoDaVigia = { ultimaCaptura: Date.now() };
@@ -251,6 +261,13 @@ function loadState(): void {
     dmsObservadas = {};
   }
   dmsObservadas = podaDms(dmsObservadas, Date.now(), VALIDADE_DA_DM_MS);
+  const pipeCru = getRouterState('pipeline_por_chat');
+  try {
+    pipelinePorChat = pipeCru ? JSON.parse(pipeCru) : {};
+  } catch {
+    logger.warn('pipeline_por_chat corrompido, zerando');
+    pipelinePorChat = {};
+  }
   sessions = getAllSessions();
   registeredGroups = getAllRegisteredGroups();
   logger.info(
@@ -305,6 +322,7 @@ function saveState(): void {
   setRouterState('last_timestamp', lastTimestamp);
   setRouterState('last_agent_timestamp', JSON.stringify(lastAgentTimestamp));
   setRouterState('dms_observadas', JSON.stringify(dmsObservadas));
+  setRouterState('pipeline_por_chat', JSON.stringify(pipelinePorChat));
 }
 
 /**
@@ -1013,6 +1031,28 @@ async function startMessageLoop(): Promise<void> {
           //
           // `emObservacao` já exige chat que não seja grupo, então isto não
           // alcança o grupo principal, onde `is_from_me` dispara de propósito.
+          // ⛔ Resposta a PIPELINE não abre turno.
+          //
+          // Às 15h o lembrete sai e os pacientes respondem "SIM". Sem isto cada
+          // um vira um "Só um instante." — 24 das 55 entradas da fila em
+          // 22/10/2026. Exige as três condições de `respostaDePipeline`: quem
+          // responde "SIM" e pede algo junto continua sendo atendido.
+          //
+          // ⚠️ Suprimir é não ABRIR TURNO; a mensagem fica gravada como
+          // contexto, igual à fala da secretária.
+          const doPipeline = pipelinePorChat[chatJid];
+          if (soEcoDePipeline(groupMessages, doPipeline, Date.now())) {
+            logger.info(
+              {
+                chatJid,
+                origin: doPipeline?.origin,
+                mensagens: groupMessages.length,
+              },
+              'pipeline: resposta entra como contexto, sem virar turno',
+            );
+            continue;
+          }
+
           if (
             emObservacao(group.folder, chatJid) &&
             soFalaDaClinica(groupMessages)
@@ -1678,6 +1718,10 @@ async function main(): Promise<void> {
   }, 5 * 60_000);
 
   startIpcWatcher({
+    registraPipeline: (chatJid, origin) => {
+      pipelinePorChat[chatJid] = { origin, quando: Date.now() };
+      saveState();
+    },
     sendMessage: (jid, text, groupFolder) => {
       const channel =
         (groupFolder && findChannelForGroup(channels, groupFolder)) ||
