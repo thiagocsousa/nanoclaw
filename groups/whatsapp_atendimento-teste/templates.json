@@ -91,7 +91,7 @@
     },
     "agradece_fecha": {
       "bloco": "F00f",
-      "quando": "agradece e/ou encerra, sem pedir mais nada: 'obrigado', 'era só isso', 'valeu', 'ok obrigada'. ⚠️ NÃO é pedir_esclarecimento: aqui ele está FECHANDO, não sinalizando que quer algo. ⚠️ E NÃO é dispensa_convite: os textos daqui ('Eu que agradeço!', 'Imagina!') PRESSUPÕEM que a pessoa agradeceu. Quem recusa o convite sem agradecer vai em dispensa_convite — apontar a recusa para cá produzia um agradecimento sem ninguém ter agradecido, e foi o Thiago quem notou (20/10/2026).",
+      "quando": "o paciente AGRADECE, com palavra de agradecimento: 'obrigado', 'obrigada', 'valeu', 'grato', 'ok obrigada'. ⚠️ Encerrar NÃO basta — tem de haver agradecimento. 'Tá bom', 'ok', 'entendi', 'beleza' encerram SEM agradecer e vão em dispensa_convite: em 22/10/2026 um 'Tá bom' caiu aqui e o paciente recebeu 'Eu que agradeço!' sem ter agradecido, que é o mesmo defeito de 20/10 por outra porta. ⚠️ NÃO é pedir_esclarecimento: aqui ele está FECHANDO, não sinalizando que quer algo. ⚠️ E NÃO é dispensa_convite: os textos daqui ('Eu que agradeço!', 'Imagina!') PRESSUPÕEM que a pessoa agradeceu. Quem recusa o convite sem agradecer vai em dispensa_convite — apontar a recusa para cá produzia um agradecimento sem ninguém ter agradecido, e foi o Thiago quem notou (20/10/2026).",
       "acao": "responder",
       "fecho": false,
       "textos": [
@@ -101,7 +101,7 @@
     },
     "dispensa_convite": {
       "bloco": "F00g",
-      "quando": "o paciente RECUSA o convite de horário sem perguntar nada novo: 'não, era só pra saber mesmo', 'só queria saber o valor', 'por enquanto é só', 'depois eu vejo'. ⚠️ NÃO é agradece_fecha: aqui ele NÃO agradeceu, e os textos de lá pressupõem que agradeceu. ⚠️ E um 'não' SEGUIDO de pergunta NÃO é recusa: 'não, era só pra saber se vocês atendem Unimed' é convenio_consulta — o que decide é haver ou não pergunta nova, não a palavra 'não'.",
+      "quando": "o paciente ENCERRA sem agradecer e sem perguntar nada novo. Duas formas: RECUSA o convite ('não, era só pra saber mesmo', 'só queria saber o valor', 'por enquanto é só', 'depois eu vejo') ou apenas ACUSA RECEBIDO ('tá bom', 'ok', 'entendi', 'beleza', 'certo', 'vou aguardar'). Os textos daqui ('Tudo bem!', 'Sem problema!') servem aos dois, porque não pressupõem nada. ⚠️ NÃO é agradece_fecha: aqui ele NÃO agradeceu, e os textos de lá pressupõem que agradeceu. ⚠️ E um 'não' SEGUIDO de pergunta NÃO é recusa: 'não, era só pra saber se vocês atendem Unimed' é convenio_consulta — o que decide é haver ou não pergunta nova, não a palavra 'não'.",
       "acao": "responder",
       "fecho": false,
       "textos": [

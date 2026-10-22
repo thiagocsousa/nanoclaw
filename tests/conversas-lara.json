@@ -3049,6 +3049,32 @@
       ]
     },
     {
+      "id": "Y05c",
+      "categoria": "conversao",
+      "sobre": "NEGATIVO: acusa recebido sem agradecer. 'Tá bom' encerra, mas não agradece — e os textos do agradece_fecha pressupõem agradecimento.",
+      "escalou": false,
+      "turnos": [
+        {
+          "paciente": "quanto custa a consulta?",
+          "esperado": [
+            "430"
+          ]
+        },
+        {
+          "paciente": "tá bom",
+          "exige": [
+            "Tudo bem|Sem problema"
+          ],
+          "proibido": [
+            "Eu que agrade[çc]o",
+            "Imagina!",
+            "S[óo] um instante"
+          ],
+          "nota": "⛔ Em 22/10/2026 isto produziu 'Eu que agradeço!' para quem não agradeceu — o MESMO defeito de 20/10, por outra porta: o `quando` do agradece_fecha aceitava 'e/ou encerra'. Quem encerra sem agradecer vai em dispensa_convite, cujos textos não pressupõem nada."
+        }
+      ]
+    },
+    {
       "id": "Y05b",
       "categoria": "conversao",
       "sobre": "CONTROLE NEGATIVO do Y05: um \"não\" SEGUIDO de pergunta não é fechamento. Tem de responder o convênio, não despedir-se.",
