@@ -113,7 +113,7 @@ Um registro leve de DMs observadas, persistido junto do estado que já existe
 | 3 | `index.ts` — `processGroupMessages` | mesma resolução; o resto do corpo não muda |
 | 4 | `index.ts` — `registraDmEmObservacao` | some. Fica só a semeadura do cursor (`lastAgentTimestamp[chatJid] = desdeIso`), que é o que impede a primeira rodada de varrer o histórico |
 | 5 | `channels/whatsapp.ts` — a chamada no laço de observação | passa a `registraDmObservada(chatJid, folder, desdeIso)`, sem `registerGroup` |
-| 6 | `index.ts` — `registeredGroups[chatJid]` do gate de allowlist | decidir explicitamente: DM observada entra ou não na allowlist de remetente (ver decisões) |
+| 6 | `index.ts` — `registeredGroups[chatJid]` do gate de allowlist | usa o mesmo resolvedor, de modo que a **DM observada ENTRA** no descarte por remetente (decisão do Thiago, 22/10/2026 — ver abaixo) |
 | 7 | `ipc.ts` — `patientDmBlocked` | **nada muda, e é o ponto** — a DM continua não registrada, então o gate continua armado |
 | 8 | `task-scheduler.ts:116`, `ipc.ts` (6 pontos) | **nada muda** — a pasta continua pertencendo a um grupo só |
 
@@ -133,14 +133,37 @@ Um registro leve de DMs observadas, persistido junto do estado que já existe
   `catch` do laço — com a C ele deixa de existir, mas vale um teste de que uma
   falha num item não derruba os outros.
 
+## Decidido: a DM entra na allowlist (ponto 6)
+
+Decisão do Thiago em 22/10/2026. O gate do descarte por remetente é hoje
+
+```ts
+if (!msg.is_from_me && !msg.is_bot_message && registeredGroups[chatJid]) {
+```
+
+e, com a C, `registeredGroups[chatJid]` vira o resolvedor — que inclui a DM
+observada. Uma condição, nenhuma mudança de comportamento hoje.
+
+**Por quê.** Não existe `sender-allowlist.json` nem no repo nem na VM, então
+vale o padrão `{ allow: '*', mode: 'trigger' }` e ninguém está bloqueado. A
+alternativa (deixar a DM de fora) não economizaria nada e cobraria depois: no
+dia em que um número insistir de madrugada ou abusar, a alavanca não alcançaria
+DM e seria preciso código novo. Com a decisão, basta o arquivo:
+
+```json
+{ "chats": { "5586XXXXXXXXX@s.whatsapp.net": { "allow": [], "mode": "drop" } } }
+```
+
+⚠️ O modo que resolve esse caso é `drop`, não `trigger`. Em DM de paciente o
+`requiresTrigger` é `false` — toda mensagem já dispara turno, com ou sem
+`@Andy` —, então o modo `trigger` da allowlist nunca é consultado ali. Quem
+quiser bloquear um número precisa de `drop`, que descarta antes de gravar.
+
 ## Decisões que são do Thiago
 
-1. **Allowlist de remetente em DM observada** (ponto 6): hoje o gate só vale
-   para chat registrado. Com a C a DM não é registrada — ela passa a ficar de
-   fora, como está, ou entra?
-2. **Quando fazer.** Não bloqueia a semana (os turnos acontecem pelo mapa em
+1. **Quando fazer.** Não bloqueia a semana (os turnos acontecem pelo mapa em
    memória). Bloqueia a Lara assumir. Sugiro com a semana rodando, e depois de a
    imitação de aprovação da suíte voltar a funcionar — senão a passada não
    consegue cobrir a mudança.
-3. **Limpeza das DMs observadas.** Elas acumulam no estado. Expira por tempo
+2. **Limpeza das DMs observadas.** Elas acumulam no estado. Expira por tempo
    (ex.: 7 dias sem mensagem) ou fica para sempre?
