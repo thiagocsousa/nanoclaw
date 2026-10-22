@@ -3049,6 +3049,29 @@
       ]
     },
     {
+      "id": "R03",
+      "categoria": "remarcar",
+      "sobre": "Adiamento de tratamento com exames MARCADOS: é cancelamento, não encerramento. Caso real de 22/10/2026.",
+      "escalou": true,
+      "turnos": [
+        {
+          "paciente": "Bom dia!"
+        },
+        {
+          "paciente": "Eu nao vou conseguir fazer os exames pra fazer a cirurgia agora, só proximo ano",
+          "exige": [
+            "S[óo] um instante"
+          ],
+          "proibido": [
+            "Tudo bem!",
+            "Sem problema!",
+            "Eu que agrade[çc]o"
+          ],
+          "nota": "⛔ Caso real: isto caiu em dispensa_convite e o paciente recebeu 'Tudo bem! Qualquer coisa é só me chamar por aqui' — fechando a conversa com exames e retorno ocupando agenda. Só não ficou pior porque ele escreveu 'gostaria de desmarcar' vinte segundos depois. Quem adia tem horário reservado, e só a recepção libera no iClinic."
+        }
+      ]
+    },
+    {
       "id": "Y05c",
       "categoria": "conversao",
       "sobre": "NEGATIVO: acusa recebido sem agradecer. 'Tá bom' encerra, mas não agradece — e os textos do agradece_fecha pressupõem agradecimento.",
