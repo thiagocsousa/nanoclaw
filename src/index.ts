@@ -121,6 +121,11 @@ import {
 } from './revisao-humana.js';
 import { logger } from './logger.js';
 import {
+  type EventoSla,
+  cursorDepoisDeSemear,
+  mensagensDoHistorico,
+} from './semear-historico.js';
+import {
   type DmsObservadas,
   anotaDm,
   chatsAcompanhados,
@@ -154,6 +159,76 @@ let dmsObservadas: DmsObservadas = {};
 
 /** Quanto tempo sem sinal até a DM sair do registro. */
 const VALIDADE_DA_DM_MS = 7 * 24 * 3600 * 1000;
+
+/**
+ * O teto da semeadura. Ver `docs/SEMEAR-HISTORICO.md`.
+ *
+ * 50 e 30 dias porque a maior conversa medida tinha 150 eventos, e prompt com
+ * 150 mensagens é caro e provavelmente pior que com as 50 mais recentes — o que
+ * explica "tem algum retorno?" é o fim da conversa, não o começo.
+ */
+const SEMEADURA = { maximo: 50, dias: 30 };
+
+/**
+ * Semeia o passado de uma DM recém-descoberta, do `atendimento_sla.jsonl`.
+ *
+ * ⛔ A ORDEM É A SEGURANÇA. O cursor é gravado ANTES de qualquer inserção:
+ * inserir com o cursor atrás faria o host considerar o histórico inteiro
+ * "novo", montar um prompt com a conversa toda e RESPONDER. Em observação
+ * encheria a fila de revisão de lixo; com a Lara assumindo, iria ao paciente.
+ *
+ * Devolve o cursor a usar, ou `undefined` quando não houve o que semear — e aí
+ * quem chama mantém o piso de descoberta da DM, que é o valor certo.
+ */
+function semeiaHistorico(
+  chatJid: string,
+  pastaDoSla: string,
+  ate: string,
+): string | undefined {
+  try {
+    const arquivo = path.join(
+      resolveGroupFolderPath(pastaDoSla),
+      'atendimento_sla.jsonl',
+    );
+    if (!fs.existsSync(arquivo)) return undefined;
+    const eventos: EventoSla[] = [];
+    for (const linha of fs.readFileSync(arquivo, 'utf-8').split('\n')) {
+      if (!linha.trim()) continue;
+      try {
+        eventos.push(JSON.parse(linha) as EventoSla);
+      } catch {
+        /* linha torta não impede o resto */
+      }
+    }
+    const desde = new Date(
+      Date.now() - SEMEADURA.dias * 24 * 3600 * 1000,
+    ).toISOString();
+    const mensagens = mensagensDoHistorico(eventos, chatJid, {
+      maximo: SEMEADURA.maximo,
+      desde,
+      // ⛔ O teto é o piso da descoberta: tudo ANTES da mensagem que revelou a
+      // DM. Sem ele a própria mensagem entraria no histórico e o cursor a
+      // excluiria de `getNewMessages` — vista e não respondida.
+      ate,
+    });
+    const cursor = cursorDepoisDeSemear(mensagens);
+    if (!cursor) return undefined;
+    // ⬇️ PRIMEIRO o cursor, depois as linhas.
+    lastAgentTimestamp[chatJid] = cursor;
+    saveState();
+    for (const m of mensagens) storeMessage(m as never);
+    logger.info(
+      { chatJid, mensagens: mensagens.length, cursor },
+      'histórico semeado: a conversa deixa de entrar sem passado',
+    );
+    return cursor;
+  } catch (err) {
+    // Falhar aqui não pode derrubar a descoberta da DM: sem passado é pior,
+    // mas é o estado de antes, e perder a DM inteira seria pior ainda.
+    logger.warn({ err, chatJid }, 'semeadura falhou; segue sem passado');
+    return undefined;
+  }
+}
 let messageLoopRunning = false;
 
 const channels: Channel[] = [];
@@ -1386,6 +1461,26 @@ async function main(): Promise<void> {
       // depois do primeiro contato, e o cursor dele iria junto.
       const novaDm = !dmsObservadas[chatJid];
       if (novaDm) {
+        // ⛔ O passado da conversa, ANTES de fixar o piso. Quando há histórico,
+        // `semeiaHistorico` já gravou o cursor no último evento semeado, e
+        // sobrescrever com `desdeIso` aqui faria o host reprocessar tudo que
+        // acabou de entrar — exatamente o acidente que a ordem evita.
+        const semeado = semeiaHistorico(
+          chatJid,
+          'whatsapp_atendimento-dra-marina',
+          desdeIso,
+        );
+        if (semeado) {
+          dmsObservadas = anotaDm(
+            dmsObservadas,
+            chatJid,
+            folder,
+            semeado,
+            new Date().toISOString(),
+          );
+          saveState();
+          return;
+        }
         // ⛔ O cursor começa AQUI, e só na primeira vez. `getOrRecoverCursor`
         // devolve '' para chat desconhecido, e aí a primeira rodada varreria
         // todo o histórico gravado daquele chat. "Só mensagens novas" (Thiago,
