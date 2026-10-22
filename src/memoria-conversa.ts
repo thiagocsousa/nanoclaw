@@ -116,12 +116,20 @@ export interface SlotsLembrados {
 const ARQUIVO = 'slots_conversa.json';
 
 /**
- * Quatro horas. Uma conversa de paciente se arrasta pela manhã inteira, e
- * esquecer no meio traz de volta o bug que isto conserta. Mas não é eterno:
- * o mesmo paciente voltando noutro dia para outro assunto não deve herdar o
- * convênio de antes. Quando o turno traz o dado, ele VENCE o lembrado.
+ * Uma hora (Thiago, 22/10/2026; eram quatro antes).
+ *
+ * O limite serve a duas coisas em tensão: esquecer no meio de uma conversa traz
+ * de volta o bug que isto conserta (perguntar duas vezes o mesmo), e lembrar
+ * demais faz o paciente que volta noutro assunto herdar o convênio de antes.
+ * Quando o turno traz o dado, ele VENCE o lembrado.
+ *
+ * ⚠️ Com uma hora, paciente que responde 70 minutos depois é tratado como
+ * conversa nova: nome, convênio e necessidade são perguntados de novo. Era o
+ * caso que as quatro horas cobriam. Em troca, este é também o prazo que separa
+ * "já estava falando" de "acabou de chegar" na meia hora final do expediente
+ * (`podeResponder` em `expediente.ts`), e quatro horas ali era largo demais.
  */
-const VALIDO_MS = 4 * 60 * 60 * 1000;
+const VALIDO_MS = 60 * 60 * 1000;
 
 function arquivo(folder: string): string {
   return path.join(GROUPS_DIR, folder, ARQUIVO);

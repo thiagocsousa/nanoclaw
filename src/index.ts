@@ -423,6 +423,40 @@ export function _setRegisteredGroups(
  * Process all pending messages for a group.
  * Called by the GroupQueue when it's this group's turn.
  */
+/**
+ * O expediente segura este lote? Se sim, as mensagens ficam PENDENTES.
+ *
+ * ⚠️ Chamado nas DUAS portas. O laço principal tem um caminho que NÃO passa por
+ * `processGroupMessages`: quando já existe container vivo, as mensagens são
+ * canalizadas direto para ele. Esse caminho não consultava horário nenhum, então
+ * bastava um container aberto para a Lara responder de madrugada — e era o furo
+ * que sobrava depois de apertar a regra. Uma definição, dois portões.
+ *
+ * ⛔ Devolver `true` NÃO pode avançar cursor nenhum. É o que faz a varredura da
+ * manhã pegar a conversa inteira em vez de marcá-la como vista e perdida.
+ */
+function expedienteSegura(
+  group: RegisteredGroup,
+  chatJid: string,
+  pendentes: number,
+): boolean {
+  if (!wantsExpediente(group.folder)) return false;
+  const abertaEm = conversaAbertaEm(group.folder, chatJid);
+  if (podeResponder(abertaEm)) {
+    // Dentro do horário: marca o início, se ainda não houver. `abreConversa`
+    // devolve o valor existente quando já há um válido, então a conversa das
+    // 17h55 não vira "aberta às 18h20" no turno seguinte — e é esse valor que
+    // decide se ela segue sendo atendida na meia hora final.
+    abreConversa(group.folder, chatJid);
+    return false;
+  }
+  logger.info(
+    { group: group.name, dentro: dentroDoExpediente(), abertaEm, pendentes },
+    'expediente: fora do horário, a Lara não responde (mensagens ficam pendentes)',
+  );
+  return true;
+}
+
 async function processGroupMessages(chatJid: string): Promise<boolean> {
   const group = grupoDoChat(chatJid);
   if (!group) return true;
@@ -470,24 +504,7 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
   // seriam marcadas como vistas e perdidas — o Thiago perguntou justamente se a
   // Lara retoma o que chegou entre 18h e 8h, e com o gate no lugar errado a
   // resposta seria não.
-  if (wantsExpediente(group.folder)) {
-    const abertaEm = conversaAbertaEm(group.folder, chatJid);
-    if (!podeResponder(abertaEm)) {
-      logger.info(
-        {
-          group: group.name,
-          dentro: dentroDoExpediente(),
-          abertaEm,
-          pendentes: missedMessages.length,
-        },
-        'expediente: fora do horário, a Lara não responde (mensagens ficam pendentes)',
-      );
-      return true;
-    }
-    // Dentro do horário: marca o início, se ainda não houver. Não remarca,
-    // senão a conversa das 17h55 vira "aberta às 19h" no turno seguinte.
-    abreConversa(group.folder, chatJid);
-  }
+  if (expedienteSegura(group, chatJid, missedMessages.length)) return true;
 
   // For non-main groups, check if trigger is required and present
   if (!isMainGroup && group.requiresTrigger !== false) {
@@ -1044,6 +1061,11 @@ async function startMessageLoop(): Promise<void> {
           // `some((m) => !m.is_from_me)` de `soEcoDePipeline` load-bearing —
           // sem ele um lote só de `is_from_me` (o grupo principal) satisfaria o
           // `every` por vacuidade.
+          // ⛔ O expediente ANTES de qualquer despacho, porque um dos dois
+          // caminhos daqui (canalizar para container vivo) não passa por
+          // `processGroupMessages` e por isso não via horário nenhum.
+          if (expedienteSegura(group, chatJid, groupMessages.length)) continue;
+
           const doPipeline = pipelinePorChat[chatJid];
           if (soEcoDePipeline(groupMessages, doPipeline, Date.now())) {
             logger.info(

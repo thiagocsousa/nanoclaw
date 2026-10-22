@@ -29,6 +29,7 @@ const envConfig = readEnvFile([
   'EXPEDIENTE_FOLDERS',
   'EXPEDIENTE_INICIO',
   'EXPEDIENTE_FIM',
+  'EXPEDIENTE_ULTIMO_INICIO',
   'EXPEDIENTE_TZ',
 ]);
 
@@ -74,6 +75,15 @@ function minutosDe(chave: string, padrao: string): number {
 
 const INICIO = minutosDe('EXPEDIENTE_INICIO', '7:30');
 const FIM = minutosDe('EXPEDIENTE_FIM', '18:30');
+/**
+ * A última hora em que uma conversa pode COMEÇAR (Thiago, 22/10/2026).
+ *
+ * Entre este horário e o `FIM` a Lara só atende quem já estava falando: a meia
+ * hora final é para terminar conversa, não para começar. Quem chega às 18h05
+ * recebe a mensagem de ausência do WhatsApp Business e é atendido na manhã
+ * seguinte, com o fio inteiro no prompt.
+ */
+const ULTIMO_INICIO = minutosDe('EXPEDIENTE_ULTIMO_INICIO', '18:00');
 /** Teresina. Sem horário de verão desde 2019, mas o IANA cuida disso. */
 const TZ = env('EXPEDIENTE_TZ', 'America/Fortaleza');
 
@@ -157,19 +167,55 @@ export function dentroDoExpediente(agora: Date | number = new Date()): boolean {
   return agoraMin >= INICIO && agoraMin < FIM;
 }
 
+/** A conversa pode COMEÇAR agora? Dentro do expediente e antes das 18h. */
+export function podeComecar(agora: Date | number = new Date()): boolean {
+  if (!dentroDoExpediente(agora)) return false;
+  const { hora, minuto } = horaLocal(
+    typeof agora === 'number' ? new Date(agora) : agora,
+  );
+  return hora * 60 + minuto < ULTIMO_INICIO;
+}
+
 /**
- * A Lara responde agora?
+ * A Lara responde agora? (Thiago, 22/10/2026.)
  *
- * `abertaEm` é quando a conversa começou. Conversa aberta DENTRO do expediente
- * continua depois das 18h até encerrar ou escalar — quem fecha a conversa é o
- * host, apagando a memória dela, e aí o próximo turno volta a valer esta regra.
+ * Três faixas, e nenhuma delas se estende para fora do dia:
+ *
+ * | horário | quem é atendido |
+ * |---|---|
+ * | antes de 18h | todos |
+ * | 18h às 18h30 | só conversa iniciada ANTES das 18h |
+ * | 18h30 em diante | ninguém |
+ *
+ * ⛔ Até hoje `abertaEm` era uma LICENÇA: conversa aberta dentro do expediente
+ * seguia sendo atendida depois das 18h30, "até encerrar ou escalar". O que a
+ * exceção escondia é que ela não tinha fim de dia — o que fechava a janela era
+ * a validade de 4h do `slots_conversa`, RENOVADA a cada turno, então conversa
+ * com atividade a cada menos de 4h emendava para a madrugada e para o dia
+ * seguinte. Apareceu na fila como uma resposta às 19h53, num comprovante de
+ * pagamento que chegou de noite numa conversa aberta às 10h24.
+ *
+ * Agora `abertaEm` é uma RESTRIÇÃO: na meia hora final ele é o que distingue
+ * quem já estava falando de quem acabou de chegar.
+ *
+ * ⚠️ O preço, declarado: quem manda a primeira mensagem às 18h05 leva silêncio,
+ * e quem está no meio da triagem às 18h29 leva silêncio às 18h31. As mensagens
+ * NÃO se perdem — ficam pendentes e a varredura da manhã as pega com o fio
+ * inteiro da conversa no prompt. Quem responde à noite é a mensagem de ausência
+ * do WhatsApp Business, que é nativa.
+ *
+ * ⚠️ `abertaEm` de outro dia não passa: a parada às 18h30 garante um vão maior
+ * que a validade de 4h da memória, então `conversaAbertaEm` devolve `undefined`
+ * na manhã seguinte e `abreConversa` recomeça a contagem.
  */
 export function podeResponder(
   abertaEm: number | undefined,
   agora: Date | number = new Date(),
 ): boolean {
-  if (dentroDoExpediente(agora)) return true;
-  return abertaEm !== undefined && dentroDoExpediente(abertaEm);
+  if (!dentroDoExpediente(agora)) return false;
+  if (podeComecar(agora)) return true;
+  // Meia hora final: só quem já estava falando antes do corte.
+  return abertaEm !== undefined && podeComecar(abertaEm);
 }
 
 function comoHora(min: number): string {
