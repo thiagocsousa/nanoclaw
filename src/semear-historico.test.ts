@@ -1,9 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { BOT_MARK } from './config.js';
 import {
   type EventoSla,
   cursorDepoisDeSemear,
+  leEventosSla,
   mensagensDoHistorico,
 } from './semear-historico.js';
 
@@ -167,5 +171,85 @@ describe('cursorDepoisDeSemear', () => {
   // descoberta da DM já é o valor certo.
   it('sem histórico, não manda mexer no cursor', () => {
     expect(cursorDepoisDeSemear([])).toBeUndefined();
+  });
+});
+
+/**
+ * ⚠️ Arquivo de verdade, não `fs` mockado: a parte com mais formatos possíveis
+ * de entrada (ausente, vazio, linha truncada, jid que não está lá) é justamente
+ * a que vivia sem teste, solta no `index.ts`.
+ */
+describe('leEventosSla', () => {
+  const temporarios: string[] = [];
+
+  function arquivoCom(conteudo: string): string {
+    const alvo = path.join(
+      fs.mkdtempSync(path.join(os.tmpdir(), 'sla-')),
+      'atendimento_sla.jsonl',
+    );
+    fs.writeFileSync(alvo, conteudo);
+    temporarios.push(alvo);
+    return alvo;
+  }
+
+  afterEach(() => {
+    for (const a of temporarios.splice(0))
+      fs.rmSync(path.dirname(a), { recursive: true, force: true });
+  });
+
+  it('arquivo ausente não é erro: devolve vazio', () => {
+    expect(leEventosSla('/nao/existe/atendimento_sla.jsonl', JID)).toEqual([]);
+  });
+
+  it('arquivo vazio devolve vazio', () => {
+    expect(leEventosSla(arquivoCom(''), JID)).toEqual([]);
+  });
+
+  it('traz só as linhas que citam o jid', () => {
+    const arquivo = arquivoCom(
+      [
+        JSON.stringify({ id: 'A', jid: JID, text: 'oi' }),
+        JSON.stringify({ id: 'B', jid: OUTRO, text: 'oi' }),
+        '',
+      ].join('\n'),
+    );
+    expect(leEventosSla(arquivo, JID).map((e) => e.id)).toEqual(['A']);
+  });
+
+  /**
+   * ⛔ O caso mais comum daqui para frente: paciente novo, sem nenhum evento no
+   * log. O `includes` do arquivo inteiro devolve antes de qualquer `JSON.parse`
+   * — é o que tira ~900 KB e ~3.200 parses do caminho de entrada do WhatsApp.
+   */
+  it('jid que não está no arquivo devolve vazio sem parsear nada', () => {
+    const arquivo = arquivoCom(
+      [
+        JSON.stringify({ id: 'A', jid: OUTRO, text: 'oi' }),
+        'linha torta {',
+      ].join('\n'),
+    );
+    expect(leEventosSla(arquivo, JID)).toEqual([]);
+  });
+
+  it('linha truncada não impede o resto', () => {
+    const arquivo = arquivoCom(
+      [
+        `{"id":"A","jid":"${JID}","text":"oi"`,
+        JSON.stringify({ id: 'B', jid: JID, text: 'tudo bem?' }),
+      ].join('\n'),
+    );
+    expect(leEventosSla(arquivo, JID).map((e) => e.id)).toEqual(['B']);
+  });
+
+  // É SUPERCONJUNTO: uma linha pode citar o jid no texto. Quem decide é o
+  // predicado de `mensagensDoHistorico`.
+  it('linha que só cita o jid no texto chega, e o filtro é que descarta', () => {
+    const arquivo = arquivoCom(
+      JSON.stringify({ id: 'A', jid: OUTRO, text: `falei com ${JID}` }),
+    );
+    expect(leEventosSla(arquivo, JID).map((e) => e.id)).toEqual(['A']);
+    expect(
+      mensagensDoHistorico(leEventosSla(arquivo, JID), JID, LIMITE),
+    ).toEqual([]);
   });
 });

@@ -31,7 +31,6 @@ import {
 } from './container-runtime.js';
 import {
   mensagemPorIdCurto,
-  ultimaMensagemDoPaciente,
   getAllChats,
   getAllRegisteredGroups,
   getAllSessions,
@@ -43,6 +42,7 @@ import {
   getRouterState,
   initDatabase,
   setRegisteredGroup,
+  runInTransaction,
   setRouterState,
   setSession,
   storeChatMetadata,
@@ -117,13 +117,16 @@ import {
   podeAprovar,
   registraParaRevisao,
   textoDaRevisao,
-  wantsRevisaoHumana,
 } from './revisao-humana.js';
 import { logger } from './logger.js';
-import { type PipelineDoChat, soEcoDePipeline } from './resposta-pipeline.js';
 import {
-  type EventoSla,
+  type PipelineDoChat,
+  podaPipelines,
+  soEcoDePipeline,
+} from './resposta-pipeline.js';
+import {
   cursorDepoisDeSemear,
+  leEventosSla,
   mensagensDoHistorico,
 } from './semear-historico.js';
 import {
@@ -154,6 +157,17 @@ let registeredGroups: Record<string, RegisteredGroup> = {};
  * lembrete, e não uma conversa começando.
  */
 let pipelinePorChat: Record<string, PipelineDoChat> = {};
+
+/**
+ * A pasta do canal de atendimento.
+ *
+ * ⚠️ É a pasta de `groupFolderOwner` daquele canal, que é quem GRAVA o
+ * `atendimento_sla.jsonl` (`captureSlaTimeline`) — e não a pasta de observação
+ * que `registraDmEmObservacao` recebe: essa pode ser outra (hoje há
+ * `whatsapp_atendimento-teste`), e semear a partir dela leria um arquivo que
+ * não existe e devolveria silêncio.
+ */
+const PASTA_DO_SLA = 'whatsapp_atendimento-dra-marina';
 
 /** Estado da vigia da captura. Ver `vigia-captura.ts`. */
 const vigia: EstadoDaVigia = { ultimaCaptura: Date.now() };
@@ -190,26 +204,13 @@ const SEMEADURA = { maximo: 50, dias: 30 };
  * Devolve o cursor a usar, ou `undefined` quando não houve o que semear — e aí
  * quem chama mantém o piso de descoberta da DM, que é o valor certo.
  */
-function semeiaHistorico(
-  chatJid: string,
-  pastaDoSla: string,
-  ate: string,
-): string | undefined {
+function semeiaHistorico(chatJid: string, ate: string): string | undefined {
   try {
     const arquivo = path.join(
-      resolveGroupFolderPath(pastaDoSla),
+      resolveGroupFolderPath(PASTA_DO_SLA),
       'atendimento_sla.jsonl',
     );
-    if (!fs.existsSync(arquivo)) return undefined;
-    const eventos: EventoSla[] = [];
-    for (const linha of fs.readFileSync(arquivo, 'utf-8').split('\n')) {
-      if (!linha.trim()) continue;
-      try {
-        eventos.push(JSON.parse(linha) as EventoSla);
-      } catch {
-        /* linha torta não impede o resto */
-      }
-    }
+    const eventos = leEventosSla(arquivo, chatJid);
     const desde = new Date(
       Date.now() - SEMEADURA.dias * 24 * 3600 * 1000,
     ).toISOString();
@@ -223,10 +224,24 @@ function semeiaHistorico(
     });
     const cursor = cursorDepoisDeSemear(mensagens);
     if (!cursor) return undefined;
-    // ⬇️ PRIMEIRO o cursor, depois as linhas.
-    lastAgentTimestamp[chatJid] = cursor;
-    saveState();
-    for (const m of mensagens) storeMessage(m as never);
+    // ⬇️ PRIMEIRO o cursor, depois as linhas — e as duas na MESMA transação.
+    // Sem ela, morrer entre o `saveState()` e os inserts deixava o cursor à
+    // frente de um histórico que não existe: a conversa perderia o passado E
+    // pularia as mensagens. De quebra, 1 commit em vez de 51.
+    const anterior = lastAgentTimestamp[chatJid];
+    try {
+      runInTransaction(() => {
+        lastAgentTimestamp[chatJid] = cursor;
+        saveState();
+        for (const m of mensagens) storeMessage(m);
+      });
+    } catch (err) {
+      // O banco voltou atrás; a memória tem de voltar também, senão o cursor
+      // fica adiantado só neste processo — o pior dos dois mundos.
+      if (anterior === undefined) delete lastAgentTimestamp[chatJid];
+      else lastAgentTimestamp[chatJid] = anterior;
+      throw err;
+    }
     logger.info(
       { chatJid, mensagens: mensagens.length, cursor },
       'histórico semeado: a conversa deixa de entrar sem passado',
@@ -244,30 +259,35 @@ let messageLoopRunning = false;
 const channels: Channel[] = [];
 const queue = new GroupQueue();
 
+/**
+ * Um blob JSON do `router_state`, ou o vazio quando não dá para ler.
+ *
+ * ⚠️ Três estados usam o mesmo par carrega/`JSON.parse`/zera, e a cerimônia
+ * repetida escondia a única diferença que importa entre eles: quem é podado.
+ */
+function carregaJson<T>(chave: string, vazio: T): T {
+  const cru = getRouterState(chave);
+  if (!cru) return vazio;
+  try {
+    return JSON.parse(cru) as T;
+  } catch {
+    logger.warn({ chave }, 'router_state corrompido, zerando');
+    return vazio;
+  }
+}
+
 function loadState(): void {
   lastTimestamp = getRouterState('last_timestamp') || '';
-  const agentTs = getRouterState('last_agent_timestamp');
-  try {
-    lastAgentTimestamp = agentTs ? JSON.parse(agentTs) : {};
-  } catch {
-    logger.warn('Corrupted last_agent_timestamp in DB, resetting');
-    lastAgentTimestamp = {};
-  }
-  const dmsCru = getRouterState('dms_observadas');
-  try {
-    dmsObservadas = dmsCru ? JSON.parse(dmsCru) : {};
-  } catch {
-    logger.warn('dms_observadas corrompido, zerando');
-    dmsObservadas = {};
-  }
-  dmsObservadas = podaDms(dmsObservadas, Date.now(), VALIDADE_DA_DM_MS);
-  const pipeCru = getRouterState('pipeline_por_chat');
-  try {
-    pipelinePorChat = pipeCru ? JSON.parse(pipeCru) : {};
-  } catch {
-    logger.warn('pipeline_por_chat corrompido, zerando');
-    pipelinePorChat = {};
-  }
+  lastAgentTimestamp = carregaJson('last_agent_timestamp', {});
+  dmsObservadas = podaDms(
+    carregaJson('dms_observadas', {}),
+    Date.now(),
+    VALIDADE_DA_DM_MS,
+  );
+  pipelinePorChat = podaPipelines(
+    carregaJson('pipeline_por_chat', {}),
+    Date.now(),
+  );
   sessions = getAllSessions();
   registeredGroups = getAllRegisteredGroups();
   logger.info(
@@ -318,11 +338,18 @@ function getOrRecoverCursor(chatJid: string): string {
   return '';
 }
 
+/**
+ * ⚠️ Uma transação, e não quatro commits. `saveState` é chamado algumas
+ * centenas de vezes por dia (uma por lote, e uma por mensagem em DM observada),
+ * e cada `setRouterState` solto é uma transação implícita própria.
+ */
 function saveState(): void {
-  setRouterState('last_timestamp', lastTimestamp);
-  setRouterState('last_agent_timestamp', JSON.stringify(lastAgentTimestamp));
-  setRouterState('dms_observadas', JSON.stringify(dmsObservadas));
-  setRouterState('pipeline_por_chat', JSON.stringify(pipelinePorChat));
+  runInTransaction(() => {
+    setRouterState('last_timestamp', lastTimestamp);
+    setRouterState('last_agent_timestamp', JSON.stringify(lastAgentTimestamp));
+    setRouterState('dms_observadas', JSON.stringify(dmsObservadas));
+    setRouterState('pipeline_por_chat', JSON.stringify(pipelinePorChat));
+  });
 }
 
 /**
@@ -1018,19 +1045,6 @@ async function startMessageLoop(): Promise<void> {
             continue;
           }
 
-          // ⛔ Numa DM observada, a SECRETÁRIA não dispara turno.
-          //
-          // Desde 22/10/2026 as falas dela são gravadas (antes o canal as
-          // descartava, e a Lara lia metade do diálogo). Gravar sem esta trava
-          // faria a Lara responder à própria clínica — o `requiresTrigger` da
-          // DM é `false`, então qualquer mensagem nova dispararia.
-          //
-          // `every`, não `some`: se o lote tem fala da secretária E do
-          // paciente, o turno acontece, e a fala dela entra como contexto. Só
-          // um lote INTEIRO da clínica é que não é turno.
-          //
-          // `emObservacao` já exige chat que não seja grupo, então isto não
-          // alcança o grupo principal, onde `is_from_me` dispara de propósito.
           // ⛔ Resposta a PIPELINE não abre turno.
           //
           // Às 15h o lembrete sai e os pacientes respondem "SIM". Sem isto cada
@@ -1040,6 +1054,13 @@ async function startMessageLoop(): Promise<void> {
           //
           // ⚠️ Suprimir é não ABRIR TURNO; a mensagem fica gravada como
           // contexto, igual à fala da secretária.
+          //
+          // ⚠️ Esta trava NÃO é portada por `emObservacao`, ao contrário da
+          // vizinha, e é de propósito: ela precisa valer quando a Lara assumir,
+          // e aí a pasta sai de `OBSERVACAO_FOLDERS`. É isso que torna o
+          // `some((m) => !m.is_from_me)` de `soEcoDePipeline` load-bearing —
+          // sem ele um lote só de `is_from_me` (o grupo principal) satisfaria o
+          // `every` por vacuidade.
           const doPipeline = pipelinePorChat[chatJid];
           if (soEcoDePipeline(groupMessages, doPipeline, Date.now())) {
             logger.info(
@@ -1053,6 +1074,19 @@ async function startMessageLoop(): Promise<void> {
             continue;
           }
 
+          // ⛔ Numa DM observada, a SECRETÁRIA não dispara turno.
+          //
+          // Desde 22/10/2026 as falas dela são gravadas (antes o canal as
+          // descartava, e a Lara lia metade do diálogo). Gravar sem esta trava
+          // faria a Lara responder à própria clínica — o `requiresTrigger` da
+          // DM é `false`, então qualquer mensagem nova dispararia.
+          //
+          // `every`, não `some`: se o lote tem fala da secretária E do
+          // paciente, o turno acontece, e a fala dela entra como contexto. Só
+          // um lote INTEIRO da clínica é que não é turno.
+          //
+          // `emObservacao` já exige chat que não seja grupo, então isto não
+          // alcança o grupo principal, onde `is_from_me` dispara de propósito.
           if (
             emObservacao(group.folder, chatJid) &&
             soFalaDaClinica(groupMessages)
@@ -1500,45 +1534,36 @@ async function main(): Promise<void> {
       // é renovado aqui — sem isso a poda apagaria um paciente ATIVO 7 dias
       // depois do primeiro contato, e o cursor dele iria junto.
       const novaDm = !dmsObservadas[chatJid];
+      // ⛔ O piso do cursor. Começa na mensagem que revelou a DM e só na
+      // primeira vez: `getOrRecoverCursor` devolve '' para chat desconhecido, e
+      // aí a primeira rodada varreria todo o histórico gravado daquele chat.
+      // "Só mensagens novas" (Thiago, 19/10/2026). `anotaDm` é idempotente no
+      // piso justamente para este valor não voltar ao presente depois.
+      let piso = desdeIso;
       if (novaDm) {
         // ⛔ O passado da conversa, ANTES de fixar o piso. Quando há histórico,
         // `semeiaHistorico` já gravou o cursor no último evento semeado, e
         // sobrescrever com `desdeIso` aqui faria o host reprocessar tudo que
         // acabou de entrar — exatamente o acidente que a ordem evita.
-        const semeado = semeiaHistorico(
-          chatJid,
-          'whatsapp_atendimento-dra-marina',
-          desdeIso,
-        );
-        if (semeado) {
-          dmsObservadas = anotaDm(
-            dmsObservadas,
-            chatJid,
-            folder,
-            semeado,
-            new Date().toISOString(),
-          );
-          saveState();
-          return;
-        }
-        // ⛔ O cursor começa AQUI, e só na primeira vez. `getOrRecoverCursor`
-        // devolve '' para chat desconhecido, e aí a primeira rodada varreria
-        // todo o histórico gravado daquele chat. "Só mensagens novas" (Thiago,
-        // 19/10/2026). `anotaDm` é idempotente no piso justamente para este
-        // valor não voltar ao presente nas chamadas seguintes.
-        lastAgentTimestamp[chatJid] = desdeIso;
+        const semeado = semeiaHistorico(chatJid, desdeIso);
+        if (semeado) piso = semeado;
+        else lastAgentTimestamp[chatJid] = desdeIso;
       }
+      // ⚠️ UM caminho de saída. Havia aqui um `return` precoce para o caso
+      // semeado que repetia este `anotaDm` + `saveState` e, de quebra, pulava o
+      // log abaixo — ou seja, a DM COM histórico era a única que não aparecia
+      // no log de descoberta, justamente a que se quer olhar primeiro.
       dmsObservadas = anotaDm(
         dmsObservadas,
         chatJid,
         folder,
-        desdeIso,
+        piso,
         new Date().toISOString(),
       );
       saveState();
       if (novaDm) {
         logger.info(
-          { chatJid, folder },
+          { chatJid, folder, semeado: piso !== desdeIso },
           'DM de paciente passa a ser acompanhada',
         );
       }
@@ -1595,7 +1620,7 @@ async function main(): Promise<void> {
       ...channelOpts,
       authSubDir: 'auth-atendimento',
       pairingNumber: atendimentoPairingNumber,
-      groupFolderOwner: 'whatsapp_atendimento-dra-marina',
+      groupFolderOwner: PASTA_DO_SLA,
       // MODO OBSERVAÇÃO das DMs de paciente (Thiago, 19/10/2026): quando esta
       // env existe, as DMs deste número viram turno e a resposta vai ao destino
       // da revisão, nunca ao paciente.
@@ -1719,7 +1744,12 @@ async function main(): Promise<void> {
 
   startIpcWatcher({
     registraPipeline: (chatJid, origin) => {
-      pipelinePorChat[chatJid] = { origin, quando: Date.now() };
+      const agora = Date.now();
+      // Poda no caminho de ESCRITA: `loadState` só roda na subida, e o processo
+      // fica semanas de pé. Um `for` sobre algumas dezenas de entradas é grátis
+      // comparado a re-serializar um mapa que cresce para sempre.
+      pipelinePorChat = podaPipelines(pipelinePorChat, agora);
+      pipelinePorChat[chatJid] = { origin, quando: agora };
       saveState();
     },
     sendMessage: (jid, text, groupFolder) => {

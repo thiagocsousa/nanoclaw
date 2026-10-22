@@ -1,7 +1,7 @@
 # Resposta a pipeline não é conversa com a Lara
 
 Plano escrito em 22/10/2026, do primeiro dia útil da semana de observação.
-**Não implementado.**
+**Implementado** em 22/10/2026 (`src/resposta-pipeline.ts`).
 
 ## O problema
 

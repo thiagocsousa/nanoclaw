@@ -728,6 +728,22 @@ export function getRouterState(key: string): string | undefined {
   return row?.value;
 }
 
+/**
+ * Roda `fn` numa transação só.
+ *
+ * ⛔ Existe por causa da semeadura de histórico: o cursor é gravado ANTES das
+ * linhas, e morrer entre as duas coisas deixava o cursor à frente de um
+ * histórico que não existe — a conversa perde o passado E pula as mensagens,
+ * falha silenciosa do tipo que só aparece quando alguém estranha o silêncio.
+ * Juntar as duas numa transação faz as duas valerem ou nenhuma valer.
+ *
+ * ⚠️ Mutação em memória feita dentro de `fn` NÃO volta atrás sozinha; quem
+ * chama é responsável por desfazê-la se a transação falhar.
+ */
+export function runInTransaction<T>(fn: () => T): T {
+  return db.transaction(fn)();
+}
+
 export function setRouterState(key: string, value: string): void {
   db.prepare(
     'INSERT OR REPLACE INTO router_state (key, value) VALUES (?, ?)',

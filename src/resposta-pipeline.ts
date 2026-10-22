@@ -32,6 +32,33 @@ export const JANELA_DO_PIPELINE: Record<string, number> = {
 };
 
 /**
+ * Passada a maior janela, NENHUMA entrada consegue suprimir coisa alguma —
+ * `respostaDePipeline` devolve `false` fora dela. Daí a validade do registro.
+ */
+export const VALIDADE_DO_PIPELINE = Math.max(
+  ...Object.values(JANELA_DO_PIPELINE),
+);
+
+/**
+ * Tira do mapa o que já não decide nada.
+ *
+ * ⛔ Sem isto o estado cresce sem teto — uma entrada por paciente que qualquer
+ * um dos cinco pipelines já tocou, re-serializada inteira em cada `saveState()`
+ * — é a mesma lição que `podaDms` registra. E a poda tem de rodar no caminho de
+ * ESCRITA, não só na subida: o processo fica semanas de pé.
+ */
+export function podaPipelines(
+  mapa: Record<string, PipelineDoChat>,
+  agora: number,
+): Record<string, PipelineDoChat> {
+  const vivo: Record<string, PipelineDoChat> = {};
+  for (const [jid, p] of Object.entries(mapa)) {
+    if (agora - p.quando <= VALIDADE_DO_PIPELINE) vivo[jid] = p;
+  }
+  return vivo;
+}
+
+/**
  * O que conta como "só confirmei, não quero nada".
  *
  * ⚠️ Lista curta e fechada, em código e sob teste, de propósito. Qualquer
@@ -39,7 +66,7 @@ export const JANELA_DO_PIPELINE: Record<string, number> = {
  * responde "SIM" e dez minutos depois escreve "posso remarcar?" precisa ser
  * atendido, e é esse caso que a recepção mais quer ver.
  */
-const CONFIRMACOES = new Set([
+export const CONFIRMACOES = new Set([
   'sim',
   'simm',
   'ok',
@@ -68,7 +95,13 @@ const CONFIRMACOES = new Set([
   'tudo bem',
 ]);
 
-/** Tira pontuação, emoji e caixa, para "SIM!!" casar com "sim". */
+/**
+ * Tira pontuação, emoji e caixa, para "SIM!!" casar com "sim".
+ *
+ * Exportada só para a trava estrutural do teste, que confere que toda entrada
+ * de `CONFIRMACOES` é igual à própria normalização — entrada que a
+ * normalização alteraria nunca casaria com nada, em silêncio.
+ */
 export function normalizaConfirmacao(texto: string): string {
   return texto
     .toLowerCase()
@@ -77,11 +110,16 @@ export function normalizaConfirmacao(texto: string): string {
     .replace(/\s+/g, ' ');
 }
 
+/**
+ * ⚠️ O `Set` é o ÚNICO portão. Havia aqui um `split(' ').length > 3` que parecia
+ * um segundo limite e não decidia nada — a entrada mais longa da lista tem duas
+ * palavras, então toda frase já caía no `has()`. Pior que inútil: se alguém
+ * acrescentasse uma confirmação de quatro palavras, ela seria recusada em
+ * silêncio. Quem quiser aceitar frase tem de mexer na lista, não num teto.
+ */
 export function ehConfirmacaoCurta(texto: string): boolean {
   const limpo = normalizaConfirmacao(texto);
   if (!limpo) return false;
-  // Mais de três palavras já é frase, e frase pode carregar pedido.
-  if (limpo.split(' ').length > 3) return false;
   return CONFIRMACOES.has(limpo);
 }
 

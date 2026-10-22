@@ -18,7 +18,10 @@
  * DOIS sentidos desde 01/10. Ver `docs/SEMEAR-HISTORICO.md`.
  */
 
-import { BOT_MARK, LEGACY_BOT_PREFIX } from './config.js';
+import fs from 'fs';
+
+import { isBotText } from './config.js';
+import type { NewMessage } from './types.js';
 
 /** Um evento do `atendimento_sla.jsonl`. */
 export interface EventoSla {
@@ -30,16 +33,31 @@ export interface EventoSla {
   push_name?: string;
 }
 
-export interface MensagemSemeada {
-  id: string;
-  chat_jid: string;
-  sender: string;
-  sender_name: string;
-  content: string;
-  timestamp: string;
-  is_from_me: boolean;
-  is_bot_message: boolean;
-}
+/** Os campos que o filtro prova e o resto do módulo pode usar sem cast. */
+type Obrigatorios = { id: string; text: string; timestamp: string };
+
+/**
+ * Uma linha pronta para `storeMessage`.
+ *
+ * ⚠️ DERIVADA de `NewMessage`, não redeclarada: era uma segunda cópia dos
+ * mesmos oito campos, e a chamada pagava por isso com um `as never` que
+ * desligava a checagem exatamente onde ela importa — nome de campo errado aqui
+ * duplicaria a conversa inteira no banco. Se `messages` ganhar coluna, o
+ * compilador avisa.
+ */
+export type MensagemSemeada = Required<
+  Pick<
+    NewMessage,
+    | 'id'
+    | 'chat_jid'
+    | 'sender'
+    | 'sender_name'
+    | 'content'
+    | 'timestamp'
+    | 'is_from_me'
+    | 'is_bot_message'
+  >
+>;
 
 export interface LimiteDaSemeadura {
   /** Quantos eventos, no máximo, contados do mais recente. */
@@ -60,6 +78,37 @@ export interface LimiteDaSemeadura {
 }
 
 /**
+ * Os eventos do log de SLA que PODEM ser desta conversa.
+ *
+ * ⚠️ O recorte por `chatJid` acontece aqui, ANTES do `JSON.parse`, e não só no
+ * filtro de `mensagensDoHistorico`. O arquivo tem ~900 KB e ~3.200 eventos de
+ * ~200 conversas; parsear tudo para descartar 98% custava ~3 MB de lixo por
+ * descoberta de DM, síncrono dentro do handler do WhatsApp — e as descobertas
+ * vêm em RAJADA, porque o disparo do lembrete das 15h revela de uma vez toda DM
+ * que ainda não estava acompanhada. O `includes` do arquivo inteiro resolve em
+ * uma passada o caso mais comum daqui para frente: paciente novo, que não tem
+ * nenhum evento no log.
+ *
+ * É superconjunto, não filtro final: uma linha pode citar o jid no texto. Quem
+ * decide é o predicado de `mensagensDoHistorico`.
+ */
+export function leEventosSla(arquivo: string, chatJid: string): EventoSla[] {
+  if (!fs.existsSync(arquivo)) return [];
+  const bruto = fs.readFileSync(arquivo, 'utf-8');
+  if (!bruto.includes(chatJid)) return [];
+  const eventos: EventoSla[] = [];
+  for (const linha of bruto.split('\n')) {
+    if (!linha.includes(chatJid)) continue;
+    try {
+      eventos.push(JSON.parse(linha) as EventoSla);
+    } catch {
+      /* linha torta não impede o resto */
+    }
+  }
+  return eventos;
+}
+
+/**
  * Converte os eventos de UMA conversa em mensagens, do mais antigo ao mais
  * novo, respeitando o teto.
  *
@@ -76,18 +125,18 @@ export function mensagensDoHistorico(
   limite: LimiteDaSemeadura,
 ): MensagemSemeada[] {
   const daConversa = eventos
-    .filter(
-      (e) =>
-        e.jid === chatJid &&
-        typeof e.id === 'string' &&
-        e.id &&
-        typeof e.timestamp === 'string' &&
-        typeof e.text === 'string' &&
-        e.text.trim() !== '' &&
-        e.timestamp >= limite.desde &&
-        e.timestamp < limite.ate,
-    )
-    .sort((a, b) => (a.timestamp! < b.timestamp! ? -1 : 1));
+    // ⚠️ Predicado de tipo, e não um `filter` solto: é ele que PROVA `id`,
+    // `text` e `timestamp` para o `map` abaixo. Com um filtro comum o `map`
+    // precisava reafirmar as três com `as string`, o que é a checagem
+    // desligada exatamente onde o dado vem de fora.
+    .filter((e): e is EventoSla & Obrigatorios => {
+      if (e.jid !== chatJid) return false;
+      if (typeof e.id !== 'string' || !e.id) return false;
+      if (typeof e.timestamp !== 'string') return false;
+      if (typeof e.text !== 'string' || e.text.trim() === '') return false;
+      return e.timestamp >= limite.desde && e.timestamp < limite.ate;
+    })
+    .sort((a, b) => (a.timestamp < b.timestamp ? -1 : 1));
 
   // Os MAIS RECENTES, e não os primeiros: numa conversa de 150 eventos o que
   // explica "tem algum retorno?" é o fim, não o começo.
@@ -95,16 +144,17 @@ export function mensagensDoHistorico(
 
   return recortados.map((e) => {
     const daClinica = e.direction === 'out';
-    const texto = e.text as string;
-    const doBot =
-      texto.startsWith(BOT_MARK) || texto.startsWith(LEGACY_BOT_PREFIX);
+    // `isBotText` do `config.ts`, e não a mesma comparação escrita de novo: já
+    // houve um prefixo antigo (é o que `LEGACY_BOT_PREFIX` registra), e uma
+    // cópia aqui deixaria de reconhecer o próximo.
+    const doBot = isBotText(e.text);
     return {
-      id: e.id as string,
+      id: e.id,
       chat_jid: chatJid,
       sender: daClinica ? 'clinica' : chatJid,
       sender_name: e.push_name || (daClinica ? 'Atendimento' : chatJid),
-      content: texto,
-      timestamp: e.timestamp as string,
+      content: e.text,
+      timestamp: e.timestamp,
       is_from_me: daClinica,
       is_bot_message: doBot,
     };

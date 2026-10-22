@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
+import { DM_ALLOWED_ORIGINS } from './ipc.js';
 import {
+  CONFIRMACOES,
   JANELA_DO_PIPELINE,
+  VALIDADE_DO_PIPELINE,
   ehConfirmacaoCurta,
+  normalizaConfirmacao,
+  podaPipelines,
   respostaDePipeline,
   soEcoDePipeline,
 } from './resposta-pipeline.js';
@@ -165,5 +170,59 @@ describe('soEcoDePipeline', () => {
 
   it('sem pipeline na conversa, nada é eco', () => {
     expect(soEcoDePipeline([sim], undefined, AGORA)).toBe(false);
+  });
+});
+
+/**
+ * ⚠️ Travas ESTRUTURAIS. As duas falhas que elas pegam são silenciosas: nada
+ * quebra, a supressão só deixa de acontecer (ou passa a acontecer) e ninguém
+ * descobre até alguém estranhar a fila.
+ */
+describe('travas estruturais', () => {
+  /**
+   * ⛔ Toda entrada da lista tem de SOBREVIVER à normalização, e a asserção é
+   * contra a normalização, não contra `ehConfirmacaoCurta`: `'sim?'` passaria
+   * pela segunda (normaliza para `'sim'`, que está na lista) sendo uma entrada
+   * morta. O normalizador não tira acento, então `'tá bom'` precisa estar
+   * escrito com acento — a entrada que a normalização alteraria nunca casaria
+   * com nada, em silêncio.
+   */
+  it.each([...CONFIRMACOES])('a entrada %s é igual à sua normalização', (c) => {
+    expect(normalizaConfirmacao(c)).toBe(c);
+  });
+
+  /**
+   * ⛔ Pipeline AUTORIZADO a falar com paciente e SEM janela é a falha calada:
+   * `respostaDePipeline` devolve `false` para origem desconhecida, e o ruído de
+   * 24/55 volta sem nenhum log dizendo por quê. O contrário (janela sem
+   * autorização) é inofensivo, então a asserção é de subconjunto.
+   */
+  it('todo pipeline que pode falar com paciente tem janela', () => {
+    const semJanela = [...DM_ALLOWED_ORIGINS].filter(
+      (o) => JANELA_DO_PIPELINE[o] === undefined,
+    );
+    expect(semJanela).toEqual([]);
+  });
+});
+
+describe('podaPipelines', () => {
+  it('mantém o que ainda decide algo e descarta o resto', () => {
+    const agora = AGORA;
+    const mapa = {
+      vivo: { origin: 'send_reminder', quando: agora - 10 * H },
+      morto: {
+        origin: 'send_reminder',
+        quando: agora - VALIDADE_DO_PIPELINE - 1,
+      },
+    };
+    expect(Object.keys(podaPipelines(mapa, agora))).toEqual(['vivo']);
+  });
+
+  // A validade é DERIVADA da tabela: um pipeline novo com janela maior não
+  // pode ser podado antes da hora.
+  it('a validade é a maior janela da tabela', () => {
+    expect(VALIDADE_DO_PIPELINE).toBe(
+      Math.max(...Object.values(JANELA_DO_PIPELINE)),
+    );
   });
 });

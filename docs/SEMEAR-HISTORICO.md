@@ -1,8 +1,9 @@
 # Semear o histórico das conversas que começaram antes da captura
 
 Plano escrito em 22/10/2026, depois de um caso real do primeiro dia útil da
-semana de observação. **Não implementado**: o plano existe para a decisão vir
-antes do código, porque a parte perigosa é fácil de fazer sem perceber.
+semana de observação. **Implementado** em 22/10/2026
+(`src/semear-historico.ts`); o plano foi escrito antes do código porque a parte
+perigosa — o cursor — é fácil de errar sem perceber.
 
 ## O caso
 

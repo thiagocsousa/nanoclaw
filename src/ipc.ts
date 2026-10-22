@@ -58,7 +58,7 @@ export interface IpcDeps {
 // Mensagens pro GRUPO (@g.us) e pra qualquer chat JÁ REGISTRADO (Thiago, Marina)
 // não passam por esta trava — só DM pra número não registrado (= paciente).
 const DM_GATED_FOLDERS = new Set(['whatsapp_atendimento-dra-marina']);
-const DM_ALLOWED_ORIGINS = new Set([
+export const DM_ALLOWED_ORIGINS = new Set([
   'send_reminder', // lembrete de consulta (template fixo)
   'lembrete_autoreply', // auto-resposta ao lembrete (template fixo)
   'send_nota', // DANFSE da NFS-e (template fixo)
