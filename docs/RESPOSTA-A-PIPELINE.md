@@ -120,3 +120,30 @@ a conversão que o pipeline existe para gerar. A supressão dele vale só para
    recebe um resumo (como o `lembrete_confirmacoes.py` já faz às 17h)?
 3. **A lista de confirmações curtas** é configuração ou código? Configuração
    permite ajustar sem deploy; código a mantém sob teste.
+
+## Depois do review adversarial (Codex, 22/10/2026)
+
+A janela de supressão era armada logo depois do `await sendMessage`. Mas o envio
+**resolve igual** em três casos que não são entrega:
+
+| caso | o que acontecia |
+|---|---|
+| `podeSair` recusou (trava da observação) | janela armada para mensagem bloqueada |
+| socket desconectado | mensagem na fila da reconexão, janela armada |
+| falha de transporte | mensagem na fila de novo, janela armada |
+
+Um lembrete que nunca chegou deixava até 36h em que um "sim" legítimo do
+paciente — resposta a uma pergunta da **secretária**, por exemplo — era
+descartado como eco.
+
+`Channel.sendMessage` passa a devolver `ResultadoDoEnvio`
+(`enviado` | `recusado` | `enfileirado`) e a janela só é armada com `enviado`.
+⚠️ `enviado` quer dizer que o **socket aceitou**, não que o paciente recebeu.
+
+A consequência aceita: lembrete entregue pelo flush da reconexão **não** arma a
+supressão, e aquele lote volta a produzir ruído. É a direção barata do erro —
+suprimir sem causa cala o paciente, não suprimir só enche a fila. O log diz
+`pipeline não saiu: supressão de resposta NÃO armada`.
+
+⚠️ `sendImage`/`sendDocument` têm a mesma lacuna e **não** foram mexidos: só o
+caminho de texto alimenta `registraPipeline`.

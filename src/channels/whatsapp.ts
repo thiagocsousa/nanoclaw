@@ -55,6 +55,7 @@ import type {
   OnInboundMessage,
   OnChatMetadata,
   RegisteredGroup,
+  ResultadoDoEnvio,
 } from '../types.js';
 import { registerChannel, type ChannelOpts } from './registry.js';
 
@@ -989,8 +990,12 @@ export class WhatsAppChannel implements Channel {
     return ok;
   }
 
-  async sendMessage(jid: string, text: string, origem?: string): Promise<void> {
-    if (!this.podeSair(jid, 'texto', origem)) return;
+  async sendMessage(
+    jid: string,
+    text: string,
+    origem?: string,
+  ): Promise<ResultadoDoEnvio> {
+    if (!this.podeSair(jid, 'texto', origem)) return 'recusado';
     // Instância secundária tem número próprio, e ASSISTANT_HAS_OWN_NUMBER diz
     // que o bot tem o dele: nos dois casos fromMe já basta e nada é marcado.
     const prefixed =
@@ -1004,7 +1009,7 @@ export class WhatsAppChannel implements Channel {
         { jid, length: prefixed.length, queueSize: this.outgoingQueue.length },
         'WA disconnected, message queued',
       );
-      return;
+      return 'enfileirado';
     }
     const target = await this.resolveWaJid(jid);
     try {
@@ -1013,12 +1018,14 @@ export class WhatsAppChannel implements Channel {
       this.recordBotSentId(target, sent?.key?.id);
       this.auditSecondaryDm(target, 'text', prefixed);
       logger.info({ jid, target, length: prefixed.length }, 'Message sent');
+      return 'enviado';
     } catch (err) {
       this.outgoingQueue.push({ jid, text: prefixed, origem });
       logger.warn(
         { jid, err, queueSize: this.outgoingQueue.length },
         'Failed to send, message queued',
       );
+      return 'enfileirado';
     }
   }
 

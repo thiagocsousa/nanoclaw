@@ -125,3 +125,20 @@ conversas foram semeadas.
 2. **Teto por conversa**: 50 eventos? 30 dias? Os dois?
 3. **Quando.** Fora do expediente, e com a semana pausada ou não? Semear com
    paciente escrevendo significa cursor e captura disputando a mesma conversa.
+
+## Depois do review adversarial (Codex, 22/10/2026)
+
+A semeadura gravava cursor e histórico na transação dela, e o registro da DM em
+`dmsObservadas` vinha depois, num `saveState` separado. Morrer entre os dois
+deixava um estado incoerente: **semeado e não acompanhado** — cursor e
+histórico no banco, chat fora do conjunto que o laço varre.
+
+Agora as três coisas — cursor, linhas do histórico e registro da DM — estão na
+**mesma** transação, e a leitura do log de SLA (`historicoParaSemear`) está
+separada da escrita. Falha de leitura segue sem passado; falha de escrita
+cancela tudo.
+
+⚠️ **A janela encurta, não fecha.** A linha da mensagem que descobriu a DM é
+gravada pelo `onMessage` do canal, depois deste callback retornar, e não cabe
+nesta transação sem reestruturar o canal. O que resta se cura na mensagem
+seguinte do paciente: ela redescobre a DM e semeia a anterior como contexto.

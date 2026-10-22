@@ -125,6 +125,7 @@ import {
   soEcoDePipeline,
 } from './resposta-pipeline.js';
 import {
+  type MensagemSemeada,
   cursorDepoisDeSemear,
   leEventosSla,
   mensagensDoHistorico,
@@ -194,17 +195,23 @@ const VALIDADE_DA_DM_MS = 7 * 24 * 3600 * 1000;
 const SEMEADURA = { maximo: 50, dias: 30 };
 
 /**
- * Semeia o passado de uma DM recém-descoberta, do `atendimento_sla.jsonl`.
+ * O passado de uma conversa que começou antes da captura: as linhas e o cursor
+ * que elas implicam. NÃO grava nada.
  *
- * ⛔ A ORDEM É A SEGURANÇA. O cursor é gravado ANTES de qualquer inserção:
- * inserir com o cursor atrás faria o host considerar o histórico inteiro
- * "novo", montar um prompt com a conversa toda e RESPONDER. Em observação
- * encheria a fila de revisão de lixo; com a Lara assumindo, iria ao paciente.
+ * ⛔ Separar "ler" de "gravar" é o que permite UMA transação só lá em cima, em
+ * `registraDmEmObservacao`. Antes esta função tinha a sua própria, e entre o
+ * commit dela e o `saveState` do registro da DM existia um estado incoerente:
+ * cursor e histórico gravados, chat FORA de `dmsObservadas` — semeado e não
+ * acompanhado. Achado do review adversarial do Codex em 22/10/2026.
  *
- * Devolve o cursor a usar, ou `undefined` quando não houve o que semear — e aí
- * quem chama mantém o piso de descoberta da DM, que é o valor certo.
+ * ⚠️ Falha de LEITURA devolve `undefined` e não derruba a descoberta da DM:
+ * sem passado é pior, mas é o estado de antes, e perder a DM seria pior ainda.
+ * Falha de ESCRITA é problema de quem chama, e cancela as duas coisas juntas.
  */
-function semeiaHistorico(chatJid: string, ate: string): string | undefined {
+function historicoParaSemear(
+  chatJid: string,
+  ate: string,
+): { mensagens: MensagemSemeada[]; cursor: string } | undefined {
   try {
     const arquivo = path.join(
       resolveGroupFolderPath(PASTA_DO_SLA),
@@ -224,32 +231,8 @@ function semeiaHistorico(chatJid: string, ate: string): string | undefined {
     });
     const cursor = cursorDepoisDeSemear(mensagens);
     if (!cursor) return undefined;
-    // ⬇️ PRIMEIRO o cursor, depois as linhas — e as duas na MESMA transação.
-    // Sem ela, morrer entre o `saveState()` e os inserts deixava o cursor à
-    // frente de um histórico que não existe: a conversa perderia o passado E
-    // pularia as mensagens. De quebra, 1 commit em vez de 51.
-    const anterior = lastAgentTimestamp[chatJid];
-    try {
-      runInTransaction(() => {
-        lastAgentTimestamp[chatJid] = cursor;
-        saveState();
-        for (const m of mensagens) storeMessage(m);
-      });
-    } catch (err) {
-      // O banco voltou atrás; a memória tem de voltar também, senão o cursor
-      // fica adiantado só neste processo — o pior dos dois mundos.
-      if (anterior === undefined) delete lastAgentTimestamp[chatJid];
-      else lastAgentTimestamp[chatJid] = anterior;
-      throw err;
-    }
-    logger.info(
-      { chatJid, mensagens: mensagens.length, cursor },
-      'histórico semeado: a conversa deixa de entrar sem passado',
-    );
-    return cursor;
+    return { mensagens, cursor };
   } catch (err) {
-    // Falhar aqui não pode derrubar a descoberta da DM: sem passado é pior,
-    // mas é o estado de antes, e perder a DM inteira seria pior ainda.
     logger.warn({ err, chatJid }, 'semeadura falhou; segue sem passado');
     return undefined;
   }
@@ -1534,36 +1517,65 @@ async function main(): Promise<void> {
       // é renovado aqui — sem isso a poda apagaria um paciente ATIVO 7 dias
       // depois do primeiro contato, e o cursor dele iria junto.
       const novaDm = !dmsObservadas[chatJid];
-      // ⛔ O piso do cursor. Começa na mensagem que revelou a DM e só na
-      // primeira vez: `getOrRecoverCursor` devolve '' para chat desconhecido, e
-      // aí a primeira rodada varreria todo o histórico gravado daquele chat.
-      // "Só mensagens novas" (Thiago, 19/10/2026). `anotaDm` é idempotente no
-      // piso justamente para este valor não voltar ao presente depois.
-      let piso = desdeIso;
-      if (novaDm) {
-        // ⛔ O passado da conversa, ANTES de fixar o piso. Quando há histórico,
-        // `semeiaHistorico` já gravou o cursor no último evento semeado, e
-        // sobrescrever com `desdeIso` aqui faria o host reprocessar tudo que
-        // acabou de entrar — exatamente o acidente que a ordem evita.
-        const semeado = semeiaHistorico(chatJid, desdeIso);
-        if (semeado) piso = semeado;
-        else lastAgentTimestamp[chatJid] = desdeIso;
+      const historico = novaDm
+        ? historicoParaSemear(chatJid, desdeIso)
+        : undefined;
+      // ⛔ O piso do cursor. Sem histórico, é a mensagem que revelou a DM:
+      // `getOrRecoverCursor` devolve '' para chat desconhecido, e aí a primeira
+      // rodada varreria todo o histórico gravado daquele chat. "Só mensagens
+      // novas" (Thiago, 19/10/2026). Com histórico, é o último evento semeado —
+      // usar `desdeIso` faria o host reprocessar o que acabou de entrar.
+      const piso = historico?.cursor ?? desdeIso;
+      // ⛔ UMA transação para as TRÊS coisas: o cursor, as linhas do histórico e
+      // o registro da DM. Ou as três valem, ou nenhuma vale.
+      //
+      // Antes a semeadura tinha a sua própria transação e o registro vinha
+      // depois, num `saveState` separado: morrer entre os dois deixava cursor e
+      // histórico gravados com o chat FORA de `dmsObservadas` — semeado e não
+      // acompanhado, que é pior que não ter semeado. Achado do Codex, 22/10.
+      //
+      // ⚠️ A linha da mensagem que DESCOBRIU a DM continua fora: quem a grava é
+      // o `onMessage` do canal, depois deste callback retornar. A janela
+      // encurta, não fecha — e o que resta se cura na próxima mensagem do
+      // paciente, que redescobre a DM e semeia a anterior como contexto.
+      // `anotaDm` é idempotente no piso justamente para isso.
+      const cursorAnterior = lastAgentTimestamp[chatJid];
+      const dmsAnterior = dmsObservadas;
+      try {
+        runInTransaction(() => {
+          if (novaDm) lastAgentTimestamp[chatJid] = piso;
+          dmsObservadas = anotaDm(
+            dmsObservadas,
+            chatJid,
+            folder,
+            piso,
+            new Date().toISOString(),
+          );
+          saveState();
+          for (const m of historico?.mensagens ?? []) storeMessage(m);
+        });
+      } catch (err) {
+        // O banco voltou atrás; a memória tem de voltar também, senão o cursor
+        // fica adiantado só neste processo — o pior dos dois mundos.
+        if (cursorAnterior === undefined) delete lastAgentTimestamp[chatJid];
+        else lastAgentTimestamp[chatJid] = cursorAnterior;
+        dmsObservadas = dmsAnterior;
+        logger.warn({ err, chatJid, folder }, 'registro da DM falhou');
+        return;
       }
-      // ⚠️ UM caminho de saída. Havia aqui um `return` precoce para o caso
-      // semeado que repetia este `anotaDm` + `saveState` e, de quebra, pulava o
-      // log abaixo — ou seja, a DM COM histórico era a única que não aparecia
-      // no log de descoberta, justamente a que se quer olhar primeiro.
-      dmsObservadas = anotaDm(
-        dmsObservadas,
-        chatJid,
-        folder,
-        piso,
-        new Date().toISOString(),
-      );
-      saveState();
+      if (historico) {
+        logger.info(
+          {
+            chatJid,
+            mensagens: historico.mensagens.length,
+            cursor: historico.cursor,
+          },
+          'histórico semeado: a conversa deixa de entrar sem passado',
+        );
+      }
       if (novaDm) {
         logger.info(
-          { chatJid, folder, semeado: piso !== desdeIso },
+          { chatJid, folder, semeado: !!historico },
           'DM de paciente passa a ser acompanhada',
         );
       }

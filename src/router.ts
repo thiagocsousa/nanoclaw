@@ -1,4 +1,4 @@
-import { Channel, NewMessage } from './types.js';
+import { Channel, NewMessage, ResultadoDoEnvio } from './types.js';
 import { formatLocalTime } from './timezone.js';
 import { idCurto } from './db.js';
 
@@ -53,7 +53,7 @@ export function routeOutbound(
   channels: Channel[],
   jid: string,
   text: string,
-): Promise<void> {
+): Promise<ResultadoDoEnvio> {
   const channel = channels.find((c) => c.ownsJid(jid) && c.isConnected());
   if (!channel) throw new Error(`No channel for JID: ${jid}`);
   return channel.sendMessage(jid, text);

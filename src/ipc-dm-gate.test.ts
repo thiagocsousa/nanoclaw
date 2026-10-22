@@ -18,6 +18,13 @@ const { startIpcWatcher } = await import('./ipc.js');
 
 const sent: string[] = [];
 const docs: string[] = [];
+/**
+ * O que o canal vai responder. Mutável porque `startIpcWatcher` tem trava de
+ * instância única: só o PRIMEIRO objeto de deps vale, então o fake precisa ler
+ * uma variável, e não ser trocado por teste.
+ */
+let resultadoDoEnvio: 'enviado' | 'recusado' | 'enfileirado' = 'enviado';
+const pipelinesArmados: string[] = [];
 const FOLDER = 'whatsapp_atendimento-dra-marina';
 const ipcDir = path.join(tmp, 'ipc', FOLDER, 'messages');
 
@@ -46,10 +53,16 @@ describe('trava de DM a paciente', () => {
   beforeEach(() => {
     sent.length = 0;
     docs.length = 0;
+    pipelinesArmados.length = 0;
+    resultadoDoEnvio = 'enviado';
     fs.mkdirSync(path.join(tmp, 'groups', FOLDER), { recursive: true });
     startIpcWatcher({
       sendMessage: async (jid, text) => {
-        sent.push(`${jid}|${text}`);
+        if (resultadoDoEnvio === 'enviado') sent.push(`${jid}|${text}`);
+        return resultadoDoEnvio;
+      },
+      registraPipeline: (chatJid, origin) => {
+        pipelinesArmados.push(`${chatJid}|${origin}`);
       },
       sendImage: async () => {},
       sendDocument: async (jid, fp) => {
@@ -119,6 +132,72 @@ describe('trava de DM a paciente', () => {
     });
     await drain();
     expect(sent).toEqual(['5586999998888@s.whatsapp.net|lembrete']);
+  });
+
+  /**
+   * ⛔ A janela de supressão só pode ser armada quando a mensagem SAIU.
+   *
+   * Achado do review adversarial do Codex em 22/10/2026: o host armava a janela
+   * logo depois do `await sendMessage`, e o envio resolve igual em três casos
+   * que não são entrega — política recusou (a trava da semana de observação),
+   * socket desconectado (fila da reconexão) e falha de transporte (fila de
+   * novo). Um lembrete que nunca chegou deixava até 36h em que um "sim"
+   * legítimo do paciente — resposta a uma pergunta da secretária, por exemplo —
+   * era descartado como eco.
+   *
+   * Suprimir sem causa é o erro caro; deixar de suprimir é ruído.
+   */
+  describe('a supressão só é armada quando a mensagem sai', () => {
+    it('envio que SAIU arma a janela', async () => {
+      write({
+        type: 'message',
+        chatJid: '5586999998888@s.whatsapp.net',
+        text: 'lembrete',
+        groupFolder: FOLDER,
+        origin: 'send_reminder',
+      });
+      await drain();
+      expect(pipelinesArmados).toEqual([
+        '5586999998888@s.whatsapp.net|send_reminder',
+      ]);
+    });
+
+    it('envio RECUSADO pela política não arma nada', async () => {
+      resultadoDoEnvio = 'recusado';
+      write({
+        type: 'message',
+        chatJid: '5586999998888@s.whatsapp.net',
+        text: 'lembrete',
+        groupFolder: FOLDER,
+        origin: 'send_reminder',
+      });
+      await drain();
+      expect(pipelinesArmados).toEqual([]);
+    });
+
+    it('envio ENFILEIRADO na reconexão não arma nada', async () => {
+      resultadoDoEnvio = 'enfileirado';
+      write({
+        type: 'message',
+        chatJid: '5586999998888@s.whatsapp.net',
+        text: 'lembrete',
+        groupFolder: FOLDER,
+        origin: 'send_reminder',
+      });
+      await drain();
+      expect(pipelinesArmados).toEqual([]);
+    });
+
+    it('mensagem sem origin nunca arma, mesmo saindo', async () => {
+      write({
+        type: 'message',
+        chatJid: '558681512111@s.whatsapp.net',
+        text: 'oi',
+        groupFolder: 'whatsapp_main',
+      });
+      await drain();
+      expect(pipelinesArmados).toEqual([]);
+    });
   });
 
   it('PERMITE a auto-resposta fixa', async () => {

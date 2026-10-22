@@ -89,6 +89,26 @@ export interface TaskRunLog {
 
 // --- Channel abstraction ---
 
+/**
+ * O que aconteceu com uma tentativa de envio.
+ *
+ * ⛔ Existe porque `Promise<void>` não distinguia "saiu" de "não saiu", e quem
+ * chamava concluía o otimista. Era o que armava a janela de supressão de
+ * resposta a pipeline mesmo quando a mensagem foi RECUSADA pela política de
+ * egresso (a trava da semana de observação) ou ficou na fila da reconexão — e
+ * aí um "sim" legítimo do paciente, numa conversa com a secretária, era
+ * descartado como eco de um lembrete que ele nunca recebeu.
+ *
+ * ⚠️ `enviado` quer dizer que o SOCKET aceitou, não que o paciente recebeu.
+ * Não há confirmação de entrega aqui, e nada deve ser construído como se
+ * houvesse.
+ *
+ * `recusado` e `enfileirado` são opostos operacionalmente — um é a política
+ * trabalhando, o outro é a rede — e por isso são estados distintos, não um
+ * `false` comum.
+ */
+export type ResultadoDoEnvio = 'enviado' | 'recusado' | 'enfileirado';
+
 export interface Channel {
   name: string;
   connect(): Promise<void>;
@@ -102,7 +122,11 @@ export interface Channel {
    * Opcional, e quem não declara é tratado como `turno`: falha FECHADO. Ver
    * `podeEntregar` em revisao-humana.ts.
    */
-  sendMessage(jid: string, text: string, origem?: string): Promise<void>;
+  sendMessage(
+    jid: string,
+    text: string,
+    origem?: string,
+  ): Promise<ResultadoDoEnvio>;
   isConnected(): boolean;
   ownsJid(jid: string): boolean;
   disconnect(): Promise<void>;

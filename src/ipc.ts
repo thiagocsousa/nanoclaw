@@ -8,14 +8,14 @@ import { AvailableGroup } from './container-runner.js';
 import { createTask, deleteTask, getTaskById, updateTask } from './db.js';
 import { isValidGroupFolder } from './group-folder.js';
 import { logger } from './logger.js';
-import { RegisteredGroup } from './types.js';
+import { RegisteredGroup, ResultadoDoEnvio } from './types.js';
 
 export interface IpcDeps {
   sendMessage: (
     jid: string,
     text: string,
     groupFolder?: string,
-  ) => Promise<void>;
+  ) => Promise<ResultadoDoEnvio>;
   /**
    * Avisa o host que um PIPELINE falou com este chat.
    *
@@ -163,16 +163,35 @@ export function startIpcWatcher(deps: IpcDeps): void {
                   (registeredFolders.has(sourceGroup) &&
                     (data.chatJid as string).endsWith('@s.whatsapp.net'))
                 ) {
-                  await deps.sendMessage(
+                  const resultado = await deps.sendMessage(
                     data.chatJid,
                     data.text,
                     data.groupFolder as string | undefined,
                   );
+                  // ⛔ A janela de supressão só é armada quando a mensagem
+                  // SAIU. Antes era armada logo depois do `await`, e o envio
+                  // resolve igual quando a política recusa e quando a mensagem
+                  // fica na fila da reconexão: um lembrete que nunca chegou
+                  // deixava até 36h em que um "sim" legítimo do paciente — a
+                  // uma pergunta da secretária, por exemplo — era descartado
+                  // como eco. Suprimir sem causa é o erro caro; deixar de
+                  // suprimir é ruído.
                   if (typeof data.origin === 'string' && data.origin) {
-                    deps.registraPipeline?.(
-                      data.chatJid as string,
-                      data.origin,
-                    );
+                    if (resultado === 'enviado') {
+                      deps.registraPipeline?.(
+                        data.chatJid as string,
+                        data.origin,
+                      );
+                    } else {
+                      logger.warn(
+                        {
+                          chatJid: data.chatJid,
+                          origin: data.origin,
+                          resultado,
+                        },
+                        'pipeline não saiu: supressão de resposta NÃO armada',
+                      );
+                    }
                   }
                   logger.info(
                     {
