@@ -99,7 +99,9 @@ import {
 import { abreConversa, conversaAbertaEm } from './memoria-conversa.js';
 import {
   chaveDaSessao,
+  algumaPastaEmObservacao,
   emObservacao,
+  soFalaDaClinica,
   podeMostrarPresenca,
   retemResposta,
   lePendentes,
@@ -118,6 +120,11 @@ import {
   wantsRevisaoHumana,
 } from './revisao-humana.js';
 import { logger } from './logger.js';
+import {
+  avisoDeCapturaParada,
+  type EstadoDaVigia,
+  textoDoAviso,
+} from './vigia-captura.js';
 
 // Re-export for backwards compatibility during refactor
 export { escapeXml, formatMessages } from './router.js';
@@ -125,6 +132,9 @@ export { escapeXml, formatMessages } from './router.js';
 let lastTimestamp = '';
 let sessions: Record<string, string> = {};
 let registeredGroups: Record<string, RegisteredGroup> = {};
+
+/** Estado da vigia da captura. Ver `vigia-captura.ts`. */
+const vigia: EstadoDaVigia = { ultimaCaptura: Date.now() };
 let lastAgentTimestamp: Record<string, string> = {};
 let messageLoopRunning = false;
 
@@ -871,6 +881,30 @@ async function startMessageLoop(): Promise<void> {
             continue;
           }
 
+          // ⛔ Numa DM observada, a SECRETÁRIA não dispara turno.
+          //
+          // Desde 22/10/2026 as falas dela são gravadas (antes o canal as
+          // descartava, e a Lara lia metade do diálogo). Gravar sem esta trava
+          // faria a Lara responder à própria clínica — o `requiresTrigger` da
+          // DM é `false`, então qualquer mensagem nova dispararia.
+          //
+          // `every`, não `some`: se o lote tem fala da secretária E do
+          // paciente, o turno acontece, e a fala dela entra como contexto. Só
+          // um lote INTEIRO da clínica é que não é turno.
+          //
+          // `emObservacao` já exige chat que não seja grupo, então isto não
+          // alcança o grupo principal, onde `is_from_me` dispara de propósito.
+          if (
+            emObservacao(group.folder, chatJid) &&
+            soFalaDaClinica(groupMessages)
+          ) {
+            logger.info(
+              { chatJid, mensagens: groupMessages.length },
+              'observação: fala da clínica entra como contexto, sem virar turno',
+            );
+            continue;
+          }
+
           const isMainGroup = group.isMain === true;
           const needsTrigger = !isMainGroup && group.requiresTrigger !== false;
 
@@ -1126,6 +1160,19 @@ async function main(): Promise<void> {
   const channelOpts = {
     podeEntregar: politicaDeEgresso,
     onMessage: (chatJid: string, msg: NewMessage) => {
+      // ⛔ A VIGIA DA CAPTURA. Ver `vigia-captura.ts`.
+      //
+      // Marca aqui, e não no canal, porque este é o ponto por onde TODA
+      // mensagem passa: um caminho de captura novo que não chegue aqui não
+      // grava nada, e é exatamente isso que a vigia tem de notar.
+      //
+      // Só conta mensagem DE PACIENTE: a fala da secretária passa por aqui
+      // desde 22/10 e, se contasse, uma clínica respondendo sozinha manteria a
+      // vigia calada justamente quando a captura do paciente quebrou.
+      if (!msg.is_from_me && !chatJid.endsWith('@g.us')) {
+        vigia.ultimaCaptura = Date.now();
+      }
+
       // Remote control commands — intercept before storage
       const trimmed = msg.content.trim();
       if (trimmed === '/remote-control' || trimmed === '/remote-control-end') {
@@ -1438,6 +1485,35 @@ async function main(): Promise<void> {
       );
     }, 60_000);
   }
+  // ⛔ Vigia da captura: avisa quando a observação para de observar.
+  //
+  // `ultimaCaptura` começa AGORA, na subida: sem marca o alarme nunca toca, e
+  // com marca zero ele tocaria em todo deploy. O relógio conta a partir daqui.
+  setInterval(() => {
+    try {
+      const aviso = avisoDeCapturaParada({
+        agora: Date.now(),
+        observando: algumaPastaEmObservacao(),
+        noExpediente: dentroDoExpediente(),
+        estado: vigia,
+      });
+      if (!aviso) return;
+      vigia.ultimoAviso = Date.now();
+      const { jid, folder } = destinoDoAviso();
+      logger.warn(
+        { minutos: aviso.minutos },
+        'vigia: observação sem captura de paciente',
+      );
+      const canal =
+        findChannelForGroup(channels, folder) || findChannel(channels, jid);
+      void canal
+        ?.sendMessage(jid, textoDoAviso(aviso.minutos), 'alerta')
+        .catch((err) => logger.warn({ err }, 'vigia: aviso não saiu'));
+    } catch (err) {
+      logger.warn({ err }, 'vigia: tick falhou');
+    }
+  }, 5 * 60_000);
+
   startIpcWatcher({
     sendMessage: (jid, text, groupFolder) => {
       const channel =

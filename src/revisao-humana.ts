@@ -581,6 +581,27 @@ export function algumaPastaEmObservacao(): boolean {
  * tudo por `chatJid` quebraria os dois. Grupo normal, DM do Thiago e DM da
  * Marina continuam com a pasta como chave.
  */
+/**
+ * O lote é só fala da CLÍNICA?
+ *
+ * ⚠️ Em DM observada isto decide se há turno. Desde 22/10/2026 a fala da
+ * secretária é gravada como contexto (antes o canal a descartava, e a Lara lia
+ * metade do diálogo) — mas ela não pode DISPARAR turno, senão a Lara responde
+ * à própria clínica. O `requiresTrigger` da DM é `false`, então sem esta trava
+ * qualquer mensagem nova dispararia.
+ *
+ * `every`, não `some`: lote com fala da clínica E do paciente É turno, e a
+ * fala dela entra como contexto. Só lote INTEIRO da clínica não é.
+ *
+ * Lote vazio devolve `false`: "não há nada" não é "é da clínica", e devolver
+ * `true` faria quem chama pular por engano.
+ */
+export function soFalaDaClinica(
+  mensagens: Array<{ is_from_me?: boolean }>,
+): boolean {
+  return mensagens.length > 0 && mensagens.every((m) => !!m.is_from_me);
+}
+
 export function chaveDaSessao(groupFolder: string, chatJid: string): string {
   return emObservacao(groupFolder, chatJid)
     ? `${groupFolder}:${chatJid}`

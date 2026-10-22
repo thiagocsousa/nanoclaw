@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { podeEntregar } from './revisao-humana.js';
+import { podeEntregar, soFalaDaClinica } from './revisao-humana.js';
 
 /**
  * O contrato do ponto único de egresso, visto do lado da POLÍTICA.
@@ -47,5 +47,44 @@ describe('política de egresso: a matriz que importa', () => {
     for (const origem of [undefined, 'turno', 'script', 'revisao', 'alerta']) {
       expect(podeEntregar({ alvo: GRUPO, origem: origem as never })).toBe(true);
     }
+  });
+});
+
+/**
+ * ⛔ A trava que separa "não responda a isto" de "não leia isto".
+ *
+ * Nasceu em 22/10/2026, do primeiro dia de observação: a fala da secretária era
+ * DESCARTADA pelo canal, e a Lara lia metade do diálogo — a paciente respondia
+ * "Particular" e "Como faço?" a alguém que a Lara não via, e a resposta saía
+ * fora de contexto. Agora a fala dela é gravada; esta função é o que impede que
+ * ela vire turno e a Lara responda à própria clínica.
+ */
+describe('soFalaDaClinica: contexto sem gatilho', () => {
+  const daClinica = { is_from_me: true };
+  const doPaciente = { is_from_me: false };
+
+  it('lote só da clínica NÃO é turno', () => {
+    expect(soFalaDaClinica([daClinica, daClinica])).toBe(true);
+  });
+
+  it('lote só do paciente é turno', () => {
+    expect(soFalaDaClinica([doPaciente])).toBe(false);
+  });
+
+  // ⚠️ O caso que `some` erraria: a secretária responde e o paciente escreve
+  // logo depois, e os dois caem no mesmo lote. Tem de virar turno, com a fala
+  // dela como contexto — senão a mensagem do paciente fica sem resposta.
+  it('lote MISTO é turno', () => {
+    expect(soFalaDaClinica([daClinica, doPaciente])).toBe(false);
+    expect(soFalaDaClinica([doPaciente, daClinica])).toBe(false);
+  });
+
+  it('lote vazio não é "da clínica": quem chama não deve pular', () => {
+    expect(soFalaDaClinica([])).toBe(false);
+  });
+
+  // Campo ausente é o caso das linhas gravadas antes de 22/10/2026.
+  it('sem o campo, trata como paciente', () => {
+    expect(soFalaDaClinica([{}])).toBe(false);
   });
 });

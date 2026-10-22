@@ -40,8 +40,20 @@ describe('aceitaDmDeObservacao', () => {
 
   // ⚠️ A secretária é quem mais escreve nessas DMs, e o eco `fromMe` é o que
   // mede o SLA — então ele chega aqui sempre.
-  it('RECUSA fromMe: é a secretária, não o paciente', () => {
-    expect(aceitaDmDeObservacao({ ...base, fromMe: true })).toBe(false);
+  /**
+   * ⚠️ Virou ACEITA em 22/10/2026, e a mudança é de propósito.
+   *
+   * A linha `if (m.fromMe) return false` fazia duas coisas: não disparar turno
+   * e não VER. A segunda estragou o primeiro dia de observação — a paciente
+   * respondeu "Particular" e "Como faço?" à SECRETÁRIA, e a Lara, sem enxergar
+   * o que a secretária dissera, respondeu fora de contexto.
+   *
+   * A fala da clínica agora é GRAVADA como contexto. Quem impede o turno é o
+   * host (`index.ts`), que ignora lote só de `is_from_me` em DM observada —
+   * separando "não responda a isto" de "não leia isto".
+   */
+  it('ACEITA fromMe: é a secretária, e a Lara precisa ler', () => {
+    expect(aceitaDmDeObservacao({ ...base, fromMe: true })).toBe(true);
   });
 
   it.each([

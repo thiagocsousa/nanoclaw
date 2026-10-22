@@ -146,7 +146,18 @@ export function aceitaDmDeObservacao(m: {
   piso: number;
 }): boolean {
   if (m.tipo && m.tipo !== 'notify') return false;
-  if (m.fromMe) return false;
+  // ⚠️ `fromMe` ENTRA, desde 22/10/2026.
+  //
+  // Até aqui a linha era `if (m.fromMe) return false`, e a intenção estava
+  // certa: a secretária não é o paciente, e tratar a resposta dela como turno
+  // faria a Lara responder à própria clínica. Mas a linha fazia DUAS coisas —
+  // não disparar e não VER —, e a segunda estragou a semana de observação: a
+  // Lara lia metade do diálogo. Na primeira conversa real, 21/10, a paciente
+  // respondeu "Particular" e "Como faço?" à SECRETÁRIA, e a Lara, que nunca viu
+  // o que a secretária disse, produziu resposta fora de contexto.
+  //
+  // Quem impede o turno agora é o host, em `index.ts`: numa DM observada, um
+  // lote só de `is_from_me` não dispara. Aqui a mensagem é só gravada.
   if (!m.rawJid || m.rawJid === 'status@broadcast') return false;
   if (m.rawJid.endsWith('@g.us')) return false;
   if (!Number.isFinite(m.timestampMs) || m.timestampMs < m.piso) return false;
@@ -412,71 +423,12 @@ export class WhatsAppChannel implements Channel {
 
           const groups = this.opts.registeredGroups();
           if (groups[chatJid]) {
-            let content =
-              normalized.conversation ||
-              normalized.extendedTextMessage?.text ||
-              normalized.imageMessage?.caption ||
-              normalized.videoMessage?.caption ||
-              '';
-
-            // Áudio: baixa, transcreve localmente e entrega o texto ao agente.
-            // Antes de 04/10/2026 isto era descartado em silêncio (content ficava
-            // vazio e o `continue` abaixo engolia a mensagem), então quem mandava
-            // áudio nunca era respondido.
-            //
-            // Qualquer falha ou transcrição incerta cai no marcador, e o FAQ
-            // (F00d) manda pedir por escrito: agir sobre palpite é pior que
-            // admitir que não entendeu.
-            if (!content && normalized.audioMessage) {
-              const seg = normalized.audioMessage.seconds || 0;
-              content = marcadorDeAudio(seg);
-              try {
-                const buffer = await downloadMediaMessage(msg, 'buffer', {});
-                const groupDir = path.join(GROUPS_DIR, groups[chatJid].folder);
-                const audioDir = path.join(groupDir, 'audios');
-                fs.mkdirSync(audioDir, { recursive: true });
-                // O arquivo FICA no disco: é a fonte para o humano conferir a
-                // transcrição no escalonamento.
-                const nome = `${msg.key.id || Date.now()}.ogg`;
-                const filePath = path.join(audioDir, nome);
-                fs.writeFileSync(filePath, buffer as Buffer);
-                const t = await transcreveAudio(filePath);
-                content = textoParaAgente(t, seg);
-              } catch (err) {
-                logger.warn(
-                  { err, jid: chatJid },
-                  'Failed to download audio, keeping marker',
-                );
-              }
-            }
-
-            if (normalized.documentMessage?.mimetype === 'application/pdf') {
-              try {
-                const buffer = await downloadMediaMessage(msg, 'buffer', {});
-                const groupDir = path.join(GROUPS_DIR, groups[chatJid].folder);
-                const attachDir = path.join(groupDir, 'attachments');
-                fs.mkdirSync(attachDir, { recursive: true });
-                const filename = path.basename(
-                  normalized.documentMessage.fileName ||
-                    `doc-${Date.now()}.pdf`,
-                );
-                const filePath = path.join(attachDir, filename);
-                fs.writeFileSync(filePath, buffer as Buffer);
-                const sizeKB = Math.round((buffer as Buffer).length / 1024);
-                const pdfRef = `[PDF: attachments/${filename} (${sizeKB}KB)]\nUse: pdf-reader extract attachments/${filename}`;
-                const caption = normalized.documentMessage.caption || '';
-                content = caption ? `${caption}\n\n${pdfRef}` : pdfRef;
-                logger.info(
-                  { jid: chatJid, filename },
-                  'Downloaded PDF attachment',
-                );
-              } catch (err) {
-                logger.warn(
-                  { err, jid: chatJid },
-                  'Failed to download PDF attachment',
-                );
-              }
-            }
+            const content = await this.conteudoDaMensagem(
+              msg,
+              normalized,
+              chatJid,
+              groups[chatJid].folder,
+            );
 
             if (!content) continue;
 
@@ -555,6 +507,91 @@ export class WhatsAppChannel implements Channel {
    *
    * ⛔ Só DM. Grupo que apareça neste número não é conversa de paciente.
    */
+  /**
+   * O TEXTO que o agente vai ler, venha ele de onde vier.
+   *
+   * ⚠️ Nasceu em 22/10/2026 porque havia DUAS cópias disto, e a segunda era
+   * pobre. O laço de observação (`processaDmsEmObservacao`, criado em
+   * 19/10/2026) copiou só a extração de legenda e deixou para trás o ramo do
+   * ÁUDIO e o do PDF, que viviam vinte linhas acima — reintroduzindo, num
+   * caminho novo, exatamente o defeito que o comentário do áudio descreve como
+   * consertado em 04/10: "quem mandava áudio nunca era respondido".
+   *
+   * O sintoma apareceu no primeiro dia de observação: uma paciente mandou
+   * áudio às 20:48 e a Lara não viu nada, enquanto o log de SLA registrava
+   * `[áudio]`. Copiar o ramo para o segundo laço seria fazer a terceira cópia;
+   * o conserto é os dois chamarem isto.
+   *
+   * `folder` é onde os arquivos ficam: o `.ogg` e o PDF PERMANECEM em disco,
+   * porque são a fonte para o humano conferir a transcrição no escalonamento.
+   */
+  private async conteudoDaMensagem(
+    msg: import('@whiskeysockets/baileys').WAMessage,
+    normalized: NonNullable<ReturnType<typeof normalizeMessageContent>>,
+    chatJid: string,
+    folder: string,
+  ): Promise<string> {
+    let content =
+      normalized.conversation ||
+      normalized.extendedTextMessage?.text ||
+      normalized.imageMessage?.caption ||
+      normalized.videoMessage?.caption ||
+      '';
+
+    // Áudio: baixa, transcreve localmente e entrega o texto ao agente.
+    // Antes de 04/10/2026 isto era descartado em silêncio (content ficava
+    // vazio e o `continue` abaixo engolia a mensagem), então quem mandava
+    // áudio nunca era respondido.
+    //
+    // Qualquer falha ou transcrição incerta cai no marcador, e o FAQ
+    // (F00d) manda pedir por escrito: agir sobre palpite é pior que
+    // admitir que não entendeu.
+    if (!content && normalized.audioMessage) {
+      const seg = normalized.audioMessage.seconds || 0;
+      content = marcadorDeAudio(seg);
+      try {
+        const buffer = await downloadMediaMessage(msg, 'buffer', {});
+        const groupDir = path.join(GROUPS_DIR, folder);
+        const audioDir = path.join(groupDir, 'audios');
+        fs.mkdirSync(audioDir, { recursive: true });
+        // O arquivo FICA no disco: é a fonte para o humano conferir a
+        // transcrição no escalonamento.
+        const nome = `${msg.key.id || Date.now()}.ogg`;
+        const filePath = path.join(audioDir, nome);
+        fs.writeFileSync(filePath, buffer as Buffer);
+        const t = await transcreveAudio(filePath);
+        content = textoParaAgente(t, seg);
+      } catch (err) {
+        logger.warn(
+          { err, jid: chatJid },
+          'Failed to download audio, keeping marker',
+        );
+      }
+    }
+
+    if (normalized.documentMessage?.mimetype === 'application/pdf') {
+      try {
+        const buffer = await downloadMediaMessage(msg, 'buffer', {});
+        const groupDir = path.join(GROUPS_DIR, folder);
+        const attachDir = path.join(groupDir, 'attachments');
+        fs.mkdirSync(attachDir, { recursive: true });
+        const filename = path.basename(
+          normalized.documentMessage.fileName || `doc-${Date.now()}.pdf`,
+        );
+        const filePath = path.join(attachDir, filename);
+        fs.writeFileSync(filePath, buffer as Buffer);
+        const sizeKB = Math.round((buffer as Buffer).length / 1024);
+        const pdfRef = `[PDF: attachments/${filename} (${sizeKB}KB)]\nUse: pdf-reader extract attachments/${filename}`;
+        const caption = normalized.documentMessage.caption || '';
+        content = caption ? `${caption}\n\n${pdfRef}` : pdfRef;
+        logger.info({ jid: chatJid, filename }, 'Downloaded PDF attachment');
+      } catch (err) {
+        logger.warn({ err, jid: chatJid }, 'Failed to download PDF attachment');
+      }
+    }
+    return content;
+  }
+
   private async processaDmsEmObservacao(
     messages: import('@whiskeysockets/baileys').WAMessage[],
     tipo?: string,
@@ -595,12 +632,15 @@ export class WhatsAppChannel implements Channel {
         const normalized = normalizeMessageContent(msg.message);
         if (!normalized) continue;
         const chatJid = await this.translateJid(rawJid);
-        const content =
-          normalized.conversation ||
-          normalized.extendedTextMessage?.text ||
-          normalized.imageMessage?.caption ||
-          normalized.videoMessage?.caption ||
-          '';
+        // ⚠️ A MESMA extração do caminho normal. Até 22/10/2026 aqui havia uma
+        // cópia pobre — só texto e legenda —, e áudio e PDF morriam no
+        // `continue` abaixo, sem log. Ver `conteudoDaMensagem`.
+        const content = await this.conteudoDaMensagem(
+          msg,
+          normalized,
+          chatJid,
+          folder,
+        );
         if (!content.trim()) continue;
         const timestamp = new Date(
           Number(msg.messageTimestamp) * 1000,
@@ -626,11 +666,22 @@ export class WhatsAppChannel implements Channel {
             'observação: DM de paciente registrada para leitura',
           );
         }
+        const daClinica = !!msg.key.fromMe;
         this.opts.onMessage(chatJid, {
           chat_jid: chatJid,
-          sender: chatJid,
+          // Quem falou. Com `fromMe`, é a clínica (secretária) — e o nome vem
+          // do `pushName` para o prompt mostrar de quem é a fala, em vez de
+          // atribuir tudo ao paciente.
+          sender: daClinica ? 'clinica' : chatJid,
+          sender_name: daClinica
+            ? msg.pushName || 'Atendimento'
+            : msg.pushName || chatJid.split('@')[0],
           content,
           timestamp,
+          is_from_me: daClinica,
+          // ⚠️ NÃO é mensagem de bot: a secretária é humana, e marcar como bot
+          // seria mentir para esconder o gatilho. Quem segura o gatilho é o
+          // host, que ignora lote só de `is_from_me` em DM observada.
           is_bot_message: false,
           id: msg.key.id || `${Date.now()}`,
         } as never);
