@@ -576,9 +576,25 @@ export async function runContainerAgent(
 
     const killOnTimeout = () => {
       timedOut = true;
-      logger.error(
-        { group: group.name, containerName },
-        'Container timeout, stopping gracefully',
+      /**
+       * ⚠️ O NÍVEL depende de já ter havido saída, e aqui isso já se sabe.
+       *
+       * Até 23/10/2026 esta linha era sempre ERROR, e o desfecho verdadeiro saía
+       * depois em INFO (`timed out after output`) ou ERROR (`with no output`).
+       * Medido no log da VM, por PID: dos 41 timeouts, 41 tinham saída e ZERO
+       * ficaram sem — ou seja, eram todos recolhimento por ociosidade, o
+       * desenho do `IDLE_TIMEOUT` funcionando. Eu tinha lido esses 41 como
+       * "turnos sem resposta" e relatado isso ao Thiago; estava errado.
+       *
+       * Rotular limpeza de rotina como ERROR enche o log de erro e esconde o
+       * que é erro de verdade — o mesmo custo do ruído do preview de link.
+       */
+      const soOcioso = hadStreamingOutput;
+      logger[soOcioso ? 'info' : 'error'](
+        { group: group.name, containerName, tevesSaida: hadStreamingOutput },
+        soOcioso
+          ? 'Container ocioso recolhido (já havia respondido)'
+          : 'Container timeout sem saída, stopping gracefully',
       );
       try {
         stopContainer(containerName);

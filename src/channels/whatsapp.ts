@@ -49,6 +49,7 @@ const PAIRING_NUMBER =
   envConfig.WHATSAPP_PAIRING_NUMBER ||
   '558681512111';
 import { getLastGroupSync, setLastGroupSync, updateChatName } from '../db.js';
+import { primeiraVez } from '../janela-de-ids.js';
 import { logger } from '../logger.js';
 import type {
   Channel,
@@ -727,8 +728,12 @@ export class WhatsAppChannel implements Channel {
                   : '';
         const body = text.trim() || kind;
         if (!body) continue;
+        // ⛔ A mesma mensagem chega mais de uma vez do `messages.upsert`, e com
+        // `messageTimestamp` que pode diferir em 1s entre as entregas — então o
+        // id é o único discriminador confiável. Ver `novoNoSla`.
+        if (!msg.key.id || !this.novoNoSla(msg.key.id)) continue;
         const entry = {
-          id: msg.key.id || '',
+          id: msg.key.id,
           jid: chatJid,
           phone: chatJid.split('@')[0],
           direction: msg.key.fromMe ? 'out' : 'in',
@@ -743,6 +748,30 @@ export class WhatsAppChannel implements Channel {
         logger.warn({ err }, 'captureSlaTimeline: failed for a message');
       }
     }
+  }
+
+  /**
+   * Ids já gravados no log de SLA, para não gravar a mesma mensagem duas vezes.
+   *
+   * ⛔ Medido no log da VM em 23/10/2026: 55 de 3565 eventos (1,5%) estavam
+   * duplicados, sempre em exatamente duas cópias, e 50 delas com `timestamp`
+   * diferindo em 1 segundo. O `messages.upsert` entrega a mesma mensagem mais de
+   * uma vez, e `captureSlaTimeline` gravava sem perguntar.
+   *
+   * ⚠️ Dedup por `key.id`, e NÃO filtro por `type`. O laço de observação
+   * descarta `append` de propósito (histórico não pode virar turno), mas aqui a
+   * captura é passiva: o que chegou enquanto o processo estava fora É evento de
+   * SLA e deve entrar. O que não deve é a segunda cópia do mesmo id.
+   *
+   * O teto é o mesmo raciocínio do `SENT_IDS_MAX`: a duplicata chega no mesmo
+   * segundo, então memória curta basta, e o processo fica meses de pé.
+   */
+  private slaIds = new Set<string>();
+  private static readonly SLA_IDS_MAX = 2000;
+
+  /** Primeira vez que este id aparece no SLA? Ver `janela-de-ids.ts`. */
+  private novoNoSla(id: string): boolean {
+    return primeiraVez(this.slaIds, id, WhatsAppChannel.SLA_IDS_MAX);
   }
 
   // Teto do registro de ids: a classificação do echo acontece em segundos, e
