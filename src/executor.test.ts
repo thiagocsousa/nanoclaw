@@ -2449,6 +2449,80 @@ describe('duas opções de horário (manual, 19/10/2026)', () => {
   });
 });
 
+/**
+ * ⛔ Caso real de 23/10/2026. O paciente escreveu "vcs fazem pelo plamta?" e
+ * recebeu o texto do IPMT: "a cirurgia pode ser pelo PLANTE". A tabela está
+ * certa; quem errou foi o classificador, e dá para ver por quê — PLAMTA e
+ * PLANTE diferem por uma letra no meio e ocupam o mesmo papel nos dois pares.
+ *
+ * Por isso a escolha entre os dois passou a ser do HOST, lendo o nome na
+ * mensagem. "Rotular não é preencher."
+ */
+describe('qual plano parcial é decisão do host, não do modelo', () => {
+  const limpa = async () => {
+    const { esqueceSlots } = await import('./memoria-conversa.js');
+    esqueceSlots(PASTA, JID);
+  };
+
+  it('o caso real: "plamta" com rótulo de IPMT recebe o texto do PLAMTA', async () => {
+    await limpa();
+    const r = await rodar(
+      '{"intencao":"convenio_ipmt","confianca":0.95,"slots":{"convenio":"PLANTE"}}',
+      'e outra informação: vcs fazem pelo plamta?',
+    );
+    expect(r?.texto).toContain('PLAMTA');
+    expect(r?.texto).not.toContain('PLANTE');
+  });
+
+  it('e o inverso: "plante" com rótulo de IASPI recebe o texto do PLANTE', async () => {
+    await limpa();
+    const r = await rodar(
+      '{"intencao":"convenio_iaspi","confianca":0.95,"slots":{"convenio":"PLAMTA"}}',
+      'vocês fazem pelo plante?',
+    );
+    expect(r?.texto).toContain('PLANTE');
+    expect(r?.texto).not.toContain('PLAMTA');
+  });
+
+  it.each([
+    ['atende IASPI?', 'IASPI'],
+    ['e o IAPEP?', 'PLAMTA'],
+    ['pelo IPMT vocês atendem?', 'IPMT'],
+  ])('%s mantém o plano nomeado', async (pergunta, esperado) => {
+    await limpa();
+    const r = await rodar(
+      '{"intencao":"convenio_iaspi","confianca":0.95,"slots":{}}',
+      pergunta,
+    );
+    expect(r?.texto).toContain(esperado);
+  });
+
+  /**
+   * ⚠️ O controle negativo que define o limite: sem nome na mensagem, o rótulo
+   * do modelo FICA. Ele tem o contexto da conversa, que esta correção não tem —
+   * o paciente que disse "IPMT" há dois turnos e agora pergunta "e pelo meu
+   * convênio?" não pode ser jogado para o outro plano.
+   */
+  it('mensagem sem nome de plano mantém o rótulo do modelo', async () => {
+    await limpa();
+    const r = await rodar(
+      '{"intencao":"convenio_ipmt","confianca":0.95,"slots":{"convenio":"IPMT"}}',
+      'e pelo meu convênio?',
+    );
+    expect(r?.texto).toContain('PLANTE');
+  });
+
+  // Os dois nomes na mesma frase: IPMT vence, como já valia em PLANOS_PARCIAIS.
+  it('frase com os dois nomes cai em IPMT', async () => {
+    await limpa();
+    const r = await rodar(
+      '{"intencao":"convenio_iaspi","confianca":0.95,"slots":{}}',
+      'vocês fazem pelo IASPI ou pelo IPMT?',
+    );
+    expect(r?.texto).toContain('IPMT');
+  });
+});
+
 describe('o convite de agendamento é emenda do host (tom de 17/10/2026)', () => {
   it('emenda o pedido dos dados em quem tem `emenda_triagem`', async () => {
     const { esqueceSlots } = await import('./memoria-conversa.js');

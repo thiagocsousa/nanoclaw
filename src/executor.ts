@@ -336,6 +336,41 @@ function comPlanoParcial(
 }
 
 /**
+ * Qual dos dois planos parciais o PACIENTE nomeou.
+ *
+ * ⛔ Nasceu de um caso real de 23/10/2026. O paciente escreveu "vcs fazem pelo
+ * plamta?" e recebeu o texto do IPMT — "a cirurgia pode ser pelo PLANTE". A
+ * tabela está certa: `convenio_iaspi` cobre IASPI/IAPEP/PLAMTA e
+ * `convenio_ipmt` cobre IPMT/PLANTE. Quem errou foi o classificador, e é fácil
+ * ver por quê: PLAMTA e PLANTE diferem por uma letra no meio e ocupam o MESMO
+ * papel nos dois pares — o plano que cobre a cirurgia.
+ *
+ * Por isso a escolha entre os dois não pode ser do modelo. "Rotular não é
+ * preencher": o modelo diz que a pergunta é sobre plano parcial, e o host diz
+ * QUAL, lendo o nome na mensagem do paciente. Mesmo arranjo do `comDesconto`.
+ *
+ * ⚠️ Mensagem que não nomeia plano nenhum (o paciente diz só "e pelo meu
+ * convênio?" depois de ter dito o nome antes) mantém o rótulo do modelo: aí ele
+ * tem contexto que esta função não tem. O host só corrige quando VÊ o nome.
+ */
+function corrigePlanoParcial(
+  intencao: string,
+  perguntaDoPaciente: string,
+  tabela: Tabela,
+): string {
+  if (intencao !== 'convenio_iaspi' && intencao !== 'convenio_ipmt') {
+    return intencao;
+  }
+  const alvo = PLANOS_PARCIAIS.find(([rx]) => rx.test(perguntaDoPaciente))?.[1];
+  if (!alvo || alvo === intencao || !tabela.intencoes[alvo]) return intencao;
+  logger.info(
+    { de: intencao, para: alvo },
+    'plano parcial: o host corrigiu o plano pelo texto do paciente',
+  );
+  return alvo;
+}
+
+/**
  * Dias sem lente de contato antes da avaliação refrativa.
  *
  * Três, para QUALQUER tipo de lente — o manual trazido pelo Thiago separava
@@ -1466,9 +1501,18 @@ export async function executa(
   }
 
   const lembrados = comLembrados(groupFolder, chatJid, slots);
+  // ⚠️ `corrigePlanoParcial` fica FORA de `TROCAS` porque lê outra coisa: as
+  // trocas decidem pelos slots, e esta decide pelo texto do paciente. Ela vem
+  // depois, para também corrigir o que `comPlanoParcial` acabou de escolher a
+  // partir do slot `convenio` — que é o mesmo campo que o modelo preencheu
+  // errado quando confundiu PLAMTA com PLANTE.
   const intencaoFinal = intencaoDoHost
     ? intencaoDoHost
-    : TROCAS.reduce((i, troca) => troca(i, lembrados, tabela), c.intencao);
+    : corrigePlanoParcial(
+        TROCAS.reduce((i, troca) => troca(i, lembrados, tabela), c.intencao),
+        perguntaDoPaciente,
+        tabela,
+      );
   const r = renderiza(tabela, intencaoFinal, {
     confianca: c.confianca,
     slots: comValorDaAvaliacao(intencaoFinal, slots, lembrados, tabela),

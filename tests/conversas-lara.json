@@ -3588,6 +3588,50 @@
           ]
         }
       ]
+    },
+    {
+      "id": "D13",
+      "categoria": "convenio",
+      "sobre": "O caso real de 23/10/2026: o paciente escreveu 'plamta' minúsculo, no meio de outra frase, e recebeu o texto do PLANTE. PLAMTA e PLANTE diferem por uma letra no meio e ocupam o mesmo papel nos dois pares — quem escolhe entre os dois é o host, lendo o nome na mensagem.",
+      "escalou": false,
+      "turnos": [
+        {
+          "paciente": "e outra informação: vcs fazem pelo plamta?",
+          "esperado": [
+            "PLAMTA",
+            "particular"
+          ],
+          "proibido": [
+            "PLANTE",
+            "IPMT",
+            "atende(mos)? sim",
+            "sim,? atende(mos)?"
+          ],
+          "intencao_esperada": "convenio_iaspi"
+        }
+      ]
+    },
+    {
+      "id": "D14",
+      "categoria": "convenio",
+      "sobre": "O inverso do D13, para a correção não virar um atalho de mão única: 'plante' minúsculo tem de receber o texto do IPMT.",
+      "escalou": false,
+      "turnos": [
+        {
+          "paciente": "oi, vocês fazem pelo plante?",
+          "esperado": [
+            "PLANTE",
+            "particular"
+          ],
+          "proibido": [
+            "PLAMTA",
+            "IASPI",
+            "atende(mos)? sim",
+            "sim,? atende(mos)?"
+          ],
+          "intencao_esperada": "convenio_ipmt"
+        }
+      ]
     }
   ]
 }
