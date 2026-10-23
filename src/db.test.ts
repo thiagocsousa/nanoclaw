@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 
 import {
   _initTestDatabase,
+  contextoAnterior,
   createTask,
   deleteTask,
   getAllChats,
@@ -933,5 +934,91 @@ describe('getMessagesSince: a marca de bot volta na linha', () => {
     const doPaciente = todas.filter((m) => !m.is_bot_message);
     expect(doPaciente.length).toBe(1);
     expect(doPaciente[0].content).toBe('tem horario?');
+  });
+});
+
+/**
+ * ⛔ A consulta que desfaz a confusão do cursor.
+ *
+ * Até 23/10/2026 o cursor respondia duas perguntas ao mesmo tempo — "o que eu
+ * já li?" e "o que eu tenho de responder?" — porque todo leitor filtrava
+ * `timestamp > cursor`. A semeadura de histórico, para não responder conversa
+ * velha, pôs o cursor na FRENTE das linhas semeadas, e com isso as deixou fora
+ * do prompt: inseria linhas que nenhum leitor lia.
+ */
+describe('contextoAnterior: o que explica a pergunta', () => {
+  const JID = '5586911112222@s.whatsapp.net';
+
+  function grava(id: string, ts: string, extra: Record<string, unknown> = {}) {
+    storeMessage({
+      id,
+      chat_jid: JID,
+      sender: JID,
+      sender_name: 'Paciente',
+      content: `msg ${id}`,
+      timestamp: ts,
+      ...extra,
+    });
+  }
+
+  beforeEach(() => {
+    storeChatMetadata(JID, '2026-10-20T09:00:00.000Z');
+    grava('A', '2026-10-20T10:00:00.000Z');
+    grava('B', '2026-10-20T11:00:00.000Z', {
+      is_from_me: true,
+      is_bot_message: true,
+      content: 'Só um instante.',
+    });
+    grava('C', '2026-10-20T12:00:00.000Z');
+    grava('D', '2026-10-20T13:00:00.000Z'); // acima do cursor
+  });
+
+  const CURSOR = '2026-10-20T12:00:00.000Z';
+
+  it('traz só o que está NO cursor ou abaixo dele', () => {
+    expect(contextoAnterior(JID, CURSOR, 50).map((m) => m.id)).toEqual([
+      'A',
+      'B',
+      'C',
+    ]);
+  });
+
+  /**
+   * ⛔ A trava que impede duplicação: o que está acima do cursor é trabalho, e
+   * `getMessagesSince` já o traz. Se as duas consultas se sobrepusessem, a
+   * mesma mensagem apareceria como pergunta E como histórico, e o modelo
+   * poderia responder à cópia sem id.
+   */
+  it('não se sobrepõe a getMessagesSince', () => {
+    const contexto = contextoAnterior(JID, CURSOR, 50).map((m) => m.id);
+    const trabalho = getMessagesSince(JID, CURSOR, 'Andy', 50, true).map(
+      (m) => m.id,
+    );
+    expect(trabalho).toEqual(['D']);
+    expect(contexto.filter((id) => trabalho.includes(id))).toEqual([]);
+  });
+
+  // ⚠️ Inclui a fala do BOT e da clínica: metade do diálogo é o que faz a outra
+  // metade fazer sentido. Foi o defeito da secretária descartada, de 22/10.
+  it('inclui a fala da clínica e do bot', () => {
+    const ids = contextoAnterior(JID, CURSOR, 50).map((m) => m.id);
+    expect(ids).toContain('B');
+  });
+
+  // O teto corta pelo começo: numa conversa longa o que explica a pergunta é o
+  // fim, não a primeira mensagem.
+  it('o teto mantém as MAIS RECENTES', () => {
+    expect(contextoAnterior(JID, CURSOR, 2).map((m) => m.id)).toEqual([
+      'B',
+      'C',
+    ]);
+  });
+
+  it('cursor vazio não traz nada: chat sem cursor não tem teto', () => {
+    expect(contextoAnterior(JID, '', 50)).toEqual([]);
+  });
+
+  it('teto zero desliga a janela', () => {
+    expect(contextoAnterior(JID, CURSOR, 0)).toEqual([]);
   });
 });

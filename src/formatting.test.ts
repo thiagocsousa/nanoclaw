@@ -388,3 +388,79 @@ describe('formatMessages: o id que amarra o turno', () => {
     expect(result).toContain('id="a&amp;b&lt;c&quot;d"');
   });
 });
+
+/**
+ * ⛔ O bloco de contexto e a trava que o torna seguro.
+ *
+ * `mensagemPorIdCurto` acha a mensagem por sufixo em TODA a conversa, sem piso.
+ * Se o agente devolvesse o id de uma linha do histórico, o host responderia a
+ * uma mensagem velha — com texto plausível, para a pergunta errada. Não dar id
+ * às linhas de contexto é o que torna isso estruturalmente impossível: não há o
+ * que citar.
+ *
+ * Bound o resolver pelo cursor seria o conserto errado — ele existe para a
+ * corrida em que uma mensagem nova chega com o resultado da anterior em voo, e
+ * ali o cursor já andou.
+ */
+describe('histórico no prompt: contexto sem id', () => {
+  const msg = (p: Partial<NewMessage>): NewMessage =>
+    ({
+      id: 'AAAAAAAAAAAAAAAA1111',
+      chat_jid: 'x@s.whatsapp.net',
+      sender: 'x@s.whatsapp.net',
+      sender_name: 'Paciente',
+      content: 'oi',
+      timestamp: '2026-10-20T13:00:00.000Z',
+      ...p,
+    }) as NewMessage;
+
+  const atual = msg({ id: 'BBBBBBBBBBBBBBBB2222', content: 'tem retorno?' });
+
+  it('sem anteriores, o prompt é o de antes', () => {
+    const saida = formatMessages([atual], 'America/Fortaleza');
+    expect(saida).not.toContain('historico_da_conversa');
+  });
+
+  it('as linhas de contexto NÃO levam id', () => {
+    const saida = formatMessages([atual], 'America/Fortaleza', [
+      msg({ id: 'CCCCCCCCCCCCCCCC3333', content: 'mandei o exame' }),
+    ]);
+    const bloco = saida.slice(
+      saida.indexOf('<historico_da_conversa'),
+      saida.indexOf('</historico_da_conversa>'),
+    );
+    expect(bloco).toContain('mandei o exame');
+    expect(bloco).not.toContain('id=');
+    expect(bloco).not.toContain('3333');
+  });
+
+  it('a mensagem a RESPONDER continua com id', () => {
+    const saida = formatMessages([atual], 'America/Fortaleza', [
+      msg({ id: 'CCCCCCCCCCCCCCCC3333' }),
+    ]);
+    expect(saida).toContain('<messages>');
+    expect(saida).toMatch(/<message id="[^"]*2222"/);
+  });
+
+  // Quem falou é rotulado: sem isso o histórico atribui ao paciente a fala da
+  // clínica, que foi o defeito da secretária descartada (22/10/2026).
+  it('rotula paciente, clínica e assistente', () => {
+    const saida = formatMessages([atual], 'America/Fortaleza', [
+      msg({ content: 'do paciente' }),
+      msg({ content: 'da secretaria', is_from_me: true }),
+      msg({ content: 'da lara', is_from_me: true, is_bot_message: true }),
+    ]);
+    expect(saida).toContain('de="paciente"');
+    expect(saida).toContain('de="clinica"');
+    expect(saida).toContain('de="assistente"');
+  });
+
+  it('o bloco vem ANTES das mensagens a responder', () => {
+    const saida = formatMessages([atual], 'America/Fortaleza', [
+      msg({ content: 'antes' }),
+    ]);
+    expect(saida.indexOf('historico_da_conversa')).toBeLessThan(
+      saida.indexOf('<messages>'),
+    );
+  });
+});

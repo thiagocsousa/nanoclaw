@@ -13,6 +13,7 @@ const envConfig = readEnvFile([
   'ONECLI_URL',
   'ONECLI_API_KEY',
   'TZ',
+  'CONTEXTO_FOLDERS',
 ]);
 
 export const ASSISTANT_NAME =
@@ -88,6 +89,37 @@ export const MAX_MESSAGES_PER_PROMPT = Math.max(
   1,
   parseInt(process.env.MAX_MESSAGES_PER_PROMPT || '10', 10) || 10,
 );
+/**
+ * Quantas mensagens de CONTEXTO (abaixo do cursor) vão no prompt.
+ *
+ * Separado do `MAX_MESSAGES_PER_PROMPT` porque responde a outra pergunta: esse
+ * limita o que precisa de RESPOSTA, este limita o que explica a pergunta.
+ */
+export const MAX_CONTEXTO_PER_PROMPT = Math.max(
+  0,
+  parseInt(process.env.MAX_CONTEXTO_PER_PROMPT || '20', 10) || 20,
+);
+
+/**
+ * As pastas cujo prompt leva contexto anterior.
+ *
+ * ⚠️ Eixo PRÓPRIO, e não `wantsTemplates`. Aquele responde "esta pasta responde
+ * por tabela fixa?"; este responde "esta conversa precisa do passado
+ * reconstruído?". Hoje as duas listas coincidem, e é justamente por isso que
+ * precisam ser separadas — no dia em que divergirem, a janela de contexto
+ * seguiria a pergunta errada em silêncio.
+ */
+const CONTEXTO_FOLDERS = new Set(
+  (process.env.CONTEXTO_FOLDERS || envConfig.CONTEXTO_FOLDERS || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean),
+);
+
+export function wantsContexto(groupFolder?: string): boolean {
+  return !!groupFolder && CONTEXTO_FOLDERS.has(groupFolder);
+}
+
 export const IPC_POLL_INTERVAL = 1000;
 export const IDLE_TIMEOUT = parseInt(process.env.IDLE_TIMEOUT || '1800000', 10); // 30min default — how long to keep container alive after last result
 export const MAX_CONCURRENT_CONTAINERS = Math.max(

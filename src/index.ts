@@ -8,9 +8,11 @@ import {
   getTriggerPattern,
   GROUPS_DIR,
   IDLE_TIMEOUT,
+  MAX_CONTEXTO_PER_PROMPT,
   MAX_MESSAGES_PER_PROMPT,
   POLL_INTERVAL,
   TIMEZONE,
+  wantsContexto,
 } from './config.js';
 import { startCredentialProxy } from './credential-proxy.js';
 import './channels/index.js';
@@ -37,6 +39,7 @@ import {
   deleteSession,
   getAllTasks,
   getLastBotMessageTimestamp,
+  contextoAnterior,
   getMessagesSince,
   getNewMessages,
   getRouterState,
@@ -310,14 +313,38 @@ function getOrRecoverCursor(chatJid: string): string {
   if (existing) return existing;
 
   const botTs = getLastBotMessageTimestamp(chatJid, ASSISTANT_NAME);
-  if (botTs) {
+  /**
+   * ⛔ O PISO da DM acompanhada entra na recuperação, e é o mais novo dos dois
+   * que vale.
+   *
+   * `getLastBotMessageTimestamp` é a última fala do BOT, e ela deixou de ser um
+   * bom palpite desde que existe histórico abaixo do cursor. Numa conversa
+   * semeada (ou pelo backfill) as linhas antigas incluem "Só um instante." de
+   * antes da semana de observação, com `is_bot_message = 1`; a fala da
+   * SECRETÁRIA não casa nessa consulta (é humana, sem marca). Então numa
+   * conversa que só a secretária atendeu desde então, o palpite aponta para uma
+   * linha velha do histórico — e tudo depois dela viraria "não respondido". A
+   * Lara responderia a conversa inteira, que é exatamente o risco pelo qual
+   * recusamos a opção B.
+   *
+   * `desde` é o piso que `anotaDm` guardou, e ele é idempotente: nunca volta ao
+   * presente. Pegar o MAIOR dos dois é mais seguro que qualquer um sozinho.
+   */
+  const piso = dmsObservadas[chatJid]?.desde;
+  const recuperado = [botTs, piso].filter(Boolean).sort().pop();
+  if (recuperado) {
     logger.info(
-      { chatJid, recoveredFrom: botTs },
-      'Recovered message cursor from last bot reply',
+      {
+        chatJid,
+        recoveredFrom: recuperado,
+        botTs: botTs ?? null,
+        piso: piso ?? null,
+      },
+      'Recovered message cursor',
     );
-    lastAgentTimestamp[chatJid] = botTs;
+    lastAgentTimestamp[chatJid] = recuperado;
     saveState();
-    return botTs;
+    return recuperado;
   }
   return '';
 }
@@ -425,6 +452,41 @@ export function _setRegisteredGroups(
  * Called by the GroupQueue when it's this group's turn.
  */
 /**
+ * O prompt da conversa: o que precisa de RESPOSTA, mais o que o explica.
+ *
+ * ⛔ Nasceu de um defeito que só apareceu quando eu fui conferir a segurança do
+ * backfill, em 23/10/2026. O cursor respondia duas perguntas ao mesmo tempo —
+ * "o que eu já li?" e "o que eu tenho de responder?" — e todo leitor filtrava
+ * `timestamp > cursor`. A semeadura de histórico, para não responder conversa
+ * velha, pôs o cursor na FRENTE das linhas semeadas, e com isso as deixou fora
+ * do prompt: gravava linhas que ninguém lia. A feature inteira era decorativa.
+ *
+ * Agora são duas consultas: `getMessagesSince` traz o que responder, acima do
+ * cursor, e `contextoAnterior` traz o que explica, abaixo dele.
+ *
+ * ⚠️ UMA função para as DUAS portas. O laço principal tem um caminho que não
+ * passa por `processGroupMessages` — canalizar para container vivo — e é
+ * justamente o caso de meio de conversa, onde o contexto mais importa. Deixar
+ * cada porta decidir se manda contexto é o padrão de deriva que o
+ * `expedienteSegura` já teve de consertar.
+ */
+function promptDaConversa(
+  group: RegisteredGroup,
+  chatJid: string,
+  aResponder: NewMessage[],
+): string {
+  if (!wantsContexto(group.folder)) {
+    return formatMessages(aResponder, TIMEZONE);
+  }
+  const anteriores = contextoAnterior(
+    chatJid,
+    getOrRecoverCursor(chatJid),
+    MAX_CONTEXTO_PER_PROMPT,
+  );
+  return formatMessages(aResponder, TIMEZONE, anteriores);
+}
+
+/**
  * O expediente segura este lote? Se sim, as mensagens ficam PENDENTES.
  *
  * ⚠️ Chamado nas DUAS portas. O laço principal tem um caminho que NÃO passa por
@@ -519,7 +581,7 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
     if (!hasTrigger) return true;
   }
 
-  let prompt = formatMessages(missedMessages, TIMEZONE);
+  let prompt = promptDaConversa(group, chatJid, missedMessages);
 
   // Na pasta que responde por tabela, a lista de intenções vai NO PROMPT. O
   // CLAUDE.md mandava o agente ler `templates.json` e no primeiro teste em
@@ -1144,7 +1206,7 @@ async function startMessageLoop(): Promise<void> {
           );
           const messagesToSend =
             allPending.length > 0 ? allPending : groupMessages;
-          const formatted = formatMessages(messagesToSend, TIMEZONE);
+          const formatted = promptDaConversa(group, chatJid, messagesToSend);
 
           if (queue.sendMessage(chatJid, formatted)) {
             logger.debug(

@@ -142,3 +142,47 @@ cancela tudo.
 gravada pelo `onMessage` do canal, depois deste callback retornar, e não cabe
 nesta transação sem reestruturar o canal. O que resta se cura na mensagem
 seguinte do paciente: ela redescobre a DM e semeia a anterior como contexto.
+
+## 23/10/2026 — a semeadura gravava linhas que ninguém lia
+
+Descoberto ao conferir a segurança do backfill, antes de rodá-lo.
+
+A cadeia:
+
+1. `cursorDepoisDeSemear` devolve o timestamp da **última** mensagem semeada, e
+   é ele que vai para o cursor.
+2. Logo, por construção, **toda** linha semeada tem `timestamp <= cursor`.
+3. Todo leitor de conversa filtra `timestamp > ?` — `getMessagesSince` e
+   `getNewMessages`. O prompt é montado só por eles.
+
+As linhas semeadas eram matematicamente invisíveis para o prompt.
+
+**A raiz**: o cursor respondia duas perguntas ao mesmo tempo — "o que eu já
+li?" e "o que eu tenho de responder?". Enquanto fossem a mesma consulta, passado
+no prompt era passado que dispara resposta. Foi por isso que o cursor ficou na
+frente do histórico (para não responder conversa velha) e, sem que eu
+percebesse, o histórico ficou fora do prompt.
+
+**O conserto (opção A, escolhida pelo Thiago)**: duas consultas.
+`getMessagesSince` traz o que responder, acima do cursor; `contextoAnterior`
+traz o que explica, abaixo dele. `promptDaConversa` é a única função que monta o
+prompt, usada pelas duas portas do laço.
+
+| trava | onde |
+|---|---|
+| contexto SEM `id` — `mensagemPorIdCurto` busca por sufixo em toda a conversa, sem piso, e sem id não há o que citar | `router.ts`, `bloco` |
+| as duas consultas não se sobrepõem (`<= cursor` e `> cursor`) | `db.test.ts` |
+| recuperação de cursor usa o MAIOR entre a última fala do bot e o piso da DM | `index.ts`, `getOrRecoverCursor` |
+
+A última merece nota: com histórico abaixo do cursor,
+`getLastBotMessageTimestamp` deixou de ser um bom palpite. Ele casa
+`is_bot_message = 1`, e as linhas antigas semeadas incluem "Só um instante." de
+antes da observação; a fala da SECRETÁRIA não casa (é humana, sem marca). Numa
+conversa que só ela atendeu desde então, o palpite apontaria para uma linha
+velha e tudo depois dela viraria "não respondido".
+
+⚠️ **Desligado por padrão.** `CONTEXTO_FOLDERS` vazio mantém o prompt de antes,
+byte a byte. Ligar muda o que o classificador vê em TODO turno daquela pasta, e
+o que se procura na passada não é "um teste quebrou" — é cenário que passava e
+agora classifica pelo contexto em vez da mensagem atual. Os campos
+`intencao_esperada` são o que torna isso diagnosticável.

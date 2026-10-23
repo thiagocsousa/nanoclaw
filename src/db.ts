@@ -555,6 +555,46 @@ export function getMessagesSince(
     ) as NewMessage[];
 }
 
+/**
+ * As últimas mensagens ABAIXO do cursor: contexto, não trabalho.
+ *
+ * ⛔ Existe porque o cursor respondia DUAS perguntas ao mesmo tempo — "o que eu
+ * já li?" e "o que eu tenho de responder?" — e enquanto fossem a mesma consulta
+ * (`timestamp > cursor`), passado no prompt era passado que dispara resposta.
+ * Foi por isso que a semeadura de histórico (22/10/2026) pôs o cursor na FRENTE
+ * das linhas semeadas, para não responder conversa velha, e com isso as deixou
+ * fora do prompt: inseria linhas que nenhum leitor lia. Descoberto em
+ * 23/10/2026, ao conferir a segurança do backfill.
+ *
+ * Esta consulta separa as duas perguntas. O que está acima do cursor é o que
+ * precisa de resposta; o que está abaixo é o que explica a pergunta.
+ *
+ * ⚠️ Devolve TAMBÉM a fala da Lara e da clínica (`is_bot_message` incluído),
+ * porque metade do diálogo é o que faz a outra metade fazer sentido — e quem
+ * chama recebe o campo para poder rotular quem falou. O inverso (só o paciente)
+ * foi o defeito da fala da secretária descartada, de 22/10.
+ */
+export function contextoAnterior(
+  chatJid: string,
+  cursor: string,
+  limit: number,
+): NewMessage[] {
+  if (!cursor || limit <= 0) return [];
+  const sql = `
+    SELECT * FROM (
+      SELECT id, chat_jid, sender, sender_name, content, timestamp, is_from_me,
+             is_bot_message,
+             reply_to_message_id, reply_to_message_content, reply_to_sender_name
+      FROM messages
+      WHERE chat_jid = ? AND timestamp <= ?
+        AND content != '' AND content IS NOT NULL
+      ORDER BY timestamp DESC
+      LIMIT ?
+    ) ORDER BY timestamp
+  `;
+  return db.prepare(sql).all(chatJid, cursor, limit) as NewMessage[];
+}
+
 export function getLastBotMessageTimestamp(
   chatJid: string,
   botPrefix: string,

@@ -14,6 +14,11 @@ export function escapeXml(s: string): string {
 export function formatMessages(
   messages: NewMessage[],
   timezone: string,
+  /**
+   * O que já foi tratado, abaixo do cursor. Entra como contexto e sem id.
+   * Ver `bloco` e `contextoAnterior` em `db.ts`.
+   */
+  anteriores: NewMessage[] = [],
 ): string {
   const lines = messages.map((m) => {
     const displayTime = formatLocalTime(m.timestamp, timezone);
@@ -36,7 +41,33 @@ export function formatMessages(
 
   const header = `<context timezone="${escapeXml(timezone)}" />\n`;
 
-  return `${header}<messages>\n${lines.join('\n')}\n</messages>`;
+  return `${header}${bloco(anteriores, timezone)}<messages>\n${lines.join('\n')}\n</messages>`;
+}
+
+/**
+ * O bloco de histórico: o que explica a pergunta, e que NÃO deve ser respondido.
+ *
+ * ⛔ Sem `id`, de propósito, e é a trava que importa. `mensagemPorIdCurto` acha
+ * a mensagem por sufixo em TODA a conversa, sem piso — se o agente devolvesse o
+ * id de uma linha do histórico, o host responderia a uma mensagem velha. Não dar
+ * id a elas é o que torna isso estruturalmente impossível: não há o que citar.
+ *
+ * Bound o resolver pelo cursor seria o conserto errado: ele existe justamente
+ * para a corrida em que uma mensagem nova chega com o resultado da anterior em
+ * voo, e aí o cursor já andou.
+ */
+function bloco(anteriores: NewMessage[], timezone: string): string {
+  if (anteriores.length === 0) return '';
+  const linhas = anteriores.map((m) => {
+    const hora = formatLocalTime(m.timestamp, timezone);
+    const quem = m.is_bot_message
+      ? 'assistente'
+      : m.is_from_me
+        ? 'clinica'
+        : 'paciente';
+    return `<anterior de="${quem}" sender="${escapeXml(m.sender_name)}" time="${escapeXml(hora)}">${escapeXml(m.content)}</anterior>`;
+  });
+  return `<historico_da_conversa nota="contexto do que já foi dito; NÃO responda a estas, elas já foram tratadas">\n${linhas.join('\n')}\n</historico_da_conversa>\n`;
 }
 
 export function stripInternalTags(text: string): string {
