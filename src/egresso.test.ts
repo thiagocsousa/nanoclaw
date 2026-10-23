@@ -1,3 +1,6 @@
+import fs from 'fs';
+import path from 'path';
+
 import { describe, expect, it } from 'vitest';
 
 import { podeEntregar, soFalaDaClinica } from './revisao-humana.js';
@@ -86,5 +89,37 @@ describe('soFalaDaClinica: contexto sem gatilho', () => {
   // Campo ausente é o caso das linhas gravadas antes de 22/10/2026.
   it('sem o campo, trata como paciente', () => {
     expect(soFalaDaClinica([{}])).toBe(false);
+  });
+});
+
+/**
+ * ⛔ Trava ESTRUTURAL contra o preview de link voltar sem ninguém decidir.
+ *
+ * O baileys tenta gerar preview para todo texto com URL, e `link-preview-js` é
+ * peer dependency OPCIONAL que não está instalada: cada tentativa despejava um
+ * `ERR_MODULE_NOT_FOUND` com stack trace no log. O conserto foi DESLIGAR a
+ * geração (`linkPreview: null` no conteúdo), e não instalar a dependência —
+ * instalar faria os cards aparecerem, e isso muda o que o paciente vê em
+ * template que a Marina aprovou (seis endereços em Google Maps, mais o pedido
+ * de avaliação).
+ *
+ * Um `sock.sendMessage(jid, { text })` escrito à mão reabre as duas coisas de
+ * uma vez: o lixo no log hoje, e o card sem aprovação no dia em que alguém
+ * instalar a dependência por outro motivo. Daí a trava ser no texto do arquivo.
+ */
+describe('nenhum egresso de texto monta o conteúdo à mão', () => {
+  const fonte = fs.readFileSync(
+    path.join(process.cwd(), 'src/channels/whatsapp.ts'),
+    'utf-8',
+  );
+
+  it('todo texto passa por `textoParaOSocket`', () => {
+    // `{ text:` como conteúdo de envio — o que havia antes do conserto.
+    const aMao = fonte.match(/sendMessage\([^)]*\{\s*text:/g) ?? [];
+    expect(aMao).toEqual([]);
+  });
+
+  it('e o helper desliga a geração de preview', () => {
+    expect(fonte).toContain('linkPreview: null');
   });
 });

@@ -975,6 +975,36 @@ export class WhatsAppChannel implements Channel {
    * travar só o `sendMessage` deixaria imagem, PDF e texto atrasado abertos —
    * foi o achado que derrubou o primeiro desenho.
    */
+  /**
+   * O conteúdo de texto que vai ao socket, com a geração de preview DESLIGADA.
+   *
+   * ⛔ `linkPreview` é propriedade do CONTEÚDO, não das opções. Em
+   * `generateWAMessageContent`: `let urlInfo = message.linkPreview`, e a
+   * geração só roda quando ele é `undefined`. Passar como terceiro argumento do
+   * `sendMessage` não teria efeito nenhum — foi o meu primeiro palpite e estava
+   * errado.
+   *
+   * Sem isto o baileys tenta gerar preview para TODO texto com URL, e a Lara
+   * manda link em sete lugares: os seis templates de endereço (Google Maps) e o
+   * pedido de avaliação. A tentativa falha, porque `link-preview-js` é peer
+   * dependency OPCIONAL do baileys e não está instalada — cada falha despejava
+   * um `ERR_MODULE_NOT_FOUND` com stack trace inteiro no log, e a mensagem saía
+   * sem card de todo jeito.
+   *
+   * ⚠️ A escolha foi SILENCIAR, não instalar (Thiago, 23/10/2026): instalar
+   * faria os cards passarem a aparecer, e isso é mudança no que o paciente vê
+   * em template que a Marina aprovou. Para ligar depois: instalar
+   * `link-preview-js` e tirar o `linkPreview` daqui.
+   */
+  private textoParaOSocket(
+    text: string,
+  ): import('@whiskeysockets/baileys').AnyMessageContent {
+    return {
+      text,
+      linkPreview: null,
+    } as unknown as import('@whiskeysockets/baileys').AnyMessageContent;
+  }
+
   private podeSair(
     alvo: string,
     tipo: 'texto' | 'imagem' | 'documento' | 'presenca',
@@ -1013,7 +1043,10 @@ export class WhatsAppChannel implements Channel {
     }
     const target = await this.resolveWaJid(jid);
     try {
-      const sent = await this.sock.sendMessage(target, { text: prefixed });
+      const sent = await this.sock.sendMessage(
+        target,
+        this.textoParaOSocket(prefixed),
+      );
       this.rememberSentId(sent?.key?.id);
       this.recordBotSentId(target, sent?.key?.id);
       this.auditSecondaryDm(target, 'text', prefixed);
@@ -1187,7 +1220,10 @@ export class WhatsAppChannel implements Channel {
         // enquanto o item esperava a reconexão, e item atrasado entregue depois
         // é o caso que nenhuma trava no fluxo pega.
         if (!this.podeSair(item.jid, 'texto', item.origem)) continue;
-        const sent = await this.sock.sendMessage(target, { text: item.text });
+        const sent = await this.sock.sendMessage(
+          target,
+          this.textoParaOSocket(item.text),
+        );
         this.rememberSentId(sent?.key?.id);
         this.recordBotSentId(target, sent?.key?.id);
         this.auditSecondaryDm(target, 'text:queued', item.text);
