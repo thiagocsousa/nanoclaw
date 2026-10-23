@@ -81,6 +81,20 @@ CONTROLE = "--- NOVO PACIENTE ---"
 # Apagar os arquivos entre cenários é o isolamento que o CHAT compartilhado não
 # dá. É o mesmo que o `beforeEach` do executor.test.ts já fazia com a memória.
 ESTADO_DO_HOST = ("slots_conversa.json", "ofertas_pendentes.json")
+# ⛔ E as MENSAGENS do chat, desde 23/10/2026.
+#
+# Apagar só os arquivos deixou de bastar quando o prompt passou a levar
+# `contextoAnterior` — as mensagens ABAIXO do cursor entram como
+# `<historico_da_conversa>`. Como a suíte inteira usa UM chat, o cenário 2 veria
+# a conversa do cenário 1 como contexto, e o `--- NOVO PACIENTE ---` não cobre
+# isso: ele é só texto no bloco de mensagens.
+#
+# É o MESMO defeito que o review do Codex achou em 17/10 nos arquivos de estado,
+# um nível abaixo: resultado que muda com a ORDEM da suíte. Sem isto, uma
+# reprovação não distinguiria defeito de produto de rastro do cenário anterior.
+#
+# O transcript de cada cenário vai para o relatório antes de a linha ser
+# apagada, então nada de evidência se perde.
 # Auditoria de escalonamento do host. Usada para a checagem `escalou` do
 # cenário: o TEXTO de um escalonamento é "Só um instante.", igual ao de um
 # DESCONHECIDO, então pelo texto não há como saber se o caso chegou à recepção.
@@ -579,6 +593,20 @@ def isola_cenario():
                 apagados.append(nome)
             except OSError as exc:
                 print("  (não consegui apagar %s: %s)" % (nome, exc), flush=True)
+    # ⛔ A janela de contexto do prompt lê as mensagens abaixo do cursor. Sem
+    # apagá-las, o cenário seguinte recebe a conversa do anterior como
+    # histórico. Ver ESTADO_DO_HOST.
+    try:
+        con = sqlite3.connect(str(DB))
+        with con:
+            n = con.execute(
+                "DELETE FROM messages WHERE chat_jid = ?", (CHAT,)
+            ).rowcount
+        con.close()
+        if n:
+            apagados.append("%d mensagens do chat" % n)
+    except sqlite3.Error as exc:
+        print("  (não consegui apagar as mensagens: %s)" % exc, flush=True)
     return apagados
 
 
