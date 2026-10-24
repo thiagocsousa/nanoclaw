@@ -253,15 +253,46 @@ horário:
 | buscar paciente | sim, se a base de pacientes for migrada antes |
 | escrever prontuário (laudo) | sim, independente |
 
-### O que falta decidir
+### A equipe migra ANTES de 20/11 (decidido em 24/10)
 
-1. **Quando a EQUIPE começa a marcar na CNN?** É a única data que importa, e
-   dela sai a forma da virada:
-   - se a equipe migra antes de 20/11, a Lara tem de migrar **no mesmo dia**;
-   - se a equipe usa o iClinic até 20/11, então 20/11 é uma virada de uma vez,
-     leitura e escrita juntas — e a Fase 2 (sombra) **não consegue validar
-     concordância**, porque até lá a agenda da CNN estará legitimamente vazia.
-     Ela valida só a mecânica do cliente, o que é bem menos.
-2. **O laudo de topografia**: API, Playwright de novo, ou manual?
-3. **Quem confere a tabela de status e de convênios.** Eu derivo a proposta da
+Então **20/11 não é o prazo** — é só quando o iClinic apaga a luz. O prazo real
+é o dia em que a secretária começa a marcar na CNN, e **a Lara tem de virar no
+mesmo dia**, pelo que está na caixa acima.
+
+### ⛔ Isso muda o que a Fase 0 significa
+
+Virar no mesmo dia que a equipe só é possível se a virada for **uma chave**, não
+um mutirão de código. Hoje são nove scripts com nove cópias do login: virar isso
+em um dia, com a clínica atendendo, é o tipo de coisa que se faz uma vez e se
+conta para sempre.
+
+> A Fase 0 deixa de ser "boa prática que se paga sozinha" e passa a ser **o que
+> torna a virada de um dia possível**. Ela está no caminho crítico.
+
+Com ela pronta, o dia da virada é `CLINICA_BACKEND=cnn` + restart. Sem ela, é
+editar nove arquivos sob pressão.
+
+E ela não depende de nada da CNN: pode começar hoje, e é verificável contra o
+iClinic — tem de dar o mesmo resultado de hoje.
+
+### O que falta
+
+1. **A data da equipe.** É o prazo real de tudo.
+2. **A doc e as credenciais da CNN** (por OneCLI, não por chat) para a Fase 1.
+3. **O laudo de topografia**: API, Playwright de novo, ou manual?
+4. **Quem confere a tabela de status e de convênios.** Eu derivo a proposta da
    doc, mas quem sabe se "bloqueado" da CNN é o `bl` do iClinic é a clínica.
+
+### O que a sombra ainda consegue fazer
+
+A Fase 2 continua valendo, mas com o alvo ajustado: enquanto a equipe estiver no
+iClinic, a agenda da CNN está legitimamente vazia, então comparar ocupação não
+prova nada. O que a sombra valida nessa janela é a **mecânica** — autenticação,
+paginação, parsing, tradução de status — contra as consultas que a própria
+equipe for lançando na CNN durante o treinamento. Concordância de ocupação só é
+mensurável depois que a equipe virar, e aí já é tarde para ser portão.
+
+⚠️ Isto é uma perda real de garantia, e vale dizer em voz alta: **a virada da
+agenda não vai ter validação de concordância em produção antes de acontecer.** O
+que sobra como rede é o `--dry-run` do `iclinic_marcar.py`, a conferência de
+identidade que ele já faz, e um primeiro dia acompanhado à mão.
