@@ -205,3 +205,95 @@ rápido:
    oferece horário bloqueado).
 
 Ver `CLINICA-NAS-NUVENS-MIGRACAO.md` para o plano e a ordem.
+
+---
+
+# Descobertas de 24/10 (as três que estavam em aberto)
+
+## (3) O eixo que faltava é `idTipoConsulta` — e a clínica já criou
+
+Os cinco perfis não colapsam. A distinção não está no procedimento (só há
+`CONSULTA OFTALMOLÓGICA`), está em **`idTipoConsulta`**, que é um campo próprio
+do `POST /agenda/novo`:
+
+| id | tipo de consulta |
+|---|---|
+| 126577 | CONSULTA |
+| 126583 | RETORNO |
+| 126581 | EXAME |
+| 126591 | **AVALIAÇÃO CIRÚRGICA – CATARATA** |
+| 126592 | **AVALIAÇÃO CIRÚRGICA – REFRATIVA** |
+| 126593 | **AVALIAÇÃO CIRÚRGICA – PTERÍGIO** |
+| 126594 | RETORNO PÓS-OPERATÓRIO |
+| 126595 | EXAME EXTERNO |
+| 126596 | SOLICITAÇÃO |
+| 126579 | Encaixe |
+
+O perfil passa a ser **convênio × tipo de consulta**:
+
+| perfil nosso | idTipoConvenio | idTipoConsulta |
+|---|---|---|
+| `particular` | 74466 PARTICULAR | 126577 CONSULTA |
+| `particular-desconto` | 74543 PARTICULAR DESCONTO | 126577 CONSULTA |
+| `unimed` | 74544 UNIMED | 126577 CONSULTA |
+| `particular-cirurgia` | 74466 PARTICULAR | **126591/2/3 — qual?** |
+| `unimed-cirurgia` | 74544 UNIMED | **126591/2/3 — qual?** |
+
+⛔ **Pergunta nova, criada pela solução.** A CNN é mais específica que nós: ela
+quer saber *qual* cirurgia. Nosso perfil `*-cirurgia` é genérico. Ou a triagem
+da Lara passa a distinguir catarata / refrativa / pterígio antes de marcar, ou
+`*-cirurgia` escala para a secretária escolher. Marcar com o tipo errado é
+registrar a avaliação errada na agenda da médica.
+
+Os rótulos (`/agenda-rotulo/lista`) são um terceiro eixo, já usado pela clínica:
+`INDICAÇÃO – CATARATA`, `INDICAÇÃO – REFRATIVA`, `INDICAÇÃO – PTERÍGIO`,
+`SEM INDICAÇÃO`, mais 16 cores. Não é obrigatório para marcar.
+
+## (4) O bloqueio é `/executor-agenda/disponibilidade`
+
+Não é um status: é um endpoint. Ele devolve a grade de horários **livres**, de
+20 em 20 minutos, já respeitando a configuração da agenda da clínica.
+
+Medido em 21/10/2026 para o executor 163882:
+
+```
+08:00 08:20 08:40 09:00 09:20 09:40 10:00 10:20 10:40 11:00 11:20 11:40
+14:00 14:20 14:40 15:00 15:20 15:40 16:00 16:20 16:40 17:00 17:20 17:40
+```
+
+→ **12:00–14:00 não aparece.** O almoço já vem subtraído. Ou seja, a grade
+carrega a configuração de bloqueio da clínica, e isso substitui o `bl`/`hd` do
+iClinic com vantagem: em vez de inferirmos ocupação a partir de status, a
+própria CNN diz o que pode ser oferecido.
+
+⚠️ **O que este teste NÃO provou**: se a grade também subtrai consulta já
+marcada. O único evento existente no período (21/10, 13:32–13:52) cai dentro do
+intervalo de almoço, que já estava fora da grade — então o teste foi
+inconclusivo. **Precisa de uma marcação de teste em horário da grade**, criada e
+cancelada, para responder. É a pergunta mais importante que resta: se a
+disponibilidade não subtrair o marcado, usá-la sozinha oferece horário ocupado.
+
+## (1) Telefone → paciente: a base ainda não foi importada
+
+`GET /paciente/lista?registrosPorPagina=1` devolve `totalPaginas = 5` (4
+ativos). **A base de pacientes da clínica não está na CNN.**
+
+Isso muda a natureza do problema. O índice local de telefone é trivial hoje —
+são 5 registros —, mas:
+
+⛔ **Se a base não for importada antes de segunda, a Lara não reconhece ninguém.**
+Todo paciente que escrever será novo para a CNN, a conferência de identidade
+(nome + nascimento) não vai achar cadastro, e o fluxo que hoje reaproveita o
+paciente existente vai criar cadastro novo para quem já é da casa — ou escalar
+tudo.
+
+A importação da base é **pré-requisito da virada**, e não é trabalho nosso.
+
+## Confirmado em 24/10
+
+- **NF-e**: a cobrança passa a ser lançada como **orçamento aprovado**, então
+  `GET /orcamento/lista?status=APROVADO&tipoData=…` é a fonte do `nfse_coletar`.
+- **`notificarWhatsappPaciente` fica DESLIGADO.** Quem lembra o paciente
+  continua sendo o nosso `send_reminder`.
+- O expediente da Lara (07:30–18:30) é diferente do horário da clínica
+  (08:00–18:00) **de propósito**. Não é divergência.
