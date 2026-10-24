@@ -3391,7 +3391,15 @@ describe('dia pedido que não serve oferece o próximo (passada 16)', () => {
     // primeira já sai só com o dia e são duas, não três.
     expect(buscou.length).toBeGreaterThan(1);
     expect(buscou[buscou.length - 1].dia).toBeFalsy();
-    expect(buscou[0].dia).toBe('2026-10-23');
+    // ⚠️ A PRÓXIMA sexta, não uma data fixa. Com `'2026-10-23'` cravado, este
+    // teste passou a falhar sozinho no sábado 24/10/2026 — "sexta" virou 30/10
+    // — sem que nada do produto tivesse mudado. Teste que depende do calendário
+    // reprova por data e não por defeito, e numa manhã de migração isso custa
+    // caro: eu perdi tempo conferindo se tinha sido uma mudança minha.
+    const sexta = new Date(`${buscou[0].dia}T12:00:00-03:00`);
+    expect(buscou[0].dia).toBeTruthy();
+    expect(sexta.getDay()).toBe(5);
+    expect(sexta.getTime()).toBeGreaterThan(Date.now() - 7 * 24 * 3600_000);
   });
 
   // ⚠️ Com o dia disponível, a terceira busca NÃO roda: soltar o dia quando o

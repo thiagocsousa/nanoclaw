@@ -128,6 +128,11 @@ function ehCirurgico(n: string): boolean {
   return (
     n.includes('cirurgia') ||
     n.includes('catarata') ||
+    // ⛔ Pterígio é cirúrgico e não estava aqui (24/10/2026). Sem isto, quem
+    // escreve "tenho uma carnosidade no olho" não recebe o desconto de plano
+    // não atendido nem a pergunta da cidade — as duas pendem de `ehCirurgico`.
+    n.includes('pterígio') ||
+    n.includes('pterigio') ||
     VOCABULARIO_REFRATIVO.test(n)
   );
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { respostaDoMenu, necessidadeMencionada, temPlano } from './convenio.js';
+import { necessidadeCirurgica } from './vagas.js';
 
 /**
  * A regra de ORDEM, nos dois sentidos.
@@ -212,5 +213,71 @@ describe('necessidadeDoMenu', () => {
     '   ',
   ])('NÃO é menu: %s', (msg) => {
     expect(respostaDoMenu(msg)?.necessidade, msg).toBeUndefined();
+  });
+});
+
+/**
+ * ⛔ Pterígio entrou em 24/10/2026, com a migração para a Clínica nas Nuvens.
+ *
+ * Lá o `POST /agenda/novo` exige `idTipoConsulta`, e a clínica cadastrou TRÊS
+ * avaliações cirúrgicas: catarata (126591), refrativa (126592) e pterígio
+ * (126593). O vocabulário conhecia as duas primeiras e mandava pterígio para o
+ * genérico `cirurgia`, que não traduz em tipo nenhum — e marcar com o tipo
+ * errado registra a avaliação errada na agenda da médica, erro que só aparece
+ * no dia da consulta.
+ */
+describe('pterígio', () => {
+  it.each([
+    'tenho um pterígio no olho',
+    'tenho pterigio',
+    'quero operar a carnosidade no olho',
+    'apareceu uma carne no olho, dá pra tirar?',
+    'é pterígeo mesmo, o médico falou',
+  ])('"%s" → pterígio', (msg) => {
+    expect(necessidadeMencionada(undefined, msg)).toBe('pterígio');
+  });
+
+  // ⚠️ `ehCirurgico` decide o desconto de plano não atendido E a pergunta da
+  // cidade. Sem pterígio ali, quem tem carnosidade não recebia nenhum dos dois.
+  it('conta como cirúrgico', () => {
+    expect(necessidadeCirurgica('pterígio')).toBe(true);
+    expect(necessidadeCirurgica('pterigio')).toBe(true);
+  });
+
+  /**
+   * ⚠️ A ordem em MENCOES é load-bearing: `retorno` vem antes de tudo, e o
+   * genérico `cirurgia` vem por último. Pterígio tem de ficar no meio — se
+   * casasse antes do retorno, "retorno da cirurgia de pterígio" deixaria de
+   * escalar; se ficasse depois do genérico, nunca casaria.
+   */
+  it('retorno de cirurgia de pterígio continua sendo RETORNO', () => {
+    expect(
+      necessidadeMencionada(undefined, 'é o retorno da cirurgia de pterígio'),
+    ).toBe('retorno de cirurgia');
+  });
+
+  it('não rouba catarata nem refrativa', () => {
+    expect(necessidadeMencionada(undefined, 'cirurgia de catarata')).toBe(
+      'catarata',
+    );
+    expect(necessidadeMencionada(undefined, 'quero fazer a refrativa')).toBe(
+      'cirurgia refrativa',
+    );
+  });
+
+  // Controle negativo: a regra não pode casar palavra que só PARECE.
+  it.each([
+    'quero trocar o grau do óculos',
+    'dor de cabeça forte',
+    'preciso de receita',
+  ])('NÃO vira pterígio: "%s"', (msg) => {
+    expect(necessidadeMencionada(undefined, msg)).not.toBe('pterígio');
+  });
+
+  // ⚠️ Nunca sobrescreve o que o modelo rotulou.
+  it('slot preenchido pelo modelo vence', () => {
+    expect(necessidadeMencionada('catarata', 'tenho pterígio também')).toBe(
+      'catarata',
+    );
   });
 });

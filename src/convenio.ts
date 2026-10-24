@@ -144,6 +144,24 @@ const MENCOES: Array<[RegExp, string]> = [
   ],
   [/\bretorno\b|\bvolta\w*\s+da\s+consulta\b/i, 'retorno'],
   [/\bcatarata\b/i, 'catarata'],
+  /**
+   * ⛔ Pterígio entrou em 24/10/2026, com a migração para a Clínica nas Nuvens.
+   *
+   * Lá o agendamento exige `idTipoConsulta`, e a clínica cadastrou TRÊS
+   * avaliações cirúrgicas — catarata, refrativa e pterígio. Até aqui o nosso
+   * vocabulário conhecia as duas primeiras e mandava pterígio para o genérico
+   * `cirurgia`, que não dá para traduzir em tipo nenhum: marcar com o tipo
+   * errado registra a avaliação errada na agenda da médica, e isso só aparece
+   * no dia da consulta.
+   *
+   * Grafias: a palavra é escrita de todo jeito no WhatsApp. `pteri` cobre
+   * pterígio/pterigio/pterígeo/pterigeo/ptérigio; `carnosidade` é como o
+   * paciente costuma chamar.
+   */
+  [
+    /\bpter[íi]?g?\w*|\bcarnosidade\b|\bcarne\s+(?:no|do)s?\s+olhos?\b/i,
+    'pterígio',
+  ],
   // ⚠️ "óculos" exige verbo de livrar-se deles, igual ao `VOCABULARIO_REFRATIVO`
   // de `vagas.ts` — a razão está lá: "trocar o grau do óculos" é ROTINA, quer
   // receita nova, não operar. Com `óculos` solto, meu primeiro regex mandava
