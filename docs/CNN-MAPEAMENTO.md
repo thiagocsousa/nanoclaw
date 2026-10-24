@@ -297,3 +297,74 @@ A importação da base é **pré-requisito da virada**, e não é trabalho nosso
   continua sendo o nosso `send_reminder`.
 - O expediente da Lara (07:30–18:30) é diferente do horário da clínica
   (08:00–18:00) **de propósito**. Não é divergência.
+
+---
+
+# Marcação de teste — ida e volta completa (24/10, autorizada)
+
+Agendamento `139478078`, 15/12/2026 10:20–10:40, criado e **cancelado**.
+⚠️ Ficou na agenda como `CANCELADO` com a observação
+`TESTE DE INTEGRACAO NANOCLAW - CANCELAR` — cancelar não apaga, e isso é o
+comportamento certo (deixa rastro).
+
+| passo | slots livres em 15/12 | 10:20 |
+|---|---|---|
+| antes | 24 | livre |
+| depois de `POST /agenda/novo` | **23** | **ocupado** |
+| depois de `PUT /agenda/alteracao-status → CANCELADO` | **24** | livre |
+
+## ✅ `/executor-agenda/disponibilidade` SUBTRAI o que está marcado
+
+Era a pergunta mais importante que restava, e a resposta é a melhor possível: a
+grade devolve **configuração da agenda E ocupação real**, numa chamada só.
+
+> Isso aposenta boa parte do `iclinic_vagas.py`. Hoje nós inferimos ocupação a
+> partir de status (`STATUS_LIVRE`, contagem de Unimed, dia travado); na CNN a
+> própria API responde "o que pode ser oferecido". O mapeamento de status deixa
+> de decidir oferta — só continua valendo para `FINALIZADO` (compareceu), que é
+> o que alimenta o retorno anual e a avaliação.
+
+## Dois ids que não são o que parecem
+
+- `idExecutorAgenda` = **163882** (usado em `/executor-agenda/*`)
+- `idPessoaExecutor` = **29728769** (usado em `/agenda/novo`)
+
+São da mesma pessoa e **não são intercambiáveis**: mandar o primeiro no
+`/agenda/novo` devolve `{"mensagem":"Executor não encontrado."}`. Custou uma
+tentativa; está aqui para não custar outra.
+
+`idLocalAgenda` = **49571** ("Agenda padrão", único).
+
+## Marcar paciente novo é fluxo de TRÊS passos
+
+`idPaciente` e `idPacienteConvenio` são **obrigatórios** no `/agenda/novo`. No
+iClinic, `patient: null` significava "cria junto" — uma chamada só. Na CNN:
+
+1. `POST /paciente/novo` → `idPaciente`
+2. `POST /convenio-paciente/associar` → `idPacienteConvenio`
+3. `POST /agenda/novo`
+
+⚠️ Três escritas sem transação. Falhar no 2 ou no 3 deixa paciente criado e
+consulta não marcada — e o passo 1 repetido cria **duplicata de cadastro**. O
+`iclinic_marcar.py` precisa de reentrância: antes de criar, procurar.
+
+# A triagem e os três tipos de cirurgia
+
+O `idTipoConsulta` exige saber QUAL cirurgia. Conferido o que a triagem já
+distingue hoje (`MENCOES`, em `src/convenio.ts:139`):
+
+| necessidade que a Lara já extrai | idTipoConsulta | estado |
+|---|---|---|
+| `catarata` | 126591 AVALIAÇÃO CIRÚRGICA – CATARATA | ✅ já distingue |
+| `cirurgia refrativa` (refrativa, lasik, prk, miopia, astigmatismo, hipermetropia, "largar os óculos") | 126592 AVALIAÇÃO CIRÚRGICA – REFRATIVA | ✅ já distingue |
+| **pterígio** | 126593 AVALIAÇÃO CIRÚRGICA – PTERÍGIO | ❌ **não existe no vocabulário** |
+| `cirurgia` (genérico) | — | ⚠️ **ambíguo: não dá para escolher o tipo** |
+
+Então o trabalho é menor do que parecia — duas coisas:
+
+1. **Acrescentar `pterígio`** a `MENCOES` e a `ehCirurgico` (`src/vagas.ts`).
+   Hoje quem escreve "tenho um pterígio" cai no genérico `cirurgia`.
+2. **Decidir o genérico.** "Quero operar o olho" não diz qual. Ou a Lara
+   pergunta qual antes de marcar, ou `cirurgia` sem tipo **escala**. Marcar com
+   o tipo errado registra a avaliação errada na agenda da médica — e é erro que
+   só aparece no dia da consulta.
