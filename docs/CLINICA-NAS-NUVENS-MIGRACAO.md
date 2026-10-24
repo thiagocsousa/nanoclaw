@@ -2,6 +2,8 @@
 
 Análise e plano escritos em 24/10/2026. **Não implementado.**
 
+⏳ **Prazo: o iClinic fica de pé até 20/11/2026.**
+
 O plano existe porque a decisão de ordem é mais importante que o código: a
 leitura da agenda é o que decide se um horário é oferecido ao paciente, e errar
 essa leitura não dá erro — dá horário oferecido em cima de consulta marcada.
@@ -205,15 +207,61 @@ Chromium no container. **Decidir depois, sem bloquear o resto.**
    regra de credenciais do projeto sendo quebrada num lugar que nenhum PR
    revisou, porque foram criadas em runtime.
 
-## 6. Decisões que são do Thiago
+## 6. Decidido em 24/10/2026
 
-1. **Data de corte.** Rodar os dois sistemas em paralelo por um período, ou
-   virar de uma vez? A Fase 2 (sombra) assume paralelo para leitura — mas a
-   **escrita** não pode ser dupla: consulta marcada nos dois é consulta marcada
-   duas vezes.
-2. **O histórico.** A agenda passada fica no iClinic ou é migrada? O
-   `retorno_anual` lê **1 ano atrás** — se o histórico não vier, esse pipeline
-   fica cego por 12 meses.
-3. **O laudo de topografia** (Fase 4): API, Playwright de novo, ou manual?
-4. **Quem confere a tabela de status e de convênios.** Eu derivo a proposta da
+**O histórico NÃO vem.** O `retorno_anual` fica cego por 12 meses, e o Thiago
+aceitou o custo.
+
+⚠️ Mas a cegueira tem de ser **audível**. Hoje o script imprime
+`"Nenhuma consulta atendida em {data}"` tanto quando ninguém foi atendido quanto
+quando o sistema não tem dado algum para aquela data
+(`iclinic_retorno_anual.py:138`). Durante 12 meses esses dois fatos ficam
+indistinguíveis, e o segundo lê como um dia tranquilo. O script precisa dizer
+`"data anterior ao início deste sistema"` — senão, quando a cegueira acabar e
+ele voltar a não achar ninguém, ninguém vai saber se é verdade.
+
+**O iClinic fica de pé até 20/11/2026**, e a marcação continua nele por
+enquanto.
+
+### ⛔ A consequência que isso tem, e que não é escolha nossa
+
+Leitura e escrita da AGENDA são **inseparáveis**. Ler da CNN e escrever no
+iClinic produz exatamente o erro que este plano existe para evitar:
+
+```
+Lara lê a agenda da CNN      → horário parece livre
+Lara marca no iClinic        → a consulta não existe na CNN
+Lara lê a CNN de novo        → horário AINDA parece livre
+                             → oferece de novo → consulta dobrada
+```
+
+E vale também pelo outro lado: se a secretária marca na CNN enquanto a Lara lê
+do iClinic, a Lara não vê o que ela marcou. Mesmo erro, direção oposta.
+
+> **A Lara tem de ler e escrever o MESMO sistema que a equipe da clínica está
+> usando.** O pivô não é nosso: ele segue a virada da clínica.
+
+Isso reordena o plano. A Fase 3 deixa de ser "leitura primeiro, escrita depois"
+para a agenda: as duas viram **juntas**, no dia em que a equipe virar. O que
+pode migrar antes, de forma independente, é só o que não alimenta decisão de
+horário:
+
+| capacidade | pode virar antes? |
+|---|---|
+| ler agenda + escrever consulta | **não** — viram juntas, com a equipe |
+| ler financeiro + ler cadastro (NF-e) | só quando a cobrança passar a ser lançada na CNN |
+| buscar paciente | sim, se a base de pacientes for migrada antes |
+| escrever prontuário (laudo) | sim, independente |
+
+### O que falta decidir
+
+1. **Quando a EQUIPE começa a marcar na CNN?** É a única data que importa, e
+   dela sai a forma da virada:
+   - se a equipe migra antes de 20/11, a Lara tem de migrar **no mesmo dia**;
+   - se a equipe usa o iClinic até 20/11, então 20/11 é uma virada de uma vez,
+     leitura e escrita juntas — e a Fase 2 (sombra) **não consegue validar
+     concordância**, porque até lá a agenda da CNN estará legitimamente vazia.
+     Ela valida só a mecânica do cliente, o que é bem menos.
+2. **O laudo de topografia**: API, Playwright de novo, ou manual?
+3. **Quem confere a tabela de status e de convênios.** Eu derivo a proposta da
    doc, mas quem sabe se "bloqueado" da CNN é o `bl` do iClinic é a clínica.
