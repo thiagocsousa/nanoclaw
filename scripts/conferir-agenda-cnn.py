@@ -40,7 +40,7 @@ EXECUTOR = int(os.environ.get("CNN_EXECUTOR_AGENDA", "163882"))
 # aqui — e é por isso que este script existe, para a divergência doer cedo.
 JANELAS = {
     0: [("08:00", "12:00")],   # segunda
-    2: [("14:30", "18:30")],   # quarta
+    2: [("14:00", "18:00")],   # quarta (mudou em 24/10/2026)
     4: [("08:00", "12:00")],   # sexta
 }
 DIAS = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo"]

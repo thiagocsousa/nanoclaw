@@ -37,7 +37,8 @@ DIAS_PT = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo
 
 # ---------------------------------------------------------------- regras fixas
 # 0=segunda ... 6=domingo. Dia ausente = não há consultório.
-JANELAS = {0: ("08:00", "12:00"), 2: ("14:30", "18:30"), 4: ("08:00", "12:00")}
+# Quarta passou de 14:30–18:30 para 14:00–18:00 em 24/10/2026 (Thiago).
+JANELAS = {0: ("08:00", "12:00"), 2: ("14:00", "18:00"), 4: ("08:00", "12:00")}
 
 # Duração por TIPO. Fonte única: usada tanto para o que se quer marcar (PERFIS)
 # quanto para medir o que já está marcado (dur_de). Mexeu aqui, mexeu nos dois.

@@ -1480,7 +1480,7 @@ segundo dia é alternativa, nunca preferência.
 
 ### Grade de atendimento
 
-Segunda 08:00 às 12:00 · quarta 14:30 às 18:30 · sexta 08:00 às 12:00. Terça e quinta não têm
+Segunda 08:00 às 12:00 · quarta 14:00 às 18:00 · sexta 08:00 às 12:00. Terça e quinta não têm
 consulta.
 
 ⛔ **Isto é referência INTERNA.** Desde 19/10/2026 a Lara não informa dia, turno nem faixa
