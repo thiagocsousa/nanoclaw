@@ -62,14 +62,15 @@ const TIMEOUT_MS = Number(process.env.VAGAS_TIMEOUT_MS) || 180_000;
  * não a usa é só aumentar a superfície de uma credencial que, por estar no
  * histórico do git, ainda tem de ser rotacionada.
  *
- * Quem ainda fala com o iClinic (laudo de topografia, portal da NFS-e) roda
- * DENTRO do container do agente e pega as chaves de `FORWARDED_ENV_VARS`, que
- * continua com `ICLINIC_EMAIL`, `ICLINIC_PASSWORD` e o par
- * `ICLINIC_CONSULTORIO_*`. Nada quebra até 20/11 — e isso foi VERIFICADO, não
- * deduzido: um `grep -rn 'ICLINIC_' groups/ scripts/ container/` em 25/10/2026
- * mostra que só o laudo e o `nfse_coletar_pipeline` citam variável do iClinic,
- * e que `ICLINIC_CLINIC_ID` e `ICLINIC_PHYSICIAN_ID` não têm UM leitor no
- * projeto — estavam mortas aqui mesmo antes da migração.
+ * ⚠️ E horas depois, no mesmo dia, as `ICLINIC_*` saíram TAMBÉM de
+ * `FORWARDED_ENV_VARS`: o laudo de topografia deixou de falar com o iClinic e
+ * era o último leitor. Hoje `grep -rn 'ICLINIC_' groups/ scripts/ container/`
+ * não devolve nada e nenhum script abre `iclinic.com.br`.
+ *
+ * Este parágrafo já esteve errado uma vez — dizia que o laudo e o
+ * `nfse_coletar_pipeline` ainda falavam com o iClinic, e as duas metades
+ * caducaram no mesmo dia (o segundo só tinha o docstring velho; ele lê a CNN).
+ * Se for mexer nisto, rode o grep antes de acreditar na frase.
  */
 export const CREDENCIAIS = ['CNN_CLIENT_ID', 'CNN_CLIENT_SECRET', 'CNN_CID'];
 

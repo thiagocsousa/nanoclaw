@@ -739,7 +739,7 @@ export function inspecionaSaida(
       regra: 'caixa_alta',
       nivel: 'sanitize',
       motivo:
-        'palavra em caixa alta que não é sigla; normalmente é nome vindo do cadastro do iClinic, que guarda assim',
+        'palavra em caixa alta que não é sigla; normalmente é nome vindo do cadastro da clínica, que guarda assim',
       trecho: capsIndevidas.join(', ').slice(0, 60),
     });
   }

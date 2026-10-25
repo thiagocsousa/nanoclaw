@@ -526,7 +526,7 @@ export async function marca(
     // aqui faria a vaga ser achada com uma largura e escrita com outra.
     ({ eventoId } = await escreve(folder, d, vagas[0].fim));
   } catch (err) {
-    logger.error({ err, folder }, 'marca: escrita no iClinic falhou');
+    logger.error({ err, folder }, 'marca: escrita na agenda falhou');
     return {
       ok: false,
       motivo: 'escrita_indisponivel',
@@ -538,7 +538,7 @@ export async function marca(
   registra(folder, m);
   logger.info(
     { folder, paciente: d.paciente, data: d.data, hora: d.hora, eventoId },
-    'marca: consulta marcada no iClinic',
+    'marca: consulta marcada na agenda',
   );
   return { ok: true, marcacao: m, jaExistia: false };
 }

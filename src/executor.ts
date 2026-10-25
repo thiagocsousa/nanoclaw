@@ -1900,7 +1900,7 @@ export async function executa(
       const v = escolhida ?? oferta.vaga;
       logger.warn(
         { groupFolder, chatJid, data: v.data, hora: v.inicio },
-        'observação: NÃO marquei no iClinic; a decisão foi para a revisão',
+        'observação: NÃO marquei na agenda; a decisão foi para a revisão',
       );
       esqueceOferta(groupFolder, chatJid);
       return await escalaComo(

@@ -13,7 +13,7 @@
  * perguntando, e por isso escala mesmo com volume.
  *
  * O que dá para fazer sem mexer nessa decisão é chegar com a resposta pronta:
- * hoje a recepção recebe "quer marcar retorno" e vai procurar no iClinic.
+ * hoje a recepção recebe "quer marcar retorno" e vai procurar no sistema.
  */
 
 import { dataLocal } from './expediente.js';
@@ -59,7 +59,7 @@ export function contextoDoRetorno(
   if (candidatos.length === 0) {
     // Telefone fora do cadastro raramente é retorno de verdade, e a recepção
     // já começa desconfiando.
-    return 'este telefone não tem cadastro no iClinic';
+    return 'este telefone não tem cadastro na Clínica nas Nuvens';
   }
   const linhas = candidatos
     .map((c) => {

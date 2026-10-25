@@ -32,7 +32,7 @@
  *
  * ## Marcação já aconteceu quando o texto chega aqui
  *
- * ⚠️ Em `aceita_horario`, o `marca()` escreve no iClinic ANTES de o texto ser
+ * ⚠️ Em `aceita_horario`, o `marca()` escreve na agenda ANTES de o texto ser
  * enviado, e a revisão não desfaz isso. Segurar a escrita seria pior: a vaga
  * pode ser tomada enquanto a confirmação espera aprovação, e aí o paciente
  * recebe um "está agendado" sobre um horário que outro levou.
@@ -247,7 +247,7 @@ export interface RespostaPendente {
   intencao: string;
   /** O que o paciente perguntou, para quem revisa julgar se a resposta cabe. */
   pergunta: string;
-  /** A marcação no iClinic já foi feita e só falta avisar. */
+  /** A marcação na agenda já foi feita e só falta avisar. */
   jaMarcou?: boolean;
   cobrado?: boolean;
   alarmado?: boolean;
@@ -321,7 +321,7 @@ export function textoDaRevisao(
 ): string {
   const corpo = p.partes.map((t, i) => `*${i + 1}.* ${t}`).join('\n\n');
   const aviso = p.jaMarcou
-    ? '\n\n⚠️ *O horário JÁ ESTÁ na agenda do iClinic.* Falta só avisar o paciente.'
+    ? '\n\n⚠️ *O horário JÁ ESTÁ na agenda da Clínica nas Nuvens.* Falta só avisar o paciente.'
     : '';
   // Em observação não promete envio: dizer "responda ok" seria convidar a
   // liberar mensagem para paciente real numa semana em que isso não é o acordo.
