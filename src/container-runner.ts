@@ -126,6 +126,11 @@ const FORWARDED_ENV_VARS = [
   'ESCALONAMENTO_FOLDER',
   'ICLINIC_EMAIL',
   'ICLINIC_PASSWORD',
+  // Clínica nas Nuvens — substitui o iClinic a partir de 26/10/2026. Ver
+  // `docs/CNN-MAPEAMENTO.md` e `groups/*/scripts/cnn.py`.
+  'CNN_CLIENT_ID',
+  'CNN_CLIENT_SECRET',
+  'CNN_CID',
   // iClinic consultório Dra. Marina (laudo de topografia)
   'ICLINIC_CONSULTORIO_EMAIL',
   'ICLINIC_CONSULTORIO_PASSWORD',

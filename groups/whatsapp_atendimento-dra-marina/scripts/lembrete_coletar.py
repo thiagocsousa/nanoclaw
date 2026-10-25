@@ -5,10 +5,15 @@ Coletor de lembretes de consulta (véspera útil).
 
 Roda às 15h (seg-sex). Regra exactly-once: se HOJE não é dia útil, sai; senão
 ALVO = próximo dia útil (pula fim de semana + feriado). Busca a agenda do ALVO
-no iClinic (só CONSULTAS e RETORNOS — exclui solicitações, honorários, exames),
-puxa o telefone de cada paciente (SEM adivinhar o 9º dígito — o resolver de JID
-do core resolve), grava o manifesto e AGENDA os envios escalonados chamando
-send_reminder.py (uma task 'once' por paciente, com jitter entre elas).
+na **Clínica nas Nuvens** (só CONSULTAS e RETORNOS — exclui cirurgia, exame e
+solicitação), puxa o telefone de cada paciente (SEM adivinhar o 9º dígito — o
+resolver de JID do core resolve), grava o manifesto e AGENDA os envios
+escalonados chamando send_reminder.py (uma task 'once' por paciente, com jitter).
+
+⛔ Migrado do iClinic em 25/10/2026, véspera da virada. O iClinic continua de pé
+até 20/11, mas CONGELADO: a partir de segunda ninguém lança nada nele. Ler de lá
+passaria a devolver agenda VAZIA, e agenda vazia neste script não dá erro — dá
+silêncio. Ninguém seria lembrado e só o paciente faltando revelaria.
 
 Imprime {"wakeAgent": false} — o agente NÃO deve ser acordado (envio mecânico).
 Flag --dry-run: imprime o alvo + lista + telefones, sem manifesto e sem agendar.
@@ -23,13 +28,9 @@ import time
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
-from playwright.sync_api import sync_playwright
+import cnn
 
 TZ = timezone(timedelta(hours=-3))  # America/Fortaleza
-EMAIL = os.environ.get("ICLINIC_EMAIL")       # forwarded — nunca hardcodar
-SENHA = os.environ.get("ICLINIC_PASSWORD")    # forwarded — nunca hardcodar
-CLINIC_ID = "263255"
-PHYSICIAN_ID = "284806"
 
 GROUP = os.environ.get("NANOCLAW_GROUP_DIR", "/workspace/group")
 IPC_TASKS_DIR = Path("/workspace/ipc/tasks")
@@ -38,13 +39,14 @@ MANIFEST_ULTIMO = Path(GROUP) / "lembrete_manifest_ultimo.json"
 DIAS = ["segunda-feira", "terça-feira", "quarta-feira", "quinta-feira",
         "sexta-feira", "sábado", "domingo"]
 
-# status a excluir (cancelado/faltou/bloqueio/feriado). Ver iclinic_agenda_amanha.py
-STATUS_EXCLUIR = {"ca", "fl", "na", "bl", "hd"}
-
-# Só CONSULTA e RETORNO (whitelist). "RETORNO CIRURGIA REFRATIVA" entra (é
-# retorno); "CIRURGIA REFRATIVA" sozinha, solicitação, honorário, exame etc.
-# NÃO entram. Na dúvida (nome fora da whitelist), não manda.
-PROC_INCLUIR = ("consulta", "retorno")
+# ⚠️ A whitelist de "o que merece lembrete" mudou de EIXO na migração. No
+# iClinic era o NOME do procedimento ("consulta", "retorno"); na CNN é o
+# `idTipoConsulta`, que é campo próprio e enumerável. A regra conservadora
+# continua: fora da lista, não manda. Ver TIPOS_DE_CONSULTA em cnn.py.
+#
+# Conferido contra a agenda real de 26 e 27/10/2026: a terça (só CIRURGIA) não
+# gera lembrete nenhum, e na segunda os dois EXAMES ficaram de fora — igual ao
+# que a regra antiga fazia.
 
 # Feriados nacionais — fixos + móveis (2026–2027). NÃO cobre feriado municipal
 # de Teresina (tratado como dia útil; agenda provavelmente vazia → no-op).
@@ -98,22 +100,6 @@ def rand_id(n=6):
     return "".join(random.choices(string.ascii_lowercase + string.digits, k=n))
 
 
-def fetch_patient_phone(page, pid, headers):
-    r = page.request.get(
-        f"https://app.iclinic.com.br/pacientes/{pid}/", headers=headers
-    )
-    if r.status != 200:
-        return None
-    html = r.text()
-    for field in ["mobile_phone", "home_phone"]:
-        m = re.search(rf'name="{field}"[^>]+value="([^"]*)"', html)
-        if m and m.group(1).strip():
-            cleaned = normalize_phone(m.group(1))
-            if cleaned:
-                return cleaned
-    return None
-
-
 def write_ipc_task(data):
     IPC_TASKS_DIR.mkdir(parents=True, exist_ok=True)
     fp = IPC_TASKS_DIR / f"{int(time.time() * 1000)}-{rand_id()}.json"
@@ -124,70 +110,42 @@ def write_ipc_task(data):
 
 
 def coletar_agenda(alvo_str):
-    if not EMAIL or not SENHA:
-        raise RuntimeError("ICLINIC_EMAIL/ICLINIC_PASSWORD não definidos no ambiente.")
-    with sync_playwright() as p:
-        browser = p.chromium.launch(
-            headless=True,
-            executable_path=os.environ.get("PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH"),
-            # ⚠️ Sem isto o chromium usa /dev/shm para a memória compartilhada
-            # entre seus processos, e o Docker dá 64 MB por padrão — com 64 MB
-            # ele não falha com erro, PENDURA. E este script NÃO passa pelos
-            # spawns do host que levam `--shm-size`, então aqui o conserto tem
-            # de viajar com o script. Medido: com 64 MB e só este arg, o login
-            # completa (19/10/2026).
-            args=["--disable-dev-shm-usage"],
-        )
-        context = browser.new_context()
-        page = context.new_page()
-        page.goto("https://app.iclinic.com.br/", wait_until="domcontentloaded")
-        # Espera o campo de e-mail HABILITAR antes de digitar. O porquê, a
-        # medição e o histórico estão em
-        # groups/whatsapp_atendimento-teste/scripts/iclinic_vagas.py.
-        # ⚠️ Pipeline silencioso: ninguém olha o log na hora.
-        page.wait_for_selector(
-            'input[name="email"]:not([disabled])', timeout=45000)
-        page.fill('input[name="email"]', EMAIL)
-        page.fill('input[name="password"]', SENHA)
-        with page.expect_navigation(wait_until="domcontentloaded", timeout=20000):
-            page.click('button[type="submit"]')
-        page.wait_for_timeout(3000)
-        csrf = next((c["value"] for c in context.cookies()
-                     if c["name"] == "csrftoken"), "")
-        headers = {"X-Requested-With": "XMLHttpRequest", "X-CSRFToken": csrf}
-        r = page.request.get(
-            f"https://app.iclinic.com.br/agenda/{PHYSICIAN_ID}/{alvo_str}/"
-            f"?clinic={CLINIC_ID}&slide=1",
-            headers=headers,
-        )
-        events = r.json().get("events", []) if r.status == 200 else []
+    """As consultas do dia ALVO, com nome e telefone, prontas para o lembrete.
 
-        pacientes = []
-        for ev in events:
-            pac = ev.get("patient") or {}
-            if ev.get("date") != alvo_str or not pac.get("name"):
-                continue
-            if ev.get("status") in STATUS_EXCLUIR:
-                continue
-            procs = ev.get("procedures") or []
-            proc = (procs[0].get("procedure") or {}).get("name") if procs else "Consulta"
-            if not any(t in (proc or "").lower() for t in PROC_INCLUIR):
-                continue  # não é consulta nem retorno (cirurgia/solicitação/exame…)
-            pid = pac.get("id")
-            phone = fetch_patient_phone(page, pid, headers) if pid else None
-            nome = pac.get("name")
-            pacientes.append({
-                "nome": nome,
-                "primeiro_nome": (nome.strip().split() or ["paciente"])[0].capitalize(),
-                "telefone": phone,
-                "hora": (ev.get("start_time") or "")[:5],
-                "procedimento": proc,
-                "patient_id": pid,
-                "match_key": match_key(phone) if phone else None,
-            })
-            time.sleep(0.3)
+    ⚠️ Levanta `CnnIndisponivel` em vez de devolver lista vazia. Este pipeline é
+    SILENCIOSO — ninguém olha o log às 15h — e "não consegui ler a agenda" é
+    indistinguível de "não há consulta amanhã" se as duas devolverem vazio. A
+    primeira tem de explodir para alguém ver.
+    """
+    eventos = [e for e in cnn.agenda(alvo_str, alvo_str) if cnn.eh_consulta(e)]
 
-        browser.close()
+    pacientes = []
+    for ev in eventos:
+        pid = ev.get("idPaciente")
+        # O nome NÃO vem no evento da agenda da CNN (vem no cadastro), e o
+        # lembrete usa o primeiro nome. É a única razão desta segunda chamada —
+        # o telefone já viaja no evento.
+        cadastro = cnn.paciente(pid)
+        nome = (cadastro.get("nome") or "").strip()
+        if not nome:
+            continue
+        contato = cadastro.get("contato") or {}
+        phone = normalize_phone(
+            ev.get("telefoneCelularPaciente")
+            or contato.get("telefoneCelular")
+            or contato.get("telefoneResidencial")
+            or ""
+        )
+        pacientes.append({
+            "nome": nome,
+            "primeiro_nome": (nome.split() or ["paciente"])[0].capitalize(),
+            "telefone": phone,
+            "hora": (ev.get("horaInicio") or "")[:5],
+            "procedimento": cnn.NOME_DO_TIPO.get(
+                ev.get("idTipoConsulta"), "Consulta"),
+            "patient_id": pid,
+            "match_key": match_key(phone) if phone else None,
+        })
 
     pacientes.sort(key=lambda x: x["hora"])
     # dedup por patient_id (mesmo paciente com mais de um agendamento no dia)
