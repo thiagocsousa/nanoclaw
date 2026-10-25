@@ -146,10 +146,49 @@ def _paginado(caminho, **params):
             return tudo
 
 
-def agenda(data_inicial, data_final, **extra):
-    """Agendamentos do período, em ISO (yyyy-MM-dd)."""
+# `dataPor` do /agenda/lista. Lido do Swagger em 25/10/2026.
+TIPOS_DE_DATA_DA_AGENDA = ("AGENDAMENTO", "CRIACAO")
+
+
+def agenda(data_inicial, data_final, data_por="AGENDAMENTO", **extra):
+    """Agendamentos do período, em ISO (yyyy-MM-dd).
+
+    ⛔ `dataPor` vai EXPLÍCITO, e não é zelo: o Swagger declara o enum
+    (`AGENDAMENTO`, `CRIACAO`) e **não declara o default**. Se o default fosse
+    `CRIACAO`, toda janela daqui passaria a significar "agendamentos CADASTRADOS
+    nestes dias" em vez de "consultas NESTES dias" — e cinco pipelines leriam
+    dado errado sem um erro: retorno anual, agenda de hoje, agenda de amanhã,
+    lembrete da véspera e a última consulta do paciente.
+
+    MEDIDO em 25/10/2026, contra a API de produção, numa janela FUTURA
+    (26/10 a 07/11 — nada pode ter sido *criado* no futuro):
+
+        dataPor=AGENDAMENTO    31 eventos
+        dataPor=CRIACAO         0 eventos
+        sem dataPor            31 eventos   <- o default É AGENDAMENTO
+
+    Então os pipelines liam certo, e cravar é blindagem, não conserto. O que a
+    medição mostrou é o TAMANHO do estrago que o default errado faria: na
+    janela de 24-25/10, que são os dias da importação da base, `CRIACAO`
+    devolve **1470 eventos com consultas de 2023-02-15 a 2027-03-03** — a base
+    inteira de uma vez. O lembrete da véspera mandaria mensagem para quatro
+    anos de pacientes.
+
+    Basta a CNN mudar o default para a leitura virar aquilo, calada.
+
+    `codigoPaciente` (integer) é o filtro por paciente — é assim que se acha a
+    última consulta, porque a API **não tem** endpoint de histórico.
+    """
+    if data_por not in TIPOS_DE_DATA_DA_AGENDA:
+        raise CnnIndisponivel(
+            f"dataPor {data_por!r} não existe; use um de {TIPOS_DE_DATA_DA_AGENDA}"
+        )
     return _paginado(
-        "/agenda/lista", dataInicial=data_inicial, dataFinal=data_final, **extra
+        "/agenda/lista",
+        dataInicial=data_inicial,
+        dataFinal=data_final,
+        dataPor=data_por,
+        **extra,
     )
 
 

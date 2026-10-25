@@ -55,6 +55,79 @@ Brindes que o iClinic não tinha:
   cancelar viram operações de primeira classe.
 - `POST /lista-espera/novo` — lista de espera.
 
+## ⚠️ `dataPor` do `/agenda/lista`: o default que a API não declara
+
+Lido do Swagger (`GET /v2/api-docs`, **público, sem credencial**) em 25/10/2026,
+ao responder "como descobrir a última consulta?".
+
+`GET /agenda/lista` aceita:
+
+| parâmetro | tipo | nota |
+|---|---|---|
+| `dataInicial`, `dataFinal` | string | **obrigatórios** |
+| `codigoPaciente` | integer | o filtro por paciente |
+| `codigoPessoaExecutor` | integer | |
+| `dataPor` | enum `AGENDAMENTO` \| `CRIACAO` | ⚠️ **default não documentado** |
+| `pagina`, `registrosPorPagina` | integer | |
+
+⛔ O `dataPor` é a pegadinha. Sem ele, "janela de datas" pode significar
+*agendamentos cadastrados nestes dias* em vez de *consultas nestes dias* — e
+isso mudaria calado a leitura de **cinco** pipelines: retorno anual, agenda de
+hoje, agenda de amanhã, lembrete da véspera e a última consulta do paciente.
+
+### Medido, não inferido (25/10/2026, API de produção)
+
+Janela **futura** (26/10 a 07/11), onde nada pode ter sido *criado*:
+
+| chamada | eventos | datas das consultas |
+|---|---|---|
+| `dataPor=AGENDAMENTO` | 31 | 2026-10-26 .. 2026-11-06 |
+| `dataPor=CRIACAO` | 0 | — |
+| **sem `dataPor`** | **31** | 2026-10-26 .. 2026-11-06 |
+
+→ **o default é `AGENDAMENTO`.** Os cinco pipelines liam certo; cravar o valor
+é blindagem, não conserto.
+
+Controle, para separar "CRIACAO filtra" de "CRIACAO devolve 0 sempre":
+
+| janela | `CRIACAO` | `AGENDAMENTO` |
+|---|---|---|
+| 24–25/10 (dias da importação) | **1470 eventos**, consultas de **2023-02-15 a 2027-03-03** | 0 |
+| 01–23/10 | 1 evento (um agendamento criado em 21/10) | 53, consultas de 02/10 a 23/10 |
+
+`CRIACAO` filtra de verdade, e é o oposto do que qualquer pipeline nosso quer.
+Na janela da importação ele devolve **a base inteira** — quatro anos de
+consultas de uma vez. Se o default virasse `CRIACAO`, o lembrete da véspera
+mandaria mensagem para todo mundo desde 2023.
+
+ℹ️ De passagem: o histórico migrado vai de **fev/2023 a mar/2027**, mais do que
+eu tinha registrado antes.
+
+`cnn.agenda()` passa `dataPor=AGENDAMENTO` explícito desde 25/10/2026.
+
+### Última consulta: não há endpoint de histórico
+
+A pergunta tem resposta, e é a que já estava implementada: `/agenda/lista` com
+`codigoPaciente` numa janela, filtrando `status == FINALIZADO`. Os 55 endpoints
+não têm `/paciente/{id}/historico` nem equivalente — só
+`/paciente/lista`, `/paciente/{id}`, `/paciente/novo` e `/paciente/{id}/status`.
+
+E `codigoPaciente` **é** o `id` do paciente: o `PacienteRetornoAPI` tem só `id`,
+sem campo de código separado. Era a dúvida que ficou aberta no simplify.
+
+### O resto dos parâmetros, conferidos no mesmo dia
+
+- `/orcamento/lista`: `tipoData` é **obrigatório** (enum `CRIACAO`, `APROVACAO`,
+  `PREVISAO_EXECUCAO`) e `status` é o enum de quatro — os dois batem exatos com
+  as constantes do `cnn.py`. Tem também `idPaciente`, que não usamos.
+- `/executor-agenda/disponibilidade`: `data` obrigatório, `dataFim` opcional
+  (é o que faz o período inteiro caber numa requisição). Tem
+  `codTipoAtendimento`, que não usamos — a grade é a mesma.
+- `/paciente/lista`: o `dataPor` dele só aceita `CRIACAO`, e como não mandamos
+  janela de data, não tem efeito.
+- `/convenio-paciente/lista`: `idPaciente` é **obrigatório**; o `somenteAtivos`
+  existe, mas filtramos `ativo` em Python — dá no mesmo.
+
 ## Os catálogos, lidos da API (substituem os ids cravados no código)
 
 **Convênios** (`GET /tipo-convenio/lista`):
