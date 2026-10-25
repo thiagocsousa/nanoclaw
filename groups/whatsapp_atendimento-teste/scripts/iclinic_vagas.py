@@ -25,25 +25,45 @@ import re
 import sys
 from datetime import date, datetime, timedelta, timezone
 
-from playwright.sync_api import sync_playwright
+import cnn
 
 TZ = timezone(timedelta(hours=-3))                 # America/Fortaleza
-EMAIL = os.environ.get("ICLINIC_EMAIL")            # forwarded — nunca hardcodar
-SENHA = os.environ.get("ICLINIC_PASSWORD")         # forwarded — nunca hardcodar
-CLINIC_ID = os.environ.get("ICLINIC_CLINIC_ID", "263255")
-PHYSICIAN_ID = os.environ.get("ICLINIC_PHYSICIAN_ID", "284806")
 
 DIAS_PT = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo"]
 
 # ---------------------------------------------------------------- regras fixas
 # 0=segunda ... 6=domingo. Dia ausente = não há consultório.
-# Quarta passou de 14:30–18:30 para 14:00–18:00 em 24/10/2026 (Thiago).
-JANELAS = {0: ("08:00", "12:00"), 2: ("14:00", "18:00"), 4: ("08:00", "12:00")}
+# ⛔ A JANELA DE ATENDIMENTO SAIU DAQUI (25/10/2026, migração para a CNN).
+#
+# Era `JANELAS = {0: ("08:00","12:00"), ...}` — a agenda da médica cravada em
+# Python. Agora vem de `/executor-agenda/disponibilidade`, que devolve a grade
+# livre JÁ com a configuração da agenda E as marcações subtraídas (conferido
+# com uma marcação de teste em 24/10: 24 slots → 23 ao marcar → 24 ao
+# cancelar).
+#
+# Não é só mover código: enquanto a janela morava aqui, mudar o horário de
+# atendimento exigia lembrar de editar este dict. Em 24/10 isso quase produziu
+# o pior caso — a CNN configurada num horário e a Lara oferecendo noutro.
+#
+# ⚠️ A dependência mudou de lugar, não sumiu: se a agenda da CNN estiver mal
+# configurada, a Lara oferece o que ela disser. Quem vigia é
+# `scripts/conferir-agenda-cnn.py`, e a regra esperada vive lá.
+EXECUTOR_AGENDA = int(os.environ.get("CNN_EXECUTOR_AGENDA", "163882"))
+CONVENIO_UNIMED = 74544
+# Não ocupam sala de consulta: solicitação é papel, cirurgia é no hospital.
+TIPOS_FORA_DA_SALA = {126596, 126578}
+TIPOS_DE_EXAME = {126581, 126595}
+DURACAO_DO_SLOT = 20
 
-# Duração por TIPO. Fonte única: usada tanto para o que se quer marcar (PERFIS)
-# quanto para medir o que já está marcado (dur_de). Mexeu aqui, mexeu nos dois.
-DURACOES = {"particular": 30, "unimed": 20, "retorno-cirurgia": 30,
-            "retorno": 20, "exame": 10}
+# ⛔ TUDO 20 MINUTOS (Thiago, 24/10/2026). Antes particular era 30 e convênio
+# 20; a grade da CNN é de 20 para todos, e manter 30 aqui faria a Lara reservar
+# um slot e meio — ofertas que não casam com a grade de quem marca na tela.
+#
+# A tabela continua existindo em vez de virar uma constante porque ela é lida
+# nos DOIS sentidos: o que se quer marcar (PERFIS) e o que já está marcado
+# (`dur_de`). Se um dia voltarem a divergir, é aqui.
+DURACOES = {"particular": 20, "unimed": 20, "retorno-cirurgia": 20,
+            "retorno": 20, "exame": 20}
 
 # perfil pedido -> (tipo, conta na cota Unimed). Pista e antecedência saem daqui.
 PERFIS = {
@@ -151,75 +171,113 @@ class AgendaIndisponivel(RuntimeError):
 
 
 class Agenda:
-    """Busca a agenda com cache. O endpoint devolve a SEMANA inteira, não o dia
-    (ver nfse_coletar.py, que pagina de 7 em 7). Sem cache, um horizonte de 2
-    semanas custaria ~13 requests sequenciais — com timeout de 25 s cada, isso
-    estoura o limite de 180 s do agent-runner e o paciente não recebe nada."""
+    """Agenda e disponibilidade do dia, com cache por data.
 
-    def __init__(self, page, headers):
-        self.page, self.headers = page, headers
-        self.por_data = {}          # 'YYYY-MM-DD' -> [eventos]
-        self.coberto = set()        # datas que já sabemos ter vindo numa resposta
+    São DUAS perguntas diferentes e a CNN responde cada uma num endpoint:
+      - `disponibilidade` diz o que PODE ser oferecido (grade + bloqueios +
+        marcações já subtraídas);
+      - `agenda` diz o que ESTÁ marcado, e é disso que saem a cota Unimed e a
+        separação consulta/exame, que são regras NOSSAS.
+    """
+
+    def __init__(self):
+        self.por_data = {}
+        self.grade = {}
 
     def eventos(self, d):
-        """Eventos do dia. Levanta AgendaIndisponivel se a agenda não pôde ser lida —
-        NUNCA devolve lista vazia por falha de rede: dia não lido ≠ dia livre."""
         ds = d.isoformat()
-        if ds not in self.coberto:
-            self._buscar(ds)
-        return self.por_data.get(ds, [])
+        if ds not in self.por_data:
+            try:
+                self.por_data[ds] = cnn.agenda(ds, ds)
+            except cnn.CnnIndisponivel as exc:
+                raise AgendaIndisponivel(str(exc)) from exc
+        return self.por_data[ds]
 
-    def _buscar(self, ds):
-        try:
-            r = self.page.request.get(
-                f"https://app.iclinic.com.br/agenda/{PHYSICIAN_ID}/{ds}/"
-                f"?clinic={CLINIC_ID}&slide=1", headers=self.headers, timeout=25000)
-        except Exception as exc:
-            raise AgendaIndisponivel(f"{ds}: falha na requisição ({exc})") from exc
-        if r.status != 200:
-            raise AgendaIndisponivel(f"{ds}: iClinic respondeu HTTP {r.status}")
-        self.coberto.add(ds)
-        datas = []
-        for e in r.json().get("events", []):
-            k = (e.get("date") or "")[:10]
-            if not k:
-                continue
-            self.por_data.setdefault(k, []).append(e)
-            datas.append(k)
-        # tudo entre a primeira e a última data da resposta veio junto: não repetir
-        if datas:
-            a, b = date.fromisoformat(min(datas)), date.fromisoformat(max(datas))
-            while a <= b:
-                self.coberto.add(a.isoformat())
-                a += timedelta(days=1)
+    def janela(self, d):
+        """(inicio, fim) em minutos, ou None quando não há consultório no dia.
+
+        ⛔ É a UNIÃO dos horários livres com os já marcados, e não só os
+        livres. Derivar a janela só da disponibilidade foi o meu primeiro
+        desenho e estava errado: num dia com a manhã toda ocupada, a janela
+        encolhia para a última folga, o `recortar` jogava fora toda a ocupação,
+        e o resultado saía com `agenda_vazia: true` num dia de nove consultas —
+        o que faz o host chamar o paciente de "âncora do dia" e muda o texto
+        que ele recebe. Peguei lendo a saída, não por teste.
+
+        A janela de atendimento é onde a médica atende; o que está marcado
+        dentro dela continua sendo atendimento.
+        """
+        ds = d.isoformat()
+        if ds not in self.grade:
+            try:
+                slots = cnn.pega(
+                    "/executor-agenda/disponibilidade",
+                    idExecutorAgenda=EXECUTOR_AGENDA,
+                    data=ds, dataFim=ds,
+                )
+            except cnn.CnnIndisponivel as exc:
+                raise AgendaIndisponivel(str(exc)) from exc
+            # ⛔ SEM disponibilidade, não há consultório — e o que está
+            # marcado no dia NÃO abre o dia.
+            #
+            # Segundo erro meu no mesmo método, também pego lendo a saída: ao
+            # unir livres com marcados eu fiz a TERÇA voltar a ser ofertável.
+            # Terça é dia de CIRURGIA, está bloqueada na agenda, e a
+            # disponibilidade devolve zero — mas as cirurgias marcadas nela
+            # viravam janela, e como cirurgia não ocupa sala de consulta
+            # (`TIPOS_FORA_DA_SALA`), o dia inteiro parecia livre. A Lara
+            # ofereceria 10:20 de terça, em cima do centro cirúrgico.
+            if not slots:
+                self.grade[ds] = None
+                return None
+            pares = [
+                (hm(s["horaInicio"][:5]), hm(s["horaFim"][:5])) for s in slots
+            ]
+            for e in self.eventos(d):
+                if e.get("status") in cnn.STATUS_SEM_VALOR:
+                    continue
+                ini, fim = (e.get("horaInicio") or "")[:5], (e.get("horaFim") or "")[:5]
+                if ini and fim:
+                    pares.append((hm(ini), hm(fim)))
+            self.grade[ds] = (
+                (min(a for a, _ in pares), max(b for _, b in pares))
+                if pares else None
+            )
+        return self.grade[ds]
 
 
 def ocupacao(eventos):
-    """(ocupados_consulta, ocupados_exame, n_unimed, dia_travado)."""
-    cons, exam, n_unimed, travado = [], [], 0, False
+    """(ocupados_consulta, ocupados_exame, n_unimed) a partir dos eventos da CNN.
+
+    ⚠️ `travado` saiu da tupla. No iClinic o bloqueio era um STATUS (`bl`/`hd`)
+    que vinha junto dos eventos; na CNN bloqueio é AUSÊNCIA de disponibilidade,
+    e quem responde isso é `Agenda.janela`. Deixar um `travado` aqui que nunca
+    fosse verdadeiro seria pior que não ter: daria a impressão de que o dia
+    bloqueado está sendo checado.
+    """
+    cons, exam, n_unimed = [], [], 0
     for e in eventos:
-        st = e.get("status") or ""
-        if st in STATUS_BLOQUEIO:
-            travado = True                # feriado/bloqueio: dia inteiro fora
-            continue
-        if st in STATUS_LIVRE:
-            continue                      # cancelado/faltou: horário está vago
-        hora = (e.get("start_time") or "")[:5]
+        if e.get("status") in cnn.STATUS_SEM_VALOR:
+            continue                      # cancelado/faltou: o horário está vago
+        hora = (e.get("horaInicio") or "")[:5]
         if not hora:
             continue
-        procs = e.get("procedures") or []
-        proc = norm((procs[0].get("procedure") or {}).get("name") if procs else "")
-        if RX_IGNORAR.search(proc):
-            continue                      # solicitação, honorário, cirurgia: não é sala
+        tipo = e.get("idTipoConsulta")
+        if tipo in TIPOS_FORA_DA_SALA:
+            continue                      # solicitação e cirurgia não ocupam sala
         ini = hm(hora)
-        par = (ini, ini + dur_de(proc))
-        if RX_EXAME.search(proc):
+        fim_ev = (e.get("horaFim") or "")[:5]
+        # A duração REAL do evento, quando a CNN a informa. O `dur_de` por nome
+        # era aproximação; aqui o dado existe e é melhor.
+        dur = (hm(fim_ev) - ini) if fim_ev and hm(fim_ev) > ini else DURACAO_DO_SLOT
+        par = (ini, ini + dur)
+        if tipo in TIPOS_DE_EXAME:
             exam.append(par)
         else:
             cons.append(par)
-            if RX_UNIMED_COTA.match(proc):
+            if e.get("idTipoConvenio") == CONVENIO_UNIMED:
                 n_unimed += 1
-    return sorted(cons), sorted(exam), n_unimed, travado
+    return sorted(cons), sorted(exam), n_unimed
 
 
 # ------------------------------------------------------------------ vagas
@@ -264,23 +322,22 @@ def vaga(d, inicio, dur, ocup, n_unimed, pedido=False):
             "pedido_pelo_paciente": pedido}
 
 
-def vagas_do_dia(eventos, d, pista, dur, hora, minimo_hm=None):
+def vagas_do_dia(eventos, d, pista, dur, hora, jan, minimo_hm=None):
     """(vagas, recusa) para um dia. Pura — não toca a rede, dá para testar sozinha.
 
     `minimo_hm` é o começo mais cedo aceitável, em minutos desde a meia-noite.
     Serve para HOJE: sem ele o script oferece horário que já passou, porque o
     filtro de dia (`d >= hoje`) não diz nada sobre a hora.
     """
-    jan = tuple(hm(x) for x in JANELAS[d.weekday()])
+    if jan is None:
+        return [], "não há consultório neste dia"
     if minimo_hm is not None:
         # Recortar a janela cobre os dois caminhos de uma vez: o pedido de hora
         # específica e a listagem de candidatos.
         jan = (max(jan[0], minimo_hm), jan[1])
         if jan[0] + dur > jan[1]:
             return [], "já passou da hora de encaixar hoje"
-    cons, exam, n_unimed, travado = ocupacao(eventos)
-    if travado:
-        return [], "dia bloqueado na agenda (feriado ou bloqueio)"
+    cons, exam, n_unimed = ocupacao(eventos)
     ocup = recortar(exam if pista == "exame" else cons, jan)
 
     if hora:
@@ -329,10 +386,6 @@ def main():
         responder([], recusas=[(a.dia or "-", f"entrada inválida: {exc}")])
         return 1
 
-    if not EMAIL or not SENHA:
-        print("ICLINIC_EMAIL/ICLINIC_PASSWORD não definidos no ambiente.", file=sys.stderr)
-        responder([]); return 1
-
     tipo, conta_cota = PERFIS[a.perfil]
     dur = DURACOES[tipo]
     pista = "exame" if tipo == "exame" else "consulta"
@@ -358,7 +411,10 @@ def main():
 
     alvos = ([dia_pedido] if dia_pedido
              else [hoje + timedelta(days=i) for i in range(a.dias + 1)])
-    alvos = [d for d in alvos if d.weekday() in JANELAS and d >= primeiro]
+    # ⚠️ O filtro por dia-da-semana saiu com o JANELAS. Quem diz se há
+    # consultório é a CNN, por dia — inclusive feriado e bloqueio pontual, que
+    # uma tabela de dias da semana nunca soube.
+    alvos = [d for d in alvos if d >= primeiro]
 
     if dia_pedido == hoje and tipo not in TIPOS_COM_ENCAIXE_HOJE:
         responder([f"{hoje.isoformat()}: encaixe no mesmo dia só para particular."],
@@ -369,125 +425,80 @@ def main():
     if conta_cota:
         cab.append(f"regra Unimed: mínimo {antec} dias de antecedência, teto {COTA_UNIMED_DIA}/dia")
 
-    # Checagens que não dependem da rede — respondidas antes de subir o Chromium
-    # (login custa ~6-9 s, e terça/quinta são pergunta esperada, não caso raro).
+    # ⛔ A pré-checagem sem rede ACABOU, e de propósito.
+    #
+    # Ela existia porque subir o Chromium e fazer login custava 6–9 s, e
+    # "terça tem consulta?" é pergunta esperada. Sem navegador, perguntar à CNN
+    # é um GET de ~200 ms — e a resposta dela sabe de feriado e bloqueio
+    # pontual, que a tabela local nunca soube. A otimização cobrava uma segunda
+    # fonte da verdade e não compra mais nada.
     if not alvos:
-        responder(cab + ["", "Esse dia não tem consultório (seg, qua e sex apenas)."])
-        return 0
-    if a.hora and not (hm(JANELAS[alvos[0].weekday()][0]) <= hm(a.hora)
-                       and hm(a.hora) + dur <= hm(JANELAS[alvos[0].weekday()][1])):
-        j = JANELAS[alvos[0].weekday()]
-        responder(cab + ["", f"{a.hora} está fora da janela desse dia ({j[0]}–{j[1]})."],
-                  recusas=[(f"{a.dia} {a.hora}", "fora da janela de atendimento")])
+        responder(cab + ["", "Esse dia já passou."])
         return 0
 
     achadas, recusas, falhou_leitura = [], [], False
-    with sync_playwright() as p:
-        br = p.chromium.launch(
-            headless=True,
-            executable_path=os.environ.get("PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH"),
-            # ⚠️ Sem isto o chromium usa /dev/shm para a memória compartilhada
-            # entre seus processos, e o Docker dá 64 MB por padrão. Com 64 MB
-            # ele não falha com erro: PENDURA — `Page.goto: Timeout 30000ms` em
-            # app.iclinic.com.br enquanto um curl da MESMA imagem respondia 200
-            # em 2 s (medido em 19/10/2026).
-            #
-            # O host já passa `--shm-size=1g` (ver src/script-container.ts), mas
-            # o flag do host cobre só os 3 spawns que ele controla: o container
-            # do AGENTE não tem o flag, e o FAQ manda o agente rodar estes
-            # scripts de dentro dele. Aqui o conserto viaja COM o script.
-            args=["--disable-dev-shm-usage"])
+    # ⛔ Sem navegador. O bloco que vinha aqui subia o Chromium, esperava o
+    # campo de e-mail habilitar (45 s de orçamento), fazia login e pegava o
+    # csrftoken — ~60 linhas de comentário sobre /dev/shm, tracker com DNS
+    # quebrado e corrida perdida. Nada disso existe contra a API da CNN.
+    agenda = Agenda()
+
+    extras = 0
+    for d in alvos:
+        ds = d.isoformat()
+        # cota e antecedência não dependem da agenda do dia: barre antes de buscar
+        # Vale para TODO perfil agora, não só para quem conta cota: o
+        # preparo de lente não tem nada a ver com convênio.
+        if d < minimo:
+            recusas.append((ds, f"antecedência mínima de {antec} dias"))
+            continue
+        agora = datetime.now(TZ)
+        minimo_hm = (agora.hour * 60 + agora.minute + ANTECEDENCIA_MINIMA_MIN
+                     if d == agora.date() else None)
         try:
-            ctx = br.new_context()
-            pg = ctx.new_page()
-            pg.goto("https://app.iclinic.com.br/", wait_until="domcontentloaded")
-            # ⚠️ Esperar o campo HABILITAR antes de digitar.
-            #
-            # O `fill` do Playwright já espera por "visible, enabled and
-            # editable", mas com um orçamento FIXO de 30 s — e 30 s não bastam.
-            # Medido em 19/10/2026 na VM: o campo leva ~2,5 s numa máquina
-            # folgada, e passa de 30 s sob carga, porque a página de login ainda
-            # soma um tracker cujo DNS não resolve
-            # (event.getblue.io, ERR_NAME_NOT_RESOLVED) e uma geolocalização que
-            # vai até o próprio timeout no headless.
-            #
-            # Quando estoura, o erro que chega é
-            # '<input disabled ... placeholder="Email de acesso">' com "element
-            # is not enabled" — que se lê como "o iClinic bloqueou a conta", e
-            # não é: é corrida perdida. Foi o que derrubou a busca por telefone
-            # em A07 e E08 na passada 25.
-            #
-            # ⚠️ 45 s, não 90: o orçamento grande conserta a corrida mas triplica
-            # o que um login PERDIDO custa, e aí uma corrida perdida come metade
-            # do teto de 180 s do host antes da colheita poder agir. 45 s cobre
-            # o caso medido sob carga com folga.
-            pg.wait_for_selector(
-                'input[name="email"]:not([disabled])', timeout=45000)
-            pg.fill('input[name="email"]', EMAIL)
-            pg.fill('input[name="password"]', SENHA)
-            with pg.expect_navigation(wait_until="domcontentloaded", timeout=25000):
-                pg.click('button[type="submit"]')
-            pg.wait_for_timeout(3000)
-            csrf = next((c["value"] for c in ctx.cookies() if c["name"] == "csrftoken"), "")
-            agenda = Agenda(pg, {"X-Requested-With": "XMLHttpRequest", "X-CSRFToken": csrf})
+            jan = agenda.janela(d)
+            ev = agenda.eventos(d) if jan else []
+        except AgendaIndisponivel as exc:
+            recusas.append((ds, f"não consegui ler a agenda — {exc}"))
+            falhou_leitura = True
+            continue
+        if conta_cota:
+            _, _, n_unimed = ocupacao(ev)
+            if n_unimed >= COTA_UNIMED_DIA:
+                recusas.append((ds, f"cota Unimed cheia ({n_unimed}/{COTA_UNIMED_DIA})"))
+                continue
+        vs, motivo = vagas_do_dia(ev, d, pista, dur, a.hora, jan, minimo_hm)
+        if motivo:
+            recusas.append((f"{ds} {a.hora}", motivo))
+        achadas.extend(vs)
+        # Para no SEGUNDO dia com vaga, não no primeiro.
+        #
+        # Antes era `if achadas: break`, com a razão escrita "compactação
+        # é intradia: o dia mais cedo já resolve". Verdade para UMA vaga
+        # — e foi o que inviabilizou a decisão do Thiago de 19/10/2026,
+        # de oferecer duas opções em dias DISTINTOS: `achadas` nunca
+        # tinha mais de um dia, então o host caía sempre no fallback do
+        # mesmo dia e o paciente recebia "17:40 ou 18:00".
+        #
+        # A compactação continua intradia e o `sort` abaixo continua
+        # pondo o dia mais cedo primeiro: o segundo dia é alternativa,
+        # nunca preferência.
+        #
+        # ⚠️ TETO de dias extras, e ele é sobre TEMPO DE RESPOSTA, não
+        # só sobre o limite de 180 s: cada dia extra é uma requisição, e
+        # com 8 a resposta chegou a 68 s em produção. Ver MAX_DIAS_EXTRA.
+        if not a.todas:
+            dias_com_vaga = {v["data"] for v in achadas}
+            if len(dias_com_vaga) >= 2:
+                break
+            if achadas:
+                extras += 1
+                if extras >= MAX_DIAS_EXTRA:
+                    break
 
-            extras = 0
-            for d in alvos:
-                ds = d.isoformat()
-                # cota e antecedência não dependem da agenda do dia: barre antes de buscar
-                # Vale para TODO perfil agora, não só para quem conta cota: o
-                # preparo de lente não tem nada a ver com convênio.
-                if d < minimo:
-                    recusas.append((ds, f"antecedência mínima de {antec} dias"))
-                    continue
-                agora = datetime.now(TZ)
-                minimo_hm = (agora.hour * 60 + agora.minute + ANTECEDENCIA_MINIMA_MIN
-                             if d == agora.date() else None)
-                try:
-                    ev = agenda.eventos(d)
-                except AgendaIndisponivel as exc:
-                    recusas.append((ds, f"não consegui ler a agenda — {exc}"))
-                    falhou_leitura = True
-                    continue
-                if conta_cota:
-                    _, _, n_unimed, _ = ocupacao(ev)
-                    if n_unimed >= COTA_UNIMED_DIA:
-                        recusas.append((ds, f"cota Unimed cheia ({n_unimed}/{COTA_UNIMED_DIA})"))
-                        continue
-                vs, motivo = vagas_do_dia(ev, d, pista, dur, a.hora, minimo_hm)
-                if motivo:
-                    recusas.append((f"{ds} {a.hora}", motivo))
-                achadas.extend(vs)
-                # Para no SEGUNDO dia com vaga, não no primeiro.
-                #
-                # Antes era `if achadas: break`, com a razão escrita "compactação
-                # é intradia: o dia mais cedo já resolve". Verdade para UMA vaga
-                # — e foi o que inviabilizou a decisão do Thiago de 19/10/2026,
-                # de oferecer duas opções em dias DISTINTOS: `achadas` nunca
-                # tinha mais de um dia, então o host caía sempre no fallback do
-                # mesmo dia e o paciente recebia "17:40 ou 18:00".
-                #
-                # A compactação continua intradia e o `sort` abaixo continua
-                # pondo o dia mais cedo primeiro: o segundo dia é alternativa,
-                # nunca preferência.
-                #
-                # ⚠️ TETO de dias extras, e ele é sobre TEMPO DE RESPOSTA, não
-                # só sobre o limite de 180 s: cada dia extra é uma requisição, e
-                # com 8 a resposta chegou a 68 s em produção. Ver MAX_DIAS_EXTRA.
-                if not a.todas:
-                    dias_com_vaga = {v["data"] for v in achadas}
-                    if len(dias_com_vaga) >= 2:
-                        break
-                    if achadas:
-                        extras += 1
-                        if extras >= MAX_DIAS_EXTRA:
-                            break
-        finally:
-            br.close()
-
-    # Data primeiro: "próximo slot disponível" quer dizer o mais cedo. A compactação
-    # desempata DENTRO do dia — é por isso que o break acima, no dia mais cedo que
-    # tem vaga, não descarta nada melhor.
+        # Data primeiro: "próximo slot disponível" quer dizer o mais cedo. A compactação
+        # desempata DENTRO do dia — é por isso que o break acima, no dia mais cedo que
+        # tem vaga, não descarta nada melhor.
     achadas.sort(key=lambda v: (v["data"], v["buraco_resultante"], v["inicio"]))
     # Até 3 por dia, dos 2 primeiros dias — e não as 3 melhores no geral.
     #

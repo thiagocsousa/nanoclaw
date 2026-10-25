@@ -1,112 +1,64 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Quem é o dono deste telefone no iClinic? Somente leitura.
+Acha o cadastro do paciente pelo TELEFONE — na Clínica nas Nuvens.
 
-Existe para a triagem parar de pedir quatro dados a quem a clínica já conhece.
-Pedir de novo o que a pessoa já deu é o jeito mais rápido de parecer máquina
-(Thiago, 04/10/2026), e com o telefone na mão dá para trocar o formulário por
-UMA pergunta de confirmação.
+⛔ Migrado do iClinic em 25/10/2026.
 
-## O telefone identifica uma CASA, não uma pessoa
+## A lacuna que a CNN tem e o iClinic não tinha
 
-Medido contra o iClinic real em 07/10/2026: `(86) 98151-2111` devolve DOIS
-cadastros, o Thiago e a filha. Por isso este script nunca decide quem é — ele
-devolve os candidatos e quem confirma é o paciente, na conversa. Preencher
-sozinho a partir do telefone escolheria a pessoa errada e, pior, alimentaria a
-conferência de identidade da marcação com um nascimento que não é o dela.
+`GET /paciente/lista` filtra por `cpfCnpj`, `nomeContem`, `numeroIdentificacao`
+e data — **não por telefone**. E é por telefone que a Lara reconhece quem
+escreve no WhatsApp: é o único dado que ela tem antes de a pessoa dizer o nome.
 
-## A máscara não é detalhe
+A saída é varrer a base e indexar localmente. Medido em 25/10/2026:
+**1328 pacientes, 14 páginas de 100, 9,7 segundos.** Cabe folgado no teto de
+180 s do agent-runner e no limite de 120 requisições/minuto da API.
 
-`busca.json?q=` acha por telefone **só com máscara**. Medido no mesmo dia:
+⚠️ Varredura inteira a cada consulta é aceitável AGORA, com 1328 cadastros.
+Se a base crescer muito, isto vira um índice persistido — mas índice tem
+invalidação, e invalidação errada faz a Lara não reconhecer paciente que
+existe. Enquanto couber no tempo, varrer é mais simples e não erra.
 
-    8681512111      -> 0 achados
-    86981512111     -> 0 achados
-    558681512111    -> 0 achados
-    (86) 98151-2111 -> 2 achados
+## O casamento é pelos ÚLTIMOS 8 DÍGITOS
 
-Então o host manda dígitos e quem formata é aqui, num lugar só.
+O 9º dígito do celular brasileiro aparece e some entre cadastros e o JID do
+WhatsApp. Comparar o número inteiro faria a Lara não achar quem está lá. Os 8
+finais são estáveis — é a mesma `match_key` que os pipelines de lembrete usam.
 
-Além de nome e nascimento, traz o que o cadastro já sabe e a triagem não
-precisa perguntar: convênio, cidade e data da última consulta. **Campo vazio é
-informação**: a cidade do Thiago está em branco no iClinic, então ali a pergunta
-continua necessária. Usar o que existe e perguntar só o que falta.
-
-Uso:  iclinic_paciente_por_telefone.py --telefone 558681512111
-Saída: JSON com {ok, candidatos: [{id, nome, nascimento, telefone, convenio,
-cidade, ultima_consulta}]}.
+Saída: {"ok": true, "candidatos": [...], "total": N}. Quem confirma a
+identidade é a PESSOA, com nome e nascimento; isto aqui só levanta candidatos.
 """
 import argparse
 import json
-import os
 import re
 import sys
 
-from playwright.sync_api import sync_playwright
-
-BASE = "https://app.iclinic.com.br"
-CLINIC_ID = os.environ.get("ICLINIC_CLINIC_ID", "263255")
-EMAIL = os.environ.get("ICLINIC_EMAIL")
-SENHA = os.environ.get("ICLINIC_PASSWORD")
+import cnn
 
 
 def so_digitos(s):
     return re.sub(r"\D", "", s or "")
 
 
-def mascaras(telefone):
-    """As formas com máscara que podem achar este número. Lista, nunca uma só.
-
-    ⚠️ O 9º DÍGITO. O JID do WhatsApp do Thiago é `558681512111` — DDI + DDD +
-    oito dígitos, sem o 9. O cadastro dele no iClinic é `(86) 98151-2111`, COM
-    o 9. Formatando só o que veio, a busca não acha ninguém e o host conclui
-    "não é paciente" sobre alguém que é. Meu primeiro rascunho tinha esse bug,
-    e um teste de unidade o pegou antes de rodar contra o iClinic.
-
-    Então tentamos as duas: como veio, e com o 9 inserido (ou removido). O
-    filtro por sufixo de 8 dígitos depois cuida de não aceitar lixo.
-
-    Ver [[project_jid_resolver_9digito]]: o mesmo dígito já causou mensagem
-    enviada e não entregue.
-    """
+def chave(telefone):
+    """Os 8 últimos dígitos. Vazio quando não há número utilizável."""
     d = so_digitos(telefone)
-    if len(d) >= 12 and d.startswith("55"):
-        d = d[2:]
-    if len(d) not in (10, 11):
-        return []
-
-    ddd, resto = d[:2], d[2:]
-    formas = []
-    if len(resto) == 9:                       # já tem o 9
-        formas.append(resto)
-        if resto.startswith("9"):
-            formas.append(resto[1:])          # e sem ele
-    else:                                     # oito dígitos
-        formas.append("9" + resto)            # celular moderno, mais provável
-        formas.append(resto)                  # fixo ou cadastro antigo
-
-    saida = []
-    for f in formas:
-        if len(f) == 9:
-            saida.append("(%s) %s-%s" % (ddd, f[:5], f[5:]))
-        else:
-            saida.append("(%s) %s-%s" % (ddd, f[:4], f[4:]))
-    return saida
-
-
-def campo_do_html(html, nome):
-    """Valor de um <input> da ficha. O iClinic às vezes emite DOIS `value=` no
-    mesmo input, o segundo vazio, então pega a tag inteira e o PRIMEIRO. Mesma
-    técnica do `nfse_coletar.py`, que lê daqui o endereço do tomador."""
-    tag = re.search(r'<(?:input|textarea)[^>]*\bname="%s"[^>]*>' % nome, html)
-    if not tag:
-        return ""
-    v = re.search(r'value="([^"]*)"', tag.group(0))
-    return v.group(1).strip() if v else ""
+    return d[-8:] if len(d) >= 8 else ""
 
 
 def responde(ok, **extra):
     print(json.dumps({"wakeAgent": False, "ok": ok, **extra}, ensure_ascii=False))
+
+
+def telefones_do_cadastro(p):
+    c = p.get("contato") or {}
+    return [
+        c.get("telefoneCelular"),
+        c.get("telefoneResidencial"),
+        c.get("telefoneComercial"),
+        c.get("telefoneRecados"),
+    ]
 
 
 def main():
@@ -114,116 +66,36 @@ def main():
     ap.add_argument("--telefone", required=True)
     a = ap.parse_args()
 
-    buscas = mascaras(a.telefone)
-    if not buscas:
-        responde(False, erro="telefone_invalido", detalhe=a.telefone[:20])
-        return 2
-    if not EMAIL or not SENHA:
-        responde(False, erro="sem_credencial")
+    alvo = chave(a.telefone)
+    if not alvo:
+        responde(False, erro="telefone_invalido", telefone=a.telefone)
         return 2
 
-    with sync_playwright() as p:
-        br = p.chromium.launch(
-            headless=True,
-            executable_path=os.environ.get("PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH"),
-            # ⚠️ Sem isto o chromium usa /dev/shm para a memória compartilhada
-            # entre seus processos, e o Docker dá 64 MB por padrão. Com 64 MB
-            # ele não falha com erro: PENDURA — `Page.goto: Timeout 30000ms` em
-            # app.iclinic.com.br enquanto um curl da MESMA imagem respondia 200
-            # em 2 s (medido em 19/10/2026).
-            #
-            # O host já passa `--shm-size=1g` (ver src/script-container.ts), mas
-            # o flag do host cobre só os 3 spawns que ele controla: o container
-            # do AGENTE não tem o flag, e o FAQ manda o agente rodar estes
-            # scripts de dentro dele. Aqui o conserto viaja COM o script.
-            args=["--disable-dev-shm-usage"])
-        try:
-            ctx = br.new_context()
-            pg = ctx.new_page()
-            pg.goto(BASE + "/", wait_until="domcontentloaded")
-            # Espera o campo HABILITAR antes de digitar; o porquê e a
-            # medição estão em iclinic_vagas.py. 45 s: o campo leva ~2,5 s numa
-            # máquina folgada e passa dos 30 s fixos do `fill` sob carga, mas um
-            # login perdido não deve consumir metade do teto de 180 s do host.
-            pg.wait_for_selector(
-                'input[name="email"]:not([disabled])', timeout=45000)
-            pg.fill('input[name="email"]', EMAIL)
-            pg.fill('input[name="password"]', SENHA)
-            with pg.expect_navigation(wait_until="domcontentloaded", timeout=25000):
-                pg.click('button[type="submit"]')
-            pg.wait_for_timeout(3000)
-            csrf = next(
-                (c["value"] for c in ctx.cookies() if c["name"] == "csrftoken"), ""
-            )
-            achados, h = [], {
-                "X-Requested-With": "XMLHttpRequest",
-                "X-CSRFToken": csrf,
-            }
-            for q in buscas:
-                r = pg.request.get(
-                    "%s/pacientes/busca.json?clinic=%s&q=%s&get_picture=0&limit=20"
-                    % (BASE, CLINIC_ID, q),
-                    headers=h,
-                    timeout=25000,
-                )
-                if r.status != 200:
-                    responde(False, erro="busca_falhou", http=r.status, q=q)
-                    return 1
-                achados += (r.json() or {}).get("objects") or []
+    try:
+        # `somenteAtivos=false`: paciente inativo ainda é paciente conhecido, e
+        # não reconhecer quem já é da casa é pior que listar um a mais — quem
+        # confirma é a pessoa.
+        todos = cnn._paginado("/paciente/lista", somenteAtivos="false")
+    except cnn.CnnIndisponivel as exc:
+        # ⛔ Não devolve "nenhum candidato" quando a BUSCA falhou. Os dois são
+        # indistinguíveis para quem chama, e tratar falha como "paciente novo"
+        # faria a Lara criar cadastro duplicado de quem já existe.
+        responde(False, erro="cnn_indisponivel", detalhe=str(exc))
+        return 1
 
-            # A CIDADE não vem na busca, só na ficha. Uma requisição a mais por
-            # candidato, na sessão que já está aberta — barato perto dos ~10 s
-            # do login. Tem de ser aqui dentro: depois do `br.close()` não há
-            # mais sessão.
-            alvo_tel = so_digitos(a.telefone)[-8:]
-            for o in achados:
-                if not so_digitos(o.get("mobile_phone")).endswith(alvo_tel):
-                    continue
-                try:
-                    fr = pg.request.get(
-                        "%s/pacientes/%s/" % (BASE, o.get("id")),
-                        headers=h,
-                        timeout=25000,
-                    )
-                    if fr.status == 200:
-                        o["_cidade"] = campo_do_html(fr.text(), "city")
-                except Exception:
-                    # Ficha indisponível não invalida o candidato: segue sem a
-                    # cidade, e a triagem pergunta, que é o de antes.
-                    pass
-        finally:
-            br.close()
-
-    # Só quem tem ESTE telefone. A busca é textual e pode trazer parecido.
-    # Sufixo de 8 porque o 9º dígito e o DDI variam, o final não — mesma regra
-    # do `busca_paciente` em `iclinic_marcar.py`.
-    alvo = so_digitos(a.telefone)[-8:]
-    candidatos = [
-        {
-            "id": o.get("id"),
-            "nome": o.get("name") or "",
-            "nascimento": o.get("birth_date") or "",
-            "telefone": o.get("mobile_phone") or "",
-            # String simples, tipo "UNIMED TERESINA". Vem de graça na busca.
-            "convenio": (o.get("health_insurances") or "").strip()
-            if isinstance(o.get("health_insurances"), str)
-            else "",
-            "ultima_consulta": (o.get("last_appointment_date") or "")[:10],
-            "cidade": (o.get("_cidade") or "").strip(),
-            "falecido": bool(o.get("died")),
-        }
-        for o in achados
-        if so_digitos(o.get("mobile_phone")).endswith(alvo)
-    ]
-    candidatos = [c for c in candidatos if not c["falecido"]]
-    # Duas buscas podem trazer o mesmo cadastro; o id desempata.
-    vistos, unicos = set(), []
-    for c in candidatos:
-        if c["id"] in vistos:
+    candidatos = []
+    for p in todos:
+        if not any(chave(t) == alvo for t in telefones_do_cadastro(p)):
             continue
-        vistos.add(c["id"])
-        unicos.append(c)
-    candidatos = unicos
+        c = p.get("contato") or {}
+        candidatos.append({
+            "id": p.get("id"),
+            "nome": (p.get("nome") or "").strip(),
+            "nascimento": (p.get("dataNascimento") or "")[:10],
+            "telefone": c.get("telefoneCelular") or "",
+            "cidade": "",   # a CNN dá idCidade, não o nome; não vale a chamada
+            "ativo": bool(p.get("ativo")),
+        })
 
     # Mais velho primeiro: quem escreve para a clínica tende a ser o adulto
     # titular do telefone, e menor de idade escala de qualquer jeito. É palpite
