@@ -157,14 +157,32 @@ def paciente(id_paciente):
     return pega(f"/paciente/{id_paciente}")
 
 
-def orcamentos(data_inicial, data_final, status="APROVADO", tipo_data="EMISSAO"):
+# Valores aceitos pela API (medidos em 25/10/2026 — `EMISSAO` devolve HTTP 400).
+TIPOS_DE_DATA = ("CRIACAO", "APROVACAO", "PREVISAO_EXECUCAO")
+STATUS_DE_ORCAMENTO = ("ABERTO", "APROVADO", "PERDIDO", "CANCELADO")
+
+
+def orcamentos(data_inicial, data_final, status="APROVADO",
+               tipo_data="APROVACAO"):
     """Orçamentos do período.
 
     ⚠️ É a fonte do financeiro para a NF-e desde 24/10/2026: a CNN não tem
     endpoint de "cobrança do dia", e a clínica passou a lançar a cobrança como
     ORÇAMENTO APROVADO (decisão do Thiago). Sem isso o `nfse_coletar` não tem
     de onde ler.
+
+    ⚠️ `tipo_data` é APROVACAO, não "emissão": a janela da nota é quando o
+    orçamento foi APROVADO, que é o instante em que o dinheiro foi combinado.
+    `EMISSAO` nem existe na API — devolve HTTP 400.
     """
+    if tipo_data not in TIPOS_DE_DATA:
+        raise CnnIndisponivel(
+            f"tipoData {tipo_data!r} não existe; use um de {TIPOS_DE_DATA}"
+        )
+    if status not in STATUS_DE_ORCAMENTO:
+        raise CnnIndisponivel(
+            f"status {status!r} não existe; use um de {STATUS_DE_ORCAMENTO}"
+        )
     return _paginado(
         "/orcamento/lista",
         dataInicial=data_inicial,
