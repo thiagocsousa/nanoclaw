@@ -1930,6 +1930,10 @@ export async function executa(
       data: (escolhida ?? oferta.vaga).data,
       hora: (escolhida ?? oferta.vaga).inicio,
       perfil: oferta.perfil,
+      // ⛔ A necessidade decide QUAL avaliação cirúrgica vai para a agenda da
+      // Marina (catarata / refrativa / pterígio). O perfil não diz — ele só
+      // separa particular de convênio. Ver `necessidade` em agendamento.ts.
+      necessidade: daConversa.necessidade,
       pacienteId: pacienteConfirmado(groupFolder, chatJid),
     });
     if (!res.ok) {

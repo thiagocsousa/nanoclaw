@@ -45,40 +45,57 @@ import os
 import sys
 from datetime import date, datetime
 
-BASE = "https://app.iclinic.com.br"
-EMAIL = os.environ.get("ICLINIC_EMAIL")
-SENHA = os.environ.get("ICLINIC_PASSWORD")
-CLINIC_ID = os.environ.get("ICLINIC_CLINIC_ID", "263255")
-PHYSICIAN_ID = os.environ.get("ICLINIC_PHYSICIAN_ID", "284806")
+import cnn
+EXECUTOR_PESSOA = int(os.environ.get("CNN_PESSOA_EXECUTOR", "29728769"))
+LOCAL_AGENDA = int(os.environ.get("CNN_LOCAL_AGENDA", "49571"))
 
-# Ids lidos do próprio formulário em 05/10/2026. Mudaram? O script avisa, porque
-# o POST volta com erro e a verificação pega — não marca errado em silêncio.
+# ⛔ Os ids agora são da Clínica nas Nuvens, lidos da API em 24/10/2026
+# (/tipo-convenio/lista e /tipo-consulta/lista), não mais da TELA do iClinic.
 CONVENIOS = {
-    "particular": "520537",
-    "unimed": "523032",
-    "ipmt": "807564",
-    "plamta": "701362",
+    "particular": 74466,
+    "particular-desconto": 74543,
+    "unimed": 74544,
+    "iaspi": 74546,
+    "ipmt": 74545,
 }
 
-# perfil do iclinic_vagas.py -> procedimento no iClinic. Fonte única: mexeu num,
-# confira o outro.
-PROCEDIMENTOS = {
-    "particular": "1468375",            # CONSULTA PARTICULAR
-    "particular-cirurgia": "1468371",   # CONSULTA PARTICULAR CIRURGIA
-    "particular-desconto": "1526839",   # CONSULTA PARTICULAR COM DESCONTO
-    "unimed": "1157702",                # CONSULTA UNIMED
-    "unimed-cirurgia": "1468369",       # CONSULTA UNIMED CIRURGIA
-}
+# ⛔ O PERFIL mudou de eixo. No iClinic a distinção morava no PROCEDIMENTO
+# ("CONSULTA PARTICULAR CIRURGIA"); na CNN há uma só consulta
+# (1212102 CONSULTA OFTALMOLÓGICA) e a distinção vive em `idTipoConsulta`.
+PROCEDIMENTO_CONSULTA = 1212102
 
-# Qual convênio cada perfil usa. Separado do procedimento de propósito: são dois
-# campos distintos no formulário e errar a correspondência é errar a cobrança.
 CONVENIO_DO_PERFIL = {
     "particular": "particular",
     "particular-cirurgia": "particular",
-    "particular-desconto": "particular",
+    "particular-desconto": "particular-desconto",
     "unimed": "unimed",
     "unimed-cirurgia": "unimed",
 }
+
+# ⚠️ A LARA NÃO MARCA CIRURGIA (Thiago, 25/10/2026). O perfil `*-cirurgia` é
+# consulta de AVALIAÇÃO cirúrgica — por isso o tipo é uma das três avaliações,
+# e nunca 126578 CIRURGIA, que é o ato no centro cirúrgico.
+TIPO_CONSULTA_SIMPLES = 126577          # CONSULTA
+AVALIACAO_POR_NECESSIDADE = {
+    "catarata": 126591,
+    "cirurgia refrativa": 126592,
+    "pterígio": 126593,
+}
+
+
+def tipo_de_consulta(perfil, necessidade):
+    """`idTipoConsulta` do agendamento.
+
+    ⚠️ Perfil cirúrgico com necessidade GENÉRICA ("cirurgia", sem dizer qual)
+    cai na consulta simples, não escala. Sub-especificar é diferente de errar:
+    a pessoa é atendida do mesmo jeito e a Marina vê "Consulta" em vez de
+    "Avaliação cirúrgica – catarata". Escalar aqui custaria atendimento por um
+    rótulo, e marcar uma avaliação chutada poria a coisa errada na agenda dela.
+    """
+    if not perfil.endswith("-cirurgia"):
+        return TIPO_CONSULTA_SIMPLES
+    return AVALIACAO_POR_NECESSIDADE.get(
+        (necessidade or "").strip().lower(), TIPO_CONSULTA_SIMPLES)
 
 
 def responder(linhas, **extra):
@@ -152,13 +169,9 @@ def confere_paciente(ev, a):
     return nosso in nome or nome in nosso
 
 
-def eventos_do_dia(pg, headers, ds):
+def eventos_do_dia(ds):
     """Eventos da agenda num dia. Usado para verificar antes e depois."""
-    r = pg.request.get(f"{BASE}/agenda/{PHYSICIAN_ID}/{ds}/?clinic={CLINIC_ID}&slide=1",
-                       headers=headers, timeout=25000)
-    if r.status != 200:
-        raise RuntimeError(f"agenda respondeu HTTP {r.status}")
-    return [e for e in r.json().get("events", []) if (e.get("date") or "")[:10] == ds]
+    return cnn.agenda(ds, ds)
 
 
 def _vagas():
@@ -229,7 +242,7 @@ def iso_nascimento(x):
     return f"{d[4:8]}-{d[2:4]}-{d[0:2]}"     # DD/MM/AAAA
 
 
-def busca_paciente(pg, headers, nome, nascimento, telefone):
+def busca_paciente(nome, nascimento, telefone):
     """Acha o paciente existente. Devolve (id, motivo).
 
     `id` None com motivo "novo" significa que não existe e pode ser cadastrado.
@@ -250,12 +263,11 @@ def busca_paciente(pg, headers, nome, nascimento, telefone):
     escala. Um humano resolve isso em segundos olhando a ficha; o script errando
     cria um estrago que ninguém desfaz.
     """
-    r = pg.request.get(
-        f"{BASE}/pacientes/busca.json?clinic={CLINIC_ID}&q={nome}&get_picture=0&limit=50",
-        headers=headers, timeout=25000)
-    if r.status != 200:
-        return None, f"busca de paciente falhou (HTTP {r.status})"
-    achados = (r.json() or {}).get("objects") or []
+    try:
+        achados = cnn._paginado(
+            "/paciente/lista", nomeContem=nome, somenteAtivos="false")
+    except cnn.CnnIndisponivel as exc:
+        return None, f"busca de paciente falhou ({exc})"
     if not achados:
         return None, "novo"          # ninguém com esse nome: cadastrar é seguro
 
@@ -266,27 +278,29 @@ def busca_paciente(pg, headers, nome, nascimento, telefone):
                       + ("nascimento" if not nasc else "telefone")
                       + " para confirmar que e a mesma pessoa")
 
-    exatos = [p for p in achados
-              if iso_nascimento(p.get("birth_date")) == nasc
-              and so_digitos(p.get("mobile_phone")).endswith(tel)]
+    def _tel(p):
+        c = p.get("contato") or {}
+        return [c.get("telefoneCelular"), c.get("telefoneResidencial"),
+                c.get("telefoneComercial")]
 
+    def _bate_tel(p):
+        return any(so_digitos(x).endswith(tel) for x in _tel(p) if x)
+
+    def _bate_nasc(p):
+        return iso_nascimento(p.get("dataNascimento")) == nasc
+
+    exatos = [p for p in achados if _bate_nasc(p) and _bate_tel(p)]
     if len(exatos) == 1:
-        if exatos[0].get("died"):
-            return None, "cadastro marcado como falecido no iClinic"
+        if not exatos[0].get("ativo"):
+            return None, "cadastro inativo na Clinica nas Nuvens"
         return exatos[0].get("id"), "existente"
     if len(exatos) > 1:
         return None, "mais de um cadastro com o mesmo nome, nascimento e telefone"
 
-    # Nome bate com alguém, mas os dois fatores não confirmam. Pode ser homônimo
-    # (cadastrar novo seria o certo) ou a mesma pessoa com cadastro desatualizado
-    # (cadastrar duplicaria). Daqui não dá para distinguir, e errar é caro.
-    parcial = [p for p in achados
-               if iso_nascimento(p.get("birth_date")) == nasc
-               or so_digitos(p.get("mobile_phone")).endswith(tel)]
+    parcial = [p for p in achados if _bate_nasc(p) or _bate_tel(p)]
     if parcial:
         return None, ("ha cadastro com esse nome em que so o "
-                      + ("nascimento" if iso_nascimento(parcial[0].get("birth_date")) == nasc
-                         else "telefone")
+                      + ("nascimento" if _bate_nasc(parcial[0]) else "telefone")
                       + " confere")
     return None, "ha cadastro com esse nome e nenhum dado confere"
 
@@ -301,7 +315,12 @@ def main():
     ap.add_argument("--data", required=True, help="ISO: 2026-10-05")
     ap.add_argument("--inicio", required=True, help="HH:MM")
     ap.add_argument("--fim", required=True, help="HH:MM")
-    ap.add_argument("--perfil", required=True, choices=sorted(PROCEDIMENTOS))
+    ap.add_argument("--perfil", required=True,
+                    choices=sorted(CONVENIO_DO_PERFIL))
+    # ⚠️ Novo na migração para a CNN: `idTipoConsulta` precisa saber QUAL
+    # avaliação cirúrgica. A triagem já extrai (catarata / cirurgia refrativa /
+    # pterígio); vazio ou genérico cai na consulta simples.
+    ap.add_argument("--necessidade", default="")
     ap.add_argument("--telefone", default="")
     ap.add_argument("--email", default="")
     ap.add_argument("--observacao", default="")
@@ -318,219 +337,132 @@ def main():
         return 2
 
     convenio = CONVENIOS[CONVENIO_DO_PERFIL[a.perfil]]
-    # Formato medido do XHR real. Os tipos importam: procedure_id e insurance
-    # são NÚMEROS, physician e clinic são STRINGS, e os vazios são null e não "".
+    tipo_consulta = tipo_de_consulta(a.perfil, a.necessidade)
+    # Formato de `POST /agenda/novo`, do Swagger da CNN. `idPaciente` e
+    # `idPacienteConvenio` são OBRIGATÓRIOS — ao contrário do iClinic, onde
+    # `patient: null` criava o cadastro junto. Por isso o fluxo virou três
+    # escritas, e por isso a busca de paciente acontece ANTES.
     campos = {
-        "locked_procedure": "off",
-        "procedures": [{"procedure_id": int(PROCEDIMENTOS[a.perfil]), "quantity": 1}],
-        "patient_name": a.nome,
-        "patient": int(a.paciente_id) if a.paciente_id else None,  # None = cria novo
-        "patient_mobile_phone": a.telefone or None,
-        "patient_home_phone": None,
-        "patient_email": a.email or None,
-        "insurance": int(convenio),
-        "date": d.strftime("%d/%m/%Y"),
-        "start_time": a.inicio,
-        "end_time": a.fim,
-        "recurrence": None,
-        "end_recurrence": None,
-        "description": a.observacao or None,
-        "status": "sc",
-        "physician": PHYSICIAN_ID,
-        "clinic": CLINIC_ID,
-        "is_telemedicine": "false",
-        "update_patient": "true",
-        "recurrence_days": [],
+        "data": d.isoformat(),
+        "horaInicio": f"{a.inicio}:00",
+        "horaFim": f"{a.fim}:00",
+        "idLocalAgenda": LOCAL_AGENDA,
+        "idPessoaExecutor": EXECUTOR_PESSOA,
+        "idTipoConsulta": tipo_consulta,
+        "status": "AGENDADO",
+        "telefoneCelularPaciente": a.telefone or None,
+        "emailPaciente": a.email or None,
+        "observacoes": a.observacao or None,
+        "procedimentos": [
+            {"idTipoProcedimento": PROCEDIMENTO_CONSULTA, "quantidade": 1}
+        ],
+        # ⛔ As três notificações DESLIGADAS, sempre. A CNN manda WhatsApp/SMS
+        # sozinha se pedirem, e aí o paciente receberia o lembrete dela E o
+        # nosso — duas mensagens para a mesma consulta, e a nossa supressão de
+        # resposta a pipeline não reconhece a deles (Thiago, 24/10/2026).
+        "notificarWhatsappPaciente": False,
+        "notificarSMSPaciente": False,
+        "notificarEmailPaciente": False,
     }
 
     if a.dry_run:
         mostrar = dict(campos)
-        mostrar["patient_name"] = "<nome>"
-        mostrar["patient_mobile_phone"] = "<telefone>" if a.telefone else None
+        mostrar["telefoneCelularPaciente"] = "<telefone>" if a.telefone else None
         responder(["Dry-run: nada foi escrito.", "",
-                   f"Enviaria para POST /agenda/criar-evento/{PHYSICIAN_ID}/:"] +
+                   "Enviaria para POST /agenda/novo:"] +
                   [f"   {k} = {v}" for k, v in mostrar.items()],
                   ok=None, dry_run=True)
         return 0
 
-    # Credencial só é exigida na hora de ir à rede: o dry-run roda em qualquer
-    # lugar, inclusive na máquina de quem está escrevendo o código.
-    if not EMAIL or not SENHA:
-        responder(["Sem credenciais do iClinic no ambiente."], ok=False, erro="sem_credenciais")
-        return 2
+    try:
+        antes = eventos_do_dia(a.data)
+    except cnn.CnnIndisponivel as exc:
+        responder([f"Não consegui ler a agenda antes de marcar: {exc}",
+                   "Não marquei."], ok=False, erro="agenda_ilegivel")
+        return 1
+    if not livre_para(antes, a.inicio, a.perfil):
+        responder([f"{a.inicio} de {a.data} não está livre. Não marquei."],
+                  ok=False, erro="horario_ocupado")
+        return 1
+    ids_antes = ids_de(antes)
 
-    from playwright.sync_api import sync_playwright
-
-    with sync_playwright() as p:
-        br = p.chromium.launch(
-            headless=True,
-            executable_path=os.environ.get("PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH"),
-            # ⚠️ Sem isto o chromium usa /dev/shm para a memória compartilhada
-            # entre seus processos, e o Docker dá 64 MB por padrão. Com 64 MB
-            # ele não falha com erro: PENDURA — `Page.goto: Timeout 30000ms` em
-            # app.iclinic.com.br enquanto um curl da MESMA imagem respondia 200
-            # em 2 s (medido em 19/10/2026).
-            #
-            # O host já passa `--shm-size=1g` (ver src/script-container.ts), mas
-            # o flag do host cobre só os 3 spawns que ele controla: o container
-            # do AGENTE não tem o flag, e o FAQ manda o agente rodar estes
-            # scripts de dentro dele. Aqui o conserto viaja COM o script.
-            args=["--disable-dev-shm-usage"])
-        try:
-            ctx = br.new_context()
-            pg = ctx.new_page()
-            pg.goto(f"{BASE}/", wait_until="domcontentloaded")
-            # Espera o campo HABILITAR antes de digitar; o porquê e a
-            # medição estão em iclinic_vagas.py. 45 s: o campo leva ~2,5 s numa
-            # máquina folgada e passa dos 30 s fixos do `fill` sob carga, mas um
-            # login perdido não deve consumir metade do teto de 180 s do host.
-            pg.wait_for_selector(
-                'input[name="email"]:not([disabled])', timeout=45000)
-            pg.fill('input[name="email"]', EMAIL)
-            pg.fill('input[name="password"]', SENHA)
-            with pg.expect_navigation(wait_until="domcontentloaded", timeout=25000):
-                pg.click('button[type="submit"]')
-            pg.wait_for_timeout(3000)
-            csrf = next((c["value"] for c in ctx.cookies() if c["name"] == "csrftoken"), "")
-            if not csrf:
-                responder(["Não achei o cookie csrftoken: login provavelmente falhou."],
-                          ok=False, erro="sem_csrf")
-                return 1
-            leitura = {"X-Requested-With": "XMLHttpRequest", "X-CSRFToken": csrf}
-
-            # ANTES: a vaga tem que estar livre. Sem isso não escrevo.
-            try:
-                antes = eventos_do_dia(pg, leitura, a.data)
-            except RuntimeError as exc:
-                responder([f"Não consegui ler a agenda antes de marcar: {exc}",
-                           "NÃO escrevi nada."], ok=False, erro="agenda_ilegivel")
-                return 1
-            if not livre_para(antes, a.inicio, a.perfil):
-                responder([f"{a.inicio} de {a.data} não está livre. Não marquei."],
-                          ok=False, erro="vaga_tomada")
-                return 1
-            ids_antes = ids_de(antes)
-
-            # Identidade ANTES de escrever: cadastrar um paciente que já existe
-            # parte o prontuário dele em dois, e isso não se desfaz.
-            if not a.paciente_id:
-                pid, motivo = busca_paciente(pg, leitura, a.nome, a.nascimento, a.telefone)
-                if pid:
-                    campos["patient"] = int(pid)
-                    campos["update_patient"] = "false"   # não mexer no cadastro
-                elif motivo != "novo":
-                    # Só "novo" segue. Qualquer dúvida de identidade para aqui:
-                    # um humano resolve em segundos, e o script errando cria
-                    # estrago que ninguém desfaz.
-                    responder([f"Não marquei: {motivo}.",
-                               "Confira a ficha do paciente e marque à mão."],
-                              ok=False, erro="identidade_incerta", detalhe=motivo)
-                    return 1
-
-            r = pg.request.post(
-                f"{BASE}/agenda/criar-evento/{PHYSICIAN_ID}/",
-                data=campos,
-                # A rota de criação é XHR: foi assim que o navegador a chamou
-                # (medido em 05/10/2026). Sem este cabeçalho, outra rota.
-                headers={"X-Requested-With": "XMLHttpRequest",
-                         "X-CSRFToken": csrf,
-                         "Content-Type": "application/json",
-                         "Referer": f"{BASE}/agenda/",
-                         "Origin": BASE},
-                timeout=30000)
-            corpo = ""
-            try:
-                corpo = r.text()[:400]
-            except Exception:
-                pass
-
-            # DEPOIS: a verdade é a agenda, não o status HTTP. Um 200 com erro de
-            # validação no corpo seria indistinguível de sucesso sem isto.
-            pg.wait_for_timeout(1500)
-            try:
-                depois = eventos_do_dia(pg, leitura, a.data)
-            except RuntimeError as exc:
-                responder([f"POST devolveu HTTP {r.status}, mas não consegui reler a agenda: {exc}",
-                           "ESTADO INCERTO: confira à mão antes de tentar de novo."],
-                          ok=None, erro="verificacao_falhou", http=r.status)
-                return 1
-
-            # Evento NOVO, por diferença de ids. Perguntar "há algo neste horário?"
-            # confirmaria o agendamento de outro paciente que tenha caído na
-            # mesma vaga entre as duas leituras — e aí diríamos a este paciente
-            # que ele está marcado quando quem está é outro.
-            novos = [e for e in depois if str(e.get("id")) not in ids_antes]
-            meus = [e for e in novos
-                    if (e.get("start_time") or "")[:5] == a.inicio]
-
-            # ⚠️ Evento novo no horário certo NÃO é prova de que foi o nosso.
-            #
-            # A diferença de ids já descarta o evento que JÁ estava lá. O que
-            # ela não descarta: a recepção criar um evento nesse mesmo horário
-            # entre as duas leituras, enquanto o NOSSO POST falhou. Aí há
-            # exatamente um evento novo às 09:20, `meus` tem tamanho 1, e
-            # dizíamos a este paciente que está marcado quando quem está é
-            # outro. Achado do review adversarial do Codex em 17/10/2026.
-            #
-            # Duas travas, nesta ordem:
-            #
-            # 1. O POST tem de ter dado 2xx. É incondicional e não depende de
-            #    conhecer o formato da agenda: no cenário do achado o nosso POST
-            #    falhou, e sem 2xx não há o que confirmar.
-            # 2. Quando o evento traz o paciente, ele tem de ser o nosso.
-            #    Quando não traz, o caso de UM evento novo deixa de ser sucesso
-            #    e passa a ser estado incerto — porque é indistinguível do
-            #    evento da recepção.
-            #
-            # Falhar para "incerto" aqui custa uma conferência à mão. Falhar
-            # para "marcado" custa um paciente indo à clínica sem horário.
-            if not (200 <= r.status < 300):
-                responder([f"POST devolveu HTTP {r.status} e apareceu evento novo às "
-                           f"{a.inicio} que pode não ser nosso.",
-                           f"Trecho da resposta: {corpo[:200]}",
-                           "ESTADO INCERTO: confira à mão antes de tentar de novo."]
-                          if meus else
-                          [f"POST devolveu HTTP {r.status}: NÃO marcou.",
-                           f"Trecho da resposta: {corpo[:200]}"],
-                          ok=None if meus else False,
-                          erro="http_sem_confirmacao" if meus else "nao_criou",
-                          http=r.status)
-                return 1
-
-            if len(meus) == 1:
-                ev = meus[0]
-                quem = confere_paciente(ev, a)
-                if quem is True:
-                    responder([f"Marcado: {a.data} {a.inicio}–{a.fim}, perfil {a.perfil}."],
-                              ok=True, http=r.status, evento_id=ev.get("id"))
-                    return 0
-                if quem is False:
-                    responder([f"Apareceu evento novo às {a.inicio}, mas é de outro "
-                               f"paciente: {_nome_do_evento(ev)!r}.",
-                               "ESTADO INCERTO: o nosso POST pode não ter criado nada."],
-                              ok=None, erro="paciente_divergente", http=r.status,
-                              evento_id=ev.get("id"))
-                    return 1
-                # quem is None: a agenda não disse de quem é o evento.
-                responder([f"Apareceu um evento novo às {a.inicio}, mas a agenda não "
-                           "informa o paciente, então não dá para afirmar que é o nosso.",
-                           "ESTADO INCERTO: confira à mão antes de tentar de novo."],
-                          ok=None, erro="sem_paciente_para_conferir", http=r.status,
-                          evento_id=ev.get("id"))
-                return 1
-            if len(meus) > 1:
-                responder([f"POST devolveu HTTP {r.status} e apareceram {len(meus)} "
-                           f"eventos novos às {a.inicio}.",
-                           "ESTADO AMBÍGUO: confira à mão, pode haver duplicata."],
-                          ok=None, erro="ambiguo", http=r.status)
-                return 1
-            responder([f"POST devolveu HTTP {r.status} e a vaga continua livre: NÃO marcou.",
-                       f"Trecho da resposta: {corpo[:200]}"],
-                      ok=False, erro="nao_criou", http=r.status)
+    # ── identidade ────────────────────────────────────────────────────────
+    pid = int(a.paciente_id) if a.paciente_id else None
+    if pid is None:
+        pid, motivo = busca_paciente(a.nome, a.nascimento, a.telefone)
+        if pid is None and motivo != "novo":
+            responder([f"Não marquei: {motivo}.",
+                       "Confira a ficha e marque à mão."],
+                      ok=False, erro="identidade_incerta", motivo=motivo)
             return 1
-        finally:
-            br.close()
 
+    # ⛔ TRÊS ESCRITAS SEM TRANSAÇÃO (paciente → convênio → agenda).
+    #
+    # No iClinic era UMA: `patient: null` criava o cadastro junto do evento. Na
+    # CNN `idPaciente` e `idPacienteConvenio` são obrigatórios, então falhar no
+    # meio deixa paciente criado sem consulta — e repetir a primeira duplica
+    # cadastro, que é poluição durável de prontuário.
+    #
+    # A reentrância é a `busca_paciente` acima: ela roda SEMPRE antes, então uma
+    # segunda tentativa encontra o cadastro da primeira em vez de criar outro.
+    try:
+        if pid is None:
+            novo_pac = cnn.posta("/paciente/novo", {
+                "nome": a.nome,
+                "dataNascimento": iso_nascimento(a.nascimento) or None,
+                "contato": {"telefoneCelular": a.telefone or None,
+                            "email": a.email or None},
+            })
+            pid = novo_pac.get("id")
+            if not pid:
+                responder(["A CNN não devolveu id ao criar o paciente.",
+                           "ESTADO INCERTO: confira antes de tentar de novo."],
+                          ok=False, erro="paciente_sem_id")
+                return 1
+
+        id_convenio = cnn.convenio_do_paciente(pid, convenio)
+        if not id_convenio:
+            responder([f"Não consegui associar o convênio ao paciente {pid}.",
+                       "Não marquei."], ok=False, erro="convenio_nao_associado")
+            return 1
+
+        campos["idPaciente"] = pid
+        campos["idPacienteConvenio"] = id_convenio
+        criado = cnn.posta("/agenda/novo", campos)
+    except cnn.CnnIndisponivel as exc:
+        responder([f"Falha ao marcar: {exc}",
+                   "ESTADO INCERTO: confira a agenda antes de tentar de novo."],
+                  ok=False, erro="falha_na_escrita")
+        return 1
+
+    # ── a prova: releitura ────────────────────────────────────────────────
+    #
+    # O POST devolver 200 não prova que o evento ficou na agenda. Quem prova é
+    # reler e achar um evento NOVO, no horário pedido, do NOSSO paciente.
+    try:
+        depois = eventos_do_dia(a.data)
+    except cnn.CnnIndisponivel as exc:
+        responder([f"Marquei (id {criado.get('id')}), mas não consegui reler: {exc}",
+                   "ESTADO INCERTO: confira à mão antes de tentar de novo."],
+                  ok=None, erro="releitura_falhou")
+        return 1
+
+    novos = [e for e in depois if str(e.get("id")) not in ids_antes]
+    meu = [e for e in novos
+           if (e.get("horaInicio") or "")[:5] == a.inicio
+           and e.get("idPaciente") == pid]
+    if not meu:
+        responder([f"A CNN aceitou (id {criado.get('id')}), mas a releitura não "
+                   f"achou o evento às {a.inicio} para este paciente.",
+                   "ESTADO INCERTO: confira à mão antes de tentar de novo."],
+                  ok=None, erro="nao_confirmado")
+        return 1
+
+    responder([f"Marcado: {a.data} às {a.inicio}.",
+               f"   paciente {pid} · tipo {tipo_consulta} · convênio {convenio}"],
+              ok=True, evento_id=meu[0].get("id"), paciente_id=pid,
+              data=a.data, inicio=a.inicio)
+    return 0
 
 if __name__ == "__main__":
     sys.exit(main())

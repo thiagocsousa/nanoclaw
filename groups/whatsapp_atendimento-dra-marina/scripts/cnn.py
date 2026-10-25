@@ -204,3 +204,40 @@ def orcamentos(data_inicial, data_final, status="APROVADO",
         status=status,
         tipoData=tipo_data,
     )
+
+
+def posta(caminho, corpo):
+    """POST autenticado com corpo JSON."""
+    usuario, senha, cid = _credenciais()
+    dados = json.dumps(corpo).encode()
+    req = urllib.request.Request(f"{BASE}{caminho}", data=dados, method="POST")
+    cred = base64.b64encode(f"{usuario}:{senha}".encode()).decode()
+    req.add_header("Authorization", f"Basic {cred}")
+    req.add_header("clinicaNasNuvens-cid", cid)
+    req.add_header("Content-Type", "application/json")
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            corpo_resp = r.read().decode()
+            return json.loads(corpo_resp) if corpo_resp.strip() else {}
+    except urllib.error.HTTPError as exc:
+        detalhe = exc.read()[:300].decode("utf-8", "replace")
+        raise CnnIndisponivel(f"HTTP {exc.code} em {caminho}: {detalhe}") from exc
+    except Exception as exc:
+        raise CnnIndisponivel(f"falha em {caminho}: {exc}") from exc
+
+
+def convenio_do_paciente(id_paciente, id_tipo_convenio):
+    """O `idPacienteConvenio` — associando antes, se ainda não existir.
+
+    ⚠️ `idPacienteConvenio` NÃO é `idTipoConvenio`: é a associação
+    paciente↔convênio, e o `/agenda/novo` exige a associação, não o tipo. Foi a
+    pegadinha que mais custou a entender no mapeamento.
+    """
+    for c in _paginado("/convenio-paciente/lista", idPaciente=id_paciente):
+        if c.get("idTipoConvenio") == id_tipo_convenio and c.get("ativo"):
+            return c.get("id")
+    novo = posta("/convenio-paciente/associar", {
+        "idPaciente": id_paciente,
+        "idTipoConvenio": id_tipo_convenio,
+    })
+    return novo.get("id")

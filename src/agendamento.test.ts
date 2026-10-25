@@ -256,3 +256,45 @@ describe('telefone a partir do JID', () => {
     expect(mod.telefoneDoJid('@s.whatsapp.net')).toBeUndefined();
   });
 });
+
+/**
+ * ⛔ A necessidade tem de CHEGAR ao script.
+ *
+ * Na Clínica nas Nuvens o agendamento exige `idTipoConsulta`, e a clínica tem
+ * três avaliações cirúrgicas distintas (catarata, refrativa, pterígio). O
+ * perfil (`particular-cirurgia`) só separa particular de convênio — quem diz
+ * qual avaliação é a necessidade.
+ *
+ * ⚠️ A Lara NÃO marca cirurgia: marca a consulta de AVALIAÇÃO de quem tem
+ * interesse em operar (Thiago, 25/10/2026).
+ *
+ * Sem isto o argumento some entre o executor e o script, e a agenda da Marina
+ * recebe "Consulta" onde devia receber "Avaliação cirúrgica – catarata" — erro
+ * que só aparece no dia, com a paciente na sala.
+ */
+describe('necessidade chega ao iclinic_marcar', () => {
+  const base = {
+    operacao: 'marcar' as const,
+    paciente: 'Ana',
+    pedidoPor: '558699999999@s.whatsapp.net',
+    data: '2026-12-15',
+    hora: '10:20',
+    perfil: 'particular-cirurgia',
+  };
+
+  it('vai como --necessidade quando existe', async () => {
+    const mod = await import('./agendamento.js');
+    const argv = mod._argvDaMarcacao(
+      { ...base, necessidade: 'catarata' },
+      '10:40',
+    );
+    const i = argv.indexOf('--necessidade');
+    expect(i).toBeGreaterThan(-1);
+    expect(argv[i + 1]).toBe('catarata');
+  });
+
+  it('não vai quando não há — o script cai na consulta simples', async () => {
+    const mod = await import('./agendamento.js');
+    expect(mod._argvDaMarcacao(base, '10:40')).not.toContain('--necessidade');
+  });
+});

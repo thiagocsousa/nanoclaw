@@ -223,6 +223,23 @@ export interface DadosDaMarcacao {
   /** Perfil da agenda: define duração e tipo. */
   perfil: string;
   /**
+   * O que o paciente disse precisar — "catarata", "cirurgia refrativa",
+   * "pterígio" ou o genérico "cirurgia".
+   *
+   * ⛔ Passou a importar na migração para a Clínica nas Nuvens (25/10/2026). Lá
+   * o agendamento exige `idTipoConsulta`, e a clínica tem TRÊS avaliações
+   * cirúrgicas distintas. O perfil (`particular-cirurgia`) não diz qual — a
+   * necessidade diz.
+   *
+   * ⚠️ A Lara não marca CIRURGIA: marca consulta de AVALIAÇÃO para quem tem
+   * interesse em cirurgia (Thiago, 25/10/2026). Por isso isto escolhe entre
+   * tipos de consulta, nunca o tipo "Cirurgia".
+   *
+   * Genérico ou vazio cai na consulta simples — sub-especificar é diferente de
+   * errar, e a pessoa é atendida do mesmo jeito.
+   */
+  necessidade?: string;
+  /**
    * Cadastro que a PESSOA confirmou ser dela, quando houve confirmação.
    *
    * Indo preenchido, o script usa esse cadastro e PULA a conferência de nome +
@@ -317,6 +334,42 @@ export function telefoneDoJid(jid: string): string | undefined {
 }
 
 /**
+ * O argv do `iclinic_marcar.py`.
+ *
+ * ⚠️ Exportado para teste. O contrato entre o host e o script é exatamente
+ * onde um argumento some sem ninguém perceber — e `--necessidade` decide QUAL
+ * avaliação cirúrgica entra na agenda da médica.
+ */
+export function _argvDaMarcacao(d: DadosDaMarcacao, fim: string): string[] {
+  const argv = [
+    '--nome',
+    d.paciente,
+    '--data',
+    d.data,
+    '--inicio',
+    d.hora,
+    '--fim',
+    fim,
+    '--perfil',
+    d.perfil,
+  ];
+  // O telefone sai do JID de quem pediu — mas só se for telefone de verdade.
+  // Sem ele o cadastro criado fica SEM contato, e o pipeline de lembrete não
+  // alcança o paciente; com um número inventado é pior, porque a conferência de
+  // identidade recusa o próprio paciente (05/10/2026, ver `telefoneDoJid`).
+  const telefone = telefoneDoJid(d.pedidoPor);
+  if (telefone) argv.push('--telefone', telefone);
+  // Cadastro confirmado pela pessoa: vai direto, sem a conferência.
+  if (d.pacienteId) argv.push('--paciente-id', String(d.pacienteId));
+  // Sem o nascimento o script NÃO casa o paciente existente e escala — é o
+  // segundo fator da identidade, junto com o telefone.
+  if (d.nascimento) argv.push('--nascimento', d.nascimento);
+  // Qual avaliação cirúrgica, quando é o caso. Ver `necessidade` acima.
+  if (d.necessidade) argv.push('--necessidade', d.necessidade);
+  return argv;
+}
+
+/**
  * Escreve o evento no iClinic, rodando `iclinic_marcar.py` num container.
  *
  * O script resolve a identidade antes de escrever, por
@@ -355,29 +408,7 @@ export async function escreveNoIclinic(
   // no `args` DEPOIS da imagem e do caminho do script. Funcionava, mas recriava
   // a suposição posicional que este refactor existiu para matar. Quem escreve
   // `args` é só o `montaArgs`.
-  const argv = [
-    '--nome',
-    d.paciente,
-    '--data',
-    d.data,
-    '--inicio',
-    d.hora,
-    '--fim',
-    fim,
-    '--perfil',
-    d.perfil,
-  ];
-  // O telefone sai do JID de quem pediu — mas só se for telefone de verdade.
-  // Sem ele o cadastro criado fica SEM contato, e o pipeline de lembrete não
-  // alcança o paciente; com um número inventado é pior, porque a conferência de
-  // identidade recusa o próprio paciente (05/10/2026, ver `telefoneDoJid`).
-  const telefone = telefoneDoJid(d.pedidoPor);
-  if (telefone) argv.push('--telefone', telefone);
-  // Cadastro confirmado pela pessoa: vai direto, sem a conferência.
-  if (d.pacienteId) argv.push('--paciente-id', String(d.pacienteId));
-  // Sem o nascimento o script NÃO casa o paciente existente e escala — é o
-  // segundo fator da identidade, junto com o telefone.
-  if (d.nascimento) argv.push('--nascimento', d.nascimento);
+  const argv = _argvDaMarcacao(d, fim);
   const { nome, args } = montaArgs({
     rotulo: 'marcar',
     dir,
