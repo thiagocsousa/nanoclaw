@@ -13,10 +13,6 @@ from datetime import date, timedelta
 from pathlib import Path
 import cnn
 
-EMAIL = "thiagocsousa@gmail.com"
-SENHA = "Thiagofei1998#"
-CLINIC_ID = "263255"
-PHYSICIAN_ID = "284806"
 
 PENDING_FILE = Path("/workspace/group/pending_retorno.json")
 

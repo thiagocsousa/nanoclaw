@@ -16,10 +16,6 @@ import cnn
 
 TZ_OFFSET = timezone(timedelta(hours=-3))  # America/Fortaleza
 
-EMAIL = "thiagocsousa@gmail.com"
-SENHA = "Thiagofei1998#"
-CLINIC_ID = "263255"
-PHYSICIAN_ID = "284806"
 
 PENDING_FILE = Path("/workspace/group/pending_avaliacao.json")
 SEEN_FILE = Path("/workspace/group/avaliacao_seen.json")

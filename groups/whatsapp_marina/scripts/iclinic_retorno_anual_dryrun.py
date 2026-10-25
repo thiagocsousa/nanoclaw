@@ -13,10 +13,10 @@ import time
 from datetime import date, timedelta
 from playwright.sync_api import sync_playwright
 
-EMAIL = "thiagocsousa@gmail.com"
-SENHA = "Thiagofei1998#"
-CLINIC_ID = "263255"
-PHYSICIAN_ID = "284806"
+EMAIL = os.environ.get("ICLINIC_EMAIL", "")
+SENHA = os.environ.get("ICLINIC_PASSWORD", "")
+CLINIC_ID = os.environ.get("ICLINIC_CLINIC_ID", "")
+PHYSICIAN_ID = os.environ.get("ICLINIC_PHYSICIAN_ID", "")
 
 
 def clean_phone(raw):

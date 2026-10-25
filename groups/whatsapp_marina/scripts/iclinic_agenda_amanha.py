@@ -11,10 +11,6 @@ from datetime import datetime, timedelta, timezone
 import cnn
 
 TZ = timezone(timedelta(hours=-3))  # America/Fortaleza
-EMAIL = "thiagocsousa@gmail.com"
-SENHA = "Thiagofei1998#"
-CLINIC_ID = "263255"
-PHYSICIAN_ID = "284806"
 
 DIAS = ["segunda-feira", "terça-feira", "quarta-feira", "quinta-feira",
         "sexta-feira", "sábado", "domingo"]
