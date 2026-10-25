@@ -124,16 +124,25 @@ const FORWARDED_ENV_VARS = [
   'NTFY_SERVIDOR',
   'ESCALONAMENTO_JID',
   'ESCALONAMENTO_FOLDER',
-  'ICLINIC_EMAIL',
-  'ICLINIC_PASSWORD',
+
   // Clínica nas Nuvens — substitui o iClinic a partir de 26/10/2026. Ver
   // `docs/CNN-MAPEAMENTO.md` e `groups/*/scripts/cnn.py`.
   'CNN_CLIENT_ID',
   'CNN_CLIENT_SECRET',
   'CNN_CID',
   // iClinic consultório Dra. Marina (laudo de topografia)
-  'ICLINIC_CONSULTORIO_EMAIL',
-  'ICLINIC_CONSULTORIO_PASSWORD',
+  // ⛔ As quatro `ICLINIC_*` saíram em 25/10/2026, quando o laudo de
+  // topografia — o último leitor — deixou de falar com o iClinic. Verificado,
+  // não deduzido: `grep -rn 'ICLINIC_' groups/ scripts/ container/ src/` não
+  // devolve UM leitor fora de comentário.
+  //
+  // ⚠️ A senha do consultório está no histórico do git e **tem de ser
+  // rotacionada**. Tirá-la daqui para de entregá-la a todo container de agente
+  // que sobe, o que reduz a exposição; não anula a que já vazou.
+  //
+  // O iClinic fica de pé até 20/11, mas só para alguém abrir no navegador. Se
+  // um script voltar a precisar dele, as chaves voltam junto com o script —
+  // e aí este comentário é o lugar de dizer por quê.
   // Cálculo de LIO (Dra. Marina) — 2captcha p/ o reCAPTCHA do ESCRS/Kane
   'ESCRS_2CAPTCHA_KEY',
   // Proxy residencial (2captcha) só p/ o ESCRS — evita rate-limit por IP

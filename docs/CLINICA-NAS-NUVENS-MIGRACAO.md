@@ -178,12 +178,21 @@ por env. Depois a escrita, **uma por vez**, na ordem de risco crescente:
 4. `iclinic_marcar` (**escreve na agenda** — por último, e com `--dry-run`
    primeiro, que o script já tem)
 
-### Fase 4 — o laudo de topografia
+### Fase 4 — o laudo de topografia ✅ (25/10/2026, e não por migração)
 
-É o único que não é API: digita no DOM com `keyboard.type`, porque preencher por
-JS não funciona no editor do iClinic. Se a CNN tiver API de prontuário, ele
-melhora; se não tiver, ele continua Playwright e fica como o último usuário do
-Chromium no container. **Decidir depois, sem bloquear o resto.**
+Era o único que não é API: digitava no DOM com `keyboard.type`, porque preencher
+por JS não funciona no editor do iClinic. A CNN **não tem** API de prontuário
+(lacuna 3 do mapeamento), então a opção de reescrever contra a tela dela seria
+trabalho novo na véspera.
+
+Decisão do Thiago: **o script para de escrever.** Virou `laudo_topografia.py`,
+que monta o texto, confere os números e devolve para o grupo; a Marina cola no
+prontuário. Mantém a parte com valor (cálculo e formatação) e tira o
+Playwright, o login e a busca de paciente por nome do caminho.
+
+⚠️ A previsão de que ele seria "o último usuário do Chromium" estava errada:
+`barrett_toric.py`, `escrs_calc.py` e `nfse_danfse_portal.py` continuam com
+Playwright, então a imagem não encolhe por causa disto.
 
 ## 5. O que pode dar errado, e o que já sabemos
 
@@ -194,7 +203,7 @@ Chromium no container. **Decidir depois, sem bloquear o resto.**
 | ids de convênio/procedimento | foram **lidos da tela** no iClinic, não de uma API | se a CNN não enumerar, o mesmo trabalho manual — e o script tem de avisar quando um id deixa de existir, como o atual já faz |
 | sem sandbox | validar escrita = marcar consulta real | usar o `--dry-run` que já existe, e a primeira escrita real em horário fora de atendimento, conferida à mão |
 | dois cadastros de credencial | hoje são duas contas (`ICLINIC_*` e `ICLINIC_CONSULTORIO_*`) | confirmar se a CNN precisa das duas |
-| o Chromium sai da imagem | se a autenticação for por token, o container encolhe muito — mas o laudo (Fase 4) pode ser o único a ainda precisar dele | não remover o Chromium antes da Fase 4 estar decidida |
+| ~~o Chromium sai da imagem~~ | ❌ **premissa errada**, verificada em 25/10/2026: além do laudo, `barrett_toric.py`, `escrs_calc.py` e `nfse_danfse_portal.py` usam Playwright. O Chromium fica, independente da Fase 4 | — |
 
 **Dois achados colaterais, independentes da migração:**
 

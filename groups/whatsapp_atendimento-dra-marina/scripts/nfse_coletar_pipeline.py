@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-CRON da NFS-e (roda 18:30 seg-sex). Coleta os particulares do iClinic (janela
+CRON da NFS-e (roda 18:30 seg-sex). Coleta os particulares da Clínica nas Nuvens (janela
 móvel, CUMULATIVO por receita_id já emitido), salva a lista pendente e acorda o
 agente pra apresentar no grupo do atendimento p/ aprovação.
 
 Saída: última linha = JSON {wakeAgent, data} (contrato do task-scheduler).
-Nada é emitido aqui. Credenciais iClinic via env ICLINIC_EMAIL/PASSWORD.
+Nada é emitido aqui. Credenciais da CNN via env CNN_CLIENT_ID/SECRET/CID.
 """
 import json
 import os

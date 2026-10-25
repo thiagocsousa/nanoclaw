@@ -26,7 +26,7 @@ passa a ser **dado errado**, porque a agenda de verdade está noutro lugar.
 | 10 | `iclinic_paciente_por_telefone` | acha o cadastro ANTIGO; o novo está na CNN | ⚠️ identidade errada |
 | 11 | `iclinic_retorno_anual` 13h | ✅ continua certo — lê 1 ano atrás, e isso está no iClinic | ok até 20/11 |
 | 12 | `sla_monitor` | ✅ não toca o iClinic, lê o jsonl do WhatsApp | ok |
-| 13 | `iclinic_laudo_topografia` | escreve no prontuário congelado | ⚠️ sob demanda |
+| 13 | ~~`iclinic_laudo_topografia`~~ → `laudo_topografia` | ✅ **resolvido de outro jeito**: parou de escrever. Monta o texto e a Marina cola — a CNN não tem API de prontuário | ok |
 
 ## O projeto Lara, em específico
 

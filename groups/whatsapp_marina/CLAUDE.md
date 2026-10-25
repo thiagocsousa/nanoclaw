@@ -55,7 +55,7 @@ Se o arquivo não existir, não responda.
 
 ## Pipeline de avaliação pós-consulta
 
-Nos horários 10, 12, 14, 16, 18 e 19h (seg a sex), um script busca no iClinic as consultas **atendidas hoje** (status "compareceu") que **ainda não foram apresentadas** e te aciona. Não há mais janela fixa de horário: como a recepção marca "compareceu" aos poucos, cada disparo pega quem foi marcado desde o disparo anterior (quem for marcado tarde entra no run seguinte; o run das 19h varre os retardatários do fim do dia). Exclui exames e solicitações — só consultas. O campo `janela` vem só como rótulo de hora (ex: "até 16h30").
+Nos horários 10, 12, 14, 16, 18 e 19h (seg a sex), um script busca na Clínica nas Nuvens as consultas **atendidas hoje** (status `FINALIZADO`) que **ainda não foram apresentadas** e te aciona. Não há mais janela fixa de horário: como a recepção marca "compareceu" aos poucos, cada disparo pega quem foi marcado desde o disparo anterior (quem for marcado tarde entra no run seguinte; o run das 19h varre os retardatários do fim do dia). Exclui exames e solicitações — só consultas. O campo `janela` vem só como rótulo de hora (ex: "até 16h30").
 
 ### Fase 1 — apresentar lista (acionado pela task agendada)
 
@@ -94,7 +94,7 @@ Se o arquivo não existir, não responda.
 
 ## Agenda do dia seguinte (informativo)
 
-Todo dia às 20h (domingo a quinta) um script busca a agenda do **próximo dia** da Dra. Marina no iClinic e te aciona com os dados no contexto (`data`, `dia_semana`, `total`, `agendamentos`).
+Todo dia às 20h (domingo a quinta) um script busca a agenda do **próximo dia** da Dra. Marina na Clínica nas Nuvens e te aciona com os dados no contexto (`data`, `dia_semana`, `total`, `agendamentos`).
 
 É **apenas informativo** — monte um resumo limpo e envie à Dra. Marina. **Não** peça ação, **não** pergunte nada, **não** aguarde resposta.
 
@@ -231,11 +231,13 @@ Liste os **sinais visíveis no exame** — é **triagem, não indicação**. Sem
 
 Critérios (conservador): astigmatismo <1,0 D regular 🟢 / 1,0–2,5 D regular → multifocal **tórica** 🟡 / irregular ou >2,5 🔴. Endotélio CD >2000 🟢 / 1500–2000 🟡 / <1500 ou guttata 🔴. Topografia bowtie simétrico 🟢 / assimétrico ou suspeita de ectasia 🔴. Kappa/chord (se vier) <0,5 mm 🟢 / >0,6 mm 🟡🔴.
 
-## Gerar laudo de topografia no iClinic — sob demanda
+## Gerar laudo de topografia — sob demanda
 
 **Gatilho:** a Dra. Marina manda um **PDF de topografia** E pede o laudo com palavra-chave (ex.: "gerar laudo", "laudo de topografia", "faz o laudo"). **Só** faça quando ela pedir o laudo explicitamente — se ela mandar a topografia sem pedir laudo (ex.: pra cálculo de LIO), **não** gere laudo.
 
-Cria um laudo de topografia como **rascunho** no prontuário do paciente no iClinic (conta do consultório). **Só preenche as linhas KT** (dados medidos) — **sem** frases de interpretação; a Marina revisa e assina depois.
+Monta o texto do laudo com **só as linhas KT** (dados medidos) — **sem** frases de interpretação; a interpretação é da Marina.
+
+⚠️ **O script NÃO escreve em sistema nenhum** (mudou em 25/10/2026). Antes ele digitava o laudo no prontuário do iClinic; a API da Clínica nas Nuvens não tem endpoint de prontuário, então agora ele devolve o texto e **quem cola é a Marina**. Não diga que o laudo "foi criado no prontuário" — ele não foi.
 
 ### Passo 1 — extrair da topografia (visão)
 
@@ -246,16 +248,22 @@ Abra o PDF com a ferramenta **`Read`** (é scan/imagem — o extrator de texto v
 
 Poste os valores que leu pra Marina conferir (uma leitura errada = laudo errado), no mesmo espírito do cálculo de LIO. Se não conseguir ler algum número com segurança, **diga que não conseguiu** — não invente.
 
-### Passo 2 — criar o laudo
+### Passo 2 — montar o laudo
 
 ```bash
-python3 /workspace/group/scripts/iclinic_laudo_topografia.py '{"paciente":"NOME DO PACIENTE","od":{"kf":43.22,"kf_axis":11,"ks":44.22,"ks_axis":101,"cyl":1.00},"os":{"kf":43.11,"kf_axis":173,"ks":46.07,"ks_axis":63,"cyl":2.97}}'
+python3 /workspace/group/scripts/laudo_topografia.py '{"paciente":"NOME DO PACIENTE","od":{"kf":43.22,"kf_axis":11,"ks":44.22,"ks_axis":101,"cyl":1.00},"os":{"kf":43.11,"kf_axis":173,"ks":46.07,"ks_axis":63,"cyl":2.97}}'
 ```
 
-- Se `ok:true` → encaminhe a `mensagem` (ex.: "Laudo criado como rascunho no prontuário de X — revisar e assinar no iClinic").
-- Se `ok:false` → encaminhe o `aviso` INTEIRO (ex.: paciente não encontrado, ou mais de um com o mesmo nome — aí peça o nome exato). **Não** invente que o laudo foi feito se não foi.
-- O script **busca o paciente pelo nome** e, se achar **0 ou mais de 1**, NÃO cria nada e pede desambiguação — nesse caso, confirme o nome exato com a Marina.
-- O laudo fica **rascunho** (não assinado) dentro de um atendimento — a Marina revisa/assina no iClinic.
+Se `ok:true`, poste **duas mensagens, nessa ordem**:
+
+1. a `mensagem` (a nota com o nome do paciente);
+2. o `laudo`, **sozinho e literal** — nada antes, nada depois, sem `*negrito*`, sem cerca de código, sem emoji, sem assinatura.
+
+⛔ **O motivo da segunda ser sozinha:** a Marina copia aquela mensagem inteira e cola no prontuário. Qualquer caractere que você acrescente entra no prontuário com ela. Se juntar as duas numa só, ela tem de editar o texto à mão — que é justamente o trabalho que este pipeline existe para poupar.
+
+- Se `conferir` vier com itens, poste-os **depois** das duas, como aviso. O laudo saiu, mas um número pode estar mal lido.
+- Se `ok:false` → encaminhe o `aviso` INTEIRO e **não** monte laudo nenhum. O script recusa número impossível (ceratometria fora de 30–60 D, eixo fora de 0–180°) e K plano maior que o curvo, que é leitura trocada. Nesses casos o certo é reler o exame ou pedir o PDF de novo.
+- ⛔ **Não "conserte" os números** para o script aceitar. Se ele recusou, o dado está errado; inverter, arredondar ou completar faz um laudo errado com cara de certo.
 
 ## Comunicação
 

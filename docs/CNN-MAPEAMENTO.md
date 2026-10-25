@@ -166,6 +166,22 @@ trabalho novo, e é o único motivo que sobraria para manter o Chromium.
 **Recomendação: deixar manual na virada.** É o pipeline menos frequente e o
 único sem paciente esperando resposta.
 
+### ✅ Resolvido em 25/10/2026 — e não foi migrando
+
+Decisão do Thiago: o script **para de escrever em sistema nenhum**. Agora é
+`groups/whatsapp_marina/scripts/laudo_topografia.py`, que monta o texto do
+laudo, confere os números e devolve para o agente postar no grupo; quem cola no
+prontuário da CNN é a Marina.
+
+O que se ganhou, além de não escrever no sistema errado: saiu o Playwright, o
+login de ~20 s, a navegação de seis telas e a busca de paciente por nome — com
+ela, a chance de acertar o prontuário de outra pessoa. O que entrou no lugar é
+conferência dos números, que a versão antiga não tinha: ela validava que o
+texto chegou ao editor, não que o texto estava certo.
+
+⚠️ **Isto NÃO tira o Chromium da imagem.** `barrett_toric.py`, `escrs_calc.py`
+e `nfse_danfse_portal.py` continuam com Playwright — o laudo não era o último.
+
 ## Outro achado: a CNN manda WhatsApp sozinha
 
 `POST /agenda/novo` aceita `notificarWhatsappPaciente`, `notificarSMSPaciente` e

@@ -24,7 +24,8 @@ import { describe, expect, it } from 'vitest';
  * `os.environ.get("X", "default")` não casava — "o padrão exige que a
  * atribuição comece com o NOME do segredo". Era exatamente a forma em que a
  * senha do consultório estava escondida em
- * `iclinic_laudo_topografia.py`, que por isso sobreviveu à limpeza de
+ * `iclinic_laudo_topografia.py` (hoje `laudo_topografia.py`), que por isso
+ * sobreviveu à limpeza de
  * 24/10/2026 e só apareceu num grep manual no dia seguinte. O guarda passava
  * verde sobre o caso que ele existia para pegar.
  *
