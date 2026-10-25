@@ -107,7 +107,21 @@ def run(inp):
             return {"ok": False, "aviso": f"Falta '{k}' na entrada do laudo."}
     from playwright.sync_api import sync_playwright
     with sync_playwright() as pw:
-        b = pw.chromium.launch(headless=True)
+        # ⛔ `executable_path` NÃO é opcional aqui, e a falta dele vivia como
+        # remendo não commitado na VM — descoberto em 25/10/2026, quando o
+        # `git pull --ff-only` do deploy abortou por causa dele. O container
+        # usa o Chromium do sistema (`PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`, no
+        # Dockerfile) e NÃO baixa o do Playwright; sem isto o launch morre
+        # procurando um navegador que não existe.
+        #
+        # É a mesma linha de `barrett_toric.py`, `escrs_calc.py` e
+        # `nfse_danfse_portal.py` — este era o único dos quatro sem ela.
+        # Sem valor padrão de propósito: `None` deixa o Playwright decidir, que
+        # é o certo fora do container.
+        b = pw.chromium.launch(
+            headless=True,
+            executable_path=os.environ.get("PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH"),
+        )
         ctx = b.new_context(viewport={"width": 1440, "height": 950})
         ctx.add_cookies([{"name": "cookie_consent", "value": "1",
                           "domain": ".iclinic.com.br", "path": "/"}])
