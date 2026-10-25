@@ -11,7 +11,7 @@ import re
 import time
 from datetime import date, timedelta
 from pathlib import Path
-from playwright.sync_api import sync_playwright
+import cnn
 
 EMAIL = "thiagocsousa@gmail.com"
 SENHA = "Thiagofei1998#"
@@ -34,51 +34,31 @@ def clean_phone(raw: str) -> str | None:
     return digits
 
 
-def fetch_patient_phone(page, pid: int, headers: dict) -> str | None:
-    r = page.request.get(
-        f"https://app.iclinic.com.br/pacientes/{pid}/",
-        headers=headers,
-    )
-    if r.status != 200:
-        return None
-    html = r.text()
-    for field in ["mobile_phone", "home_phone"]:
-        m = re.search(rf'name="{field}"[^>]+value="([^"]*)"', html)
-        if m and m.group(1).strip():
-            cleaned = clean_phone(m.group(1))
-            if cleaned:
-                return cleaned
-    return None
+def historico_do_paciente(pid, data_alvo, hoje_str):
+    """(voltou, aniversario_particular) do histórico do paciente.
 
+    - voltou: existe QUALQUER atendimento finalizado DEPOIS da data-aniversário.
+      Na CNN, como no iClinic, retorno não tem tipo próprio — qualquer volta à
+      clínica conta.
+    - aniversario_particular: o atendimento da PRÓPRIA data-aniversário foi
+      particular. O filtro vale só para esse, não para o histórico inteiro.
 
-def check_patient_history(page, pid: int, headers: dict, since_date_str: str):
-    """Returns (has_returned, anniversary_particular) from patient event history.
-
-    - has_returned: existe qualquer atendimento (cp) DEPOIS da data-aniversário.
-      O RETORNO no iClinic é só "RETORNO", sem tipo (particular/convênio), então
-      qualquer volta à clínica conta como retorno.
-    - anniversary_particular: a consulta da própria data-aniversário (since_date_str)
-      foi particular. O filtro de "particular" se aplica só a esse atendimento, não
-      ao histórico inteiro.
+    ⚠️ Na CNN "particular" é um id de convênio (74466 PARTICULAR, 74543
+    PARTICULAR DESCONTO), não uma string no nome. Comparar por id é mais
+    seguro que por texto — era `"particular" in insurance_name.lower()`, que
+    casaria com qualquer convênio novo que tivesse a palavra.
     """
-    r = page.request.get(
-        f"https://app.iclinic.com.br/pacientes/{pid}/events/?offset=0",
-        headers=headers,
+    eventos = cnn.agenda(data_alvo, hoje_str, codigoPaciente=pid)
+    voltou = any(
+        cnn.compareceu(e) and (e.get("data") or "") > data_alvo for e in eventos
     )
-    if r.status != 200:
-        return False, False
-    events = r.json().get("events", [])
-    returned = any(
-        e.get("status") == "cp" and e.get("date", "") > since_date_str
-        for e in events
+    aniversario_particular = any(
+        cnn.compareceu(e)
+        and (e.get("data") or "") == data_alvo
+        and e.get("idTipoConvenio") in cnn.CONVENIOS_PARTICULARES
+        for e in eventos
     )
-    anniversary_particular = any(
-        e.get("status") == "cp"
-        and e.get("date", "") == since_date_str
-        and "particular" in (e.get("insurance_name") or "").lower()
-        for e in events
-    )
-    return returned, anniversary_particular
+    return voltou, aniversario_particular
 
 
 def run():
@@ -86,99 +66,62 @@ def run():
     target_date = today - timedelta(days=366)
     target_str = target_date.strftime("%Y-%m-%d")
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch(
-            headless=True,
-            executable_path=os.environ.get("PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH"),
-            # ⚠️ Sem isto o chromium usa /dev/shm para a memória compartilhada
-            # entre seus processos, e o Docker dá 64 MB por padrão — com 64 MB ele
-            # não falha com erro, PENDURA. Este script não passa pelos spawns do
-            # host que levam `--shm-size`, então o conserto viaja com o script.
-            args=["--disable-dev-shm-usage"],
-        )
-        context = browser.new_context()
-        page = context.new_page()
+    # ⛔ Migrado do iClinic para a Clínica nas Nuvens em 25/10/2026.
+    #
+    # ⚠️ Em 24/10 ficou decidido que o histórico NÃO migraria e este pipeline
+    # ficaria 12 meses cego. Estava errado: conferido em 25/10, a CNN tem 495
+    # atendimentos de 2025 e 430 de jan–ago/2026. O histórico VEIO, e o retorno
+    # anual funciona desde o primeiro dia.
+    hoje_str = today.strftime("%Y-%m-%d")
+    attended_year_ago = [
+        e for e in cnn.agenda(target_str, target_str)
+        if cnn.compareceu(e) and e.get("idPaciente")
+    ]
 
-        page.goto("https://app.iclinic.com.br/", wait_until="domcontentloaded")
-        # Espera o campo de e-mail HABILITAR antes de digitar. O porquê, a
-        # medição e o histórico estão em
-        # groups/whatsapp_atendimento-teste/scripts/iclinic_vagas.py.
-        # 45 s: o campo leva ~2,5 s folgado e passa de 30 s sob carga.
-        page.wait_for_selector(
-            'input[name="email"]:not([disabled])', timeout=45000)
-        page.fill('input[name="email"]', EMAIL)
-        page.fill('input[name="password"]', SENHA)
-        with page.expect_navigation(wait_until="domcontentloaded", timeout=20000):
-            page.click('button[type="submit"]')
-        page.wait_for_timeout(3000)
+    if not attended_year_ago:
+        print(json.dumps({
+            "wakeAgent": False,
+            "data": {"message": f"Nenhuma consulta atendida em {target_str}"},
+        }))
+        return
 
-        csrf = next(
-            (c["value"] for c in context.cookies() if c["name"] == "csrftoken"), ""
-        )
-        headers = {"X-Requested-With": "XMLHttpRequest", "X-CSRFToken": csrf}
+    # Deduplica por paciente (mais de um procedimento no mesmo dia)
+    seen_pids: set = set()
+    unique_events = []
+    for e in attended_year_ago:
+        pid = e["idPaciente"]
+        if pid not in seen_pids:
+            seen_pids.add(pid)
+            unique_events.append(e)
 
-        r = page.request.get(
-            f"https://app.iclinic.com.br/agenda/{PHYSICIAN_ID}/{target_str}/"
-            f"?clinic={CLINIC_ID}&slide=1",
-            headers=headers,
-        )
-        if r.status != 200:
-            print(json.dumps({"wakeAgent": False, "data": {"error": f"Agenda HTTP {r.status}"}}))
-            browser.close()
-            return
+    candidatos = []
+    for ev in unique_events:
+        pid = ev["idPaciente"]
 
-        events = r.json().get("events", [])
-        attended_year_ago = [
-            e for e in events
-            if e.get("status") == "cp"
-            and e.get("patient")
-            and e.get("date") == target_str
-        ]
+        voltou, aniversario_particular = historico_do_paciente(
+            pid, target_str, hoje_str)
+        if voltou or not aniversario_particular:
+            continue
 
-        if not attended_year_ago:
-            print(json.dumps({
-                "wakeAgent": False,
-                "data": {"message": f"Nenhuma consulta atendida em {target_str}"},
-            }))
-            browser.close()
-            return
+        if ev.get("idTipoConsulta") not in cnn.TIPOS_DE_CONSULTA:
+            continue
 
-        # Deduplicate by patient_id
-        seen_pids: set = set()
-        unique_events = []
-        for e in attended_year_ago:
-            pid = e["patient"]["id"]
-            if pid not in seen_pids:
-                seen_pids.add(pid)
-                unique_events.append(e)
+        cadastro = cnn.paciente(pid)
+        nome = (cadastro.get("nome") or "").strip()
+        contato = cadastro.get("contato") or {}
+        phone = clean_phone(
+            ev.get("telefoneCelularPaciente")
+            or contato.get("telefoneCelular") or "")
+        if not phone or not nome:
+            continue
 
-        candidatos = []
-        for ev in unique_events:
-            patient = ev["patient"]
-            pid = patient["id"]
-
-            returned, anniversary_particular = check_patient_history(page, pid, headers, target_str)
-            if returned or not anniversary_particular:
-                continue
-
-            phone = fetch_patient_phone(page, pid, headers)
-            if not phone:
-                continue
-
-            procedures = ev.get("procedures", [])
-            proc_name = procedures[0]["procedure"]["name"] if procedures else "Consulta"
-            if "solicita" in proc_name.lower():
-                continue
-
-            candidatos.append({
-                "nome": patient["name"],
-                "patient_id": pid,
-                "telefone": phone,
-                "procedimento": proc_name,
-            })
-            time.sleep(0.3)
-
-        browser.close()
+        candidatos.append({
+            "nome": nome,
+            "patient_id": pid,
+            "telefone": phone,
+            "procedimento": cnn.NOME_DO_TIPO.get(
+                ev.get("idTipoConsulta"), "Consulta"),
+        })
 
     if not candidatos:
         print(json.dumps({

@@ -8,7 +8,7 @@ import json
 import os
 import sys
 from datetime import datetime, timedelta, timezone
-from playwright.sync_api import sync_playwright
+import cnn
 
 TZ = timezone(timedelta(hours=-3))  # America/Fortaleza
 EMAIL = "thiagocsousa@gmail.com"
@@ -18,10 +18,9 @@ PHYSICIAN_ID = "284806"
 
 DIAS = ["segunda-feira", "terça-feira", "quarta-feira", "quinta-feira",
         "sexta-feira", "sábado", "domingo"]
-# NÃO mostrar cancelado / faltou / bloqueio. Códigos observados no iClinic:
-# na = não compareceu (faltou), hd = feriado/bloqueio. ca/fl/bl incluídos por
-# segurança (cancelado/faltou/bloqueio). Os demais (sc/re/ow/cw/at/cp) são válidos.
-STATUS_EXCLUIR = {"ca", "fl", "na", "bl", "hd"}
+# ⛔ Migrado do iClinic para a Clínica nas Nuvens em 25/10/2026. A regra de
+# "não mostrar cancelado/faltou/bloqueio" agora vive em cnn.STATUS_SEM_VALOR,
+# e o bloqueio deixou de ser status: na CNN é ausência de disponibilidade.
 
 
 def run():
@@ -30,63 +29,34 @@ def run():
     d_disp = amanha.strftime("%d/%m/%Y")
     dia_semana = DIAS[amanha.weekday()]
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch(
-            headless=True,
-            executable_path=os.environ.get("PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH"),
-            # ⚠️ Sem isto o chromium usa /dev/shm para a memória compartilhada
-            # entre seus processos, e o Docker dá 64 MB por padrão — com 64 MB ele
-            # não falha com erro, PENDURA. Este script não passa pelos spawns do
-            # host que levam `--shm-size`, então o conserto viaja com o script.
-            args=["--disable-dev-shm-usage"],
-        )
-        context = browser.new_context()
-        page = context.new_page()
-        page.goto("https://app.iclinic.com.br/", wait_until="domcontentloaded")
-        # Espera o campo de e-mail HABILITAR antes de digitar. O porquê, a
-        # medição e o histórico estão em
-        # groups/whatsapp_atendimento-teste/scripts/iclinic_vagas.py.
-        # 45 s: o campo leva ~2,5 s folgado e passa de 30 s sob carga.
-        page.wait_for_selector(
-            'input[name="email"]:not([disabled])', timeout=45000)
-        page.fill('input[name="email"]', EMAIL)
-        page.fill('input[name="password"]', SENHA)
-        with page.expect_navigation(wait_until="domcontentloaded", timeout=20000):
-            page.click('button[type="submit"]')
-        page.wait_for_timeout(3000)
-        csrf = next((c["value"] for c in context.cookies() if c["name"] == "csrftoken"), "")
-        headers = {"X-Requested-With": "XMLHttpRequest", "X-CSRFToken": csrf}
-        r = page.request.get(
-            f"https://app.iclinic.com.br/agenda/{PHYSICIAN_ID}/{d}/?clinic={CLINIC_ID}&slide=1",
-            headers=headers,
-        )
-        events = r.json().get("events", []) if r.status == 200 else []
-        browser.close()
+    # A agenda inteira do dia, SEM filtrar tipo: aqui a Marina quer ver tudo
+    # que está marcado — cirurgia e exame inclusive —, ao contrário do lembrete,
+    # que só avisa consulta e retorno.
+    eventos = [
+        e for e in cnn.agenda(d, d)
+        if e.get("status") not in cnn.STATUS_SEM_VALOR and e.get("idPaciente")
+    ]
 
     if "--debug" in sys.argv:
-        print(f"[DEBUG] amanhã={d} ({dia_semana}), {len(events)} eventos na semana:")
-        for e in sorted(events, key=lambda x: (x.get("date") or "", x.get("start_time") or "")):
-            print(f"  date={e.get('date')} start={e.get('start_time')!r} status={e.get('status')!r} "
-                  f"ins={e.get('insurance')!r} pac={(e.get('patient') or {}).get('name')} "
-                  f"procs={[ (p.get('procedure') or {}).get('name') for p in (e.get('procedures') or []) ]}")
+        print(f"[DEBUG] amanhã={d} ({dia_semana}), {len(eventos)} eventos:")
+        for e in sorted(eventos, key=lambda x: x.get("horaInicio") or ""):
+            print(f"  {e.get('horaInicio')} status={e.get('status')!r} "
+                  f"tipo={cnn.NOME_DO_TIPO.get(e.get('idTipoConsulta'), e.get('idTipoConsulta'))!r} "
+                  f"convenio={e.get('idTipoConvenio')!r} paciente={e.get('idPaciente')}")
         return
 
     ags = []
-    for ev in events:
-        pac = ev.get("patient") or {}
-        if ev.get("date") != d or not pac.get("name"):   # ignora slots bloqueados/sem paciente
+    for ev in eventos:
+        # O nome não vem no evento da CNN; vem no cadastro.
+        nome = (cnn.paciente(ev["idPaciente"]).get("nome") or "").strip()
+        if not nome:
             continue
-        if ev.get("status") in STATUS_EXCLUIR:            # cancelado/faltou/bloqueio
-            continue
-        procs = ev.get("procedures") or []
-        proc = (procs[0].get("procedure") or {}).get("name") if procs else "Consulta"
-        ins = ev.get("insurance")
-        convenio = (ins.get("name") if isinstance(ins, dict) else ins) or None
         ags.append({
-            "hora": (ev.get("start_time") or "")[:5],
-            "nome": ev["patient"].get("name"),
-            "procedimento": proc,
-            "convenio": convenio,
+            "hora": (ev.get("horaInicio") or "")[:5],
+            "nome": nome,
+            "procedimento": cnn.NOME_DO_TIPO.get(
+                ev.get("idTipoConsulta"), "Consulta"),
+            "convenio": cnn.NOME_DO_CONVENIO.get(ev.get("idTipoConvenio")),
         })
     ags.sort(key=lambda x: x["hora"])
 

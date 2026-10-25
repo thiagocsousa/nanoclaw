@@ -12,7 +12,7 @@ import sys
 import time
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from playwright.sync_api import sync_playwright
+import cnn
 
 TZ_OFFSET = timezone(timedelta(hours=-3))  # America/Fortaleza
 
@@ -39,24 +39,6 @@ def clean_phone(raw: str) -> str | None:
     return digits
 
 
-def fetch_patient_phone(page, pid: int, headers: dict) -> str | None:
-    r = page.request.get(
-        f"https://app.iclinic.com.br/pacientes/{pid}/",
-        headers=headers,
-    )
-    if r.status != 200:
-        return None
-    html = r.text()
-    # Server-rendered form: <input name="mobile_phone" ... value="(86) 99999-9999">
-    for field in ["mobile_phone", "home_phone"]:
-        m = re.search(rf'name="{field}"[^>]+value="([^"]*)"', html)
-        if m and m.group(1).strip():
-            cleaned = clean_phone(m.group(1))
-            if cleaned:
-                return cleaned
-    return None
-
-
 def run():
     now_local = datetime.now(TZ_OFFSET)
     today = now_local.date().strftime("%Y-%m-%d")
@@ -77,106 +59,50 @@ def run():
         seen_data = {"date": today, "patient_ids": []}
     seen_ids = set(seen_data["patient_ids"])
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch(
-            headless=True,
-            executable_path=os.environ.get("PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH"),
-            # ⚠️ Sem isto o chromium usa /dev/shm para a memória compartilhada
-            # entre seus processos, e o Docker dá 64 MB por padrão — com 64 MB ele
-            # não falha com erro, PENDURA. Este script não passa pelos spawns do
-            # host que levam `--shm-size`, então o conserto viaja com o script.
-            args=["--disable-dev-shm-usage"],
-        )
-        context = browser.new_context()
-        page = context.new_page()
+    # ⛔ Migrado do iClinic para a Clínica nas Nuvens em 25/10/2026.
+    # "Atendido" era o status `cp`; na CNN é FINALIZADO (cnn.compareceu).
+    eventos = cnn.agenda(today, today)
 
-        page.goto("https://app.iclinic.com.br/", wait_until="domcontentloaded")
-        # Espera o campo de e-mail HABILITAR antes de digitar. O porquê, a
-        # medição e o histórico estão em
-        # groups/whatsapp_atendimento-teste/scripts/iclinic_vagas.py.
-        # 45 s: o campo leva ~2,5 s folgado e passa de 30 s sob carga.
-        page.wait_for_selector(
-            'input[name="email"]:not([disabled])', timeout=45000)
-        page.fill('input[name="email"]', EMAIL)
-        page.fill('input[name="password"]', SENHA)
-        with page.expect_navigation(wait_until="domcontentloaded", timeout=20000):
-            page.click('button[type="submit"]')
-        page.wait_for_timeout(3000)
+    if "--debug" in sys.argv:
+        print(f"[DEBUG] {len(eventos)} eventos hoje ({today}), janela {janela_display}:")
+        for e in sorted(eventos, key=lambda x: x.get("horaInicio") or ""):
+            print(f"  {e.get('horaInicio')} | status={e.get('status')!r} | "
+                  f"tipo={cnn.NOME_DO_TIPO.get(e.get('idTipoConsulta'))!r} | "
+                  f"paciente={e.get('idPaciente')}")
+        return
 
-        csrf = next(
-            (c["value"] for c in context.cookies() if c["name"] == "csrftoken"), ""
-        )
-        headers = {"X-Requested-With": "XMLHttpRequest", "X-CSRFToken": csrf}
+    atendidos = [e for e in eventos if cnn.compareceu(e) and e.get("idPaciente")]
 
-        r = page.request.get(
-            f"https://app.iclinic.com.br/agenda/{PHYSICIAN_ID}/{today}/?clinic={CLINIC_ID}&slide=1",
-            headers=headers,
-        )
-        if r.status != 200:
-            print(
-                json.dumps(
-                    {"wakeAgent": False, "data": {"error": f"Agenda HTTP {r.status}"}}
-                )
-            )
-            browser.close()
-            return
+    if not atendidos:
+        print(json.dumps(
+            {"wakeAgent": False,
+             "data": {"message": "Nenhuma consulta atendida hoje ainda."}}))
+        return
 
-        events = r.json().get("events", [])
-
-        if "--debug" in sys.argv:
-            print(f"[DEBUG] {len(events)} eventos hoje ({today}), janela seria {janela_display}:")
-            for e in sorted(events, key=lambda x: x.get("start_time", "")):
-                if not e.get("patient"):
-                    continue
-                procs = e.get("procedures") or []
-                proc_name = procs[0]["procedure"]["name"] if procs else ""
-                print(
-                    f"  {e.get('start_time','?')} | status={e.get('status')!r} | "
-                    f"date={e.get('date')} | {e['patient'].get('name')} | {proc_name}"
-                )
-            browser.close()
-            return
-
-        attended = [
-            e for e in events
-            if e.get("status") == "cp"
-            and e.get("patient")
-            and e.get("date") == today
-        ]
-
-        if not attended:
-            print(
-                json.dumps(
-                    {"wakeAgent": False,
-                     "data": {"message": "Nenhuma consulta atendida hoje ainda."}}
-                )
-            )
-            browser.close()
-            return
-
-        consultas = []
-        for ev in attended:
-            patient = ev["patient"]
-            pid = patient["id"]
-            if pid in seen_ids:
-                continue  # já apresentado hoje num run anterior
-            procedures = ev.get("procedures", [])
-            proc_name = (
-                procedures[0]["procedure"]["name"] if procedures else "Consulta"
-            )
-            pl = proc_name.lower()
-            if "solicita" in pl or "exame" in pl:
-                continue  # exclui solicitações e exames — só consultas
-            phone = fetch_patient_phone(page, pid, headers)
-            consultas.append(
-                {
-                    "nome": patient["name"],
-                    "patient_id": pid,
-                    "telefone": phone,
-                    "procedimento": proc_name,
-                }
-            )
-            time.sleep(0.3)
+    consultas = []
+    for ev in atendidos:
+        pid = ev["idPaciente"]
+        if pid in seen_ids:
+            continue  # já apresentado hoje num run anterior
+        # ⚠️ Só CONSULTA e afins pedem avaliação. O filtro era por NOME do
+        # procedimento ("solicita"/"exame" fora); agora é pelo tipo de consulta,
+        # que é campo próprio — e a mesma allowlist que decide o lembrete.
+        if ev.get("idTipoConsulta") not in cnn.TIPOS_DE_CONSULTA:
+            continue
+        cadastro = cnn.paciente(pid)
+        nome = (cadastro.get("nome") or "").strip()
+        if not nome:
+            continue
+        contato = cadastro.get("contato") or {}
+        consultas.append({
+            "nome": nome,
+            "patient_id": pid,
+            "telefone": clean_phone(
+                ev.get("telefoneCelularPaciente")
+                or contato.get("telefoneCelular") or ""),
+            "procedimento": cnn.NOME_DO_TIPO.get(
+                ev.get("idTipoConsulta"), "Consulta"),
+        })
 
     # Deduplica por patient_id (paciente com mais de um procedimento no dia)
     seen = set()

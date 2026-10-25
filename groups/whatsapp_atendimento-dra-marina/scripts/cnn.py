@@ -59,6 +59,20 @@ NOME_DO_TIPO = {
     126579: "Encaixe",
 }
 
+# Convênios da clínica, lidos de /tipo-convenio/lista em 24/10/2026.
+NOME_DO_CONVENIO = {
+    74546: "IASPI",
+    74545: "IPMT",
+    74466: "Particular",
+    74543: "Particular com desconto",
+    74544: "Unimed",
+}
+
+# Os que são "particular" para efeito de regra de negócio (desconto, retorno
+# anual). Por ID, não por texto: `"particular" in nome.lower()` casaria com
+# qualquer convênio novo que tivesse a palavra.
+CONVENIOS_PARTICULARES = {74466, 74543}
+
 # Status que significam "este horário não vale" — o equivalente do
 # STATUS_EXCLUIR = {ca, fl, na, bl, hd} do iClinic.
 #
