@@ -27,9 +27,9 @@ script foi escrito contra o modelo da API, não contra dado real — ao contrár
 do lembrete e da agenda, que conferi contra pacientes de verdade.
 
 Por isso a regra do desconhecido é CONSERVADORA: procedimento que não casa com
-nenhum serviço conhecido **não é descartado em silêncio** — vai para
-`nao_categorizado` e aparece no grupo. Sumir calado é o que não se pode fazer
-com dinheiro.
+nenhum serviço conhecido **não é descartado em silêncio** — entra em `sem_cpf`
+com o motivo "procedimento desconhecido", que é a lista que a recepção já
+recebe com ref `C1`/`C2`. Sumir calado é o que não se pode fazer com dinheiro.
 
 ## O que ficou IGUAL
 
@@ -46,7 +46,6 @@ import argparse
 import json
 import os
 import re
-import unicodedata
 from datetime import date
 from pathlib import Path
 
@@ -74,11 +73,6 @@ SERVICO_DO_PROCEDIMENTO = {
 
 def only_digits(s):
     return re.sub(r"\D", "", s or "")
-
-
-def normalize(s):
-    s = unicodedata.normalize("NFKD", s or "")
-    return "".join(c for c in s if not unicodedata.combining(c)).upper().strip()
 
 
 def endereco_do_cadastro(cadastro):
@@ -155,7 +149,7 @@ def servicos_do_orcamento(orc):
 
 
 def coletar(d0, d1, emitidas):
-    diretos, cirurgias, sem_cpf, nao_categorizado = [], [], [], []
+    diretos, cirurgias, sem_cpf = [], [], []
 
     for orc in cnn.orcamentos(d0, d1, status="APROVADO", tipo_data="APROVACAO"):
         if str(orc.get("id")) in emitidas:
@@ -183,9 +177,16 @@ def coletar(d0, d1, emitidas):
                 "motivo": mot,
             }
             if origem is None:
-                # ⛔ NÃO descarta. Procedimento novo na clínica aparece aqui e a
-                # recepção vê; descartar calado some com dinheiro do radar.
-                nao_categorizado.append(item)
+                # ⛔ NÃO descarta, e NÃO inventa uma quinta chave que ninguém lê.
+                #
+                # A primeira versão punha isto num bucket `nao_categorizado`
+                # próprio — que o `nfse_coletar_pipeline.py` não consome. O
+                # comentário prometia "aparece no grupo" e o comportamento
+                # observável era o descarte silencioso que ele dizia evitar.
+                # Entra em `sem_cpf`, que é a lista de incompletos que a
+                # recepção JÁ recebe com motivo e ref C1/C2.
+                item["motivo"] = f"procedimento desconhecido ({nome_proc})"
+                sem_cpf.append(item)
             elif mot:
                 sem_cpf.append(item)
             elif origem == "cirurgia":
@@ -200,7 +201,6 @@ def coletar(d0, d1, emitidas):
         "diretos": diretos,
         "cirurgias": cirurgias,
         "sem_cpf": sem_cpf,
-        "nao_categorizado": nao_categorizado,
     }
 
 

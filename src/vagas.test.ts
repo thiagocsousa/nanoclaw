@@ -177,22 +177,26 @@ describe('slotsDaVaga', () => {
 // antes — validei num ambiente que produção não tem.
 describe('garanteCredenciais', () => {
   it('não sobrescreve o que já está no ambiente', async () => {
-    const antes = process.env.ICLINIC_EMAIL;
-    process.env.ICLINIC_EMAIL = 'do-ambiente@exemplo';
+    const antes = process.env.CNN_CID;
+    process.env.CNN_CID = 'do-ambiente';
     const { garanteCredenciais } = await import('./vagas.js');
     garanteCredenciais();
-    expect(process.env.ICLINIC_EMAIL).toBe('do-ambiente@exemplo');
-    if (antes === undefined) delete process.env.ICLINIC_EMAIL;
-    else process.env.ICLINIC_EMAIL = antes;
+    expect(process.env.CNN_CID).toBe('do-ambiente');
+    if (antes === undefined) delete process.env.CNN_CID;
+    else process.env.CNN_CID = antes;
   });
 
-  it('a lista cobre as quatro variáveis que o script usa', async () => {
+  // ⛔ Igualdade EXATA, não `toContain`. A lista é o contrato entre o host e o
+  // `cnn._credenciais()`, e foi acrescentar chave sem mexer aqui que quase
+  // derrubou os três scripts da Lara na migração de 25/10/2026. Este teste
+  // falhar ao mexer na lista é o que ele serve para fazer: force a pergunta
+  // "e o container de script, recebe?" antes do commit, não em produção.
+  it('a lista é exatamente o que os scripts da Lara leem', async () => {
     const { CREDENCIAIS } = await import('./vagas.js');
     expect(CREDENCIAIS).toEqual([
-      'ICLINIC_EMAIL',
-      'ICLINIC_PASSWORD',
-      'ICLINIC_CLINIC_ID',
-      'ICLINIC_PHYSICIAN_ID',
+      'CNN_CLIENT_ID',
+      'CNN_CLIENT_SECRET',
+      'CNN_CID',
     ]);
   });
 });

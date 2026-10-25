@@ -28,8 +28,19 @@ import sys
 
 BASE = "https://app.iclinic.com.br"
 EMAIL = os.environ.get("ICLINIC_CONSULTORIO_EMAIL", "dramarinacostaconsultorio@gmail.com")
-PASSWORD = os.environ.get("ICLINIC_CONSULTORIO_PASSWORD", "Mariago123#")
 MODELO = os.environ.get("LAUDO_TOPO_MODELO", "LAUDO TOPO")
+
+# ⛔ SEM valor padrão. Até 25/10/2026 a senha do consultório estava literal
+# aqui, como segundo argumento do `os.environ.get` — e sobreviveu à limpeza de
+# 24/10 (commit d2a9d8d8, "tira a senha do iClinic dos scripts") porque o
+# `sem-segredo-no-repo.test.ts` procurava `SENHA = "..."` e dizia, por escrito,
+# que `os.environ.get("X", "default")` NÃO casava. Era exatamente a forma em
+# que a senha estava se escondendo: o guarda tinha o critério estreito, não o
+# arquivo tinha sorte.
+#
+# ⚠️ Estar fora daqui não é estar segura: ela está no histórico do git e TEM de
+# ser rotacionada.
+PASSWORD = os.environ.get("ICLINIC_CONSULTORIO_PASSWORD", "")
 
 
 def _out(d):
@@ -58,6 +69,13 @@ def _laudo_lines(inp):
 
 
 def _login(ctx):
+    # Falha explícita em vez de digitar senha vazia e levar "login inválido" do
+    # iClinic, que manda a recepção procurar problema de conta.
+    if not PASSWORD:
+        raise RuntimeError(
+            "falta ICLINIC_CONSULTORIO_PASSWORD no ambiente "
+            "(FORWARDED_ENV_VARS em container-runner.ts)"
+        )
     pg = ctx.new_page()
     pg.goto(BASE + "/", wait_until="domcontentloaded", timeout=45000)
     pg.fill("input[type=email]", EMAIL, timeout=15000)

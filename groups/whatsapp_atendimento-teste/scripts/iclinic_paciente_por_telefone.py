@@ -33,8 +33,14 @@ import argparse
 import json
 import re
 import sys
+from datetime import date, timedelta
 
 import cnn
+
+# Janela do "última consulta". Um ano cobre o retorno anual e cabe numa
+# requisição, porque /agenda/lista aceita período.
+HOJE = date.today().isoformat()
+DESDE_HISTORICO = (date.today() - timedelta(days=366)).isoformat()
 
 
 def so_digitos(s):
@@ -95,7 +101,40 @@ def main():
             "telefone": c.get("telefoneCelular") or "",
             "cidade": "",   # a CNN dá idCidade, não o nome; não vale a chamada
             "ativo": bool(p.get("ativo")),
+            # Preenchidos abaixo, só para quem sobrou do filtro.
+            "convenio": "",
+            "ultima_consulta": "",
         })
+
+    # ⛔ `convenio` e `ultima_consulta` TÊM consumidor, e eu os tinha deixado
+    # vazios na migração.
+    #
+    # `executor.ts` dispara o template `confirma_convenio` a partir de
+    # `cad.convenio` e preenche o convênio do candidato; `ultima_consulta` vai
+    # no escalonamento "para poupar a recepção de abrir o sistema"
+    # (`src/paciente.ts`). Entregar vazio não dá erro — faz a triagem
+    # PERGUNTAR de novo o que estava no cadastro, e transfere o custo para
+    # turnos de conversa e para a recepção.
+    #
+    # ⚠️ Só para os candidatos que sobraram (quase sempre 1), depois do filtro.
+    # São 1-2 requisições que se pagam num turno a menos, contra as 14 da
+    # varredura que já foram gastas.
+    for c in candidatos:
+        try:
+            vincs = cnn._paginado("/convenio-paciente/lista", idPaciente=c["id"])
+            ativo = next((v for v in vincs if v.get("ativo")), None)
+            if ativo:
+                c["convenio"] = (ativo.get("nomeTipoConvenio") or "").strip()
+            hist = [e for e in cnn.agenda(DESDE_HISTORICO, HOJE,
+                                          codigoPaciente=c["id"])
+                    if cnn.compareceu(e)]
+            if hist:
+                c["ultima_consulta"] = max(e.get("data") or "" for e in hist)
+        except cnn.CnnIndisponivel:
+            # ⚠️ Enriquecimento é OPCIONAL: falhar aqui não pode derrubar o
+            # reconhecimento do paciente, que é o trabalho principal e já está
+            # feito. Segue com os campos vazios.
+            pass
 
     # Mais velho primeiro: quem escreve para a clínica tende a ser o adulto
     # titular do telefone, e menor de idade escala de qualquer jeito. É palpite

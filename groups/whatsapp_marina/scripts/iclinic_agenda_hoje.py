@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Busca consultas atendidas hoje no iClinic.
+Busca consultas atendidas hoje na Clínica nas Nuvens.
 Saída (última linha stdout): JSON { wakeAgent, data: { consultas, data } }
 Salva pending_avaliacao.json para a fase de seleção.
 """

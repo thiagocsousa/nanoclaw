@@ -153,6 +153,33 @@ def agenda(data_inicial, data_final, **extra):
     )
 
 
+def disponibilidade(id_executor, data_inicial, data_final):
+    """Os horários LIVRES do período, agrupados por data.
+
+    ⛔ Devolve a GRADE, não a janela. Medido em 25/10/2026: com `dataFim`
+    maior que `data`, cada slot vem com o campo `data` — então o período
+    inteiro cabe numa requisição, e não numa por dia.
+
+    A grade já traz subtraídos: a configuração da agenda da médica, o almoço,
+    o bloqueio pontual e as consultas marcadas. É a resposta da CNN para "o que
+    pode ser oferecido", e reduzi-la a (primeiro, último) joga fora justamente
+    o buraco do meio.
+    """
+    slots = pega(
+        "/executor-agenda/disponibilidade",
+        idExecutorAgenda=id_executor,
+        data=data_inicial, dataFim=data_final,
+    )
+    por_data = {}
+    for s in slots:
+        por_data.setdefault(s.get("data"), []).append(
+            (s["horaInicio"][:5], s["horaFim"][:5])
+        )
+    for v in por_data.values():
+        v.sort()
+    return por_data
+
+
 def eh_consulta(ev):
     """Este evento é consulta/retorno que merece lembrete?"""
     return (

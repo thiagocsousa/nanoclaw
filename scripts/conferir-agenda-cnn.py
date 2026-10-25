@@ -35,9 +35,15 @@ from datetime import date, timedelta
 BASE = "https://api.clinicanasnuvens.com.br"
 EXECUTOR = int(os.environ.get("CNN_EXECUTOR_AGENDA", "163882"))
 
-# A regra real, espelhando JANELAS de iclinic_vagas.py. Dia ausente = não há
-# consultório. Fonte única enquanto os dois sistemas coexistem: mexeu lá, mexa
-# aqui — e é por isso que este script existe, para a divergência doer cedo.
+# ⛔ A regra real, e agora o ÚNICO lugar onde ela vive em código.
+#
+# O comentário anterior dizia "espelhando JANELAS de iclinic_vagas.py" — e o
+# JANELAS saiu de lá na migração de 25/10, porque a janela passou a vir da
+# própria CNN. O espelho ficou apontando para um dict apagado.
+#
+# A inversão é a certa: a CNN é a fonte para quem OFERECE, e esta tabela é a
+# expectativa contra a qual se confere a CNN. Se as duas concordam, a agenda
+# está configurada; se divergem, este script diz onde.
 JANELAS = {
     0: [("08:00", "12:00")],   # segunda
     2: [("14:00", "18:00")],   # quarta (mudou em 24/10/2026)

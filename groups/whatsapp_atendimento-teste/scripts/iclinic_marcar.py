@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Marca uma consulta na agenda da Dra. Marina (iClinic). ESCREVE.
+Marca uma consulta na agenda da Dra. Marina (Clínica nas Nuvens). ESCREVE.
 
 ## O que este script NÃO faz, e por quê
 
@@ -10,7 +10,7 @@ o erro causa: marcar é **aditivo** — errar cria um horário a mais, que se ap
 Remarcar e cancelar são destrutivos, e erram apagando ou movendo a consulta de
 alguém que vai aparecer na clínica no dia. Esses dois escalam para a recepção.
 
-## Como foi descoberto o formato
+## Era o iClinic, até 25/10/2026 — como o formato foi descoberto
 
 Observando o formulário real em 05/10/2026, com o Thiago presente. O modal de
 "Novo Agendamento" é um form Django **sem atributo `action`**, e form sem action
@@ -104,70 +104,17 @@ def responder(linhas, **extra):
     print(json.dumps({"wakeAgent": False, **extra}, ensure_ascii=False))
 
 
-# Chaves em que o iClinic já apareceu guardando o nome do paciente. Mais de uma
-# porque a rota da agenda e a de criação não usam o mesmo nome, e eu não tenho
-# contrato publicado — só o que foi medido no XHR real.
-CHAVES_NOME = ("patient_name", "patient__name", "title", "name")
-
-
-def _nome_do_evento(ev):
-    """O nome do paciente no evento da agenda, ou "" se ele não vier."""
-    for k in CHAVES_NOME:
-        v = ev.get(k)
-        if isinstance(v, str) and v.strip():
-            return v.strip()
-    p = ev.get("patient")
-    if isinstance(p, dict):
-        for k in ("name", "full_name", "patient_name"):
-            v = p.get(k)
-            if isinstance(v, str) and v.strip():
-                return v.strip()
-    return ""
-
-
-def _id_do_paciente(ev):
-    """O id do paciente no evento, ou None."""
-    p = ev.get("patient")
-    if isinstance(p, dict):
-        p = p.get("id")
-    if isinstance(p, bool):
-        return None
-    if isinstance(p, int):
-        return p
-    if isinstance(p, str) and p.strip().isdigit():
-        return int(p)
-    return None
-
-
-def _so_letras(s):
-    """Para comparar nome: sem acento, sem pontuação, caixa única."""
-    import unicodedata
-    n = unicodedata.normalize("NFD", s or "")
-    n = "".join(c for c in n if unicodedata.category(c) != "Mn")
-    return " ".join("".join(c if c.isalnum() else " " for c in n).lower().split())
-
-
-def confere_paciente(ev, a):
-    """O evento novo é do NOSSO paciente?
-
-    True = é, False = é de outro, None = a agenda não disse.
-
-    O id é a prova forte e vem primeiro. O nome é o que sobra quando a marcação
-    criou um cadastro novo (`--paciente-id` ausente): aí comparamos nome
-    normalizado, porque o iClinic devolve em CAIXA ALTA e às vezes com o
-    convênio pendurado no título.
-    """
-    pid = _id_do_paciente(ev)
-    if pid is not None and a.paciente_id:
-        return pid == int(a.paciente_id)
-    nome = _so_letras(_nome_do_evento(ev))
-    if not nome:
-        return None
-    nosso = _so_letras(a.nome)
-    if not nosso:
-        return None
-    return nosso in nome or nome in nosso
-
+# ⛔ Aqui morava a correlação por NOME (`CHAVES_NOME`, `_nome_do_evento`,
+# `_id_do_paciente`, `_so_letras`, `confere_paciente`) — ~64 linhas que liam
+# `patient_name`, `patient__name` e `title`, campos do iClinic que a CNN não
+# devolve. A verificação pós-escrita passou a casar por `idPaciente`, que é
+# exato, e o cluster ficou sem nenhum chamador de produção.
+#
+# ⚠️ O único que sobrava era `scripts/checar-marcacao.py`, que alimentava
+# `confere_paciente` com eventos no formato iClinic e imprimia "11 casos, 0
+# falhas". Um verde sobre zero linha viva, justamente na trava que o arquivo
+# chama de "a última coisa entre 'Marcado' e um paciente indo à clínica sem
+# horário". Pior que não ter teste: ter um que tranquiliza.
 
 def eventos_do_dia(ds):
     """Eventos da agenda num dia. Usado para verificar antes e depois."""
@@ -203,17 +150,25 @@ def _vagas():
     return v
 
 
-def livre_para(eventos, inicio, perfil):
-    """A vaga está livre AGORA para este perfil? Usa a ocupação real."""
+def livre_para(ds, inicio, perfil):
+    """O horário está na GRADE da CNN para este dia?
+
+    ⛔ Pergunta à mesma fonte que a oferta (`/executor-agenda/disponibilidade`),
+    e não à ocupação inferida dos eventos.
+
+    Antes isto derivava "livre" de `ocupacao(eventos)` + um `travado` que a
+    migração removeu. Além do ValueError que isso causava, havia o buraco de
+    desenho: cirurgia não ocupa sala de consulta, então a TERÇA — dia de
+    cirurgia, bloqueado na agenda — parecia livre para este caminho, e a
+    marcação escreveria nela. A grade da CNN já responde bloqueio, almoço e
+    marcação numa coisa só.
+    """
     v = _vagas()
     tipo, _ = v.PERFIS[perfil]
     dur = v.DURACOES[tipo]
-    cons, exam, _n, travado = v.ocupacao(eventos)
-    if travado:
-        return False
-    ini = v.hm(inicio)
-    alvo = exam if tipo == "exame" else cons
-    return not v.choca(alvo, ini, dur)
+    grade = cnn.disponibilidade(v.EXECUTOR_AGENDA, ds, ds).get(ds, [])
+    alvo = v.hm(inicio)
+    return any(v.hm(a) == alvo and v.hm(b) - v.hm(a) >= dur for a, b in grade)
 
 
 def ids_de(eventos):
@@ -380,7 +335,7 @@ def main():
         responder([f"Não consegui ler a agenda antes de marcar: {exc}",
                    "Não marquei."], ok=False, erro="agenda_ilegivel")
         return 1
-    if not livre_para(antes, a.inicio, a.perfil):
+    if not livre_para(a.data, a.inicio, a.perfil):
         responder([f"{a.inicio} de {a.data} não está livre. Não marquei."],
                   ok=False, erro="horario_ocupado")
         return 1

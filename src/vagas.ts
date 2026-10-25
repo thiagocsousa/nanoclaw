@@ -37,16 +37,41 @@ import { readEnvFile } from './env.js';
 import { logger } from './logger.js';
 import { montaArgs, rodaScript } from './script-container.js';
 
-/** Mesmo teto do pre-check do agent-runner: Playwright no iClinic leva ~87s. */
+/**
+ * Teto generoso de propósito, e o motivo mudou em 25/10/2026: era o Playwright
+ * do iClinic (~87s de navegador e login), e agora o mais lento é a varredura de
+ * 14 páginas do `iclinic_paciente_por_telefone` (9,7s). Sobra folga — e folga
+ * aqui custa nada, porque o container morre quando o script termina.
+ */
 const TIMEOUT_MS = Number(process.env.VAGAS_TIMEOUT_MS) || 180_000;
 
-/** Variáveis que o script precisa. Valor vem do ambiente do host, nunca daqui. */
-export const CREDENCIAIS = [
-  'ICLINIC_EMAIL',
-  'ICLINIC_PASSWORD',
-  'ICLINIC_CLINIC_ID',
-  'ICLINIC_PHYSICIAN_ID',
-];
+/**
+ * As credenciais que o host injeta nos containers de SCRIPT.
+ *
+ * ⛔ São DUAS listas no projeto, e isso já custou: `FORWARDED_ENV_VARS`
+ * (container-runner.ts) serve o container do AGENTE, esta serve os containers
+ * de script que `montaArgs` sobe. Em 25/10/2026 eu pus as chaves da CNN só na
+ * primeira, e os três scripts da Lara — vagas, busca por telefone e marcação —
+ * teriam morrido no `cnn._credenciais()` com "faltam CNN_CLIENT_ID". Nem
+ * preencher o `.env` resolveria: o `garanteCredenciais` abaixo também só lê as
+ * chaves DESTA lista.
+ *
+ * ⚠️ `ICLINIC_*` SAIU daqui em 25/10/2026, e não é o mesmo que "saiu do
+ * projeto". Os três scripts desta lista passaram a ser HTTP puro na CNN e
+ * nenhum lê mais variável do iClinic — forwardar a senha para container que
+ * não a usa é só aumentar a superfície de uma credencial que, por estar no
+ * histórico do git, ainda tem de ser rotacionada.
+ *
+ * Quem ainda fala com o iClinic (laudo de topografia, portal da NFS-e) roda
+ * DENTRO do container do agente e pega as chaves de `FORWARDED_ENV_VARS`, que
+ * continua com `ICLINIC_EMAIL`, `ICLINIC_PASSWORD` e o par
+ * `ICLINIC_CONSULTORIO_*`. Nada quebra até 20/11 — e isso foi VERIFICADO, não
+ * deduzido: um `grep -rn 'ICLINIC_' groups/ scripts/ container/` em 25/10/2026
+ * mostra que só o laudo e o `nfse_coletar_pipeline` citam variável do iClinic,
+ * e que `ICLINIC_CLINIC_ID` e `ICLINIC_PHYSICIAN_ID` não têm UM leitor no
+ * projeto — estavam mortas aqui mesmo antes da migração.
+ */
+export const CREDENCIAIS = ['CNN_CLIENT_ID', 'CNN_CLIENT_SECRET', 'CNN_CID'];
 
 /**
  * Garante que as credenciais estejam em `process.env`, lendo o `.env`.

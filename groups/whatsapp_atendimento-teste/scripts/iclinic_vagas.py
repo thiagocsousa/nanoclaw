@@ -59,9 +59,10 @@ DURACAO_DO_SLOT = 20
 # 20; a grade da CNN é de 20 para todos, e manter 30 aqui faria a Lara reservar
 # um slot e meio — ofertas que não casam com a grade de quem marca na tela.
 #
-# A tabela continua existindo em vez de virar uma constante porque ela é lida
-# nos DOIS sentidos: o que se quer marcar (PERFIS) e o que já está marcado
-# (`dur_de`). Se um dia voltarem a divergir, é aqui.
+# ⚠️ A tabela continua existindo, com os cinco valores iguais, só para o dia em
+# que voltarem a divergir. A justificativa anterior ("é lida nos dois sentidos,
+# PERFIS e `dur_de`") ficou FALSA no mesmo diff que a escreveu: `dur_de` saiu
+# junto com o eixo por nome de procedimento.
 DURACOES = {"particular": 20, "unimed": 20, "retorno-cirurgia": 20,
             "retorno": 20, "exame": 20}
 
@@ -111,44 +112,11 @@ MAX_DIAS_EXTRA = 2
 COTA_UNIMED_DIA = 5
 ANTECEDENCIA_UNIMED = 7          # dias
 
-# Status que LIBERAM o horário: cancelado, faltou, não compareceu. Os scripts
-# irmãos usam {ca,fl,na,bl,hd} com outro sentido ("não exibir"); aqui o sentido é
-# "está vago", e bloqueio/feriado NÃO estão — eles travam o dia (STATUS_BLOQUEIO).
-STATUS_LIVRE = {"ca", "fl", "na"}
-
-# Feriado e bloqueio travam o DIA INTEIRO. Vêm sem procedimento e tipicamente às
-# 00:00 (o feriado de 07/09 na agenda real é assim), então medi-los por duração
-# os jogaria para fora da janela e o dia apareceria livre.
-STATUS_BLOQUEIO = {"bl", "hd"}
-
 RX_EXAME = re.compile(
     r"TOPOGRAFIA|MAPEAMENTO|BIOMETRIA|PAQUIMETRIA|OCT|CAMPIMETRIA|RETINOGRAFIA", re.I)
 # administrativo e cirurgia: não ocupam sala de consulta
 RX_IGNORAR = re.compile(
     r"SOLICITA|HONOR[ÁA]RIO|EXAMES FORA|FORA DO CONSULT|^CIRURGIA ", re.I)
-RX_UNIMED_COTA = re.compile(r"^CONSULTA\s+UNIMED$", re.I)   # CIRURGIA não entra
-
-
-def norm(p):
-    """iClinic grava 'CONSULTA  PARTICULAR' com dois espaços. Normalize antes de comparar."""
-    return re.sub(r"\s+", " ", (p or "")).strip()
-
-
-def dur_de(proc):
-    """Duração que um agendamento JÁ EXISTENTE ocupa, pelo nome do procedimento."""
-    p = norm(proc).upper()
-    if "RETORNO CIRURGIA" in p:
-        return DURACOES["retorno-cirurgia"]
-    if p.startswith("RETORNO"):
-        return DURACOES["retorno"]
-    if "UNIMED" in p:
-        return DURACOES["unimed"]
-    if "PARTICULAR" in p:
-        return DURACOES["particular"]
-    if RX_EXAME.search(p):
-        return DURACOES["exame"]
-    return max(DURACOES.values())      # desconhecido/bloqueio: assume o pior caso
-
 
 RX_HORA = re.compile(r"^([01]?\d|2[0-3]):([0-5]\d)$")
 
@@ -171,79 +139,40 @@ class AgendaIndisponivel(RuntimeError):
 
 
 class Agenda:
-    """Agenda e disponibilidade do dia, com cache por data.
+    """Agenda e grade de horários livres, buscadas UMA vez para todo o horizonte.
 
-    São DUAS perguntas diferentes e a CNN responde cada uma num endpoint:
-      - `disponibilidade` diz o que PODE ser oferecido (grade + bloqueios +
-        marcações já subtraídas);
-      - `agenda` diz o que ESTÁ marcado, e é disso que saem a cota Unimed e a
-        separação consulta/exame, que são regras NOSSAS.
+    ⛔ Era uma requisição por dia, duas contando a agenda — até 22 num horizonte
+    de 15 dias, com o paciente esperando no WhatsApp. Medido em 25/10/2026: os
+    dois endpoints aceitam PERÍODO e devolvem a data em cada item, então o
+    horizonte inteiro custa 2 requisições.
     """
 
-    def __init__(self):
+    def __init__(self, de, ate):
+        self.grade = cnn.disponibilidade(EXECUTOR_AGENDA, de, ate)
         self.por_data = {}
-        self.grade = {}
+        for e in cnn.agenda(de, ate):
+            self.por_data.setdefault(e.get("data"), []).append(e)
 
     def eventos(self, d):
-        ds = d.isoformat()
-        if ds not in self.por_data:
-            try:
-                self.por_data[ds] = cnn.agenda(ds, ds)
-            except cnn.CnnIndisponivel as exc:
-                raise AgendaIndisponivel(str(exc)) from exc
-        return self.por_data[ds]
+        return self.por_data.get(d.isoformat(), [])
 
-    def janela(self, d):
-        """(inicio, fim) em minutos, ou None quando não há consultório no dia.
+    def livres(self, d):
+        """[(inicio, fim)] em minutos — o que a CNN diz que pode ser oferecido.
 
-        ⛔ É a UNIÃO dos horários livres com os já marcados, e não só os
-        livres. Derivar a janela só da disponibilidade foi o meu primeiro
-        desenho e estava errado: num dia com a manhã toda ocupada, a janela
-        encolhia para a última folga, o `recortar` jogava fora toda a ocupação,
-        e o resultado saía com `agenda_vazia: true` num dia de nove consultas —
-        o que faz o host chamar o paciente de "âncora do dia" e muda o texto
-        que ele recebe. Peguei lendo a saída, não por teste.
+        ⛔ A GRADE, não a janela. Antes eu reduzia isto a `(min, max)` e
+        derivava os candidatos de `janela − ocupados`. Hoje passa por acidente,
+        porque as janelas da Marina são contíguas (seg 08–12, qua 14–18, sex
+        08–12). No dia em que a clínica configurar manhã E tarde — a forma que
+        o próprio mapeamento mediu em 21/10 — o intervalo do almoço entrava na
+        janela e a Lara ofereceria 12:40, em cima de bloqueio.
 
-        A janela de atendimento é onde a médica atende; o que está marcado
-        dentro dela continua sendo atendimento.
+        ⚠️ A grade da CNN subtrai TODA marcação, exame inclusive. Para consulta
+        isso sub-oferece: um slot tomado só por exame deixa de aparecer, embora
+        a clínica permita choque entre exame e consulta. É o erro BARATO
+        (deixar de oferecer) no lugar do caro (oferecer em cima de bloqueio), e
+        fica assim de propósito até haver medição de quanto custa.
         """
-        ds = d.isoformat()
-        if ds not in self.grade:
-            try:
-                slots = cnn.pega(
-                    "/executor-agenda/disponibilidade",
-                    idExecutorAgenda=EXECUTOR_AGENDA,
-                    data=ds, dataFim=ds,
-                )
-            except cnn.CnnIndisponivel as exc:
-                raise AgendaIndisponivel(str(exc)) from exc
-            # ⛔ SEM disponibilidade, não há consultório — e o que está
-            # marcado no dia NÃO abre o dia.
-            #
-            # Segundo erro meu no mesmo método, também pego lendo a saída: ao
-            # unir livres com marcados eu fiz a TERÇA voltar a ser ofertável.
-            # Terça é dia de CIRURGIA, está bloqueada na agenda, e a
-            # disponibilidade devolve zero — mas as cirurgias marcadas nela
-            # viravam janela, e como cirurgia não ocupa sala de consulta
-            # (`TIPOS_FORA_DA_SALA`), o dia inteiro parecia livre. A Lara
-            # ofereceria 10:20 de terça, em cima do centro cirúrgico.
-            if not slots:
-                self.grade[ds] = None
-                return None
-            pares = [
-                (hm(s["horaInicio"][:5]), hm(s["horaFim"][:5])) for s in slots
-            ]
-            for e in self.eventos(d):
-                if e.get("status") in cnn.STATUS_SEM_VALOR:
-                    continue
-                ini, fim = (e.get("horaInicio") or "")[:5], (e.get("horaFim") or "")[:5]
-                if ini and fim:
-                    pares.append((hm(ini), hm(fim)))
-            self.grade[ds] = (
-                (min(a for a, _ in pares), max(b for _, b in pares))
-                if pares else None
-            )
-        return self.grade[ds]
+        return [(hm(a), hm(b)) for a, b in self.grade.get(d.isoformat(), [])]
 
 
 def ocupacao(eventos):
@@ -281,28 +210,6 @@ def ocupacao(eventos):
 
 
 # ------------------------------------------------------------------ vagas
-def recortar(ocupados, janela):
-    """Só o que cai DENTRO da janela conta. Sem isto, um compromisso fora dela
-    (ex.: o recorrente das 13:00 na sexta, com a janela até 12:00) entra no
-    cálculo e infla o 'buraco' de todas as posições, errando o ranking."""
-    ini, fim = janela
-    return sorted((max(a, ini), min(b, fim)) for a, b in ocupados
-                  if b > ini and a < fim)
-
-
-def candidatos(ocupados, janela, dur):
-    """Posições onde cabe 'dur', encostadas no que já existe (ocupados já recortados)."""
-    ini_j, fim_j = janela
-    livres, cursor = [], ini_j
-    for a, b in ocupados:
-        if a > cursor:
-            livres.append((cursor, a))
-        cursor = max(cursor, b)
-    if cursor < fim_j:
-        livres.append((cursor, fim_j))
-    return sorted({c for a, b in livres if b - a >= dur for c in (a, b - dur)})
-
-
 def buraco_com(ocupados, inicio, dur):
     """Minutos ociosos ENTRE agendamentos se marcarmos aqui. É o que queremos minimizar."""
     xs = sorted(ocupados + [(inicio, inicio + dur)])
@@ -322,33 +229,38 @@ def vaga(d, inicio, dur, ocup, n_unimed, pedido=False):
             "pedido_pelo_paciente": pedido}
 
 
-def vagas_do_dia(eventos, d, pista, dur, hora, jan, minimo_hm=None):
+def vagas_do_dia(eventos, d, pista, dur, hora, livres, minimo_hm=None):
     """(vagas, recusa) para um dia. Pura — não toca a rede, dá para testar sozinha.
+
+    `livres` é a GRADE da CNN: [(inicio, fim)] em minutos, já sem bloqueio,
+    almoço e marcações. Os candidatos saem DELA, e não de uma janela menos a
+    ocupação — era assim que o buraco do meio do dia sumia.
 
     `minimo_hm` é o começo mais cedo aceitável, em minutos desde a meia-noite.
     Serve para HOJE: sem ele o script oferece horário que já passou, porque o
     filtro de dia (`d >= hoje`) não diz nada sobre a hora.
     """
-    if jan is None:
+    if not livres:
         return [], "não há consultório neste dia"
+
+    cabem = [(a, b) for a, b in livres if b - a >= dur]
     if minimo_hm is not None:
-        # Recortar a janela cobre os dois caminhos de uma vez: o pedido de hora
-        # específica e a listagem de candidatos.
-        jan = (max(jan[0], minimo_hm), jan[1])
-        if jan[0] + dur > jan[1]:
+        cabem = [(a, b) for a, b in cabem if a >= minimo_hm]
+        if not cabem:
             return [], "já passou da hora de encaixar hoje"
+
     cons, exam, n_unimed = ocupacao(eventos)
-    ocup = recortar(exam if pista == "exame" else cons, jan)
+    # A ocupação continua servindo ao RANKING (o "buraco" que a vaga deixa) e à
+    # cota Unimed. Ela não decide mais o que está livre — quem decide é a CNN.
+    ocup = exam if pista == "exame" else cons
 
     if hora:
         ini = hm(hora)
-        if not (jan[0] <= ini and ini + dur <= jan[1]):
-            return [], "fora da janela de atendimento"
-        if choca(ocup, ini, dur):
-            return [], "horário ocupado"
+        if not any(a == ini for a, _ in cabem):
+            return [], "horário ocupado ou fora da grade"
         return [vaga(d, ini, dur, ocup, n_unimed, pedido=True)], None
 
-    return [vaga(d, c, dur, ocup, n_unimed) for c in candidatos(ocup, jan, dur)], None
+    return [vaga(d, a, dur, ocup, n_unimed) for a, _ in cabem], None
 
 
 # ------------------------------------------------------------------- main
@@ -441,7 +353,12 @@ def main():
     # campo de e-mail habilitar (45 s de orçamento), fazia login e pegava o
     # csrftoken — ~60 linhas de comentário sobre /dev/shm, tracker com DNS
     # quebrado e corrida perdida. Nada disso existe contra a API da CNN.
-    agenda = Agenda()
+    try:
+        agenda = Agenda(alvos[0].isoformat(), alvos[-1].isoformat())
+    except cnn.CnnIndisponivel as exc:
+        responder(cab + ["", f"Não consegui ler a agenda: {exc}"],
+                  vagas=[], recusas=[("horizonte", str(exc))])
+        return 1
 
     extras = 0
     for d in alvos:
@@ -456,8 +373,8 @@ def main():
         minimo_hm = (agora.hour * 60 + agora.minute + ANTECEDENCIA_MINIMA_MIN
                      if d == agora.date() else None)
         try:
-            jan = agenda.janela(d)
-            ev = agenda.eventos(d) if jan else []
+            livres = agenda.livres(d)
+            ev = agenda.eventos(d)
         except AgendaIndisponivel as exc:
             recusas.append((ds, f"não consegui ler a agenda — {exc}"))
             falhou_leitura = True
@@ -467,7 +384,7 @@ def main():
             if n_unimed >= COTA_UNIMED_DIA:
                 recusas.append((ds, f"cota Unimed cheia ({n_unimed}/{COTA_UNIMED_DIA})"))
                 continue
-        vs, motivo = vagas_do_dia(ev, d, pista, dur, a.hora, jan, minimo_hm)
+        vs, motivo = vagas_do_dia(ev, d, pista, dur, a.hora, livres, minimo_hm)
         if motivo:
             recusas.append((f"{ds} {a.hora}", motivo))
         achadas.extend(vs)
