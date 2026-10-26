@@ -237,6 +237,33 @@ def paciente(id_paciente):
     return pega(f"/paciente/{id_paciente}")
 
 
+# Cache de cidade por processo. Uma clínica atende dezenas de pacientes das
+# mesmas poucas cidades, e `/cidade/{id}` é imutável na prática.
+_CIDADES = {}
+
+
+def cidade(id_cidade):
+    """{id, nome, codIbge, estado} da cidade. Memoizado no processo.
+
+    ⛔ Existe porque o `idCidade` do cadastro NÃO é o código IBGE, e a nota
+    fiscal precisa do IBGE. Até 26/10/2026 o `nfse_coletar` cravava Teresina
+    (2211001) para qualquer paciente que tivesse `idCidade` preenchido — o
+    comentário lá dizia que o município sairia vazio para quem fosse de fora, e
+    o código fazia o contrário.
+
+    Custou um caso real: ANA CAMILA, `idCidade` 5622, é de **São João da
+    Fronteira** (IBGE 2209872). A nota dela sairia com o município errado, que
+    num documento fiscal é pior que não sair.
+
+    E a suposição nunca foi necessária: `codIbge` vem neste endpoint.
+    """
+    if id_cidade in _CIDADES:
+        return _CIDADES[id_cidade]
+    c = pega(f"/cidade/{id_cidade}")
+    _CIDADES[id_cidade] = c
+    return c
+
+
 # Valores aceitos pela API (medidos em 25/10/2026 — `EMISSAO` devolve HTTP 400).
 TIPOS_DE_DATA = ("CRIACAO", "APROVACAO", "PREVISAO_EXECUCAO")
 STATUS_DE_ORCAMENTO = ("ABERTO", "APROVADO", "PERDIDO", "CANCELADO")

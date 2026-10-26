@@ -38,11 +38,22 @@ def main():
     d1 = date.today().isoformat()
     d0 = NFSE_INICIO or (date.today() - timedelta(days=JANELA_DIAS)).isoformat()
 
-    from playwright.sync_api import sync_playwright
-    with sync_playwright() as pw:
-        b, pg, csrf = nc.login(pw)
-        out = nc.coletar(pg, csrf, d0, d1, emitidas)
-        b.close()
+    # ⛔ Era Playwright + `nc.login(pw)` + `nc.coletar(pg, csrf, d0, d1, emitidas)`.
+    #
+    # Em 25/10/2026 eu reescrevi o `nfse_coletar.py` para a CNN (HTTP puro, sem
+    # navegador) e NÃO olhei o único arquivo que o chama — este. O `nc.login`
+    # deixou de existir e o `coletar` passou a receber três argumentos, então o
+    # cron das 18:30 ia morrer em `AttributeError` na primeira execução depois
+    # da virada.
+    #
+    # ⚠️ E o sintoma NÃO foi um erro visível. O `pending_nfse.json` continuou
+    # no disco com a coleta de 23/10 — a última que rodou, ainda do iClinic —,
+    # e a emissão seguiu lendo aquele arquivo velho. Em 26/10 a recepção
+    # preencheu o bairro da paciente no sistema e o item continuou falhando com
+    # "faltou xBairro", porque o cadastro vinha de um retrato de três dias
+    # antes. Arquivo de ontem é indistinguível de arquivo de hoje para quem lê,
+    # e foi por isso que pareceu cache.
+    out = nc.coletar(d0, d1, emitidas)
 
     pend = out["diretos"] + out["cirurgias"]
     itens = []
