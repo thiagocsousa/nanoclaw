@@ -66,6 +66,20 @@ export const SENDER_ALLOWLIST_PATH = path.join(
 );
 export const STORE_DIR = path.resolve(PROJECT_ROOT, 'store');
 export const GROUPS_DIR = path.resolve(PROJECT_ROOT, 'groups');
+
+/**
+ * A pasta do canal de ATENDIMENTO: quem grava `atendimento_sla.jsonl` e
+ * `atendimento_bot_sent.jsonl`.
+ *
+ * ⚠️ NÃO é a pasta onde o turno da Lara roda. O turno roda na pasta de
+ * observação (`DM_OBSERVACAO_FOLDER`, hoje `whatsapp_atendimento-teste`), e
+ * quem grava os jsonl é o `groupFolderOwner` do canal. Ler os dois arquivos a
+ * partir da pasta do turno abre arquivo que não existe e devolve silêncio —
+ * sem erro. Mora aqui, e não no `index.ts`, desde 26/10/2026, porque passou a
+ * ter um segundo leitor (`aguarda-humano.ts`) e duas cópias de um nome de
+ * pasta divergem na primeira vez que alguém renomeia uma.
+ */
+export const PASTA_DO_SLA = 'whatsapp_atendimento-dra-marina';
 export const DATA_DIR = path.resolve(PROJECT_ROOT, 'data');
 
 export const CONTAINER_IMAGE =

@@ -3847,3 +3847,179 @@ describe('período pedido ("pela manhã")', () => {
     expect(r?.texto).not.toContain('14:30');
   });
 });
+
+// ⛔ "Só um instante." duas vezes seguidas. Observação do Thiago em 26/10/2026:
+// *"respondeu uma vez, significa que escalou e tem que esperar o humano
+// responder"*. Estava repetindo — medido na passada 4, caso O06 (dor + áudio).
+describe('escalou e falou: a conversa passa a esperar gente (26/10/2026)', () => {
+  const DOR = '{"intencao":"clinico","confianca":0.95,"slots":{}}';
+  const SLA = path.join(RAIZ, 'whatsapp_atendimento-dra-marina');
+
+  // ⚠️ Import DINÂMICO, e não `import` no topo: o `vi.mock('./config.js')`
+  // deste arquivo é hoisted e referencia `RAIZ`, então qualquer import
+  // estático de config (ou de quem importa config) resolve o mock antes de
+  // `RAIZ` existir — "Cannot access 'RAIZ' before initialization".
+  //
+  // E lidos do módulo, não copiados: constante duplicada no teste faz o teste
+  // continuar verde depois de a constante mudar, que é o oposto do serviço.
+  let BOT_MARK = '';
+  let ESPERA_HUMANO_MS = 0;
+  beforeEach(async () => {
+    BOT_MARK = (await import('./config.js')).BOT_MARK;
+    ESPERA_HUMANO_MS = (await import('./memoria-conversa.js')).ESPERA_HUMANO_MS;
+  });
+
+  const escreveSla = (linhas: Array<Record<string, unknown>>) => {
+    fs.mkdirSync(SLA, { recursive: true });
+    fs.writeFileSync(
+      path.join(SLA, 'atendimento_sla.jsonl'),
+      linhas.map((l) => JSON.stringify(l)).join('\n') + '\n',
+    );
+  };
+  const escreveBotSent = (ids: string[]) => {
+    fs.mkdirSync(SLA, { recursive: true });
+    fs.writeFileSync(
+      path.join(SLA, 'atendimento_bot_sent.jsonl'),
+      ids.map((id) => JSON.stringify({ id, jid: JID })).join('\n') + '\n',
+    );
+  };
+  const envelheceEspera = (ms: number) => {
+    const f = path.join(RAIZ, PASTA, 'slots_conversa.json');
+    const d = JSON.parse(fs.readFileSync(f, 'utf-8')) as Record<
+      string,
+      Record<string, number>
+    >;
+    d[JID].escalouEm = Date.now() - ms;
+    fs.writeFileSync(f, JSON.stringify(d));
+  };
+
+  afterEach(() => {
+    fs.rmSync(SLA, { recursive: true, force: true });
+  });
+
+  it('a primeira escalada fala; a segunda cala', async () => {
+    const a = await rodar(DOR, 'operei ontem e ta doendo muito');
+    expect(a?.acao).toBe('escalar');
+    expect(a?.texto).toContain('Só um instante');
+
+    const b = await rodar(DOR, 'e agora, o que eu faço?');
+    expect(b?.texto).toBe('');
+  });
+
+  // ⚠️ O ponto da mudança NÃO é escalar menos: é falar menos. A recepção tem de
+  // receber a mensagem nova, e o SLA tem de continuar cobrando.
+  it('calada, ela CONTINUA escalando — a recepção recebe as duas', async () => {
+    await rodar(DOR, 'operei ontem e ta doendo muito');
+    const b = await rodar(DOR, 'e agora?');
+    expect(b?.acao).toBe('escalar');
+    expect(pendencias()).toHaveLength(2);
+    expect(enviadas.length).toBeGreaterThanOrEqual(2);
+  });
+
+  // ⛔ O caso que mais importa: `direction: 'out'` cobre o eco do device da
+  // recepção E o que a própria Lara mandou. Confundir os dois faz ela
+  // destravar sozinha, que é o bug de volta.
+  it('o eco da PRÓPRIA Lara não destrava (id no bot_sent)', async () => {
+    await rodar(DOR, 'dor');
+    escreveBotSent(['ECO1']);
+    escreveSla([
+      {
+        id: 'ECO1',
+        jid: JID,
+        direction: 'out',
+        text: 'Só um instante.',
+        timestamp: new Date().toISOString(),
+      },
+    ]);
+    const b = await rodar(DOR, 'e agora?');
+    expect(b?.texto).toBe('');
+  });
+
+  it('o eco da própria Lara não destrava nem sem o bot_sent (marca no texto)', async () => {
+    await rodar(DOR, 'dor');
+    escreveSla([
+      {
+        id: 'SEM-REGISTRO',
+        jid: JID,
+        direction: 'out',
+        text: `${BOT_MARK}Só um instante.`,
+        timestamp: new Date().toISOString(),
+      },
+    ]);
+    const b = await rodar(DOR, 'e agora?');
+    expect(b?.texto).toBe('');
+  });
+
+  it('resposta de GENTE destrava', async () => {
+    await rodar(DOR, 'dor');
+    escreveSla([
+      {
+        id: 'HUMANO1',
+        jid: JID,
+        direction: 'out',
+        text: 'Oi, aqui é a Bruna. Já vou te passar para a doutora.',
+        timestamp: new Date().toISOString(),
+      },
+    ]);
+    const b = await rodar(
+      '{"intencao":"abertura","confianca":0.95,"slots":{}}',
+      'oi',
+    );
+    expect(b?.texto).toContain('Olá');
+  });
+
+  it('`out` de OUTRA conversa não destrava, mesmo citando este jid', async () => {
+    await rodar(DOR, 'dor');
+    escreveSla([
+      {
+        id: 'OUTRA',
+        jid: '5586111@s.whatsapp.net',
+        direction: 'out',
+        text: `encaminhei o caso de ${JID} para a doutora`,
+        timestamp: new Date().toISOString(),
+      },
+    ]);
+    const b = await rodar(DOR, 'e agora?');
+    expect(b?.texto).toBe('');
+  });
+
+  it('mensagem do PACIENTE (`in`) não destrava', async () => {
+    await rodar(DOR, 'dor');
+    escreveSla([
+      {
+        id: 'DOPACIENTE',
+        jid: JID,
+        direction: 'in',
+        text: 'alguem ai?',
+        timestamp: new Date().toISOString(),
+      },
+    ]);
+    const b = await rodar(DOR, 'e agora?');
+    expect(b?.texto).toBe('');
+  });
+
+  // ⚠️ Mudez PERMANENTE é pior que uma repetição: a recepção às vezes retorna
+  // por TELEFONE, e aí nenhum evento aparece no log.
+  it('passada a espera, ela volta a falar mesmo sem ninguém ter respondido', async () => {
+    await rodar(DOR, 'dor');
+    envelheceEspera(ESPERA_HUMANO_MS + 60_000);
+    const b = await rodar(DOR, 'e agora?');
+    expect(b?.texto).toContain('Só um instante');
+  });
+
+  // Escalada CALADA (`sem_resposta`, a pergunta de robô) não disse nada ao
+  // paciente — então não há repetição a evitar, e marcar ali calaria a conversa
+  // sem ela ter recebido sequer um aviso.
+  it('escalada calada NÃO põe a conversa em espera', async () => {
+    const a = await rodar(
+      '{"intencao":"pergunta_se_e_bot","confianca":0.95,"slots":{}}',
+      'vc é um robô?',
+    );
+    expect(a?.texto).toBe('');
+    const b = await rodar(
+      '{"intencao":"abertura","confianca":0.95,"slots":{}}',
+      'oi',
+    );
+    expect(b?.texto).toContain('Olá');
+  });
+});

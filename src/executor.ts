@@ -25,6 +25,8 @@
  * paciente recebe "Só um instante." em vez de ficar esperando.
  */
 import { readEnvFile } from './env.js';
+import { humanoRespondeuDepois } from './aguarda-humano.js';
+import { PASTA_DO_SLA } from './config.js';
 import { escala, type EscalationSlaDeps } from './escalation-sla.js';
 import { logger } from './logger.js';
 import {
@@ -39,7 +41,10 @@ import {
   lembraCandidatos,
   lembraPacienteConfirmado,
   lembraSlots,
+  escalouComTextoEm,
+  limpaEsperaDeHumano,
   marcaConvidou,
+  marcaEscalouComTexto,
   marcaPerguntouPaciente,
   pacienteConfirmado,
 } from './memoria-conversa.js';
@@ -603,7 +608,80 @@ function perguntaQueLevaAAgenda(
     : { tipo: 'sem_texto' };
 }
 
+/**
+ * Enquanto a conversa espera gente, nada sai para o paciente.
+ *
+ * ⛔ Invólucro de propósito, e não um `if` dentro do `executaTurno`. O turno
+ * tem DEZ saídas — nove `escalaComo` que retornam cedo mais a de baixo — e a
+ * regra aplicada em algumas delas é a regra que vaza pelas outras. Foi
+ * exatamente assim que o `sem_resposta` furou em 19/10/2026: honrado só na
+ * saída de baixo, as nove escaladas de cima mandavam "Só um instante." para a
+ * pergunta de robô. Aqui o único caminho de volta passa por uma função.
+ *
+ * ⚠️ O turno CONTINUA rodando quando a conversa está em espera, e isso é
+ * deliberado: a recepção precisa ver a mensagem nova, e o SLA precisa seguir
+ * cobrando (`COBRANCA_MS` 3 min, `ALARME_MS` 5 min). O que muda é só o que
+ * chega ao paciente.
+ */
 export async function executa(
+  groupFolder: string,
+  bruto: string,
+  perguntaDoPaciente: string,
+  deps: EscalationSlaDeps,
+  chatJid: string,
+  remetenteJid = '',
+): Promise<SaidaDoExecutor | undefined> {
+  const esperaDesde = escalouComTextoEm(groupFolder, chatJid);
+  let emEspera = esperaDesde !== undefined;
+  if (esperaDesde !== undefined) {
+    // O eco do próprio envio da Lara NÃO conta — ver `aguarda-humano.ts`.
+    if (humanoRespondeuDepois(PASTA_DO_SLA, chatJid, esperaDesde)) {
+      limpaEsperaDeHumano(groupFolder, chatJid);
+      emEspera = false;
+      logger.info(
+        { groupFolder, chatJid },
+        'executor: humano respondeu, a Lara volta a falar',
+      );
+    }
+  }
+
+  const saida = await executaTurno(
+    groupFolder,
+    bruto,
+    perguntaDoPaciente,
+    deps,
+    chatJid,
+    remetenteJid,
+  );
+  if (!saida) return saida;
+
+  if (emEspera) {
+    if (saida.texto) {
+      logger.info(
+        {
+          groupFolder,
+          chatJid,
+          intencao: saida.intencao,
+          acao: saida.acao,
+          esperandoDesde: new Date(esperaDesde as number).toISOString(),
+        },
+        'executor: conversa espera humano, texto retido',
+      );
+    }
+    return { ...saida, texto: '' };
+  }
+
+  // ⚠️ Só marca quando texto REALMENTE saiu. Escalada calada (pergunta de
+  // robô, `sem_resposta`) não disse nada ao paciente, então não há o que não
+  // repetir — e marcar ali calaria a conversa sem que ela tivesse recebido
+  // sequer um aviso.
+  if (saida.acao === 'escalar' && saida.texto) {
+    marcaEscalouComTexto(groupFolder, chatJid);
+  }
+  return saida;
+}
+
+async function executaTurno(
   groupFolder: string,
   bruto: string,
   perguntaDoPaciente: string,

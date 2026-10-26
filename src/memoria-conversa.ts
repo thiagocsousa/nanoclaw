@@ -78,6 +78,19 @@ export interface SlotsLembrados {
    */
   convidou?: boolean;
   /**
+   * Epoch ms de quando uma escalada MANDOU TEXTO ao paciente nesta conversa.
+   *
+   * ⛔ Enquanto isto estiver de pé e ninguém tiver respondido, a Lara não fala.
+   * "Só um instante." dito uma vez significa que o caso é de gente; dito duas
+   * vezes seguidas é a máquina avisando que não vai resolver, de novo. Saiu
+   * medido na passada 4 (caso O06: dor + áudio) e nas M02/N05 da passada 3.
+   *
+   * ⚠️ Tem relógio PRÓPRIO, e não o `quando` do registro. O `quando` é
+   * refrescado por qualquer escrita — guardar slot novo renovaria a espera sem
+   * ninguém ter respondido nada.
+   */
+  escalouEm?: number;
+  /**
    * A última intenção RESPONDIDA e quantas vezes seguidas ela saiu.
    *
    * O FAQ manda "escalar: se insistir" em pelo menos quatro blocos (voz,
@@ -382,6 +395,55 @@ export function marcaConvidou(folder: string, chatJid: string): void {
 export function jaConvidou(folder: string, chatJid: string): boolean {
   const m = le(folder)[chatJid];
   return !!m && Date.now() - m.quando <= VALIDO_MS && !!m.convidou;
+}
+
+/**
+ * Teto da espera por gente.
+ *
+ * ⚠️ Existe para o silêncio não ser PERMANENTE, e o motivo é concreto: a
+ * recepção da clínica às vezes retorna por TELEFONE. Aí nenhum evento aparece
+ * no `atendimento_sla.jsonl`, a marca nunca é limpa, e a Lara ficaria muda
+ * para aquele número para sempre. Mudez permanente por engano é pior que uma
+ * repetição depois de quatro horas.
+ *
+ * Quatro horas é o mesmo horizonte do `VALIDO_MS`: passado isso, é outra
+ * conversa.
+ */
+export const ESPERA_HUMANO_MS = VALIDO_MS;
+
+/** Uma escalada mandou texto ao paciente agora; a partir daqui, silêncio. */
+export function marcaEscalouComTexto(folder: string, chatJid: string): void {
+  const todas = le(folder);
+  todas[chatJid] = {
+    ...todas[chatJid],
+    escalouEm: Date.now(),
+    quando: Date.now(),
+  };
+  grava(folder, todas);
+}
+
+/**
+ * Desde quando esta conversa espera um humano, ou `undefined`.
+ *
+ * Não diz se o humano JÁ respondeu — isso é `humanoRespondeuDepois`, em
+ * `aguarda-humano.ts`, que lê o eco do device. Aqui é só "quando escalamos".
+ */
+export function escalouComTextoEm(
+  folder: string,
+  chatJid: string,
+): number | undefined {
+  const m = le(folder)[chatJid];
+  if (!m?.escalouEm) return undefined;
+  return Date.now() - m.escalouEm <= ESPERA_HUMANO_MS ? m.escalouEm : undefined;
+}
+
+/** O humano respondeu (ou a espera venceu): a Lara volta a falar. */
+export function limpaEsperaDeHumano(folder: string, chatJid: string): void {
+  const todas = le(folder);
+  if (!todas[chatJid]?.escalouEm) return;
+  const { escalouEm: _ignorado, ...resto } = todas[chatJid];
+  todas[chatJid] = { ...resto, quando: Date.now() };
+  grava(folder, todas);
 }
 
 /**

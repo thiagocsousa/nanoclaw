@@ -10,6 +10,7 @@ import {
   IDLE_TIMEOUT,
   MAX_CONTEXTO_PER_PROMPT,
   MAX_MESSAGES_PER_PROMPT,
+  PASTA_DO_SLA,
   POLL_INTERVAL,
   TIMEZONE,
   wantsContexto,
@@ -162,17 +163,6 @@ let registeredGroups: Record<string, RegisteredGroup> = {};
  * lembrete, e não uma conversa começando.
  */
 let pipelinePorChat: Record<string, PipelineDoChat> = {};
-
-/**
- * A pasta do canal de atendimento.
- *
- * ⚠️ É a pasta de `groupFolderOwner` daquele canal, que é quem GRAVA o
- * `atendimento_sla.jsonl` (`captureSlaTimeline`) — e não a pasta de observação
- * que `registraDmEmObservacao` recebe: essa pode ser outra (hoje há
- * `whatsapp_atendimento-teste`), e semear a partir dela leria um arquivo que
- * não existe e devolveria silêncio.
- */
-const PASTA_DO_SLA = 'whatsapp_atendimento-dra-marina';
 
 /** Estado da vigia da captura. Ver `vigia-captura.ts`. */
 const vigia: EstadoDaVigia = { ultimaCaptura: Date.now() };
