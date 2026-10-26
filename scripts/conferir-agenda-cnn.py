@@ -41,9 +41,20 @@ EXECUTOR = int(os.environ.get("CNN_EXECUTOR_AGENDA", "163882"))
 # JANELAS saiu de lá na migração de 25/10, porque a janela passou a vir da
 # própria CNN. O espelho ficou apontando para um dict apagado.
 #
-# A inversão é a certa: a CNN é a fonte para quem OFERECE, e esta tabela é a
-# expectativa contra a qual se confere a CNN. Se as duas concordam, a agenda
-# está configurada; se divergem, este script diz onde.
+# ⚠️ E essa inversão deixou de valer em 26/10/2026. Decisão do Thiago: a agenda
+# da CNN fica ABERTA, para a secretária marcar exame e cirurgia nos outros
+# dias, e quem restringe CONSULTA aos horários da Marina volta a ser a Lara.
+#
+# Então esta tabela é as DUAS coisas agora: a expectativa contra a qual se
+# confere a CNN, e — copiada em
+# `groups/whatsapp_atendimento-teste/scripts/iclinic_vagas.py`, como
+# `JANELAS_DE_CONSULTA` — a regra que a Lara aplica sobre a grade.
+#
+# ⛔ As duas cópias têm de ser idênticas, e divergir é o pior caso: mudar o
+# horário da quarta em uma só faz este script dizer "agenda ok" enquanto a Lara
+# oferece noutro turno. `src/janela-de-consulta.test.ts` falha quando
+# discordam. Cópia existe porque script de grupo não importa script do
+# repositório — só `/workspace/group` é montado.
 JANELAS = {
     0: [("08:00", "12:00")],   # segunda
     2: [("14:00", "18:00")],   # quarta (mudou em 24/10/2026)

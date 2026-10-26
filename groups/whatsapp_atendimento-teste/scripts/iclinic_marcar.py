@@ -160,15 +160,26 @@ def livre_para(ds, inicio, perfil):
     migração removeu. Além do ValueError que isso causava, havia o buraco de
     desenho: cirurgia não ocupa sala de consulta, então a TERÇA — dia de
     cirurgia, bloqueado na agenda — parecia livre para este caminho, e a
-    marcação escreveria nela. A grade da CNN já responde bloqueio, almoço e
-    marcação numa coisa só.
+    marcação escreveria nela.
+
+    ⛔ E desde 26/10/2026 a grade da CNN **não basta**: ela ficou aberta de
+    propósito, para a secretária marcar exame e cirurgia nos outros dias. Então
+    aqui vale a MESMA interseção da oferta (`v.intersecta` com
+    `v.janela_do_dia`) — senão a Lara ofereceria dentro da janela e MARCARIA
+    fora, que é o pior dos dois mundos: o gate da oferta existe e o da escrita
+    não. Reusa as funções do `iclinic_vagas`, não reimplementa: duas versões da
+    mesma regra divergem, e esta é a que grava.
     """
     v = _vagas()
     tipo, _ = v.PERFIS[perfil]
     dur = v.DURACOES[tipo]
-    grade = cnn.disponibilidade(v.EXECUTOR_AGENDA, ds, ds).get(ds, [])
+    bruta = cnn.disponibilidade(v.EXECUTOR_AGENDA, ds, ds).get(ds, [])
+    dia = date.fromisoformat(ds)
+    grade = v.intersecta(
+        [(v.hm(a), v.hm(b)) for a, b in bruta], v.janela_do_dia(dia)
+    )
     alvo = v.hm(inicio)
-    return any(v.hm(a) == alvo and v.hm(b) - v.hm(a) >= dur for a, b in grade)
+    return any(a == alvo and b - a >= dur for a, b in grade)
 
 
 def ids_de(eventos):

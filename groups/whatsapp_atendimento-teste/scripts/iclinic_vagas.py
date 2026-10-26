@@ -49,6 +49,36 @@ DIAS_PT = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo
 # configurada, a Lara oferece o que ela disser. Quem vigia é
 # `scripts/conferir-agenda-cnn.py`, e a regra esperada vive lá.
 EXECUTOR_AGENDA = int(os.environ.get("CNN_EXECUTOR_AGENDA", "163882"))
+
+# ⛔ A JANELA DE CONSULTA DA LARA. Decisão do Thiago em 26/10/2026:
+#
+#   "vamos ter que controlar a nível de Lara então, pq em outros dias a
+#    secretária pode marcar exames e cirurgias... somente consultas
+#    restringiremos aos horários que vc conhece."
+#
+# A grade da CNN fica ABERTA de propósito — é por ela que a secretária marca
+# exame na quinta e cirurgia na terça. Então a grade deixou de poder ser a única
+# fonte: em 26/10 ela oferecia sábado, terça e quinta, e a Lara entra no ar em
+# 03/11. O `conferir-agenda-cnn.py` acusou 12 dias divergindo.
+#
+# ⚠️ Isto NÃO é a volta do `JANELAS` que eu apaguei em 25/10. Aquele SUBSTITUÍA
+# a agenda: os candidatos saíam de `janela − ocupados`, e o buraco do meio
+# (almoço, bloqueio pontual) virava oferta. Este INTERSECTA: a grade da CNN
+# continua mandando, porque é ela que já subtraiu marcação, almoço e bloqueio.
+# A janela só diz qual PARTE do que está livre a Lara pode oferecer.
+#
+# Chave = `weekday()` do Python (0 = segunda). Dia fora do dict é dia em que a
+# Lara não oferece nada — e isso inclui sábado e domingo sem precisar dizer.
+#
+# ⚠️ A MESMA regra vive em `scripts/conferir-agenda-cnn.py`, que confere a CNN
+# contra ela. Duas cópias divergiriam no dia em que a Marina mudasse um
+# horário, e aí o conferidor diria "ok" para uma grade que a Lara lê diferente.
+# `src/janela-de-consulta.test.ts` falha quando as duas discordam.
+JANELAS_DE_CONSULTA = {
+    0: [("08:00", "12:00")],   # segunda
+    2: [("14:00", "18:00")],   # quarta (mudou em 24/10/2026)
+    4: [("08:00", "12:00")],   # sexta
+}
 CONVENIO_UNIMED = 74544
 # Não ocupam sala de consulta: solicitação é papel, cirurgia é no hospital.
 TIPOS_FORA_DA_SALA = {126596, 126578}
@@ -134,6 +164,35 @@ def mh(m):
 
 
 # ------------------------------------------------------------------- iclinic
+def janela_do_dia(d):
+    """[(inicio, fim)] em minutos que a Lara pode oferecer nesse dia.
+
+    Lista vazia = a Lara não oferece nada nesse dia. Sábado, domingo, terça
+    (cirurgia) e quinta caem aqui por ausência, sem precisar ser citados.
+    """
+    return [(hm(a), hm(b)) for a, b in JANELAS_DE_CONSULTA.get(d.weekday(), [])]
+
+
+def intersecta(grade, janela):
+    """Os trechos de `grade` que caem dentro de `janela`. Ambas [(ini, fim)].
+
+    ⚠️ `janela` VAZIA devolve vazio — a Lara não oferece. Mas `grade` vazia
+    também: dia sem disponibilidade na CNN é dia sem consultório, e janela não
+    abre dia nenhum. As duas condições são necessárias, e é de propósito que a
+    mais restritiva ganhe.
+    """
+    if not grade or not janela:
+        return []
+    out = []
+    for a, b in grade:
+        for ja, jb in janela:
+            ini, fim = max(a, ja), min(b, jb)
+            if ini < fim:
+                out.append((ini, fim))
+    out.sort()
+    return out
+
+
 class AgendaIndisponivel(RuntimeError):
     """A agenda não pôde ser lida. Melhor não responder do que responder errado."""
 
@@ -171,8 +230,15 @@ class Agenda:
         a clínica permita choque entre exame e consulta. É o erro BARATO
         (deixar de oferecer) no lugar do caro (oferecer em cima de bloqueio), e
         fica assim de propósito até haver medição de quanto custa.
+
+        ⛔ E INTERSECTADA com `JANELAS_DE_CONSULTA`. A grade responde "o que
+        está livre"; a janela responde "o que a Lara pode oferecer". As duas
+        perguntas deixaram de ter a mesma resposta em 26/10/2026, quando ficou
+        decidido manter a agenda aberta para a secretária marcar exame e
+        cirurgia nos outros dias.
         """
-        return [(hm(a), hm(b)) for a, b in self.grade.get(d.isoformat(), [])]
+        da_cnn = [(hm(a), hm(b)) for a, b in self.grade.get(d.isoformat(), [])]
+        return intersecta(da_cnn, janela_do_dia(d))
 
 
 def ocupacao(eventos):
