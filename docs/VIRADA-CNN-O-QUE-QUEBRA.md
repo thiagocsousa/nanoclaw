@@ -82,3 +82,18 @@ slots livres). O passo 1 só vale depois que a grade estiver corrigida — e o
 
 Enquanto a grade não fechar, a proteção é o passo 2 sozinho: **a Lara para de
 marcar**. É o que impede o erro irreversível, e não depende de nada.
+
+### ✅ Resolvido em 26/10/2026, e por outro caminho
+
+A grade da CNN **não foi fechada** — decisão do Thiago: ela fica aberta, porque
+é por ela que a secretária marca exame na quinta e cirurgia na terça. Quem
+restringe consulta passou a ser a Lara, que intersecta a grade com
+`JANELAS_DE_CONSULTA` (seg 08–12, qua 14–18, sex 08–12) na oferta **e** na
+marcação. Dia sem grade continua sendo dia sem consultório, então viagem e
+feriado atravessam sozinhos.
+
+Com isso o `conferir-agenda-cnn.py` mudou de pergunta: de "a CNN bate com a
+regra?" — que passou a responder "diverge" sempre, por desenho — para "a Lara
+tem o que oferecer?". Ele só alarma quando um dia de consulta está ABERTO e
+nada cai na janela (turno divergente), ou quando o horizonte inteiro está
+vazio. Dia bloqueado é informação, não defeito.
