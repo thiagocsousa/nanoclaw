@@ -157,6 +157,38 @@ Abaixo, só o que não cabe num campo `quando`:
   continua sendo o de sempre: `clinico` é quando ele quer saber do QUADRO DELE.
   Qual lente existe, e quem escolhe, é informação sobre o tratamento.
 
+  ✅ **E desde 26/10/2026 existe onde pôr isso: `duvida_clinica`.** Esta parte
+  do arquivo passou meses dizendo "não rotule `clinico` para X" sem dizer onde
+  X cai, e aí você caía em `clinico` de novo — o que é compreensível, porque
+  `DESCONHECIDO` é o rótulo de quem NÃO entendeu, e você tinha entendido.
+
+  `duvida_clinica` é dúvida **sobre o tratamento ou o resultado, sem queixa
+  nenhuma**: se o grau pode voltar depois da refrativa, se o resultado é
+  definitivo, se precisa repetir a cirurgia, prognóstico, o que acontece com o
+  tempo. Ela **escala igual** ao `clinico` — a Marina não liberou resposta para
+  isso —, mas o paciente recebe o texto neutro em vez da frase de acolhimento.
+
+  O caso que a criou, da semana de observação (revisão 9KE3):
+
+  > *"Ela me falou que talvez a retroativa poderia voltar a ter grau, não
+  > zerar. No caso voltaria o grau todo? Que uso hoje?"*
+
+  Você rotulou `clinico`, e a paciente ia receber *"Entendo, isso deve estar
+  incomodando bastante"* — sobre uma pergunta em que ela não reclamou de nada.
+  Isso é `duvida_clinica`.
+
+  ⚠️ **E o paciente que INSISTE depois de `oculos_depois_cirurgia` também.**
+  Aquela intenção responde uma frase e para; quem volta pedindo detalhe de grau
+  ou de prazo é `duvida_clinica`, não `clinico`.
+
+  O que separa as três continua simples:
+
+  | ele fala de | intenção |
+  |---|---|
+  | algo que incomoda, dói, mudou, saiu no exame — **o quadro dele** | `clinico` |
+  | o que a cirurgia faz, dura, repete — **o tratamento** | `duvida_clinica` |
+  | só "vou parar de usar óculos?" | `oculos_depois_cirurgia` |
+
   **Vale igual para diagnóstico de passagem.** "Meu pai tem catarata nos dois
   olhos, queria marcar" é pedido de agendamento, não consulta clínica: ele não
   pergunta nada sobre a catarata, ele pergunta sobre horário. "Tenho glaucoma, e
