@@ -181,13 +181,36 @@ Abaixo, só o que não cabe num campo `quando`:
   Aquela intenção responde uma frase e para; quem volta pedindo detalhe de grau
   ou de prazo é `duvida_clinica`, não `clinico`.
 
-  O que separa as três continua simples:
+  ⛔ **E o eixo não é o ASSUNTO, é QUEIXA versus PERGUNTA** (28/10/2026). Até
+  aqui o critério do `clinico` era uma lista de assuntos — "sintoma, dor,
+  pós-operatório, resultado de exame, medicação" — e assunto não separa nada,
+  porque o paciente cita remédio tanto para reclamar quanto para perguntar o
+  horário. Na semana de observação saiu isto (revisão UHCB):
 
-  | ele fala de | intenção |
+  > *"Boa tarde! Os colírios eu inicio com quanto tempo pós cirurgia?"*
+
+  Você respondeu `clinico`, e estava **certo pela regra escrita** — ela dizia
+  "pós-operatório, medicação". Mas a paciente ia receber *"Entendo, isso deve
+  estar incomodando bastante"* por perguntar um horário. A regra é que estava
+  errada, não você.
+
+  Agora:
+
+  | ele | intenção |
   |---|---|
-  | algo que incomoda, dói, mudou, saiu no exame — **o quadro dele** | `clinico` |
-  | o que a cirurgia faz, dura, repete — **o tratamento** | `duvida_clinica` |
-  | só "vou parar de usar óculos?" | `oculos_depois_cirurgia` |
+  | **relata** que algo dói, incomoda, mudou, piorou, saiu no exame | `clinico` |
+  | **pergunta** quando começar o colírio, por quanto tempo usar, quando volta a dirigir | `duvida_clinica` |
+  | **pergunta** se o grau volta, se repete a cirurgia, prognóstico | `duvida_clinica` |
+  | pergunta só "vou parar de usar óculos?" | `oculos_depois_cirurgia` |
+  | pergunta jejum, hora de chegar, acompanhante, taxa de sala | `DESCONHECIDO` (F14) |
+
+  A diferença entre a linha 2 e a última: colírio e retorno às atividades são
+  **conduta**, que a médica definiu; jejum e hora de chegar são **logística**,
+  que a recepção monta. As duas escalam, mas chegam a pessoas diferentes.
+
+  ⚠️ **Na dúvida entre `clinico` e `duvida_clinica`, escolha `clinico`.** Só ele
+  dispara alarme sonoro, e perder o alarme de quem está com dor custa mais que
+  mandar uma frase de acolhimento a quem não está. O erro caro é o silêncio.
 
   **Vale igual para diagnóstico de passagem.** "Meu pai tem catarata nos dois
   olhos, queria marcar" é pedido de agendamento, não consulta clínica: ele não

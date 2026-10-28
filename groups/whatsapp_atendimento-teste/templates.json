@@ -566,7 +566,7 @@
     },
     "clinico": {
       "bloco": "F13",
-      "quando": "sintoma, dor, pós-operatório, resultado de exame, medicação, 'é normal?' Também cobre o marcador '[áudio recebido ... sinal de queixa clínica]': a transcrição foi incerta demais para citar, mas trouxe palavra de dor, e aí o desfecho seguro é tratar como clínico.",
+      "quando": "o paciente relata QUEIXA: algo dói, incomoda, mudou, piorou, saiu no exame, ou ele quer saber se o que está sentindo é normal. O eixo é o ESTADO dele, não o assunto — 'operei ontem e está ardendo' é esta; 'quando começo o colírio' NÃO é, é `duvida_clinica`. Também cobre o marcador '[áudio recebido ... sinal de queixa clínica]': a transcrição foi incerta demais para citar, mas trouxe palavra de dor, e aí o desfecho seguro é tratar como clínico. ⚠️ NA DÚVIDA entre esta e `duvida_clinica`, escolha ESTA: ela é a única que dispara alarme sonoro, e perder o alarme de quem está com dor custa mais que mandar uma frase de acolhimento a quem não está.",
       "acao": "escalar",
       "urgente": true,
       "fecho": false,
@@ -576,14 +576,14 @@
     },
     "duvida_clinica": {
       "bloco": "F13",
-      "quando": "dúvida SOBRE o tratamento ou o resultado, sem queixa nenhuma: se o GRAU pode voltar depois da refrativa, se a cirurgia precisa repetir, prognóstico, o que acontece com o tempo. Também o paciente que INSISTE pedindo detalhe depois de `oculos_depois_cirurgia`. ⚠️ Só 'vou parar de usar óculos?' NÃO é esta: é `oculos_depois_cirurgia`, que tem resposta aprovada. Esta é quando a pergunta passa do óculos para o grau, o prazo ou a repetição. Escala como `clinico`, mas NÃO manda a frase de acolhimento de sintoma — ele não relatou incômodo, relatou dúvida.",
+      "quando": "PERGUNTA sobre o tratamento, sem queixa nenhuma. Duas famílias: (a) protocolo — quando começar o colírio, por quanto tempo usar, quando pode voltar a dirigir, trabalhar, lavar o rosto, o que fazer depois da cirurgia; (b) resultado — se o GRAU pode voltar depois da refrativa, se a cirurgia precisa repetir, prognóstico, o que acontece com o tempo. Também o paciente que INSISTE pedindo detalhe depois de `oculos_depois_cirurgia`. ⚠️ Só 'vou parar de usar óculos?' NÃO é esta: é `oculos_depois_cirurgia`, que tem resposta aprovada. ⚠️ Jejum, horário de chegada e acompanhante continuam em `DESCONHECIDO` (F14): aquilo é logística que a recepção monta, isto é conduta que a médica define. Escala como `clinico`, mas NÃO manda a frase de acolhimento de sintoma — ele não relatou incômodo, relatou dúvida.",
       "acao": "escalar",
       "urgente": false,
       "fecho": false,
       "textos": [
         "Só um instante."
       ],
-      "motivo_escalada": "dúvida sobre resultado/prognóstico da cirurgia. A Marina liberou UMA frase sobre óculos e nada além; detalhe de grau e de prognóstico é conversa de avaliação, com ela."
+      "motivo_escalada": "pergunta de conduta ou de prognóstico, sem queixa. Quem responde é quem sabe o que foi operado e o que foi prescrito — a Marina liberou UMA frase sobre óculos e nada além."
     },
     "pergunta_se_e_bot": {
       "bloco": "F00e",
