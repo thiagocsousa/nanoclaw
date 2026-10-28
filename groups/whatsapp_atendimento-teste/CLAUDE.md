@@ -212,6 +212,16 @@ Abaixo, só o que não cabe num campo `quando`:
   dispara alarme sonoro, e perder o alarme de quem está com dor custa mais que
   mandar uma frase de acolhimento a quem não está. O erro caro é o silêncio.
 
+  ℹ️ **E a frase que aparece três vezes acima não existe mais** (Thiago,
+  28/10/2026: *"deixa isso mais genérico, pra não acolher dor quando não é"*).
+  O texto do `clinico` passou a ser **"Entendo. Só um instante."**, que acolhe
+  sem afirmar nada sobre o corpo de ninguém. As citações ficam porque contam de
+  onde veio a regra, não porque descrevem o que sai hoje.
+
+  Isso também é o que torna o desempate acima barato: o caminho clínico VAI
+  receber pergunta sem queixa, por desenho, e agora isso não custa mais do que
+  um "Entendo" a mais.
+
   **Vale igual para diagnóstico de passagem.** "Meu pai tem catarata nos dois
   olhos, queria marcar" é pedido de agendamento, não consulta clínica: ele não
   pergunta nada sobre a catarata, ele pergunta sobre horário. "Tenho glaucoma, e

@@ -3,40 +3,45 @@ import fs from 'fs';
 import { describe, expect, it } from 'vitest';
 
 /**
- * ⛔ A frase de acolhimento de SINTOMA sai numa intenção só.
+ * ⛔ Nenhum texto aprovado AFIRMA o que o paciente está sentindo.
  *
- * Caso real da semana de observação, em 26/10/2026 (revisão 9KE3). A paciente
- * escreveu:
+ * ## Como esta guarda chegou aqui, em três passos
  *
- *   "Ela me falou que talvez a retroativa poderia voltar a ter grau, não
- *    zerar. No caso voltaria o grau todo? Que uso hoje?"
+ * **26/10/2026** — revisão 9KE3. A paciente perguntou se o grau poderia voltar
+ * depois da refrativa e recebeu *"Entendo, isso deve estar incomodando
+ * bastante. Só um instante."*. Criei `duvida_clinica` para a dúvida de
+ * prognóstico não cair em `clinico`, e esta guarda nasceu travando que a frase
+ * de acolhimento existisse em `clinico` e em mais nenhuma intenção.
  *
- * e a Lara respondeu *"Entendo, isso deve estar incomodando bastante. Só um
- * instante."* — a frase de acolhimento de DOR para quem não relatou dor
- * nenhuma. O Thiago: *"errou a classificação, é uma dúvida, não uma dor"*.
+ * **28/10/2026** — revisão UHCB: *"Os colírios eu inicio com quanto tempo pós
+ * cirurgia?"*, mesma frase de novo. O `duvida_clinica` não pegou porque eu o
+ * havia escrito em torno de prognóstico — o caso que eu tinha na mão. Conserto
+ * feito sobre um exemplo cobre o exemplo. O eixo do `clinico` virou QUEIXA
+ * versus PERGUNTA, em vez de uma lista de assuntos.
  *
- * ⚠️ Escalar estava CERTO: "voltaria o grau todo?" é detalhe de prognóstico, e
- * a Marina liberou uma frase sobre óculos e nada além. O defeito era o texto.
+ * **Ainda em 28/10** — decisão do Thiago: *"deixa isso mais genérico, pra não
+ * acolher dor quando não é"*. O texto do `clinico` passou a ser
+ * *"Entendo. Só um instante."*, que é subconjunto literal do que a Marina já
+ * tinha aprovado.
  *
- * ## Por que o modelo errava, e por que instrução não resolvia
+ * ## Por que a asserção mudou de forma
  *
- * O `CLAUDE.md` da pasta já gastava parágrafos dizendo "não rotule `clinico`
- * para X" — grau de passagem, escolha de lente, diagnóstico mencionado — sem
- * oferecer ONDE X cai. E o modelo evita `DESCONHECIDO` quando entendeu a
- * pergunta: está documentado no próprio arquivo, no caso de 05/10 em que ele
- * devolveu `DESCONHECIDO` com 0,95 anotando que tinha entendido tudo.
+ * As duas primeiras versões travavam ONDE a frase podia estar. Agora ela não
+ * está em lugar nenhum, e travar presença viraria uma guarda que exige o
+ * defeito. O que importa não era aquela frase: era a CLASSE dela.
  *
- * Faltava o rótulo, não o aviso. `duvida_clinica` escala como `clinico` e sai
- * com o texto neutro, que já era aprovado (é o do `DESCONHECIDO`).
+ * Afirmar um sentimento é diferente de acolher. "Entendo" acolhe sem afirmar
+ * nada; "isso deve estar incomodando bastante" afirma um fato sobre o corpo de
+ * alguém a partir de uma mensagem que pode ser uma pergunta de horário. E a
+ * fronteira entre queixa e pergunta nunca vai ser perfeita — o desempate que
+ * escrevi manda preferir `clinico` na dúvida, porque só ele dispara alarme
+ * sonoro. Ou seja: o caminho clínico VAI receber pergunta sem queixa, por
+ * desenho. O texto é que não pode presumir.
  *
- * ## O que este teste trava
- *
- * Que a frase de acolhimento não se espalhe. Ela presume um fato sobre o
- * paciente — que algo o incomoda —, e texto que presume fato só pode existir
- * no caminho em que o fato foi dito. Uma segunda intenção com essa frase é uma
- * segunda chance de mandá-la a quem não tem queixa.
+ * ⚠️ Varri os 74 textos antes de escrever os padrões, e nenhum casava. Guarda
+ * que nasce vermelha é guarda que alguém desliga no mesmo dia.
  */
-describe('a frase de acolhimento de sintoma', () => {
+describe('nenhum texto afirma o que o paciente sente', () => {
   const tabela = JSON.parse(
     fs.readFileSync(
       'groups/whatsapp_atendimento-teste/templates.json',
@@ -45,38 +50,77 @@ describe('a frase de acolhimento de sintoma', () => {
   ) as {
     intencoes: Record<
       string,
-      { acao?: string; urgente?: boolean; textos?: string[] }
+      {
+        acao?: string;
+        urgente?: boolean;
+        textos?: string[];
+        texto_sem_slots?: string;
+      }
     >;
   };
 
-  /** O trecho que presume incômodo. Sem o fecho, que é comum a toda escalada. */
-  const ACOLHIMENTO = /isso deve estar incomodando/i;
-
-  it('existe em `clinico` e em mais nenhuma', () => {
-    const comAcolhimento = Object.entries(tabela.intencoes)
-      .filter(([, i]) => (i.textos || []).some((t) => ACOLHIMENTO.test(t)))
-      .map(([nome]) => nome);
-    expect(comAcolhimento).toEqual(['clinico']);
-  });
-
-  it('`duvida_clinica` escala sem presumir dor, e sem ser urgente', () => {
-    const d = tabela.intencoes.duvida_clinica;
-    expect(d, 'duvida_clinica saiu da tabela').toBeTruthy();
-    expect(d.acao).toBe('escalar');
-    // Dor é urgente; dúvida não. Marcar urgente aqui faria a escada de cobrança
-    // do SLA tratar pergunta de prognóstico como pós-operatório com dor.
-    expect(d.urgente).toBe(false);
-    expect(d.textos).toEqual(['Só um instante.']);
-  });
-
   /**
-   * ⚠️ O texto dela é o MESMO do `DESCONHECIDO`, de propósito: é frase já
-   * aprovada pela clínica. Se alguém "melhorar" uma das duas, isto avisa — o
-   * caminho de aprovação de texto para paciente é humano, e não passa por aqui.
+   * Afirmações sobre o estado do paciente. Estreito de propósito: cada padrão
+   * é uma forma concreta de dizer "eu sei o que você está sentindo", não uma
+   * heurística de empatia. "Entendo", "claro" e "perfeito" passam, e devem.
    */
-  it('o texto neutro é literalmente o que o `DESCONHECIDO` já usava', () => {
-    expect(tabela.intencoes.duvida_clinica.textos).toEqual(
-      tabela.intencoes.DESCONHECIDO.textos,
-    );
+  const PRESUNCOES: Array<[string, RegExp]> = [
+    ['deve estar <sentindo>', /deve estar\s+\w+ndo/i],
+    ['deve ser <difícil>', /deve ser (difícil|ruim|chato|angustiante)/i],
+    ['imagino', /\bimagino\b/i],
+    ['sei como é', /\bsei como\b/i],
+    ['entendo sua dor', /entendo (a )?sua (dor|afli|preocupa|ang)/i],
+    ['sinto muito', /\bsinto muito\b/i],
+  ];
+
+  function todosOsTextos(): Array<[string, string]> {
+    const out: Array<[string, string]> = [];
+    for (const [nome, i] of Object.entries(tabela.intencoes)) {
+      for (const t of i.textos || []) out.push([nome, t]);
+      if (i.texto_sem_slots) out.push([nome, i.texto_sem_slots]);
+    }
+    return out;
+  }
+
+  it('nenhuma intenção afirma o sentimento de quem escreveu', () => {
+    const achados: string[] = [];
+    for (const [nome, texto] of todosOsTextos()) {
+      for (const [rotulo, rx] of PRESUNCOES) {
+        if (rx.test(texto)) achados.push(`${nome} [${rotulo}]: ${texto}`);
+      }
+    }
+    expect(achados).toEqual([]);
+  });
+
+  /** O detector funciona: a frase que motivou tudo isto seria pega. */
+  it('pega a frase original, que é o caso que criou a regra', () => {
+    const antiga =
+      'Entendo, isso deve estar incomodando bastante. Só um instante.';
+    expect(PRESUNCOES.some(([, rx]) => rx.test(antiga))).toBe(true);
+  });
+
+  it('e deixa passar o acolhimento que NÃO afirma nada', () => {
+    for (const ok of [
+      'Entendo. Só um instante.',
+      'Claro, vou ver isso para você.',
+      'Perfeito.',
+    ]) {
+      expect(
+        PRESUNCOES.some(([, rx]) => rx.test(ok)),
+        `bloqueou indevidamente: ${ok}`,
+      ).toBe(false);
+    }
+  });
+
+  it('`clinico` e `duvida_clinica` escalam, e só o clínico é urgente', () => {
+    const c = tabela.intencoes.clinico;
+    const d = tabela.intencoes.duvida_clinica;
+    expect(c.acao).toBe('escalar');
+    expect(d.acao).toBe('escalar');
+    // Só `urgente` dispara o alarme sonoro do ntfy (`escalation-sla.ts`), e o
+    // desempate da instrução manda preferir `clinico` na dúvida justamente por
+    // isso: perder o alarme de quem tem dor custa mais que o contrário.
+    expect(c.urgente).toBe(true);
+    expect(d.urgente).toBe(false);
   });
 });
