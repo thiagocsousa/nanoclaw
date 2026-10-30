@@ -120,6 +120,28 @@ Regras:
 - Ordene por horário (já vem ordenado).
 - Não invente confirmação — use só o que veio no contexto. Se `wakeAgent` não trouxe dados (fim de semana/feriado), não poste nada.
 
+### O status na agenda da CNN (desde 30/10/2026)
+
+Quem confirmou passa a `CONFIRMADO_PACIENTE` na Clínica nas Nuvens
+automaticamente, para a recepção ver na própria agenda. O contexto traz
+`status_cnn` com a contagem, e cada confirmado traz um campo `cnn`.
+
+Acrescente **uma linha ao fim** do resumo, só quando houver o que dizer:
+
+- `{alterados}` marcados como confirmados na agenda → `_N confirmação(ões) marcada(s) na agenda._`
+- se houver item com `cnn` começando por `status_mudou:` → liste esses nomes:
+  `⚠️ _Não marquei {nome}: na agenda está {STATUS}._` Isso quer dizer que
+  alguém da clínica mexeu naquele horário entre 15h e 17h, e a resposta do
+  paciente chegou depois — é informação que a recepção quer.
+- se houver `cnn` começando por `erro:` → `⚠️ _Não consegui atualizar a agenda ({N} item(ns))._` e **repasse o texto do erro literal**, sem parafrasear.
+- se `status_cnn.desligado` for true → `_Atualização da agenda está desligada._`
+
+⛔ **O que NÃO é marcado, e não peça para marcar:** quem respondeu "não vou" ou
+"quero remarcar" **não** é cancelado na agenda. Isso é decisão de gente —
+cancelar a partir de uma classificação de texto livre perde a vaga e o paciente
+quando ela erra, e ela erra com "não sei ainda" e "não posso de manhã". A lista
+🔄 existe justamente para a recepção cancelar à mão.
+
 ## Monitor de tempo de resposta (SLA)
 
 O core registra passivamente as conversas 1:1 do número do atendimento nos dois

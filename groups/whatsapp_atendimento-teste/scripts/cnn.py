@@ -237,6 +237,49 @@ def paciente(id_paciente):
     return pega(f"/paciente/{id_paciente}")
 
 
+# Status que o PACIENTE pode mover, e só ele. A lista é curta de propósito:
+# `CANCELADO_PACIENTE` NÃO está aqui. Ver `confirma_presenca`.
+STATUS_CONFIRMADO_PELO_PACIENTE = "CONFIRMADO_PACIENTE"
+
+# Só se escreve por cima destes. Qualquer outro significa que alguém da clínica
+# já mexeu no agendamento depois da coleta, e a resposta do WhatsApp chegou
+# atrasada para aquela decisão.
+STATUS_QUE_ACEITAM_CONFIRMACAO = {"AGENDADO"}
+
+
+def agendamento(id_agenda):
+    """Um agendamento pelo id. Serve para reler o status antes de escrever."""
+    return pega(f"/agenda/{id_agenda}")
+
+
+def confirma_presenca(id_agenda):
+    """Marca CONFIRMADO_PACIENTE, se e só se ainda estiver AGENDADO.
+
+    Devolve ("alterado"|"ja_confirmado"|"status_mudou:<X>", status_lido).
+
+    ⛔ Relê ANTES de escrever, e isso não é zelo. A coleta é às 15h e a
+    confirmação às 17h: nessas duas horas a recepção pode ter cancelado,
+    remarcado ou finalizado. Escrever sem reler transformaria um "sim" de
+    paciente num carimbo por cima de decisão humana mais recente.
+
+    ⛔ E NÃO existe o inverso. Um "não vou" no WhatsApp não vira
+    `CANCELADO_PACIENTE` aqui, por assimetria deliberada: confirmar quem não
+    vem custa um horário que a recepção já vê no resumo; cancelar quem vem
+    perde a vaga e o paciente, a partir de uma classificação de texto livre que
+    erra com "não sei ainda" e "não posso de manhã". Quem cancela é gente.
+    """
+    atual = (agendamento(id_agenda) or {}).get("status")
+    if atual == STATUS_CONFIRMADO_PELO_PACIENTE:
+        return "ja_confirmado", atual
+    if atual not in STATUS_QUE_ACEITAM_CONFIRMACAO:
+        return f"status_mudou:{atual}", atual
+    posta_put("/agenda/alteracao-status", {
+        "idAgenda": id_agenda,
+        "status": STATUS_CONFIRMADO_PELO_PACIENTE,
+    })
+    return "alterado", atual
+
+
 # Cache de cidade por processo. Uma clínica atende dezenas de pacientes das
 # mesmas poucas cidades, e `/cidade/{id}` é imutável na prática.
 _CIDADES = {}
@@ -304,6 +347,26 @@ def posta(caminho, corpo):
     usuario, senha, cid = _credenciais()
     dados = json.dumps(corpo).encode()
     req = urllib.request.Request(f"{BASE}{caminho}", data=dados, method="POST")
+    cred = base64.b64encode(f"{usuario}:{senha}".encode()).decode()
+    req.add_header("Authorization", f"Basic {cred}")
+    req.add_header("clinicaNasNuvens-cid", cid)
+    req.add_header("Content-Type", "application/json")
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            corpo_resp = r.read().decode()
+            return json.loads(corpo_resp) if corpo_resp.strip() else {}
+    except urllib.error.HTTPError as exc:
+        detalhe = exc.read()[:300].decode("utf-8", "replace")
+        raise CnnIndisponivel(f"HTTP {exc.code} em {caminho}: {detalhe}") from exc
+    except Exception as exc:
+        raise CnnIndisponivel(f"falha em {caminho}: {exc}") from exc
+
+
+def posta_put(caminho, corpo):
+    """PUT autenticado com corpo JSON. Mesma autenticação do `posta`."""
+    usuario, senha, cid = _credenciais()
+    dados = json.dumps(corpo).encode()
+    req = urllib.request.Request(f"{BASE}{caminho}", data=dados, method="PUT")
     cred = base64.b64encode(f"{usuario}:{senha}".encode()).decode()
     req.add_header("Authorization", f"Basic {cred}")
     req.add_header("clinicaNasNuvens-cid", cid)

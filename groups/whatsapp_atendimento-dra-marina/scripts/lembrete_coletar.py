@@ -144,6 +144,16 @@ def coletar_agenda(alvo_str):
             "procedimento": cnn.NOME_DO_TIPO.get(
                 ev.get("idTipoConsulta"), "Consulta"),
             "patient_id": pid,
+            # ⛔ O id do AGENDAMENTO, que não é o do paciente. Sem ele o
+            # `lembrete_confirmacoes` não tem como escrever o status de volta:
+            # `PUT /agenda/alteracao-status` exige `idAgenda`, e um paciente
+            # pode ter mais de um agendamento no mesmo dia.
+            #
+            # Entrou em 30/10/2026, quando o Thiago notou que a confirmação do
+            # paciente não aparecia na agenda da CNN. Não era regressão: nunca
+            # escreveu status, nem aqui nem no iClinic — o desenho sempre foi
+            # "posta o resumo, a recepção age". A CNN é que trouxe o endpoint.
+            "agenda_id": ev.get("id"),
             "match_key": match_key(phone) if phone else None,
         })
 
