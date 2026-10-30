@@ -362,6 +362,24 @@ function buildVolumeMounts(
   return mounts;
 }
 
+/**
+ * As credenciais de integração presentes no `.env`, já filtradas.
+ *
+ * ⛔ Fonte ÚNICA para as duas pontas: quais chaves entram como `-e CHAVE` no
+ * `docker run`, e quais valores entram no ambiente do processo docker. Se as
+ * duas pontas filtrassem por conta própria, uma chave presente numa e ausente
+ * na outra subiria o container com a variável declarada e vazia — que é pior
+ * que ausente, porque `os.environ.get` devolve string vazia em vez de falhar.
+ */
+export function segredosDeIntegracao(): Record<string, string> {
+  const doArquivo = readEnvFile(FORWARDED_ENV_VARS);
+  const out: Record<string, string> = {};
+  for (const key of FORWARDED_ENV_VARS) {
+    if (doArquivo[key]) out[key] = doArquivo[key];
+  }
+  return out;
+}
+
 function buildContainerArgs(
   mounts: VolumeMount[],
   containerName: string,
@@ -389,13 +407,35 @@ function buildContainerArgs(
     args.push('-e', 'CLAUDE_CODE_OAUTH_TOKEN=placeholder');
   }
 
-  // Forward integration credentials from .env into the container.
-  // These never route through the credential proxy — they go directly as env vars.
-  const integrationSecrets = readEnvFile(FORWARDED_ENV_VARS);
-  for (const key of FORWARDED_ENV_VARS) {
-    if (integrationSecrets[key]) {
-      args.push('-e', `${key}=${integrationSecrets[key]}`);
-    }
+  // ⛔ `-e CHAVE`, SEM valor. O valor viaja pelo ambiente do processo docker,
+  // que `spawnDoContainer` injeta — ver `segredosDeIntegracao`.
+  //
+  // Até 30/10/2026 era `-e CHAVE=valor`, e isso punha TODO segredo de
+  // integração na linha de comando. Linha de comando não é privada: medido na
+  // VM no mesmo dia,
+  //
+  //     /proc/<pid>/cmdline   -r--r--r--   qualquer usuário lê
+  //     /proc/<pid>/environ   -r--------   só o dono
+  //
+  // e a máquina tem três usuários. Logado como um deles, sem sudo, um `ps`
+  // mostrava o token do Meta, as chaves do X, TikTok, YouTube, LinkedIn,
+  // Cloudinary, FLAGO, 2captcha, o `CNN_CLIENT_SECRET`, a senha do portal da
+  // NFS-e — e o `NFSE_CERT_B64` com o `NFSE_CERT_PASSWORD` ao lado, que é o
+  // certificado A1 da clínica e a senha dele na mesma linha.
+  //
+  // Isso contrariava o desenho declarado no CLAUDE.md ("nenhuma chave ou token
+  // é passado aos containers diretamente"), e o jeito de descobrir foi um
+  // `ps -eo args` que eu rodei para outra coisa.
+  //
+  // ⚠️ A forma sem valor exige que o valor esteja no ambiente de QUEM CHAMA o
+  // docker. O processo do app NÃO recebe o `.env` pelo ambiente — o
+  // `ecosystem.config.cjs` só define `NODE_ENV` —, então herdar `process.env`
+  // não basta e `spawn` leva um `env` explícito. É a mesma pegadinha que criou
+  // o `garanteCredenciais` em `vagas.ts`, e é por isso que as duas pontas leem
+  // da MESMA função: duas listas divergem, e divergir aqui sobe container sem
+  // credencial.
+  for (const key of Object.keys(segredosDeIntegracao())) {
+    args.push('-e', key);
   }
 
   // Runtime-specific args for host gateway resolution
@@ -490,6 +530,9 @@ export async function runContainerAgent(
   return new Promise((resolve) => {
     const container = spawn(CONTAINER_RUNTIME_BIN, containerArgs, {
       stdio: ['pipe', 'pipe', 'pipe'],
+      // Os valores que o `-e CHAVE` (sem valor) vai buscar. Ficam no `environ`
+      // deste processo, que só o dono lê — não no `cmdline`, que é público.
+      env: { ...process.env, ...segredosDeIntegracao() },
     });
 
     onProcess(container, containerName);

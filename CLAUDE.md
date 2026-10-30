@@ -23,7 +23,24 @@ Single Node.js process with skill-based channel system. Channels (WhatsApp, Tele
 
 ## Secrets / Credentials / Proxy (OneCLI)
 
-API keys, secret keys, OAuth tokens, and auth credentials are managed by the OneCLI gateway — which handles secret injection into containers at request time, so no keys or tokens are ever passed to containers directly. Run `onecli --help`.
+API keys, secret keys, OAuth tokens, and auth credentials are managed by the OneCLI gateway — which handles secret injection into containers at request time. Run `onecli --help`.
+
+⚠️ **Isso vale para as credenciais da Anthropic, não para as de integração.** A
+frase anterior aqui dizia "no keys or tokens are ever passed to containers
+directly", e isso nunca foi verdade para as chaves de `FORWARDED_ENV_VARS`
+(Meta, X, TikTok, YouTube, LinkedIn, Cloudinary, FLAGO, NFS-e, CNN): elas vão
+como variáveis de ambiente do container, e o próprio comentário do
+`container-runner.ts` já dizia "these never route through the credential
+proxy". Só o tráfego da API da Anthropic passa pelo proxy.
+
+⛔ **E até 30/10/2026 elas iam na LINHA DE COMANDO** (`-e CHAVE=valor`), que é
+world-readable em `/proc/<pid>/cmdline` — qualquer usuário da VM lia todas com
+um `ps`, sem sudo, incluindo o certificado A1 da NFS-e e a senha dele. Hoje vão
+como `-e CHAVE` sem valor, herdando do `environ` do processo docker, que só o
+dono lê. Ver `src/segredo-fora-do-argv.test.ts`.
+
+⚠️ O que isso NÃO faz: as credenciais continuam dentro do container, visíveis
+para o que roda lá. O conserto foi de exposição no HOST.
 
 ## Skills
 
