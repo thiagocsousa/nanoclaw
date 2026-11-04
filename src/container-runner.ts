@@ -15,6 +15,7 @@ import {
   GROUPS_DIR,
   IDLE_TIMEOUT,
   TIMEZONE,
+  wantsTemplates,
 } from './config.js';
 import { resolveGroupFolderPath, resolveGroupIpcPath } from './group-folder.js';
 import { logger } from './logger.js';
@@ -458,6 +459,26 @@ function buildContainerArgs(
   const effectiveChatJid = input?.approvalJid || input?.chatJid;
   if (effectiveChatJid)
     args.push('-e', `NANOCLAW_CHAT_JID=${effectiveChatJid}`);
+
+  // ⛔ MODO CLASSIFICADOR. Pasta que responde por tabela não redige: o agente
+  // devolve `{intencao, confianca, slots, id_mensagem}` e o HOST escolhe todo
+  // o texto. Então ele não precisa de ferramenta, nem do system prompt de
+  // agente de código — e pagava pelos dois a cada mensagem de paciente.
+  //
+  // Medido em 04/11/2026, o primeiro dia útil da Lara no ar: 669 DMs num dia,
+  // contra 6–29 na semana anterior, e a cota de 5 horas estourou duas vezes.
+  // Cada um desses turnos levava o preset do Claude Code mais DEZENOVE
+  // definições de ferramenta (Bash, Read, Write, Edit, Glob, Grep, WebSearch,
+  // WebFetch, Task, TeamCreate, SendMessage, Skill…) para devolver uma linha
+  // de JSON.
+  //
+  // A ironia é que o `CLAUDE.md` da pasta abre com "⛔ Não leia arquivo
+  // nenhum, não rode script" — a instrução já proibia o que as ferramentas
+  // existiam para permitir. Aqui isso deixa de ser pedido e passa a ser
+  // impossível, que é o que o Thiago chamou de "mais determinístico".
+  if (wantsTemplates(input?.groupFolder)) {
+    args.push('-e', 'NANOCLAW_MODO_CLASSIFICADOR=1');
+  }
   if (input?.groupFolder)
     args.push('-e', `NANOCLAW_GROUP_FOLDER=${input.groupFolder}`);
 

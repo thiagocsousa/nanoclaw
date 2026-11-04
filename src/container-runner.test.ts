@@ -18,6 +18,12 @@ vi.mock('./config.js', () => ({
   ONECLI_API_KEY: '',
   ONECLI_URL: 'http://localhost:10254',
   TIMEZONE: 'America/Los_Angeles',
+  PASTA_DO_SLA: 'whatsapp_atendimento-dra-marina',
+  // ⚠️ Mock PARCIAL de módulo é lista fechada: export que falta aqui estoura
+  // no acesso, não na importação, e o erro aponta para a linha que usa — não
+  // para esta. Foi o que aconteceu em 04/11/2026 ao mover `wantsTemplates`
+  // para `config.ts`: três testes caíram apontando `buildContainerArgs`.
+  wantsTemplates: () => false,
 }));
 
 // Mock logger

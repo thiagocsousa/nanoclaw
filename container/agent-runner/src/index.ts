@@ -114,6 +114,34 @@ async function readStdin(): Promise<string> {
   });
 }
 
+/**
+ * O modelo do MODO CLASSIFICADOR.
+ *
+ * ⚠️ Vazio por padrão, de propósito: `undefined` mantém o modelo atual, e a
+ * troca fica a uma env de distância, sem rebuild. O ganho desta mudança (tirar
+ * o preset e as 19 ferramentas) não depende de trocar modelo, e trocar sem
+ * medir seria adivinhar — em 04/11/2026 a primeira tentativa de medir Haiku
+ * contra Sonnet bateu no limite de 5 horas e devolveu 45% e 0%, números que
+ * eram o limite e não os modelos. Quando a medição existir, põe-se
+ * `NANOCLAW_MODELO_CLASSIFICADOR=claude-haiku-4-5-20251001` no .env.
+ */
+const MODELO_CLASSIFICADOR =
+  process.env.NANOCLAW_MODELO_CLASSIFICADOR || undefined;
+
+/**
+ * O system prompt do classificador, no lugar do preset de agente de código.
+ *
+ * ⛔ Curto de propósito. A instrução de verdade — as 35 intenções, as regras
+ * de precedência, o que nunca dizer — vive no `CLAUDE.md` da pasta, que o SDK
+ * carrega por `settingSources: ['project']`. Repetir aqui seria pagar duas
+ * vezes pela mesma coisa, que é exatamente o problema que esta mudança ataca.
+ */
+const SYSTEM_PROMPT_CLASSIFICADOR =
+  'Você classifica mensagens de pacientes e devolve APENAS um objeto JSON ' +
+  'numa linha. Não conversa, não redige texto para o paciente e não usa ' +
+  'ferramentas — você não tem nenhuma. As regras e a lista de intenções ' +
+  'estão nas instruções da pasta e no próprio prompt do turno.';
+
 const OUTPUT_START_MARKER = '---NANOCLAW_OUTPUT_START---';
 const OUTPUT_END_MARKER = '---NANOCLAW_OUTPUT_END---';
 
@@ -435,6 +463,45 @@ async function runQuery(
     log(`Additional directories: ${extraDirs.join(', ')}`);
   }
 
+  // ⛔ MODO CLASSIFICADOR: a pasta responde por tabela, então o agente devolve
+  // um JSON e o HOST escolhe todo o texto. Sem ferramenta, sem preset de
+  // agente de código, e com o modelo pequeno — é classificação, não redação.
+  //
+  // O host liga isto para pasta em `TEMPLATE_FOLDERS` (ver `wantsTemplates`).
+  //
+  // Por que importa: em 04/11/2026, primeiro dia útil da Lara no ar, foram 669
+  // DMs num dia e a cota de 5 horas estourou duas vezes, parando o atendimento
+  // real. Cada turno carregava o preset mais DEZENOVE definições de ferramenta
+  // para produzir uma linha de JSON — e o `CLAUDE.md` da pasta já mandava, em
+  // prosa paga por token, "não leia arquivo nenhum, não rode script".
+  const modoClassificador = process.env.NANOCLAW_MODO_CLASSIFICADOR === '1';
+
+  // ⚠️ Lista VAZIA, não `undefined`: `undefined` cai no padrão do SDK, que é
+  // tudo. A diferença entre as duas é silenciosa e vale o prompt inteiro.
+  const ferramentas = modoClassificador
+    ? []
+    : [
+        'Bash',
+        'Read',
+        'Write',
+        'Edit',
+        'Glob',
+        'Grep',
+        'WebSearch',
+        'WebFetch',
+        'Task',
+        'TaskOutput',
+        'TaskStop',
+        'TeamCreate',
+        'TeamDelete',
+        'SendMessage',
+        'TodoWrite',
+        'ToolSearch',
+        'Skill',
+        'NotebookEdit',
+        'mcp__nanoclaw__*',
+      ];
+
   for await (const message of query({
     prompt: stream,
     options: {
@@ -442,14 +509,23 @@ async function runQuery(
       additionalDirectories: extraDirs.length > 0 ? extraDirs : undefined,
       resume: sessionId,
       resumeSessionAt: resumeAt,
-      systemPrompt: globalClaudeMd
-        ? {
-            type: 'preset' as const,
-            preset: 'claude_code' as const,
-            append: globalClaudeMd,
-          }
-        : undefined,
-      allowedTools: [
+      // ⚠️ No modo classificador o `globalClaudeMd` TAMBÉM fica de fora: ele
+      // descreve capacidades (canais, IPC, skills) que esta pasta não usa e
+      // não pode usar. Sobra a instrução da própria pasta, que o host já
+      // injeta no prompt do turno.
+      model: modoClassificador ? MODELO_CLASSIFICADOR : undefined,
+      systemPrompt: modoClassificador
+        ? SYSTEM_PROMPT_CLASSIFICADOR
+        : globalClaudeMd
+          ? {
+              type: 'preset' as const,
+              preset: 'claude_code' as const,
+              append: globalClaudeMd,
+            }
+          : undefined,
+      allowedTools: modoClassificador
+        ? ferramentas
+        : [
         'Bash',
         'Read',
         'Write',

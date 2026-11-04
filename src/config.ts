@@ -80,6 +80,34 @@ export const GROUPS_DIR = path.resolve(PROJECT_ROOT, 'groups');
  * pasta divergem na primeira vez que alguém renomeia uma.
  */
 export const PASTA_DO_SLA = 'whatsapp_atendimento-dra-marina';
+
+const pastasDeTemplate = new Set(
+  (
+    process.env.TEMPLATE_FOLDERS ||
+    readEnvFile(['TEMPLATE_FOLDERS']).TEMPLATE_FOLDERS ||
+    ''
+  )
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean),
+);
+
+/**
+ * A pasta responde por TABELA, em vez de redigir livre.
+ *
+ * Fica desligado por padrão: o grupo de teste mede tom e invenção justamente
+ * sem templates, e ligar os dois ao mesmo tempo apagaria a medição.
+ *
+ * ⚠️ Mora aqui, e não no `executor.ts`, desde 04/11/2026: o
+ * `container-runner` passou a precisar dela para ligar o MODO CLASSIFICADOR, e
+ * importar do executor fechou um ciclo
+ * (`executor → paciente → script-container → container-runner`) que derrubou o
+ * carregamento do módulo inteiro nos testes. Configuração não pertence ao
+ * módulo que a usa primeiro.
+ */
+export function wantsTemplates(groupFolder?: string): boolean {
+  return !!groupFolder && pastasDeTemplate.has(groupFolder);
+}
 export const DATA_DIR = path.resolve(PROJECT_ROOT, 'data');
 
 export const CONTAINER_IMAGE =

@@ -24,7 +24,6 @@
  * abaixo do limiar, slot obrigatório ausente. Quem resolve é um humano, e o
  * paciente recebe "Só um instante." em vez de ficar esperando.
  */
-import { readEnvFile } from './env.js';
 import { humanoRespondeuDepois } from './aguarda-humano.js';
 import { PASTA_DO_SLA } from './config.js';
 import { escala, type EscalationSlaDeps } from './escalation-sla.js';
@@ -92,23 +91,9 @@ import {
   temDescontoDeConsulta,
 } from './vagas.js';
 
-const envConfig = readEnvFile(['TEMPLATE_FOLDERS']);
-
-const FOLDERS = new Set(
-  (process.env.TEMPLATE_FOLDERS || envConfig.TEMPLATE_FOLDERS || '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean),
-);
-
-/**
- * A pasta responde por tabela, em vez de redigir livre. Fica desligado por
- * padrão: o grupo de teste mede tom e invenção justamente sem templates, e
- * ligar os dois ao mesmo tempo apagaria a medição.
- */
-export function wantsTemplates(groupFolder?: string): boolean {
-  return !!groupFolder && FOLDERS.has(groupFolder);
-}
+// `wantsTemplates` mudou para `config.ts` em 04/11/2026 — ver o porquê lá.
+// Reexportado para não mexer nos ~dez lugares que importam daqui.
+export { wantsTemplates } from './config.js';
 
 /**
  * A lista de intenções, para o HOST pôr no prompt.
