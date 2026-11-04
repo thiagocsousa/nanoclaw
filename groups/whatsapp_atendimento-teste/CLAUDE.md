@@ -218,6 +218,11 @@ Abaixo, só o que não cabe num campo `quando`:
   sem afirmar nada sobre o corpo de ninguém. As citações ficam porque contam de
   onde veio a regra, não porque descrevem o que sai hoje.
 
+  ✅ **Aprovado pela Dra. Marina** (confirmado pelo Thiago em 04/11/2026). Fica
+  registrado porque texto de paciente nesta pasta só vale com aprovação dela, e
+  este entrou no ar em 28/10 — antes de ela ver. A ordem foi a errada; a
+  aprovação veio depois e cobre o texto atual.
+
   Isso também é o que torna o desempate acima barato: o caminho clínico VAI
   receber pergunta sem queixa, por desenho, e agora isso não custa mais do que
   um "Entendo" a mais.
