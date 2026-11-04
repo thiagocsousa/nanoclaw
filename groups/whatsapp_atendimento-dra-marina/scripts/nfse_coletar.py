@@ -226,6 +226,26 @@ FATURA_PELO_PROCEDIMENTO = {
 PROCEDIMENTO_CONSULTA = 1212102
 
 
+# ⛔ PISO da fonte AGENDA. Antes disto, quem faturava era o iClinic.
+#
+# O dedup é por `receita_id`, e os ids não se correspondem: o iClinic usava
+# números, a derivação usa `agenda-<evento>-<procedimento>`. Então um serviço de
+# agosto, já faturado por lá e registrado em `nfse_emitidas.json` com o id do
+# iClinic, seria re-derivado da agenda com id NOVO — e sairia DE NOVO.
+#
+# Medido em 04/11/2026, antes de a lista rodar: sem este piso, a janela de
+# 16/07 traria 29 itens e R$ 12.110,00, dos quais **22 anteriores à virada**.
+# Aprovar "todos" emitiria nota duplicada de serviço já faturado.
+#
+# ⚠️ A assimetria que decide o valor: nota não emitida é atraso, e volta na
+# lista do dia seguinte; nota duplicada se cancela com processo e tem efeito
+# fiscal. Então o piso erra para o lado de deixar passar.
+#
+# 24/10 porque a última coleta do iClinic rodou em 23/10 — o que ela listou,
+# listou; daí em diante ninguém coletou nada até hoje.
+AGENDA_DESDE = os.environ.get("NFSE_AGENDA_DESDE", "2026-10-24")
+
+
 def itens_da_agenda(d0, d1, emitidas):
     """Faturáveis derivados da AGENDA: consulta e exame particulares.
 
@@ -238,7 +258,9 @@ def itens_da_agenda(d0, d1, emitidas):
     em Python, depois de puxar a janela.
     """
     out = []
-    for ev in cnn.agenda(d0, d1):
+    # O piso só aperta a janela; nunca a alarga.
+    inicio = max(d0, AGENDA_DESDE)
+    for ev in cnn.agenda(inicio, d1):
         if not cnn.compareceu(ev):
             continue
         if ev.get("idTipoConvenio") not in cnn.CONVENIOS_PARTICULARES:
