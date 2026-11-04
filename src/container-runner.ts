@@ -478,6 +478,17 @@ function buildContainerArgs(
   // impossível, que é o que o Thiago chamou de "mais determinístico".
   if (wantsTemplates(input?.groupFolder)) {
     args.push('-e', 'NANOCLAW_MODO_CLASSIFICADOR=1');
+    // ⚠️ E o MODELO, que mora no `.env` e não no ambiente do processo: o
+    // `ecosystem.config.cjs` só define `NODE_ENV`, então `process.env` não o
+    // tem e `-e NOME` sem valor não passaria nada.
+    //
+    // Sem esta linha a env ficaria no `.env` sem efeito nenhum — eu teria
+    // anunciado a troca de modelo e nada teria mudado. Achado em 04/11/2026,
+    // conferindo se o host repassava antes de declarar feito.
+    const modelo = readEnvFile([
+      'NANOCLAW_MODELO_CLASSIFICADOR',
+    ]).NANOCLAW_MODELO_CLASSIFICADOR;
+    if (modelo) args.push('-e', `NANOCLAW_MODELO_CLASSIFICADOR=${modelo}`);
   }
   if (input?.groupFolder)
     args.push('-e', `NANOCLAW_GROUP_FOLDER=${input.groupFolder}`);

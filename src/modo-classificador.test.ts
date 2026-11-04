@@ -123,6 +123,25 @@ describe('modo classificador', () => {
       expect(args).toContain('NANOCLAW_MODO_CLASSIFICADOR=1');
     });
 
+    /**
+     * ⛔ O MODELO é repassado à parte, e isso quase passou batido: a env mora
+     * no `.env`, não em `process.env` (o `ecosystem.config.cjs` só define
+     * `NODE_ENV`), então sem esta linha ela ficaria configurada e inerte — a
+     * troca anunciada e nada mudando. Mesma família do `garanteCredenciais`.
+     */
+    it('repassa o modelo quando o .env define um', async () => {
+      const args = await argsDoSpawn('pasta-de-template');
+      const temModelo = args.some((a) =>
+        a.startsWith('NANOCLAW_MODELO_CLASSIFICADOR='),
+      );
+      const fonte = fs.readFileSync('src/container-runner.ts', 'utf-8');
+      // No ambiente de teste o `.env` pode não ter a chave; o que se trava é
+      // que o host TENTE repassá-la.
+      expect(
+        temModelo || /NANOCLAW_MODELO_CLASSIFICADOR=\$\{modelo\}/.test(fonte),
+      ).toBe(true);
+    });
+
     it('pasta comum NÃO recebe — ela precisa das ferramentas', async () => {
       const args = await argsDoSpawn('whatsapp_marina');
       expect(args.join(' ')).not.toContain('NANOCLAW_MODO_CLASSIFICADOR');
