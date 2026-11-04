@@ -100,7 +100,18 @@ def endereco_do_cadastro(cadastro):
             # — nota emitida errada se cancela com processo.
             ibge = ""
     return {
-        "rua": end.get("rua"),
+        # ⛔ `logradouro`, NÃO `rua`. O nome do campo na CNN é `rua`, e eu usei
+        # esse nome ao reescrever este arquivo em 25/10/2026 — sem olhar quem
+        # consome. O `nfse_emitir_pipeline` lê `end.get("logradouro")` para
+        # montar o `xLgr` da DPS, então TODO item da era CNN falhava com
+        # "cadastro incompleto, faltou xLgr".
+        #
+        # Descoberto em 04/11, emitindo três notas à mão: a Kecya, única da
+        # lista automática desde 03/11, teria falhado igual. É a mesma falha do
+        # `nc.login` — reescrevi o produtor e não conferi o consumidor — e a
+        # guarda de chamadas não pega, porque aqui o contrato é chave de dict,
+        # não assinatura de função. Ver `src/contrato-nfse.test.ts`.
+        "logradouro": end.get("rua"),
         "numero": end.get("numero"),
         "bairro": end.get("bairro"),
         "cep": only_digits(end.get("cep")),
@@ -166,8 +177,8 @@ def motivo_incompleto(tom):
     # ⚠️ `xBairro` é obrigatório no layout de Teresina, e NADA conferia.
     if not (end.get("bairro") or "").strip():
         return "sem bairro"
-    if not (end.get("rua") or "").strip():
-        return "sem rua"
+    if not (end.get("logradouro") or "").strip():
+        return "sem logradouro"
     return None
 
 
