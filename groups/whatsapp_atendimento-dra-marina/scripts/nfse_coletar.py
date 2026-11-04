@@ -194,6 +194,95 @@ def servicos_do_orcamento(orc):
     return out
 
 
+# ⛔ O QUE FATURA, por tipo de atendimento. Decisão do Thiago em 04/11/2026.
+#
+# Orçamento cobre só CIRURGIA — foi ele que apontou: "orçamento não vai ser só
+# pra cirurgia? os demais vai ser faturar atendimento, não?". Estava certo, e
+# a premissa de 24/10 ("tudo vira orçamento aprovado") era minha, não da
+# clínica. Medido: um orçamento em três semanas e meia, justamente a cirurgia,
+# enquanto 29 atendimentos particulares foram finalizados só em outubro.
+#
+# Então consulta e exame passam a sair da AGENDA, e o que fatura é esta tabela:
+FATURA_COMO_CONSULTA = {
+    126577,  # Consulta
+    126591,  # Avaliação cirúrgica – catarata
+    126592,  # Avaliação cirúrgica – refrativa
+    126593,  # Avaliação cirúrgica – pterígio
+}
+FATURA_PELO_PROCEDIMENTO = {
+    126581,  # Exame
+}
+# ⛔ NÃO faturam, e cada um por um motivo diferente:
+#   126583 Retorno / 126594 Retorno pós-op — "o retorno está incluído em até 30
+#          dias" é texto aprovado da clínica. Faturar aqui emitiria nota de
+#          consulta gratuita. (Thiago, 04/11: "retorno nunca fatura".)
+#   126595 Exame externo — feito fora; a clínica só registra. (idem)
+#   126596 Solicitação  — é papel.
+#   126578 Cirurgia     — vem por orçamento, e faturar dos dois lados duplica.
+#   126579 Encaixe      — ambíguo; na dúvida não fatura, que é a regra da casa.
+
+# O procedimento usado quando o atendimento não tem nenhum registrado e o tipo
+# fatura como consulta.
+PROCEDIMENTO_CONSULTA = 1212102
+
+
+def itens_da_agenda(d0, d1, emitidas):
+    """Faturáveis derivados da AGENDA: consulta e exame particulares.
+
+    ⚠️ Isto é o que foi ATENDIDO, não o que foi RECEBIDO. O iClinic tinha
+    `financas/busca` — o dinheiro do dia —; a CNN não tem endpoint financeiro
+    (varri os 55 em 04/11/2026). Desconto de balcão, cortesia e pagamento
+    parcial não aparecem aqui, e é o preço de não haver a informação.
+
+    ⛔ `/agenda/lista` NÃO filtra por status: o filtro de `FINALIZADO` é nosso,
+    em Python, depois de puxar a janela.
+    """
+    out = []
+    for ev in cnn.agenda(d0, d1):
+        if not cnn.compareceu(ev):
+            continue
+        if ev.get("idTipoConvenio") not in cnn.CONVENIOS_PARTICULARES:
+            continue        # convênio é faturado ao plano, não ao paciente
+        tipo = ev.get("idTipoConsulta")
+        if tipo not in FATURA_COMO_CONSULTA and tipo not in FATURA_PELO_PROCEDIMENTO:
+            continue
+        data = (ev.get("data") or "")[:10]
+        conv = ev.get("idTipoConvenio")
+        procs = ev.get("procedimentos") or []
+
+        if tipo in FATURA_COMO_CONSULTA and not procs:
+            procs = [{"idTipoProcedimento": PROCEDIMENTO_CONSULTA,
+                      "nome": "CONSULTA", "quantidade": 1}]
+
+        for pr in procs:
+            idp = pr.get("idTipoProcedimento")
+            # `agenda-<evento>-<procedimento>`: estável entre execuções (não
+            # reemite) e distinto dos ids de orçamento, que são números.
+            rid = "agenda-%s-%s" % (ev.get("id"), idp)
+            if rid in emitidas:
+                continue
+            valor = cnn.valor_de_venda(idp, conv, data) if idp else None
+            par = SERVICO_DO_PROCEDIMENTO.get(idp)
+            item = {
+                "origem": "direto",
+                "receita_id": rid,
+                "servico": par[1] if par else None,
+                "procedimento": pr.get("nome") or "",
+                "valor": "%.2f" % float(valor) if valor else "0.00",
+                "pay_date": data,
+                "paciente": None,
+                "patient_id": ev.get("idPaciente"),
+                "tomador": None,
+                "motivo": None,
+            }
+            if not idp or valor in (None, 0):
+                item["motivo"] = ("exame sem procedimento registrado"
+                                  if not idp else
+                                  "sem preço na CNN para %s" % (pr.get("nome") or idp))
+            out.append(item)
+    return out
+
+
 def coletar(d0, d1, emitidas):
     diretos, cirurgias, sem_cpf = [], [], []
 
@@ -239,6 +328,32 @@ def coletar(d0, d1, emitidas):
                 cirurgias.append(item)
             else:
                 diretos.append(item)
+
+    # ⛔ A segunda fonte: a AGENDA. O orçamento cobre cirurgia; consulta e exame
+    # saem daqui. Ver `itens_da_agenda`.
+    #
+    # O cadastro do paciente é buscado SÓ AGORA, uma vez por paciente: a agenda
+    # devolve `idPaciente`, não o endereço, e puxar cadastro dentro do laço de
+    # eventos faria uma requisição por atendimento em vez de uma por pessoa.
+    cadastros = {}
+    for item in itens_da_agenda(d0, d1, emitidas):
+        pid = item["patient_id"]
+        if pid not in cadastros:
+            try:
+                cadastros[pid] = cnn.paciente(pid)
+            except cnn.CnnIndisponivel:
+                cadastros[pid] = None
+        pac = cadastros[pid]
+        if not pac:
+            item["paciente"] = "(cadastro não lido)"
+            item["motivo"] = item["motivo"] or "não consegui ler o cadastro na CNN"
+            sem_cpf.append(item)
+            continue
+        item["paciente"] = pac.get("nome")
+        item["tomador"] = resolve_tomador({"paciente": pac})
+        mot = item["motivo"] or motivo_incompleto(item["tomador"])
+        item["motivo"] = mot
+        (sem_cpf if mot else diretos).append(item)
 
     chave = lambda x: (x["pay_date"], x["paciente"] or "")
     diretos.sort(key=chave)

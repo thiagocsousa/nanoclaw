@@ -284,6 +284,50 @@ def confirma_presenca(id_agenda):
 # mesmas poucas cidades, e `/cidade/{id}` é imutável na prática.
 _CIDADES = {}
 
+# Mesmo motivo: poucos procedimentos, poucos convênios, e o preço de uma data
+# passada não muda.
+_PRECOS = {}
+
+
+def valor_de_venda(id_procedimento, id_convenio, data):
+    """O que o PACIENTE paga por aquele procedimento, na data do atendimento.
+
+    ⛔ Devolve UM OBJETO, não `{lista: [...]}`. Em 04/11/2026 eu li a resposta
+    procurando a chave `lista`, não achei, e concluí em dezesseis consultas
+    seguidas que a tabela de preços da CNN estava vazia — ia cravar preço no
+    código a partir disso. O Thiago desmentiu, e a resposta crua era
+    `{"valorCobrancaPaciente": 430.0, ...}`. Preço errado em nota fiscal é dos
+    piores lugares para se estar errado.
+
+    ⚠️ `dataBase` é a data do ATENDIMENTO, não de hoje: a nota de outubro sai
+    com o preço de outubro mesmo que a tabela tenha mudado depois.
+
+    ⚠️ `horaBase` exige `HH:MM:SS`; `HH:MM` devolve HTTP 400. Mesma pegadinha
+    do `horaInicio` em `/agenda/novo`.
+
+    Devolve None quando a CNN não tem preço para a combinação — e None vira
+    item incompleto, nunca palpite.
+    """
+    chave = (id_procedimento, id_convenio, data)
+    if chave in _PRECOS:
+        return _PRECOS[chave]
+    try:
+        d = pega(
+            "/tipo-procedimento/valores-venda",
+            idTipoProcedimento=id_procedimento,
+            idTipoConvenio=id_convenio,
+            dataBase=data,
+            horaBase="10:00:00",
+        )
+    except CnnIndisponivel:
+        return None
+    v = (d or {}).get("valorCobrancaPaciente")
+    promo = (d or {}).get("valorPromocao")
+    # Promoção vigente ganha do valor cheio: é o que a clínica cobrou.
+    escolhido = promo if promo not in (None, 0) else v
+    _PRECOS[chave] = escolhido
+    return escolhido
+
 
 def cidade(id_cidade):
     """{id, nome, codIbge, estado} da cidade. Memoizado no processo.
