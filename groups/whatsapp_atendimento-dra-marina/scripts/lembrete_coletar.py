@@ -30,6 +30,8 @@ from pathlib import Path
 
 import cnn
 
+from nome_paciente import primeiro_nome
+
 TZ = timezone(timedelta(hours=-3))  # America/Fortaleza
 
 GROUP = os.environ.get("NANOCLAW_GROUP_DIR", "/workspace/group")
@@ -138,7 +140,7 @@ def coletar_agenda(alvo_str):
         )
         pacientes.append({
             "nome": nome,
-            "primeiro_nome": (nome.split() or ["paciente"])[0].capitalize(),
+            "primeiro_nome": primeiro_nome(nome),
             "telefone": phone,
             "hora": (ev.get("horaInicio") or "")[:5],
             "procedimento": cnn.NOME_DO_TIPO.get(

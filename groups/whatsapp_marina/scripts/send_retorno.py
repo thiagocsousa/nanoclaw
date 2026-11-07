@@ -11,6 +11,8 @@ import sys
 import time
 from pathlib import Path
 
+from nome_paciente import primeiro_nome
+
 
 def main():
     if len(sys.argv) < 3:
@@ -18,12 +20,12 @@ def main():
         sys.exit(1)
 
     nome_completo = sys.argv[1]
-    primeiro_nome = nome_completo.split()[0]
+    nome_curto = primeiro_nome(nome_completo)
     telefone = sys.argv[2]
     jid = f"{telefone}@s.whatsapp.net"
 
     msg = (
-        f"Olá, *{primeiro_nome}*, tudo bem? 👁️\n"
+        f"Olá, *{nome_curto}*, tudo bem? 👁️\n"
         f"Percebemos que faz mais de um ano desde a sua última consulta com a Dra. Marina Costa. "
         f"A saúde ocular precisa de atenção contínua — o acompanhamento anual é essencial para "
         f"identificar precocemente condições como glaucoma, catarata e outras alterações que muitas "
@@ -57,7 +59,12 @@ def main():
     tmp_path.write_text(json.dumps(data, ensure_ascii=False, indent=2))
     tmp_path.rename(filepath)
 
-    print(f"✓ Retorno anual enviado para {nome} ({jid})")
+    # ⚠️ Mesmo estrago do `send_avaliacao.py`: `nome` nunca existiu neste
+    # escopo, então desde 15/05/2026 o retorno anual escrevia o IPC, mandava
+    # a mensagem e morria em NameError antes de confirmar. Achado em
+    # 07/11/2026 só porque renderizei os dois de ponta a ponta — a leitura
+    # do primeiro não teria encontrado o segundo.
+    print(f"✓ Retorno anual enviado para {nome_completo} ({jid})")
 
 
 main()

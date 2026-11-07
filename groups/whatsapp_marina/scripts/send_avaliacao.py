@@ -11,6 +11,8 @@ import sys
 import time
 from pathlib import Path
 
+from nome_paciente import primeiro_nome
+
 
 def main():
     if len(sys.argv) < 3:
@@ -18,12 +20,12 @@ def main():
         sys.exit(1)
 
     nome_completo = sys.argv[1]
-    primeiro_nome = nome_completo.split()[0]
+    nome_curto = primeiro_nome(nome_completo)
     telefone = sys.argv[2]
     jid = f"{telefone}@s.whatsapp.net"
 
     msg = (
-        f"Olá, *{primeiro_nome}*, tudo bem? Esperamos que tenha ido tudo bem no atendimento com a Dra. Marina Costa. 😊 "
+        f"Olá, *{nome_curto}*, tudo bem? Esperamos que tenha ido tudo bem no atendimento com a Dra. Marina Costa. 😊 "
         f"Se tiver um tempinho livre, poderia deixar uma avaliação no Google sobre a sua experiência? "
         f"Ela é importante para ajudar outras pessoas a encontrarem a nossa clínica. "
         f"Leva menos de 1 minuto 👇\n"
@@ -56,7 +58,13 @@ def main():
     tmp_path.write_text(json.dumps(data, ensure_ascii=False, indent=2))
     tmp_path.rename(filepath)
 
-    print(f"✓ Avaliação enviada para {nome} ({jid})")
+    # ⚠️ Era `{nome}`, nome que nunca existiu neste escopo — e por isso, desde
+    # 15/05/2026, todo envio escrevia o arquivo de IPC e morria em NameError
+    # ANTES desta linha. A mensagem saía; a confirmação, não. E o
+    # `task_run_logs` registrava `status=success` com `result` VAZIO, porque
+    # o runner não via o estouro — então nunca houve registro de qual
+    # paciente recebeu.
+    print(f"✓ Avaliação enviada para {nome_completo} ({jid})")
 
 
 main()

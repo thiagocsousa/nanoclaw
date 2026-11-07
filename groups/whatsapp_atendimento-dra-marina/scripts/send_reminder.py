@@ -17,6 +17,8 @@ import sys
 import time
 from pathlib import Path
 
+from nome_paciente import primeiro_nome
+
 IPC_MESSAGES_DIR = Path("/workspace/ipc/messages")
 
 TEMPLATE = (
@@ -42,11 +44,11 @@ def main():
         sys.exit(1)
 
     nome, telefone, dia_semana, data, hora = sys.argv[1:6]
-    primeiro_nome = (nome.strip().split() or ["paciente"])[0].capitalize()
+    nome_curto = primeiro_nome(nome)
     jid = f"{telefone}@s.whatsapp.net"
 
     msg = TEMPLATE.format(
-        primeiro_nome=primeiro_nome, dia_semana=dia_semana, data=data, hora=hora
+        primeiro_nome=nome_curto, dia_semana=dia_semana, data=data, hora=hora
     )
 
     IPC_MESSAGES_DIR.mkdir(parents=True, exist_ok=True)

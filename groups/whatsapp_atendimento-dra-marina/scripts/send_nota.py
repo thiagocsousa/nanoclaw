@@ -16,6 +16,8 @@ import random
 import string
 from pathlib import Path
 
+from nome_paciente import primeiro_nome
+
 GROUP = os.environ.get("NANOCLAW_GROUP_DIR", "/workspace/group")
 ENTREGAS_DIR = Path(GROUP) / "entregas"
 IPC_MESSAGES_DIR = Path("/workspace/ipc/messages")
@@ -71,11 +73,6 @@ def chave_limpa(chave):
 
 def rand_id(n=6):
     return "".join(random.choices(string.ascii_lowercase + string.digits, k=n))
-
-
-def primeiro_nome(nome):
-    p = (nome or "").strip().split()
-    return p[0].capitalize() if p else ""
 
 
 def write_ipc_message(data):
