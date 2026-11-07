@@ -420,8 +420,16 @@ export class WhatsAppChannel implements Channel {
       // de 02/10 e que já esconderam o telefone do paciente antes.
       if (DEBUG_JID) {
         for (const m of messages) {
+          // ⛔ `*` espelha TUDO, e existe porque filtrar por número tem um furo
+          // que me custou um teste: se o remetente chega como LID, o telefone
+          // não está na `key` e o filtro não casa — que é exatamente a
+          // hipótese sob investigação. Filtrar pela identidade que você
+          // procura só funciona se você já souber qual ela é.
+          //
+          // Use `*` por minutos, não por dias: ele grava a `key` de TODA
+          // conversa que passar.
           const alvo = JSON.stringify(m.key || {});
-          if (!alvo.includes(DEBUG_JID)) continue;
+          if (DEBUG_JID !== '*' && !alvo.includes(DEBUG_JID)) continue;
           logger.warn(
             {
               instancia: this.name,
