@@ -2,6 +2,24 @@ import { exec } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 
+/**
+ * Fragmento de JID a espelhar cru no log, antes de qualquer filtro.
+ *
+ * Vazio desliga, e esse é o padrão: isto é instrumento de diagnóstico, não
+ * telemetria. Ligar grava `key` inteira no log — não deixe ligado de rotina.
+ */
+const DEBUG_JID = (
+  process.env.DEBUG_JID ||
+  readEnvFile(['DEBUG_JID']).DEBUG_JID ||
+  ''
+).trim();
+// ⚠️ `readEnvFile`, não só `process.env`: o processo do app NÃO recebe o `.env`
+// pelo ambiente — o `ecosystem.config.cjs` define só `NODE_ENV`. Com
+// `process.env` sozinho, o instrumento nasceria desligado e eu concluiria "o
+// evento não chega" a partir de um log que nunca foi ligado. É a terceira vez
+// que esta pegadinha aparece: criou o `garanteCredenciais` em `vagas.ts`, quase
+// deixou o modelo do classificador inerte em 04/11, e voltou aqui.
+
 import qrcodeTerminal from 'qrcode-terminal';
 
 import makeWASocket, {
@@ -385,6 +403,38 @@ export class WhatsAppChannel implements Channel {
     this.sock.ev.on('creds.update', saveCreds);
 
     this.sock.ev.on('messages.upsert', async ({ messages, type }) => {
+      // ⛔ ESPELHO CRU, antes de QUALQUER filtro. Ligado por `DEBUG_JID`.
+      //
+      // Existe por um caso que eu não consegui diagnosticar lendo o banco e o
+      // log em 06/11/2026: a Dra. Marina responde no 5479, do iPhone, e a
+      // resposta não aparece em lugar nenhum. Descartei trigger
+      // (`requires_trigger=0`), allowlist (arquivo inexistente, padrão `*`),
+      // instância secundária (nenhuma é dona da pasta dela) e queda de conexão
+      // (dez pacientes receberam normalmente no mesmo dia). No log persistido,
+      // 800 mil linhas, o número dela só aparece como DESTINO de envio.
+      //
+      // Ou seja: ou o socket não entrega, ou entrega com uma identidade que eu
+      // não procurei. Isto responde qual dos dois, em vez de eu continuar
+      // adivinhando — e registra `fromMe`, `participant` e `participantAlt`,
+      // que são exatamente os campos que mudaram de forma no bump do baileys
+      // de 02/10 e que já esconderam o telefone do paciente antes.
+      if (DEBUG_JID) {
+        for (const m of messages) {
+          const alvo = JSON.stringify(m.key || {});
+          if (!alvo.includes(DEBUG_JID)) continue;
+          logger.warn(
+            {
+              instancia: this.name,
+              tipo: type,
+              key: m.key,
+              pushName: m.pushName,
+              temMensagem: !!m.message,
+              tipos: Object.keys(m.message || {}),
+            },
+            'DEBUG_JID: evento cru recebido',
+          );
+        }
+      }
       if (this.opts.groupFolderOwner) {
         // Instância outbound-only (ex.: número do atendimento). NUNCA processa
         // inbound como turno de agente / resposta. Só captura passivamente as
