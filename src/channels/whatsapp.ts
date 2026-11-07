@@ -69,6 +69,7 @@ const PAIRING_NUMBER =
 import { getLastGroupSync, setLastGroupSync, updateChatName } from '../db.js';
 import { primeiraVez } from '../janela-de-ids.js';
 import { logger } from '../logger.js';
+import { VigiaDeDescriptografia } from '../vigia-descriptografia.js';
 import type {
   Channel,
   OnInboundMessage,
@@ -226,6 +227,11 @@ export class WhatsAppChannel implements Channel {
    */
   private pairingCodeRequested = false;
   private lidToPhoneMap: Record<string, string> = {};
+  /**
+   * Uma por instância: as sessões Signal são independentes, e a falha de
+   * descriptografia é da sessão, não do número que mandou.
+   */
+  private readonly vigia = new VigiaDeDescriptografia();
   // ⚠️ `origem` fica na fila de propósito: item enfileirado antes e entregue
   // depois da reconexão é o caso que nenhuma trava no fluxo pega, e a política
   // tem de ser reavaliada no instante do envio, não no do enfileiramento.
@@ -464,6 +470,38 @@ export class WhatsAppChannel implements Channel {
           );
         }
       }
+
+      // 🔎 MENSAGEM QUE CHEGOU E NUNCA DESCRIPTOGRAFOU.
+      //
+      // Os quatro caminhos abaixo descartam `!msg.message` com `continue` e
+      // sem log. Em 07/11/2026 o espelho cru mostrou que isso não é raro: 604
+      // ids falharam em 10h36, 342 nunca tiveram versão legível, contra 1072
+      // legíveis — ~24% da entrada sumindo do mesmo jeito que a DM por LID
+      // sumia. Aqui, não lá, porque a falha precede qualquer roteamento: é a
+      // mesma para a pasta registrada, para a captura do SLA e para a Lara.
+      //
+      // Registra o lote ANTES de varrer, para que a versão legível que vem na
+      // mesma entrega seja creditada como recuperação em vez de virar aviso.
+      const agora = Date.now();
+      for (const m of messages) {
+        const id = m.key.id || '';
+        if (m.message) {
+          this.vigia.chegou(id);
+          continue;
+        }
+        this.vigia.falhou(
+          id,
+          jidDaConversa(m.key) || m.key.remoteJid || '',
+          agora,
+        );
+      }
+      for (const perdida of this.vigia.expirados(agora)) {
+        logger.warn(
+          { instancia: this.name, ...perdida },
+          'Mensagem chegou e nunca descriptografou — conteúdo perdido',
+        );
+      }
+
       if (this.opts.groupFolderOwner) {
         // Instância outbound-only (ex.: número do atendimento). NUNCA processa
         // inbound como turno de agente / resposta. Só captura passivamente as
