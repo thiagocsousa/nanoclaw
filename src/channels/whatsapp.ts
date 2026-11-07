@@ -158,6 +158,27 @@ export interface WhatsAppChannelOpts {
  *   enquanto o processo estava fora. "Só mensagens novas" (Thiago, 19/10/2026).
  * - `@g.us` — grupo neste número não é conversa de paciente.
  */
+/**
+ * O JID de telefone da conversa, quando o stanza o traz — ou `''`.
+ *
+ * ⛔ Pura e exportada para ter teste. A decisão é de uma linha e o custo de
+ * errá-la foi uma noite de diagnóstico: DM no número principal passou a chegar
+ * com `remoteJid` = `<lid>@lid` e o telefone em `remoteJidAlt`, o host casou a
+ * conversa pelo LID, não achou pasta nenhuma, e a mensagem sumiu sem erro.
+ *
+ * ⚠️ Só vale quando é LID. Em grupo (`@g.us`) e em DM já endereçada por
+ * telefone, devolve `''` e o chamador segue pelo `translateJid` — que é o
+ * caminho que sempre funcionou e não deve mudar de comportamento.
+ */
+export function jidDaConversa(key: {
+  remoteJid?: string | null;
+  remoteJidAlt?: string | null;
+}): string {
+  const bruto = key.remoteJid || '';
+  if (!bruto.endsWith('@lid')) return '';
+  return key.remoteJidAlt || '';
+}
+
 export function aceitaDmDeObservacao(m: {
   tipo?: string;
   fromMe?: boolean;
@@ -467,7 +488,7 @@ export class WhatsAppChannel implements Channel {
           const rawJid = msg.key.remoteJid;
           if (!rawJid || rawJid === 'status@broadcast') continue;
 
-          const chatJid = await this.translateJid(rawJid);
+          const chatJid = await this.chatJidDeEntrada(msg);
           const timestamp = new Date(
             Number(msg.messageTimestamp) * 1000,
           ).toISOString();
@@ -691,7 +712,10 @@ export class WhatsAppChannel implements Channel {
         if (!rawJid) continue;
         const normalized = normalizeMessageContent(msg.message);
         if (!normalized) continue;
-        const chatJid = await this.translateJid(rawJid);
+        // ⚠️ Também aqui: este é o caminho da DM de paciente na semana de
+        // observação, e é o que alimenta a Lara. Sem resolver o LID, a
+        // conversa chega com identidade que não casa com nenhuma pasta.
+        const chatJid = await this.chatJidDeEntrada(msg);
         // ⚠️ A MESMA extração do caminho normal. Até 22/10/2026 aqui havia uma
         // cópia pobre — só texto e legenda —, e áudio e PDF morriam no
         // `continue` abaixo, sem log. Ver `conteudoDaMensagem`.
@@ -761,7 +785,7 @@ export class WhatsAppChannel implements Channel {
         if (!msg.message) continue;
         const rawJid = msg.key.remoteJid;
         if (!rawJid || rawJid === 'status@broadcast') continue;
-        const chatJid = await this.translateJid(rawJid);
+        const chatJid = await this.chatJidDeEntrada(msg);
         if (!chatJid.endsWith('@s.whatsapp.net')) continue; // só individual
         const normalized = normalizeMessageContent(msg.message);
         if (!normalized) continue;
@@ -923,7 +947,7 @@ export class WhatsAppChannel implements Channel {
         if (!msg.message) continue;
         const rawJid = msg.key.remoteJid;
         if (!rawJid || rawJid === 'status@broadcast') continue;
-        const chatJid = await this.translateJid(rawJid);
+        const chatJid = await this.chatJidDeEntrada(msg);
         if (!chatJid.endsWith('@s.whatsapp.net')) continue; // só individual
         const normalized = normalizeMessageContent(msg.message);
         const text =
@@ -1242,6 +1266,37 @@ export class WhatsAppChannel implements Channel {
    * gente de verdade, então avisamos no log e `telefoneDoJid` (em
    * `agendamento.ts`) prefere não mandar telefone a mandar número inventado.
    */
+  /**
+   * O JID da CONVERSA, resolvendo o endereçamento por LID.
+   *
+   * ⛔ Em 07/11/2026 a DM no número principal passou a chegar com
+   * `remoteJid` = `<lid>@lid` e o telefone em `remoteJidAlt`:
+   *
+   *     {"remoteJid":"202842866507806@lid",
+   *      "remoteJidAlt":"558999204306@s.whatsapp.net",
+   *      "addressingMode":"lid"}
+   *
+   * O host casa pasta e conversa por `@s.whatsapp.net`, então a mensagem
+   * chegava, não batia com nada e se perdia — sem erro, sem log. A DM da Dra.
+   * Marina parou de ser ouvida assim, e com ela o pipeline de avaliação: a
+   * lista era apresentada seis vezes por dia e a aprovação nunca voltava.
+   *
+   * ⚠️ O `senderJid` logo abaixo JÁ fazia isto para o REMETENTE, com a mesma
+   * precedência. Faltava para a conversa — e é por isso que o grupo do
+   * atendimento continuou funcionando (lá o `participantAlt` já era usado) e
+   * só a DM quebrou. Meia correção aplicada em 2026-10 a um problema que tinha
+   * duas metades.
+   *
+   * ⚠️ Grupo não muda: `remoteJid` é `@g.us` e não traz alt.
+   */
+  private async chatJidDeEntrada(
+    msg: import('@whiskeysockets/baileys').WAMessage,
+  ): Promise<string> {
+    const direto = jidDaConversa(msg.key);
+    if (direto) return direto;
+    return this.translateJid(msg.key.remoteJid || '');
+  }
+
   private async senderJid(
     msg: import('@whiskeysockets/baileys').WAMessage,
   ): Promise<string> {
