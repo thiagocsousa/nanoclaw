@@ -69,6 +69,7 @@ const PAIRING_NUMBER =
 import { getLastGroupSync, setLastGroupSync, updateChatName } from '../db.js';
 import { primeiraVez } from '../janela-de-ids.js';
 import { logger } from '../logger.js';
+import { PrimeiroOpen } from '../primeiro-open.js';
 import { VigiaDeDescriptografia } from '../vigia-descriptografia.js';
 import type {
   Channel,
@@ -232,6 +233,12 @@ export class WhatsAppChannel implements Channel {
    * descriptografia é da sessão, não do número que mandou.
    */
   private readonly vigia = new VigiaDeDescriptografia();
+  /**
+   * A continuação do `connect()`. Mora aqui, e não num parâmetro de
+   * `connectInternal`, porque a reconexão esquecia de repassá-la — ver
+   * `primeiro-open.ts`.
+   */
+  private readonly primeiroOpen = new PrimeiroOpen();
   // ⚠️ `origem` fica na fila de propósito: item enfileirado antes e entregue
   // depois da reconexão é o caso que nenhuma trava no fluxo pega, e a política
   // tem de ser reavaliada no instante do envio, não no do enfileiramento.
@@ -259,11 +266,12 @@ export class WhatsAppChannel implements Channel {
 
   async connect(): Promise<void> {
     return new Promise<void>((resolve, reject) => {
-      this.connectInternal(resolve).catch(reject);
+      this.primeiroOpen.arma(resolve);
+      this.connectInternal().catch(reject);
     });
   }
 
-  private async connectInternal(onFirstOpen?: () => void): Promise<void> {
+  private async connectInternal(): Promise<void> {
     const authSubDir = this.opts.authSubDir ?? 'auth';
     const pairingNumber = this.opts.pairingNumber ?? PAIRING_NUMBER;
     const authDir = path.join(STORE_DIR, authSubDir);
@@ -420,10 +428,7 @@ export class WhatsAppChannel implements Channel {
           }, GROUP_SYNC_INTERVAL_MS);
         }
 
-        if (onFirstOpen) {
-          onFirstOpen();
-          onFirstOpen = undefined;
-        }
+        this.primeiroOpen.dispara();
       }
     });
 
