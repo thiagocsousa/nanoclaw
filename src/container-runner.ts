@@ -99,6 +99,13 @@ const FORWARDED_ENV_VARS = [
   'NFSE_CERT_PASSWORD',
   'NFSE_RPS_INICIAL',
   'NFSE_INICIO',
+  // ⚠️ O piso da fonte AGENDA. O `nfse_coletar.py` LÊ esta env desde
+  // 11/11/2026 (`AGENDA_DESDE = os.environ.get('NFSE_AGENDA_DESDE', ...)`),
+  // mas ela não estava aqui — então mexer nela no `.env` não fazia nada e o
+  // piso ficava preso no padrão. Botão documentado que não liga em nada é
+  // pior que botão inexistente: eu ia baixar o piso para alcançar um
+  // atendimento de 21/10 e concluir que o coletor estava errado.
+  'NFSE_AGENDA_DESDE',
   'NFSE_PROXY',
   'NFSE_AMBIENTE',
   // Padrão Nacional (DPS). A emissão roda DENTRO do container, então o modo
