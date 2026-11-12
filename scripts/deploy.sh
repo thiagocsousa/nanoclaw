@@ -109,3 +109,42 @@ pm2 show nanoclaw | grep -E "status|uptime|restart"
 echo "[8/8] container build..."
 bash container/build.sh
 
+# ⛔ PODA DEPOIS DO BUILD — e o "depois" é o conserto.
+#
+# A poda do passo [7/8] roda ANTES daqui, com `--filter until=168h`. Ou seja:
+# ela limpa o lixo do deploy anterior e poupa, por idade, exatamente o cache
+# que o build abaixo acabou de criar. Em 11/11/2026 esse cache chegou a 9 GB,
+# o disco (20 G) bateu 100%, e o processo seguinte morreu no boot com ENOSPC.
+# A poda existia e corria no lugar errado da ordem.
+#
+# Teto por TAMANHO, não por idade: o cache que encheu o disco tinha minutos de
+# vida. `--max-used-space` é o flag do Docker 29 (substituiu `--keep-storage`).
+echo "[8/8b] poda do cache recém-criado (teto 2GB)..."
+docker builder prune -f --max-used-space 2GB 2>/dev/null || true
+docker system df 2>/dev/null | awk 'NR<=4' || true
+echo "disco: $(df -h / | awk 'NR==2{print $5" usado, "$4" livre"}')"
+
+# Guarda de disco independente do app + teto do journal. Idempotente: roda em
+# todo deploy e não duplica. Precisa de sudo sem senha; sem ele, avisa e segue
+# (o deploy não deve falhar por causa disto).
+echo "[8/8c] guarda de disco e teto do journal..."
+if sudo -n true 2>/dev/null; then
+  GUARDA=/usr/local/sbin/nanoclaw-disco-guarda
+  sudo install -m 0750 scripts/disco-guarda.sh "$GUARDA"
+  # cron do root a cada 15 min, uma linha só
+  ( sudo crontab -l 2>/dev/null | grep -v nanoclaw-disco-guarda;
+    echo "*/15 * * * * DISCO_PROJETO=$PROJECT_DIR $GUARDA >/dev/null 2>&1" ) \
+    | sudo crontab -
+  # journal com teto permanente: o vacuum sozinho volta a crescer
+  if ! grep -qE '^SystemMaxUse=200M' /etc/systemd/journald.conf; then
+    sudo sed -i 's/^#\?SystemMaxUse=.*/SystemMaxUse=200M/' /etc/systemd/journald.conf
+    grep -qE '^SystemMaxUse=' /etc/systemd/journald.conf \
+      || echo 'SystemMaxUse=200M' | sudo tee -a /etc/systemd/journald.conf >/dev/null
+    sudo systemctl restart systemd-journald 2>/dev/null || true
+    sudo journalctl --vacuum-size=200M 2>/dev/null | tail -1 || true
+  fi
+  echo "  guarda: $GUARDA (cron */15) | journal: teto 200M"
+else
+  echo "  AVISO: sem sudo sem senha — guarda de disco NÃO instalada."
+fi
+
