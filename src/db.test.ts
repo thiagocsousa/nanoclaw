@@ -443,31 +443,32 @@ describe('getNewMessages', () => {
   });
 
   it('returns new messages across multiple groups', () => {
-    const { messages, newTimestamp } = getNewMessages(
+    const { messages, newRowid } = getNewMessages(
       ['group1@g.us', 'group2@g.us'],
-      '2024-01-01T00:00:00.000Z',
+      '0',
       'Andy',
     );
     // Excludes bot message, returns 3 user messages
     expect(messages).toHaveLength(3);
-    expect(newTimestamp).toBe('2024-01-01T00:00:04.000Z');
+    expect(Number(newRowid)).toBeGreaterThan(0);
   });
 
-  it('filters by timestamp', () => {
+  it('filters by rowid, não por timestamp', () => {
+    const todas = getNewMessages(['group1@g.us', 'group2@g.us'], '0', 'Andy');
+    const penultima = todas.messages[todas.messages.length - 2];
     const { messages } = getNewMessages(
       ['group1@g.us', 'group2@g.us'],
-      '2024-01-01T00:00:02.000Z',
+      String(penultima.rowid),
       'Andy',
     );
-    // Only g1 msg2 (after ts, not bot)
     expect(messages).toHaveLength(1);
     expect(messages[0].content).toBe('g1 msg2');
   });
 
   it('returns empty for no registered groups', () => {
-    const { messages, newTimestamp } = getNewMessages([], '', 'Andy');
+    const { messages, newRowid } = getNewMessages([], '7', 'Andy');
     expect(messages).toHaveLength(0);
-    expect(newTimestamp).toBe('');
+    expect(newRowid).toBe('7');
   });
 });
 
@@ -582,20 +583,38 @@ describe('message query LIMIT', () => {
     }
   });
 
-  it('getNewMessages caps to limit and returns most recent in chronological order', () => {
-    const { messages, newTimestamp } = getNewMessages(
+  it('getNewMessages no limite devolve as MAIS ANTIGAS não vistas', () => {
+    // ⛔ Mudou em 12/11/2026, e a troca é o conserto.
+    //
+    // Antes devolvia as 3 mais RECENTES e avançava o cursor para a última —
+    // ou seja, as 7 do meio eram puladas PARA SEMPRE quando o lote passava do
+    // limite. Perder a mais velha é o mesmo estrago que o cursor de timestamp
+    // causava, por outro caminho.
+    //
+    // Agora devolve as 3 mais antigas acima do cursor; o laço seguinte pega as
+    // próximas 3. Nada é pulado, só adiado.
+    const { messages, newRowid } = getNewMessages(
       ['group@g.us'],
-      '2024-01-01T00:00:00.000Z',
+      '0',
       'Andy',
       3,
     );
     expect(messages).toHaveLength(3);
-    expect(messages[0].content).toBe('message 8');
-    expect(messages[2].content).toBe('message 10');
-    // Chronological order preserved
+    expect(messages.map((m) => m.content)).toEqual([
+      'message 1',
+      'message 2',
+      'message 3',
+    ]);
+    // Ordem cronológica preservada na saída
     expect(messages[1].timestamp > messages[0].timestamp).toBe(true);
-    // newTimestamp reflects latest returned row
-    expect(newTimestamp).toBe('2024-01-01T00:00:10.000Z');
+
+    // E a passada seguinte continua de onde parou, sem furo.
+    const segunda = getNewMessages(['group@g.us'], newRowid, 'Andy', 3);
+    expect(segunda.messages.map((m) => m.content)).toEqual([
+      'message 4',
+      'message 5',
+      'message 6',
+    ]);
   });
 
   it('getMessagesSince caps to limit and returns most recent in chronological order', () => {

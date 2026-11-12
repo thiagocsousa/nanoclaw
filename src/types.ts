@@ -47,6 +47,11 @@ export interface RegisteredGroup {
 }
 
 export interface NewMessage {
+  /**
+   * Ordem de INSERÇÃO no banco, não de evento. É o cursor do laço principal
+   * desde 12/11/2026 — ver `getNewMessages`.
+   */
+  rowid?: number;
   id: string;
   chat_jid: string;
   sender: string;

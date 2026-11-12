@@ -344,29 +344,62 @@ export function storeMessageDirect(msg: {
   );
 }
 
+/**
+ * As mensagens que o laço ainda não olhou.
+ *
+ * ⛔ O cursor é `rowid`, a ordem de INSERÇÃO — não `timestamp`, a ordem do
+ * evento. A troca em 12/11/2026 conserta perda silenciosa de mensagem, e a
+ * prova estava no banco:
+ *
+ *     17673 | 2026-11-12T03:37:00 | DM     ← inserido ANTES
+ *     17676 | 2026-11-11T20:21:55 | GRUPO  ← inserido DEPOIS, 7h mais velho
+ *     17682 | 2026-11-11T21:42:13 | GRUPO  ← "@Andy 1,2,3", a aprovação
+ *
+ * A fila offline do grupo do atendimento (11 mensagens) só entrou no banco
+ * quando a sessão ressincronizou, e nesse instante o cursor global já havia
+ * avançado para 03:37 por causa das DMs. Com `timestamp > cursor`, as 11
+ * ficaram invisíveis PARA SEMPRE: a aprovação da NF-e nunca virou turno, e o
+ * grupo não teve turno nenhum entre 07/11 e 12/11 sem um único erro no log.
+ *
+ * O cursor é global a todas as conversas, e é isso que torna o timestamp
+ * fatal: basta uma conversa receber algo mais novo para enterrar o insert
+ * atrasado de outra. `rowid` é monotônico na inserção, que é exatamente o que
+ * "novo para mim" quer dizer.
+ *
+ * ⚠️ `INSERT OR REPLACE` dá rowid NOVO à mesma mensagem, e o baileys reentrega
+ * a mesma mensagem 8 a 12 vezes. Por isso quem chama TEM de deduplicar por
+ * `id` — ver `primeiraVez` em `janela-de-ids.ts` e o uso no `startMessageLoop`.
+ * Antes o timestamp protegia disso por acidente; agora a proteção é explícita,
+ * e é a metade do conserto que não dá para esquecer.
+ */
 export function getNewMessages(
   jids: string[],
-  lastTimestamp: string,
+  lastRowid: string,
   botPrefix: string,
   limit: number = 200,
-): { messages: NewMessage[]; newTimestamp: string } {
-  if (jids.length === 0) return { messages: [], newTimestamp: lastTimestamp };
+): { messages: NewMessage[]; newRowid: string } {
+  if (jids.length === 0) return { messages: [], newRowid: lastRowid };
 
   const placeholders = jids.map(() => '?').join(',');
   // Filter bot messages using the is_bot_message flag AND the content marks as
   // a backstop: o prefixo visível antigo (`Nome:`) para o que já estava no
   // banco, e a marca invisível atual para qualquer linha gravada antes de o
   // flag ter sido calculado.
-  // Subquery takes the N most recent, outer query re-sorts chronologically.
+  //
+  // Pega as N de MENOR rowid acima do cursor (as mais antigas não vistas) e
+  // reordena por timestamp para o prompt. Pegar as mais NOVAS criaria um furo
+  // permanente quando o lote passa do limite: o cursor saltaria por cima das
+  // que ficaram.
   const sql = `
     SELECT * FROM (
-      SELECT id, chat_jid, sender, sender_name, content, timestamp, is_from_me,
-             reply_to_message_id, reply_to_message_content, reply_to_sender_name
+      SELECT rowid, id, chat_jid, sender, sender_name, content, timestamp,
+             is_from_me, reply_to_message_id, reply_to_message_content,
+             reply_to_sender_name
       FROM messages
-      WHERE timestamp > ? AND chat_jid IN (${placeholders})
+      WHERE rowid > ? AND chat_jid IN (${placeholders})
         AND is_bot_message = 0 AND content NOT LIKE ? AND content NOT LIKE ?
         AND content != '' AND content IS NOT NULL
-      ORDER BY timestamp DESC
+      ORDER BY rowid
       LIMIT ?
     ) ORDER BY timestamp
   `;
@@ -374,19 +407,35 @@ export function getNewMessages(
   const rows = db
     .prepare(sql)
     .all(
-      lastTimestamp,
+      Number(lastRowid) || 0,
       ...jids,
       `${botPrefix}:%`,
       `${BOT_MARK}%`,
       limit,
     ) as NewMessage[];
 
-  let newTimestamp = lastTimestamp;
+  let maior = Number(lastRowid) || 0;
   for (const row of rows) {
-    if (row.timestamp > newTimestamp) newTimestamp = row.timestamp;
+    if ((row.rowid ?? 0) > maior) maior = row.rowid ?? 0;
   }
 
-  return { messages: rows, newTimestamp };
+  return { messages: rows, newRowid: String(maior) };
+}
+
+/**
+ * O rowid equivalente a um cursor de timestamp — migração de uma vez só.
+ *
+ * O `router_state` guardava `last_timestamp`. Converter em vez de começar do
+ * zero: do zero o laço reprocessaria o banco inteiro e o grupo levaria 17 mil
+ * mensagens de uma vez.
+ */
+export function rowidDoTimestamp(timestamp: string): string {
+  const row = db
+    .prepare(
+      `SELECT COALESCE(MAX(rowid), 0) AS r FROM messages WHERE timestamp <= ?`,
+    )
+    .get(timestamp) as { r: number };
+  return String(row.r);
 }
 
 /**

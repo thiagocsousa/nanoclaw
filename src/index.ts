@@ -44,6 +44,7 @@ import {
   getMessagesSince,
   getNewMessages,
   getRouterState,
+  rowidDoTimestamp,
   initDatabase,
   setRegisteredGroup,
   runInTransaction,
@@ -52,6 +53,7 @@ import {
   storeChatMetadata,
   storeMessage,
 } from './db.js';
+import { primeiraVez } from './janela-de-ids.js';
 import { GroupQueue } from './group-queue.js';
 import { resolveGroupFolderPath } from './group-folder.js';
 import { startIpcWatcher } from './ipc.js';
@@ -151,7 +153,14 @@ import {
 // Re-export for backwards compatibility during refactor
 export { escapeXml, formatMessages } from './router.js';
 
-let lastTimestamp = '';
+let lastRowid = '';
+/**
+ * Ids já despachados, com teto. Obrigatório desde o cursor por rowid: o
+ * `INSERT OR REPLACE` dá rowid novo à mesma mensagem e o baileys reentrega a
+ * mesma mensagem 8 a 12 vezes, então sem isto a reentrega viraria turno
+ * duplicado. Antes o cursor de timestamp protegia disso por acidente.
+ */
+const idsDespachados = new Set<string>();
 let sessions: Record<string, string> = {};
 let registeredGroups: Record<string, RegisteredGroup> = {};
 
@@ -254,7 +263,18 @@ function carregaJson<T>(chave: string, vazio: T): T {
 }
 
 function loadState(): void {
-  lastTimestamp = getRouterState('last_timestamp') || '';
+  lastRowid = getRouterState('last_rowid') || '';
+  if (!lastRowid) {
+    // Migração do cursor de timestamp (até 12/11/2026). Converte em vez de
+    // começar do zero, senão o primeiro laço reprocessaria o banco inteiro.
+    const antigo = getRouterState('last_timestamp') || '';
+    lastRowid = antigo ? rowidDoTimestamp(antigo) : '0';
+    setRouterState('last_rowid', lastRowid);
+    logger.info(
+      { de: antigo || '(vazio)', para: lastRowid },
+      'cursor migrado de timestamp para rowid',
+    );
+  }
   lastAgentTimestamp = carregaJson('last_agent_timestamp', {});
   dmsObservadas = podaDms(
     carregaJson('dms_observadas', {}),
@@ -346,7 +366,7 @@ function getOrRecoverCursor(chatJid: string): string {
  */
 function saveState(): void {
   runInTransaction(() => {
-    setRouterState('last_timestamp', lastTimestamp);
+    setRouterState('last_rowid', lastRowid);
     setRouterState('last_agent_timestamp', JSON.stringify(lastAgentTimestamp));
     setRouterState('dms_observadas', JSON.stringify(dmsObservadas));
     setRouterState('pipeline_por_chat', JSON.stringify(pipelinePorChat));
@@ -1064,18 +1084,29 @@ async function startMessageLoop(): Promise<void> {
       // Grupos ∪ DMs acompanhadas. A DM não está em `registered_groups` de
       // propósito (ver `dm-observada.ts`), então ela precisa entrar aqui.
       const jids = chatsAcompanhados(registeredGroups, dmsObservadas);
-      const { messages, newTimestamp } = getNewMessages(
+      const { messages: lidas, newRowid } = getNewMessages(
         jids,
-        lastTimestamp,
+        lastRowid,
         ASSISTANT_NAME,
       );
 
-      if (messages.length > 0) {
-        logger.info({ count: messages.length }, 'New messages');
+      // ⛔ Dedup por id ANTES de avançar o cursor: o rowid muda quando a mesma
+      // mensagem é reinserida, e o baileys reentrega. Avançar o cursor mesmo
+      // para as repetidas é certo — elas já foram despachadas.
+      const messages = lidas.filter((m) =>
+        primeiraVez(idsDespachados, m.id, 5000),
+      );
 
-        // Advance the "seen" cursor for all messages immediately
-        lastTimestamp = newTimestamp;
+      if (lidas.length > 0) {
+        lastRowid = newRowid;
         saveState();
+      }
+
+      if (messages.length > 0) {
+        logger.info(
+          { count: messages.length, repetidas: lidas.length - messages.length },
+          'New messages',
+        );
 
         // Deduplicate by group
         const messagesByGroup = new Map<string, NewMessage[]>();
@@ -1233,7 +1264,7 @@ async function startMessageLoop(): Promise<void> {
 
 /**
  * Startup recovery: check for unprocessed messages in registered groups.
- * Handles crash between advancing lastTimestamp and processing messages.
+ * Handles crash between advancing the cursor and processing messages.
  */
 function recoverPendingMessages(): void {
   for (const [chatJid, group] of Object.entries(registeredGroups)) {
@@ -1258,7 +1289,7 @@ function recoverPendingMessages(): void {
  *
  * ⚠️ Sem isto, mensagem da noite NUNCA é respondida.
  *
- * O laço principal busca por um cursor GLOBAL (`lastTimestamp`) e o avança
+ * O laço principal busca por um cursor GLOBAL (`lastRowid`) e o avança
  * assim que lê, antes de despachar. O gate do expediente devolve sem avançar o
  * cursor DA CONVERSA, que era o que eu tinha conferido — mas o global já passou
  * por aquela mensagem. Resultado: às 8h o laço não busca nada, o handler do
