@@ -132,9 +132,15 @@ if sudo -n true 2>/dev/null; then
   GUARDA=/usr/local/sbin/nanoclaw-disco-guarda
   sudo install -m 0750 scripts/disco-guarda.sh "$GUARDA"
   # cron do root a cada 15 min, uma linha só
-  ( sudo crontab -l 2>/dev/null | grep -v nanoclaw-disco-guarda;
-    echo "*/15 * * * * DISCO_PROJETO=$PROJECT_DIR $GUARDA >/dev/null 2>&1" ) \
-    | sudo crontab -
+  # ⚠️ `|| true` nos dois: com `set -e`, `crontab -l` sem crontab sai 1 e o
+  # `grep -v` com entrada vazia TAMBÉM sai 1 — o subshell morria antes do
+  # `echo` e instalava um crontab VAZIO. O status do pipeline é o do
+  # `crontab -` (0), então o deploy reportava sucesso. Visto em 12/11/2026.
+  ATUAL=$(sudo crontab -l 2>/dev/null | grep -v nanoclaw-disco-guarda || true)
+  LINHA="*/15 * * * * DISCO_PROJETO=$PROJECT_DIR $GUARDA >/dev/null 2>&1"
+  printf '%s\n%s\n' "$ATUAL" "$LINHA" | grep -v '^$' | sudo crontab -
+  sudo crontab -l | grep -q nanoclaw-disco-guarda \
+    || { echo "  FALHOU: cron da guarda não ficou instalado."; exit 1; }
   # journal com teto permanente: o vacuum sozinho volta a crescer
   if ! grep -qE '^SystemMaxUse=200M' /etc/systemd/journald.conf; then
     sudo sed -i 's/^#\?SystemMaxUse=.*/SystemMaxUse=200M/' /etc/systemd/journald.conf

@@ -46,7 +46,20 @@ if command -v docker >/dev/null 2>&1; then
   docker image prune -f >>"$LOG" 2>&1 && ACOES+=("imagens órfãs removidas")
 fi
 
-# 2. Se ainda está no fundo, raspa o journal.
+# 2. Ainda no fundo? Então o teto não basta.
+#
+# ⚠️ `--max-used-space` só remove registro RECUPERÁVEL. Em 12/11/2026 o cache
+# tinha 2,654 GB com 99,93 kB recuperáveis — o teto de 2 GB não tira nada,
+# porque o resto é a imagem viva. No incidente de 11/11, o que liberou 7,83 GB
+# foi `prune -af`, que remove tudo e paga com um build lento no próximo deploy.
+#
+# Essa é a escolha certa aqui: disco cheio derruba o app, build lento não.
+if [ "$(uso)" -ge "$FUNDO_EM" ] && command -v docker >/dev/null 2>&1; then
+  docker builder prune -af >>"$LOG" 2>&1 \
+    && ACOES+=("build cache ZERADO (próximo build será lento)")
+fi
+
+# 3. E por último o journal.
 if [ "$(uso)" -ge "$FUNDO_EM" ] && command -v journalctl >/dev/null 2>&1; then
   journalctl --vacuum-size="$JOURNAL_TETO" >>"$LOG" 2>&1 \
     && ACOES+=("journal reduzido a $JOURNAL_TETO")
@@ -55,7 +68,7 @@ fi
 DEPOIS=$(uso)
 diz "disco ${ANTES}% → ${DEPOIS}% ($(livre) livre): ${ACOES[*]:-nada a fazer}"
 
-# 3. Relata. Se o app estiver de pé, o IPC entrega; se não estiver, o relato
+# 4. Relata. Se o app estiver de pé, o IPC entrega; se não estiver, o relato
 #    fica no arquivo e no log — e o `$LOG` é o lugar onde olhar depois de um
 #    susto de disco.
 FILA="$PROJETO/data/ipc/$AVISA_PASTA/messages"
