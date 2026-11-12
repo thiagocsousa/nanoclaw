@@ -230,6 +230,40 @@ def main():
         print("Seleção vazia — nada emitido. Responda com os números (ex: 1,3,5) ou 'todos'.")
         return
 
+    # ⛔ TRAVA DE DUPLICIDADE. Item já emitido NÃO é emitido de novo, nunca.
+    #
+    # O coletor já deduplicava por `receita_id`; o emissor NÃO, porque ele
+    # escolhe por ÍNDICE da lista pendente. Então reaprovar a mesma lista
+    # emitia de novo, e `emitir_com_protecao` não salva: a idempotência dele é
+    # por `id_dps`, que vem do contador `nDPS` — contador novo, nota nova.
+    #
+    # Em 12/11/2026 isso emitiu SEIS notas para três serviços da mesma
+    # paciente. A aprovação `@Andy 1,2,3` tinha ficado presa pelo cursor de
+    # timestamp (ver `getNewMessages`); eu emiti à mão por fora enquanto isso e
+    # não neutralizei a lista. Quando o cursor foi consertado, a aprovação
+    # velha foi entregue e o emissor obedeceu — corretamente, segundo as
+    # regras que ele tinha. As três duplicadas foram canceladas na prefeitura
+    # (motivo 1, Erro na Emissão).
+    #
+    # A lição não é "não emita à mão": é que a lista pendente e o registro de
+    # emitidas são fontes de verdade diferentes, e quem emite tem de olhar as
+    # duas.
+    ja_emitidas = (
+        set(map(str, json.loads(EMITIDAS_FILE.read_text())))
+        if EMITIDAS_FILE.exists()
+        else set()
+    )
+    repetidos = [x for x in escolhidos if str(x["receita_id"]) in ja_emitidas]
+    escolhidos = [x for x in escolhidos if str(x["receita_id"]) not in ja_emitidas]
+    if repetidos:
+        print("⛔ *%d item(ns) JÁ EMITIDO(S)* — não reemiti:" % len(repetidos))
+        for x in repetidos:
+            print("• %s — %s — R$ %s (receita %s)"
+                  % (x["paciente"], x["servico"], x["valor"], x["receita_id"]))
+    if not escolhidos:
+        print("Nada a emitir: todos os itens da seleção já tinham nota.")
+        return
+
     pfx = cert_path()
     pwd = os.environ.get("NFSE_CERT_PASSWORD")
     next_rps = load_next_rps()
