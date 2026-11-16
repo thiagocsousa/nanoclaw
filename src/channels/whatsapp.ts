@@ -207,6 +207,39 @@ export function aceitaDmDeObservacao(m: {
   return true;
 }
 
+/**
+ * A instância outbound-only pode GRAVAR esta conversa?
+ *
+ * ⛔ SÓ GRUPO REGISTRADO. É a linha que sustenta a regra mais importante do
+ * sistema: o agente não fala com paciente. DM continua passando apenas pela
+ * captura passiva, que não vira turno. Afrouxar o `@g.us` reabre esse caminho,
+ * e por isso existe teste para a DM ser recusada.
+ */
+export function guardaNaSecundaria(m: {
+  chatJid: string;
+  registrado: boolean;
+}): boolean {
+  if (!m.chatJid.endsWith('@g.us')) return false;
+  return m.registrado;
+}
+
+/**
+ * `is_bot_message` para o que a instância outbound-only grava.
+ *
+ * ⚠️ `fromMe` É DELIBERADAMENTE IGNORADO, e esta é a sutileza que tornaria a
+ * correção inútil em silêncio. Nesta instância o `fromMe` vale tanto para o
+ * que o pipeline publica quanto para o que uma PESSOA digita no celular da
+ * clínica. Marcar os dois como bot faria o `getNewMessages` — que filtra
+ * `is_bot_message = 0` — descartar justamente o "@Andy emitir as notas" que
+ * motivou a mudança: a mensagem entraria no banco e nunca viraria turno.
+ */
+export function marcaDeBotNaSecundaria(m: {
+  content: string;
+  enviadoPorNos: boolean;
+}): boolean {
+  return isBotText(m.content) || m.enviadoPorNos;
+}
+
 export class WhatsAppChannel implements Channel {
   private readonly inicioDaObservacao: number;
   name: string;
@@ -517,6 +550,19 @@ export class WhatsAppChannel implements Channel {
         // confirmação de consulta, e observação não pode custar isso.
         await this.captureInboundReplies(messages);
         await this.captureSlaTimeline(messages);
+        // ⛔ GRUPO REGISTRADO TAMBÉM É GRAVADO AQUI, desde 16/11/2026.
+        //
+        // Até esta linha existir, o grupo dependia de UMA conta conseguir
+        // decifrá-lo. Em 16/11 o dispositivo vinculado do 2111 parou de
+        // receber o grupo do atendimento — a conta recebia no celular, o
+        // dispositivo do bot não — e o pedido de emissão de nota chegou
+        // íntegro pelo 1911, que o DESCARTAVA aqui por desenho. A clínica
+        // falou, a mensagem chegou na VM, e foi jogada fora.
+        //
+        // Gravar não é responder: nada aqui dispara envio. Quem decide falar
+        // com paciente continua sendo o host, e a trava de origem no ipc.ts
+        // segue valendo. O que muda é só o grupo deixar de ter ponto único.
+        await this.guardaGrupoRegistrado(messages);
         if (!this.opts.dmObservacaoFolder) return;
         // MODO OBSERVAÇÃO: as DMs passam a virar turno. O que volta ao paciente
         // é nada — a pasta está em `OBSERVACAO_FOLDERS` e o `aprova` recusa.
@@ -911,6 +957,88 @@ export class WhatsAppChannel implements Channel {
       this.sentIds.delete(this.sentIds.values().next().value as string);
     }
     this.sentIds.add(id);
+  }
+
+  /**
+   * Grava mensagens de GRUPO REGISTRADO vistas por uma instância
+   * outbound-only (o número do atendimento).
+   *
+   * ⛔ SÓ GRUPO, NUNCA DM. É a linha que mantém de pé a regra mais importante
+   * deste sistema: o agente não fala com paciente. DM continua passando só
+   * pela captura passiva, que não vira turno. Trocar o `@g.us` por qualquer
+   * coisa mais permissiva reabre esse caminho.
+   *
+   * ⚠️ `is_bot_message` NÃO pode sair de `fromMe` aqui, e esta é a sutileza
+   * que tornaria a correção inútil em silêncio. Nesta instância, `fromMe` é
+   * verdadeiro tanto para o que o pipeline publica quanto para o que uma
+   * PESSOA digita no celular da clínica. Marcar os dois como bot faria o
+   * `getNewMessages` (que filtra `is_bot_message = 0`) descartar justamente o
+   * "@Andy emitir as notas" que motivou esta mudança: a mensagem apareceria
+   * no banco e nunca viraria turno. Por isso a detecção é por conteúdo e por
+   * id enviado por nós, que distingue os dois casos de verdade.
+   *
+   * Duplicata é esperada e inofensiva: as duas instâncias podem ver a mesma
+   * mensagem, o `INSERT OR REPLACE` é por `(id, chat_jid)`, e o loop já
+   * deduplica por `id` (`primeiraVez`), porque o baileys reentrega de 8 a 12
+   * vezes mesmo com uma instância só.
+   */
+  private async guardaGrupoRegistrado(
+    messages: import('@whiskeysockets/baileys').WAMessage[],
+  ): Promise<void> {
+    const groups = this.opts.registeredGroups();
+    for (const msg of messages) {
+      try {
+        if (!msg.message) continue;
+        const normalized = normalizeMessageContent(msg.message);
+        if (!normalized) continue;
+        const rawJid = msg.key.remoteJid;
+        if (!rawJid || rawJid === 'status@broadcast') continue;
+
+        const chatJid = await this.chatJidDeEntrada(msg);
+        const registrado = groups[chatJid];
+        if (!guardaNaSecundaria({ chatJid, registrado: !!registrado }))
+          continue;
+
+        const timestamp = new Date(
+          Number(msg.messageTimestamp) * 1000,
+        ).toISOString();
+        this.opts.onChatMetadata(
+          chatJid,
+          timestamp,
+          undefined,
+          'whatsapp',
+          true,
+        );
+
+        const content = await this.conteudoDaMensagem(
+          msg,
+          normalized,
+          chatJid,
+          registrado.folder,
+        );
+        if (!content) continue;
+
+        const sender = await this.senderJid(msg);
+        this.opts.onMessage(chatJid, {
+          id: msg.key.id || '',
+          chat_jid: chatJid,
+          sender,
+          sender_name: msg.pushName || sender.split('@')[0],
+          content,
+          timestamp,
+          is_from_me: msg.key.fromMe || false,
+          is_bot_message: marcaDeBotNaSecundaria({
+            content,
+            enviadoPorNos: this.wasSentByUs(msg.key.id),
+          }),
+        });
+      } catch (err) {
+        logger.error(
+          { err, remoteJid: msg.key?.remoteJid, instancia: this.name },
+          'erro ao gravar mensagem de grupo registrado (instância secundária)',
+        );
+      }
+    }
   }
 
   private wasSentByUs(id?: string | null): boolean {

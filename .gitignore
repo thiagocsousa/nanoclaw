@@ -91,3 +91,8 @@ __pycache__/
 nanoclaw.db
 /logo.png
 /short.mp4
+
+# zips soltos na raiz: o whencefold.zip ficou aqui em 15/11/2026, fora do
+# .gitignore, e um `git add -A` o teria commitado num repo que nada tem a ver
+# com ele. O projeto agora vive em ~/claudex/whencefold.
+*.zip
